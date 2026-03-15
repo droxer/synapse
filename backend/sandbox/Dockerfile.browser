@@ -1,7 +1,0 @@
-FROM mcr.microsoft.com/playwright/python:v1.49.0-noble
-
-RUN pip install --no-cache-dir playwright requests beautifulsoup4 pyyaml
-
-WORKDIR /workspace
-
-CMD ["tail", "-f", "/dev/null"]

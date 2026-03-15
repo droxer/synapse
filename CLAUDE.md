@@ -12,6 +12,7 @@ make install          # Install all deps (backend + web)
 make install-backend  # cd backend && uv sync
 make install-web      # cd web && npm install
 make build-web        # cd web && npm run build
+make build-sandbox    # Build Boxlite sandbox Docker images
 ```
 
 **Backend testing/linting** (run from `backend/`):
@@ -38,7 +39,7 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`agent/loop/sub_agent_manager.py`** — Multi-agent coordination
 - **`agent/llm/client.py`** — Claude API client (anthropic SDK) with tool-use support
 - **`agent/tools/`** — Tool system: `base.py` (abstractions), `registry.py` (immutable registry), `executor.py` (execution engine). Tools split into `local/` (web_search, web_fetch, memory, ask_user), `sandbox/` (code execution), `meta/` (agent spawning)
-- **`agent/sandbox/`** — Execution sandbox providers (E2B, BoxLite) with Dockerfiles in `sandbox/`
+- **`agent/sandbox/`** — Execution sandbox providers (E2B, BoxLite); Dockerfiles in `sandbox/` at repo root
 - **`agent/skills/`** — YAML-based skill definitions (web_research, code_project, data_analysis)
 - **`config/settings.py`** — Pydantic Settings configuration
 - **`api/events.py`** — EventEmitter pub/sub for real-time updates

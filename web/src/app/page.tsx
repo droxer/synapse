@@ -1,12 +1,7 @@
 "use client";
 
-import { ConversationShell } from "@/features/conversation/components/ConversationShell";
-import { ErrorBoundary } from "@/shared/components/ErrorBoundary";
+import { ConversationShell } from "@/features/conversation";
 
 export default function Page() {
-  return (
-    <ErrorBoundary>
-      <ConversationShell />
-    </ErrorBoundary>
-  );
+  return <ConversationShell />;
 }

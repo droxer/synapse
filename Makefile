@@ -1,4 +1,4 @@
-.PHONY: backend web dev install install-backend install-web clean
+.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox clean
 
 # Start both backend and web concurrently
 dev: install
@@ -25,6 +25,18 @@ install-web:
 # Production build
 build-web:
 	cd web && npm run build
+
+# Build sandbox Docker images
+build-sandbox:
+	docker build -t ghcr.io/droxer/hiagent-sandbox-default -f sandbox/Dockerfile.default sandbox
+	docker build -t ghcr.io/droxer/hiagent-sandbox-data-science -f sandbox/Dockerfile.data_science sandbox
+	docker build -t ghcr.io/droxer/hiagent-sandbox-browser -f sandbox/Dockerfile.browser sandbox
+
+# Push sandbox Docker images to GHCR
+push-sandbox:
+	docker push ghcr.io/droxer/hiagent-sandbox-default
+	docker push ghcr.io/droxer/hiagent-sandbox-data-science
+	docker push ghcr.io/droxer/hiagent-sandbox-browser
 
 # Clean generated files
 clean:

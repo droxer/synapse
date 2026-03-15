@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useCallback, useMemo, useEffect } from "react";
-import { useAppStore } from "@/features/conversation/stores/conversation-store";
+import { useAppStore } from "@/shared/stores";
 import {
   createConversation,
   sendFollowUpMessage,
-} from "@/features/conversation/api/conversation-api";
-import type { ChatMessage, TaskState } from "@/shared/types/events";
+} from "../api/conversation-api";
+import type { ChatMessage, TaskState } from "@/shared/types";
 
 export function useConversation(
   assistantMessages: ChatMessage[],

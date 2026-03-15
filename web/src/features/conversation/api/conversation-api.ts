@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? "";
+import { API_BASE } from "@/shared/constants";
 
 export async function createConversation(
   message: string,

@@ -1,0 +1,6 @@
+FROM mcr.microsoft.com/playwright/python:v1.49.0-noble
+
+RUN pip install --no-cache-dir playwright requests beautifulsoup4 pyyaml
+
+RUN mkdir -p /home/user
+WORKDIR /home/user

@@ -1,16 +1,18 @@
 "use client";
 
+import { Button } from "@/shared/components/ui/button";
+
 interface SuggestedCardProps {
   readonly text: string;
 }
 
 export function SuggestedCard({ text }: SuggestedCardProps) {
   return (
-    <button
-      type="button"
-      className="cursor-pointer rounded-sm border border-border bg-card p-3 text-left text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+    <Button
+      variant="outline"
+      className="h-auto rounded-lg border-border p-3 text-left text-sm text-muted-foreground transition-all hover:border-border-active hover:text-foreground hover:shadow-sm"
     >
       {text}
-    </button>
+    </Button>
   );
 }

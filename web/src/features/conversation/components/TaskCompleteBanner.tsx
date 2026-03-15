@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { CircleCheck } from "lucide-react";
-import { SuggestedCard } from "@/features/conversation/components/SuggestedCard";
+import { SuggestedCard } from "./SuggestedCard";
 
 export function TaskCompleteBanner() {
   return (
@@ -12,15 +12,15 @@ export function TaskCompleteBanner() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
     >
-      <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-gradient-to-r from-emerald-50 to-teal-50 px-4 py-3">
+      <div className="flex items-center gap-2.5 rounded-lg border border-border bg-card px-4 py-3 shadow-sm">
         <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.2, delay: 0.1 }}
         >
-          <CircleCheck className="h-5 w-5 text-emerald-500" />
+          <CircleCheck className="h-5 w-5 text-accent-emerald" />
         </motion.div>
-        <span className="text-sm font-medium text-emerald-700">
+        <span className="text-sm font-medium text-foreground">
           Task completed
         </span>
       </div>

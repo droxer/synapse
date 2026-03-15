@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, useMemo } from "react";
-import { respondToAgent } from "@/features/conversation/api/conversation-api";
-import type { AgentEvent } from "@/shared/types/events";
+import { respondToAgent } from "../api/conversation-api";
+import type { AgentEvent } from "@/shared/types";
 
 export function usePendingAsk(
   events: AgentEvent[],

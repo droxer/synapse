@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { AgentEvent, EventType } from "@/shared/types/events";
+import type { AgentEvent, EventType } from "@/shared/types";
+import { MAX_RETRIES, BASE_DELAY_MS, MAX_DELAY_MS } from "@/shared/constants";
 
 const SSE_EVENT_NAMES: readonly string[] = [
   "task_start",
@@ -24,10 +25,6 @@ const SSE_EVENT_NAMES: readonly string[] = [
   "thinking",
   "done",
 ] as const;
-
-const MAX_RETRIES = 10;
-const BASE_DELAY_MS = 1000;
-const MAX_DELAY_MS = 30000;
 
 function normalizeTimestamp(ts: unknown): number {
   if (typeof ts === "number") {

@@ -13,7 +13,6 @@ import asyncio
 import os
 import shlex
 import tempfile
-from typing import Any
 
 import boxlite
 
@@ -32,12 +31,12 @@ from agent.sandbox.base import (
 # ---------------------------------------------------------------------------
 
 TEMPLATE_IMAGES: dict[str, str] = {
-    "default": "python:slim",
-    "data_science": "python:slim",
-    "browser": "mcr.microsoft.com/playwright/python:v1.49.0-noble",
+    "default": "ghcr.io/droxer/hiagent-sandbox-default",
+    "data_science": "ghcr.io/droxer/hiagent-sandbox-data-science",
+    "browser": "ghcr.io/droxer/hiagent-sandbox-browser",
 }
 
-DEFAULT_IMAGE = "python:slim"
+DEFAULT_IMAGE = "ghcr.io/droxer/hiagent-sandbox-default"
 
 
 # ---------------------------------------------------------------------------

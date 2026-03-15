@@ -11,7 +11,7 @@ import type { Components } from "react-markdown";
 const components: Components = {
   pre({ children }) {
     return (
-      <pre className="overflow-x-auto rounded-md bg-surface-tertiary border border-border p-3 text-sm font-mono">
+      <pre className="overflow-x-auto rounded-md bg-muted border border-border p-3 text-sm font-mono">
         {children}
       </pre>
     );
