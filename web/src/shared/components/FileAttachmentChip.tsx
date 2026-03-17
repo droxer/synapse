@@ -1,6 +1,7 @@
 "use client";
 
 import { Paperclip, X } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
 import { formatFileSize } from "@/shared/lib/utils";
 
 interface FileAttachmentChipProps {
@@ -22,13 +23,15 @@ export function FileAttachmentChip({ name, size, previewUrl, onRemove }: FileAtt
       <span className="max-w-[120px] truncate">{name}</span>
       <span className="text-muted-foreground">{formatFileSize(size)}</span>
       {onRemove && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
           onClick={onRemove}
-          className="ml-0.5 rounded-full p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors"
+          className="ml-0.5 h-5 w-5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         >
           <X className="h-3 w-3" />
-        </button>
+        </Button>
       )}
     </div>
   );

@@ -12,6 +12,7 @@ import {
   FolderOpen,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { IconButton } from "@/shared/components/IconButton";
 import type { ArtifactInfo } from "@/shared/types";
 
 function formatFileSize(bytes: number): string {
@@ -142,23 +143,19 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
             <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
               {isPreviewable && (
-                <button
-                  type="button"
+                <IconButton
+                  icon={Eye}
+                  label="Preview in new tab"
+                  size="icon-xs"
                   onClick={() => handlePreview(artifact)}
-                  className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                  title="Preview in new tab"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                </button>
+                />
               )}
-              <button
-                type="button"
+              <IconButton
+                icon={Download}
+                label="Download"
+                size="icon-xs"
                 onClick={() => handleDownload(artifact)}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-                title="Download"
-              >
-                <Download className="h-3.5 w-3.5" />
-              </button>
+              />
             </div>
 
             {/* Image thumbnail for image artifacts */}

@@ -10,6 +10,7 @@ import {
   Unplug,
   Wrench,
 } from "lucide-react";
+import { TransportToggle } from "./TransportToggle";
 import {
   Dialog,
   DialogContent,
@@ -181,7 +182,6 @@ export function IntegrationsDialog({
                   variant="outline"
                   size="sm"
                   onClick={() => setShowForm(true)}
-                  className="focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 >
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   Add Server
@@ -263,7 +263,7 @@ export function IntegrationsDialog({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-destructive focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-destructive"
                       onClick={() => setServerToDelete(server.name)}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -304,34 +304,7 @@ export function IntegrationsDialog({
                   {/* Transport toggle */}
                   <div className="space-y-1.5">
                     <Label className="text-xs">Transport</Label>
-                    <div className="flex gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => setFormTransport("stdio")}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                          formTransport === "stdio"
-                            ? "bg-foreground text-background"
-                            : "bg-secondary text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        <Terminal className="h-3 w-3" />
-                        stdio
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setFormTransport("sse")}
-                        className={cn(
-                          "flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                          formTransport === "sse"
-                            ? "bg-foreground text-background"
-                            : "bg-secondary text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        <Radio className="h-3 w-3" />
-                        sse
-                      </button>
-                    </div>
+                    <TransportToggle value={formTransport} onChange={setFormTransport} />
                   </div>
 
                   {/* Transport-specific field */}
@@ -369,7 +342,6 @@ export function IntegrationsDialog({
                       variant="ghost"
                       size="sm"
                       onClick={resetForm}
-                      className="focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
                       Cancel
                     </Button>
@@ -377,7 +349,6 @@ export function IntegrationsDialog({
                       size="sm"
                       onClick={handleAdd}
                       disabled={submitting || !formName.trim()}
-                      className="focus-visible:ring-[3px] focus-visible:ring-ring/50"
                     >
                       {submitting && (
                         <span className="mr-1.5 inline-block h-3.5 w-3.5 rounded-full border-2 border-current border-t-transparent animate-shimmer" />
@@ -411,12 +382,12 @@ export function IntegrationsDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="focus-visible:ring-[3px] focus-visible:ring-ring/50">
+            <AlertDialogCancel>
               Cancel
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive text-primary-foreground hover:bg-destructive/90 focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="bg-destructive text-primary-foreground hover:bg-destructive/90"
             >
               Remove
             </AlertDialogAction>

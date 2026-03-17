@@ -9,6 +9,7 @@ import {
   X,
   FolderOpen,
 } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
 import { formatInput, formatToolPreview } from "../lib/format-tools";
 import { HIDDEN_ACTIVITY_TOOLS, normalizeToolName } from "../lib/tool-constants";
@@ -132,13 +133,16 @@ export function AgentComputerPanel({
           </span>
           <div className="flex items-center gap-1">
             {onClose && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Close panel"
                 onClick={onClose}
-                className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
-              </button>
+              </Button>
             )}
           </div>
         </div>

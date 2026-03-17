@@ -47,7 +47,7 @@ export function AppSidebar() {
   };
 
   const handleSelectConversation = (id: string) => {
-    if (id === conversationId) return;
+    if (id === conversationId && pathname === "/") return;
     switchConversation(id);
     if (pathname !== "/") router.push("/");
   };

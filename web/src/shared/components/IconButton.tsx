@@ -27,8 +27,6 @@ export function IconButton({
   className = "text-muted-foreground",
   variant = "ghost",
 }: IconButtonProps) {
-  const iconSize = size === "icon-xs" ? "h-3.5 w-3.5" : "h-4 w-4";
-
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -39,8 +37,9 @@ export function IconButton({
           onClick={onClick}
           disabled={disabled}
           className={className}
+          aria-label={label}
         >
-          <Icon className={iconSize} />
+          <Icon />
         </Button>
       </TooltipTrigger>
       <TooltipContent>{label}</TooltipContent>

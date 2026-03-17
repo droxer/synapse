@@ -7,6 +7,7 @@ import {
   PanelRightOpen,
   PanelRightClose,
 } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import type { AgentEvent, TaskState, ToolCallInfo, AgentStatus } from "@/shared/types";
@@ -239,20 +240,23 @@ export function AgentProgressCard({
         </button>
 
         {/* Right: panel toggle icon — opens/closes AgentComputerPanel */}
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={panelOpen ? "Close computer panel" : "Open computer panel"}
           onClick={(e) => {
             e.stopPropagation();
             onClick?.();
           }}
-          className="flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer shrink-0"
+          className="text-muted-foreground hover:text-foreground shrink-0"
         >
           {panelOpen ? (
             <PanelRightClose className="h-4 w-4" />
           ) : (
             <PanelRightOpen className="h-4 w-4" />
           )}
-        </button>
+        </Button>
       </div>
 
       {/* Collapsible timeline — dot status indicators */}

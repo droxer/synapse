@@ -12,6 +12,7 @@ import {
   Paperclip,
   Sparkles,
 } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
 import { SendButton } from "@/shared/components/SendButton";
 import { FileAttachmentChip } from "@/shared/components/FileAttachmentChip";
 import type { AttachedFile } from "@/shared/types";
@@ -199,25 +200,34 @@ export function WelcomeScreen({ onSubmitTask }: WelcomeScreenProps) {
 
             <div className="flex items-center justify-between px-3 pb-3">
               <div className="flex items-center gap-0.5">
-                <button
+                <Button
                   type="button"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors duration-150 hover:bg-secondary hover:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="More options"
+                  className="text-muted-foreground/50 hover:bg-secondary hover:text-muted-foreground"
                 >
-                  <Plus className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </button>
-                <button
+                  <Plus className="h-4 w-4" />
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Attach file"
                   onClick={() => fileInputRef.current?.click()}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors duration-150 hover:bg-secondary hover:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
+                  className="text-muted-foreground/50 hover:bg-secondary hover:text-muted-foreground"
                 >
-                  <Paperclip className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </button>
-                <button
+                  <Paperclip className="h-4 w-4" />
+                </Button>
+                <Button
                   type="button"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground/50 transition-colors duration-150 hover:bg-secondary hover:text-muted-foreground focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="AI suggestions"
+                  className="text-muted-foreground/50 hover:bg-secondary hover:text-muted-foreground"
                 >
-                  <Sparkles className="h-[18px] w-[18px]" strokeWidth={1.75} />
-                </button>
+                  <Sparkles className="h-4 w-4" />
+                </Button>
               </div>
 
               <SendButton
@@ -242,7 +252,7 @@ export function WelcomeScreen({ onSubmitTask }: WelcomeScreenProps) {
               whileHover={{ y: -2 }}
               className="group relative flex items-center gap-2 rounded-xl border border-border bg-card/80 px-4 py-2.5 text-sm text-muted-foreground backdrop-blur-sm transition-all hover:border-border-active hover:text-foreground"
             >
-              <action.icon className="h-4 w-4 transition-colors group-hover:text-ai-glow" strokeWidth={1.75} />
+              <action.icon className="h-4 w-4 transition-colors group-hover:text-ai-glow" />
               {action.label}
               {/* Glowing underline reveal on hover */}
               <span className="absolute bottom-0 left-3 right-3 h-px bg-ai-glow/0 transition-all duration-300 group-hover:bg-ai-glow/40" />

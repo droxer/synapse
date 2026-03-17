@@ -2,6 +2,7 @@
 
 import { Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
+import { Button } from "@/shared/components/ui/button";
 
 interface ErrorBoundaryProps {
   readonly children: ReactNode;
@@ -41,13 +42,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             <p className="max-w-md text-sm text-muted-foreground">
               {this.state.error?.message ?? "An unexpected error occurred."}
             </p>
-            <button
-              type="button"
-              onClick={this.handleRetry}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
-            >
+            <Button onClick={this.handleRetry}>
               Try again
-            </button>
+            </Button>
           </div>
         </div>
       );

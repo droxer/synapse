@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Square, Paperclip } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
 import { SendButton } from "@/shared/components/SendButton";
 import { FileAttachmentChip } from "@/shared/components/FileAttachmentChip";
 import { cn } from "@/shared/lib/utils";
@@ -180,17 +181,16 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
           {/* Bottom bar: paperclip + hint + action button */}
           <div className="absolute right-3 bottom-2.5 left-3 flex items-center justify-between">
             <div className="flex items-center gap-1">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-xs"
+                aria-label="Attach file"
                 onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground/50",
-                  "transition-colors duration-150 hover:bg-secondary hover:text-muted-foreground",
-                  "focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none",
-                )}
+                className="text-muted-foreground/50 hover:bg-secondary hover:text-muted-foreground"
               >
-                <Paperclip className="h-4 w-4" strokeWidth={1.75} />
-              </button>
+                <Paperclip className="h-4 w-4" />
+              </Button>
               <span
                 className={cn(
                   "text-xs text-placeholder select-none transition-opacity duration-150",

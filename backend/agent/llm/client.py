@@ -1,13 +1,11 @@
 """Claude API client with tool support and streaming."""
 
 import asyncio
-import os
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
 
 import anthropic
-import httpx
 from loguru import logger
 
 # Maximum number of retry attempts for transient API errors
@@ -95,12 +93,9 @@ class ClaudeClient:
 
         self._default_model = default_model
         self._default_max_tokens = max_tokens
-        # Use HTTP proxy if available, skip SOCKS proxy
-        http_proxy = os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy")
         self._client = anthropic.AsyncAnthropic(
             api_key=api_key,
             base_url=base_url or None,
-            http_client=httpx.AsyncClient(proxy=http_proxy),
         )
 
     async def close(self) -> None:

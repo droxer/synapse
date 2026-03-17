@@ -27,6 +27,9 @@ export function ImageOutput({ output, conversationId, artifactIds, className }: 
               src={`/api/conversations/${conversationId}/artifacts/${aid}`}
               alt="Generated image"
               className="max-h-80 rounded object-contain"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
             />
           ))
         ) : looksLikeUri ? (

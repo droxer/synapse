@@ -3,6 +3,7 @@
 import { useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip } from "lucide-react";
+import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
 import { TopBar, MarkdownRenderer } from "@/shared/components";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
@@ -89,12 +90,20 @@ export function ConversationWorkspace({
 
   const inlineImageUrls = useMemo(() => {
     if (!conversationId) return [];
+    // Build a set of artifact IDs known to be images from artifact_created events
+    const imageArtifactIds = new Set(
+      artifacts
+        .filter((a) => a.contentType.startsWith("image/"))
+        .map((a) => a.id),
+    );
     return toolCalls
       .filter((tc) => tc.artifactIds && tc.artifactIds.length > 0)
       .flatMap((tc) =>
-        tc.artifactIds!.map((aid) => `/api/conversations/${conversationId}/artifacts/${aid}`)
+        tc.artifactIds!
+          .filter((aid) => imageArtifactIds.has(aid))
+          .map((aid) => `/api/conversations/${conversationId}/artifacts/${aid}`)
       );
-  }, [toolCalls, conversationId]);
+  }, [toolCalls, conversationId, artifacts]);
 
   const hasArtifacts = useMemo(
     () => toolCalls.some((tc) => tc.output !== undefined && !NON_ARTIFACT_TOOLS.has(tc.name)),
@@ -225,6 +234,9 @@ export function ConversationWorkspace({
                                     src={url}
                                     alt="Generated image"
                                     className="max-h-72 rounded-lg border border-border object-contain shadow-sm"
+                                    onError={(e) => {
+                                      (e.currentTarget as HTMLImageElement).style.display = "none";
+                                    }}
                                   />
                                 ))}
                               </div>
@@ -242,22 +254,17 @@ export function ConversationWorkspace({
                             >
                               <Tooltip>
                                 <TooltipTrigger asChild>
-                                  <button
+                                  <Button
                                     type="button"
+                                    variant="ghost"
+                                    size="icon-xs"
                                     onClick={() => handleCopy(msg.content)}
-                                    className={cn(
-                                      "inline-flex items-center justify-center rounded-md p-1.5",
-                                      "text-muted-foreground/60",
-                                      "transition-all duration-150 ease-out",
-                                      "hover:text-foreground hover:bg-secondary",
-                                      "active:translate-y-[0.5px]",
-                                      "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                                    )}
+                                    className="text-muted-foreground/60 hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
                                   >
                                     {copied
                                       ? <Check className="h-3.5 w-3.5 text-accent-emerald" />
                                       : <Copy className="h-3.5 w-3.5" />}
-                                  </button>
+                                  </Button>
                                 </TooltipTrigger>
                                 <TooltipContent side="bottom" sideOffset={4}>
                                   {copied ? "Copied" : "Copy"}
@@ -267,20 +274,15 @@ export function ConversationWorkspace({
                               {onRetry && (
                                 <Tooltip>
                                   <TooltipTrigger asChild>
-                                    <button
+                                    <Button
                                       type="button"
+                                      variant="ghost"
+                                      size="icon-xs"
                                       onClick={onRetry}
-                                      className={cn(
-                                        "inline-flex items-center justify-center rounded-md p-1.5",
-                                        "text-muted-foreground/60",
-                                        "transition-all duration-150 ease-out",
-                                        "hover:text-foreground hover:bg-secondary",
-                                        "active:translate-y-[0.5px]",
-                                        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                                      )}
+                                      className="text-muted-foreground/60 hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
                                     >
                                       <RotateCcw className="h-3.5 w-3.5" />
-                                    </button>
+                                    </Button>
                                   </TooltipTrigger>
                                   <TooltipContent side="bottom" sideOffset={4}>
                                     Retry
