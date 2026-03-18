@@ -114,11 +114,13 @@ export function useAgentState(events: AgentEvent[]) {
     for (const e of events) {
       if (e.type === "tool_call") {
         const toolId = String(e.data.tool_id ?? e.data.id ?? crypto.randomUUID());
+        const agentId = e.data.agent_id ? String(e.data.agent_id) : undefined;
         const entry: ToolCallInfo = {
           id: toolId,
           name: String(e.data.name ?? e.data.tool_name ?? "unknown"),
           input: (e.data.input ?? e.data.tool_input ?? e.data.arguments ?? {}) as Record<string, unknown>,
           timestamp: e.timestamp,
+          agentId,
         };
         callMap.set(toolId, entry);
         insertOrder.push(toolId);
@@ -127,6 +129,7 @@ export function useAgentState(events: AgentEvent[]) {
         const toolId = String(e.data.tool_id ?? e.data.id ?? "");
         const existing = callMap.get(toolId);
         if (existing) {
+          const agentId = e.data.agent_id ? String(e.data.agent_id) : existing.agentId;
           callMap.set(toolId, {
             ...existing,
             output: String(e.data.output ?? e.data.result ?? ""),
@@ -137,6 +140,7 @@ export function useAgentState(events: AgentEvent[]) {
             artifactIds: Array.isArray(e.data.artifact_ids)
               ? (e.data.artifact_ids as string[])
               : undefined,
+            agentId,
           });
         }
       }

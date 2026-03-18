@@ -1,16 +1,29 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ChatInput } from "./ChatInput";
 import { useTranslation } from "@/i18n";
+import { X } from "lucide-react";
 
 interface WelcomeScreenProps {
-  onSubmitTask: (task: string, files?: File[], skills?: string[]) => void;
+  onSubmitTask: (task: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
+  error?: string | null;
+  isLoading?: boolean;
 }
 
-export function WelcomeScreen({ onSubmitTask }: WelcomeScreenProps) {
+export function WelcomeScreen({ onSubmitTask, error, isLoading = false }: WelcomeScreenProps) {
   const { tArray } = useTranslation();
   const headingWords = tArray("welcome.headingWords");
+  const [dismissed, setDismissed] = useState(false);
+
+  // Reset dismissed state when a new error arrives
+  useEffect(() => {
+    if (error) setDismissed(false);
+  }, [error]);
+
+  const showError = error && !dismissed;
+
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 sm:px-6">
       {/* Subtle warm radial background */}
@@ -28,7 +41,7 @@ export function WelcomeScreen({ onSubmitTask }: WelcomeScreenProps) {
         transition={{ duration: 0.3 }}
       >
         {/* Staggered word reveal heading */}
-        <h1 className="mb-10 text-center font-serif text-[2rem] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-[2.75rem] md:text-[3.25rem]">
+        <h1 className="mb-8 text-center font-serif text-[2rem] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-[2.75rem] md:text-[3.25rem]">
           {headingWords.map((word, i) => (
             <motion.span
               key={i}
@@ -37,7 +50,7 @@ export function WelcomeScreen({ onSubmitTask }: WelcomeScreenProps) {
               animate={{ opacity: 1, y: 0 }}
               transition={{
                 duration: 0.35,
-                delay: i * 0.08,
+                delay: i * 0.05,
                 ease: "easeOut",
               }}
             >
@@ -51,8 +64,32 @@ export function WelcomeScreen({ onSubmitTask }: WelcomeScreenProps) {
           <ChatInput
             onSendMessage={onSubmitTask}
             variant="welcome"
+            disabled={isLoading}
+            isAgentRunning={isLoading}
           />
         </div>
+
+        {/* Error banner */}
+        <AnimatePresence>
+          {showError && (
+            <motion.div
+              initial={{ opacity: 0, y: -8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.2 }}
+              className="flex w-full items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950/50 dark:text-red-300"
+            >
+              <span className="flex-1">{error}</span>
+              <button
+                onClick={() => setDismissed(true)}
+                className="shrink-0 rounded p-0.5 hover:bg-red-100 dark:hover:bg-red-900/50"
+                aria-label="Dismiss error"
+              >
+                <X size={16} />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </motion.div>
     </div>
   );

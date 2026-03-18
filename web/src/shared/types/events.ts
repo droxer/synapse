@@ -55,6 +55,7 @@ export interface ToolCallInfo {
   contentType?: string;
   artifactIds?: string[];
   timestamp: number;
+  agentId?: string;
 }
 
 export interface ArtifactInfo {

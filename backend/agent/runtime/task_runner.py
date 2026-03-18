@@ -6,13 +6,13 @@ from dataclasses import dataclass, replace
 from typing import Any
 
 from agent.llm.client import ClaudeClient
-from agent.loop.helpers import (
+from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
     process_tool_calls,
 )
-from agent.loop.observer import Observer
-from agent.loop.orchestrator import AgentState
+from agent.runtime.observer import Observer
+from agent.runtime.orchestrator import AgentState
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
@@ -113,6 +113,7 @@ class TaskAgentRunner:
             {
                 "agent_id": self._agent_id,
                 "task": self._config.task_description,
+                "description": self._config.task_description,
             },
         )
 

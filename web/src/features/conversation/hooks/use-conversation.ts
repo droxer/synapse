@@ -20,6 +20,7 @@ export function useConversation(
   const [userMessages, setUserMessages] = useState<ChatMessage[]>([]);
   const [isWaitingForAgent, setIsWaitingForAgent] = useState(false);
   const [userCancelled, setUserCancelled] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
   const eventCountAtSendRef = useRef(events.length);
 
   const conversationId = useAppStore((s) => s.conversationId);
@@ -90,26 +91,29 @@ export function useConversation(
   }, [userMessages, transcriptMessages]);
 
   const handleCreateConversation = useCallback(
-    async (message: string, files?: File[], skills?: string[]) => {
+    async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       eventCountAtSendRef.current = events.length;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
+      setCreateError(null);
       const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
       setUserMessages([
         { role: "user", content: message, timestamp: Date.now(), ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
       ]);
 
       try {
-        const data = await createConversation(message, files, skills);
+        const data = await createConversation(message, files, skills, usePlanner);
         startConversation(data.conversation_id, message);
       } catch (err) {
         console.error("Failed to create conversation:", err);
         setIsWaitingForAgent(false);
+        const errorMessage = err instanceof Error ? err.message : "Unknown error";
+        setCreateError(`Failed to start conversation: ${errorMessage}`);
         setUserMessages((prev) => [
           ...prev,
           {
             role: "assistant",
-            content: `Error: ${err instanceof Error ? err.message : "Unknown error"}`,
+            content: `Error: ${errorMessage}`,
             timestamp: Date.now(),
           },
         ]);
@@ -119,7 +123,7 @@ export function useConversation(
   );
 
   const handleSendFollowUp = useCallback(
-    async (message: string, files?: File[], skills?: string[]) => {
+    async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       if (!conversationId) return;
 
       eventCountAtSendRef.current = events.length;
@@ -132,7 +136,7 @@ export function useConversation(
       ]);
 
       try {
-        await sendFollowUpMessage(conversationId, message, files, skills);
+        await sendFollowUpMessage(conversationId, message, files, skills, usePlanner);
       } catch (err) {
         console.error("Failed to send message:", err);
         setIsWaitingForAgent(false);
@@ -150,7 +154,7 @@ export function useConversation(
   );
 
   const handleResumeConversation = useCallback(
-    async (message: string, files?: File[], skills?: string[]) => {
+    async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       if (!conversationId) return;
 
       eventCountAtSendRef.current = events.length;
@@ -163,7 +167,7 @@ export function useConversation(
       ]);
 
       try {
-        await sendFollowUpMessage(conversationId, message, files, skills);
+        await sendFollowUpMessage(conversationId, message, files, skills, usePlanner);
         resumeConversation();
       } catch (err) {
         console.error("Failed to resume conversation:", err);
@@ -182,13 +186,13 @@ export function useConversation(
   );
 
   const handleSendMessage = useCallback(
-    (message: string, files?: File[], skills?: string[]) => {
+    (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       if (!conversationId) {
-        handleCreateConversation(message, files, skills);
+        handleCreateConversation(message, files, skills, usePlanner);
       } else if (!isLiveConversation) {
-        handleResumeConversation(message, files, skills);
+        handleResumeConversation(message, files, skills, usePlanner);
       } else {
-        handleSendFollowUp(message, files, skills);
+        handleSendFollowUp(message, files, skills, usePlanner);
       }
     },
     [conversationId, isLiveConversation, handleCreateConversation, handleResumeConversation, handleSendFollowUp],
@@ -237,6 +241,7 @@ export function useConversation(
     allMessages,
     isWaitingForAgent,
     userCancelled,
+    createError,
     handleSendMessage,
     handleCreateConversation,
     handleSwitchConversation,

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from agent.loop.helpers import build_tool_result_block
+from agent.runtime.helpers import build_tool_result_block
 
 
 class TestBuildToolResultBlock:

@@ -4,6 +4,7 @@ export async function createConversation(
   message: string,
   files?: File[],
   skills?: string[],
+  usePlanner?: boolean,
 ): Promise<{ conversation_id: string }> {
   let res: Response;
   if (files && files.length > 0) {
@@ -15,6 +16,9 @@ export async function createConversation(
     for (const file of files) {
       formData.append("files", file);
     }
+    if (usePlanner) {
+      formData.append("use_planner", "true");
+    }
     res = await fetch(`${API_BASE}/conversations`, {
       method: "POST",
       body: formData,
@@ -23,7 +27,11 @@ export async function createConversation(
     res = await fetch(`${API_BASE}/conversations`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message, skills: skills ?? [] }),
+      body: JSON.stringify({
+        message,
+        skills: skills ?? [],
+        ...(usePlanner ? { use_planner: true } : {}),
+      }),
     });
   }
 
@@ -39,6 +47,7 @@ export async function sendFollowUpMessage(
   message: string,
   files?: File[],
   skills?: string[],
+  usePlanner?: boolean,
 ): Promise<void> {
   let res: Response;
   if (files && files.length > 0) {
@@ -49,6 +58,9 @@ export async function sendFollowUpMessage(
     }
     for (const file of files) {
       formData.append("files", file);
+    }
+    if (usePlanner) {
+      formData.append("use_planner", "true");
     }
     res = await fetch(
       `${API_BASE}/conversations/${conversationId}/messages`,
@@ -63,7 +75,11 @@ export async function sendFollowUpMessage(
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message, skills: skills ?? [] }),
+        body: JSON.stringify({
+          message,
+          skills: skills ?? [],
+          ...(usePlanner ? { use_planner: true } : {}),
+        }),
       },
     );
   }

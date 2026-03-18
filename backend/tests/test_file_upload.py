@@ -90,7 +90,7 @@ class TestSanitizerConsistency:
     )
 
     def test_both_sanitizers_produce_identical_results(self) -> None:
-        from agent.loop.orchestrator import AgentOrchestrator
+        from agent.runtime.orchestrator import AgentOrchestrator
 
         for name in self.FILENAMES:
             route_result = _sanitize_filename(name)
@@ -172,17 +172,17 @@ class TestSanitizeFilenameInOrchestrator:
     """Verify the orchestrator's display-name sanitizer."""
 
     def test_strips_traversal(self) -> None:
-        from agent.loop.orchestrator import AgentOrchestrator
+        from agent.runtime.orchestrator import AgentOrchestrator
 
         assert AgentOrchestrator._safe_display_name("../../etc/passwd") == "passwd"
 
     def test_empty_returns_unnamed(self) -> None:
-        from agent.loop.orchestrator import AgentOrchestrator
+        from agent.runtime.orchestrator import AgentOrchestrator
 
         assert AgentOrchestrator._safe_display_name("") == "unnamed"
 
     def test_safe_name_unchanged(self) -> None:
-        from agent.loop.orchestrator import AgentOrchestrator
+        from agent.runtime.orchestrator import AgentOrchestrator
 
         assert AgentOrchestrator._safe_display_name("photo.jpg") == "photo.jpg"
 

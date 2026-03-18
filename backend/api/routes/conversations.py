@@ -452,7 +452,13 @@ async def create_conversation(
         _generate_title(state.claude_client, conversation_id, message, emitter),
     )
 
-    logger.info("conversation_created id=%s", conversation_id)
+    logger.info(
+        "conversation_created id=%s message=%s skills=%s attachments=%d",
+        conversation_id,
+        message[:100],
+        selected_skills,
+        len(attachments),
+    )
     return ConversationResponse(conversation_id=conversation_id)
 
 

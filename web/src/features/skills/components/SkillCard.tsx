@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Package, FolderGit2, Globe, Wand } from "lucide-react";
+import { Trash2, Package, FolderGit2, Globe, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { cn } from "@/shared/lib/utils";
@@ -35,7 +35,7 @@ export function SkillCard({ skill, onDelete }: SkillCardProps) {
     <div className="group relative flex gap-3.5 rounded-lg border border-border bg-card px-4 py-3.5 shadow-sm transition-all duration-200 hover:border-border-strong hover:shadow-md">
       {/* Icon */}
       <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
-        <Wand className="h-4 w-4 text-muted-foreground" />
+        <Lightbulb className="h-4 w-4 text-muted-foreground" />
       </div>
 
       {/* Content */}
@@ -46,7 +46,7 @@ export function SkillCard({ skill, onDelete }: SkillCardProps) {
           </span>
           <Badge
             variant="secondary"
-            className={cn("text-[0.625rem] font-medium px-1.5 py-0", config.className)}
+            className={cn("text-micro font-medium px-1.5 py-0", config.className)}
           >
             <Icon className="mr-1 h-2.5 w-2.5" />
             {t(labelKey)}

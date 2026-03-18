@@ -211,14 +211,14 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
     <div className={cn("mt-2.5 rounded-md border-l-2 bg-muted/60 px-3 py-2", style.border)}>
       <div className="mb-1.5 flex items-center justify-end">
         {style.labelKey && (
-          <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground-dim">
+          <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
             <CategoryIcon className="h-3 w-3" />
             {t(style.labelKey)}
           </span>
         )}
       </div>
 
-      <div className="prose-sm text-xs leading-relaxed text-muted-foreground [&_a]:text-user-accent [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-xs [&_h1]:text-sm [&_h1]:font-semibold [&_h2]:text-xs [&_h2]:font-semibold [&_h3]:text-xs [&_h3]:font-medium [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:pl-4 [&_p]:my-1 [&_pre]:my-1 [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:text-xs [&_ul]:my-1 [&_ul]:pl-4">
+      <div className="prose-sm text-sm leading-relaxed text-muted-foreground [&_a]:text-user-accent [&_a]:underline [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-sm [&_h1]:text-base [&_h1]:font-semibold [&_h2]:text-sm [&_h2]:font-semibold [&_h3]:text-sm [&_h3]:font-medium [&_li]:my-0.5 [&_ol]:my-1 [&_ol]:pl-4 [&_p]:my-1 [&_pre]:my-1 [&_pre]:rounded [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:text-sm [&_ul]:my-1 [&_ul]:pl-4">
         <MarkdownRenderer content={displayText} />
         {isLong && !expanded && (
           <span className="text-muted-foreground-dim">...</span>

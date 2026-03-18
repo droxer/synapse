@@ -33,20 +33,36 @@ class SkillRegistryClient:
         self,
         registry_url: str = "https://api.agentskills.io",
         installer: SkillInstaller | None = None,
+        http_client: httpx.AsyncClient | None = None,
     ) -> None:
         self._registry_url = registry_url.rstrip("/")
         self._installer = installer
+        self._shared_client = http_client
+
+    async def _request(
+        self, method: str, path: str, **kwargs: Any
+    ) -> httpx.Response:
+        """Issue an HTTP request, reusing a shared client if available."""
+        url = f"{self._registry_url}{path}"
+        if self._shared_client is not None:
+            response = await self._shared_client.request(method, url, **kwargs)
+            response.raise_for_status()
+            return response
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.request(method, url, **kwargs)
+            response.raise_for_status()
+            return response
 
     async def search(self, query: str) -> tuple[SkillCatalogEntry, ...]:
         """Search the remote registry for skills matching a query."""
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(
-                    f"{self._registry_url}/skills/search",
-                    params={"q": query},
-                )
-                response.raise_for_status()
-                data = response.json()
+            response = await self._request(
+                "GET",
+                "/skills/search",
+                params={"q": query},
+            )
+            data = response.json()
         except httpx.HTTPError as exc:
             logger.warning("Registry search failed: {}", exc)
             return ()
@@ -64,12 +80,8 @@ class SkillRegistryClient:
     async def get_detail(self, name: str) -> SkillRegistryEntry | None:
         """Get full metadata for a skill from the registry."""
         try:
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                response = await client.get(
-                    f"{self._registry_url}/skills/{name}",
-                )
-                response.raise_for_status()
-                data = response.json()
+            response = await self._request("GET", f"/skills/{name}")
+            data = response.json()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None

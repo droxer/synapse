@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, type DragEvent } from "react";
 import { motion } from "framer-motion";
-import { Wand, Plus, Package, Search, X } from "lucide-react";
+import { Lightbulb, Plus, Package, Search, X, Upload, FileText } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -16,13 +16,20 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/shared/components/ui/dialog";
 import { SkillCard } from "./SkillCard";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
 import {
   installSkill,
   uninstallSkill,
-  type SkillInstallParams,
+  uploadSkill,
 } from "../api/skills-api";
 import { useTranslation } from "@/i18n";
 
@@ -60,7 +67,7 @@ function SkillSkeleton() {
   );
 }
 
-type InstallSource = "git" | "url";
+type InstallSource = "git" | "upload";
 
 export function SkillsPage() {
   const { t } = useTranslation();
@@ -74,37 +81,69 @@ export function SkillsPage() {
   const [showForm, setShowForm] = useState(false);
   const [installSource, setInstallSource] = useState<InstallSource>("git");
   const [formUrl, setFormUrl] = useState("");
-  const [formSkillPath, setFormSkillPath] = useState("");
   const [submitting, setSubmitting] = useState(false);
+
+  // Upload state
+  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Delete confirmation
   const [skillToDelete, setSkillToDelete] = useState<string | null>(null);
 
   const resetForm = () => {
     setFormUrl("");
-    setFormSkillPath("");
+    setSelectedFiles(null);
+    setInstallSource("git");
     setShowForm(false);
   };
 
   const handleInstall = async () => {
+    if (installSource === "upload") {
+      if (!selectedFiles || selectedFiles.length === 0) return;
+      setSubmitting(true);
+      setError(null);
+      try {
+        await uploadSkill(selectedFiles);
+        resetForm();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to upload skill");
+      } finally {
+        setSubmitting(false);
+      }
+      return;
+    }
+
     if (!formUrl.trim()) return;
     setSubmitting(true);
     setError(null);
     try {
-      const params: SkillInstallParams = {
-        source: installSource,
-        url: formUrl.trim(),
-        skill_path: formSkillPath.trim() || undefined,
-      };
-      await installSkill(params);
+      await installSkill({ url: formUrl.trim() });
       resetForm();
-      // Cache will refresh on next render cycle via useSkillsCache
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to install skill");
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+  }, []);
+
+  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      setSelectedFiles(e.dataTransfer.files);
+    }
+  }, []);
 
   const handleDelete = useCallback(async () => {
     if (!skillToDelete) return;
@@ -144,7 +183,7 @@ export function SkillsPage() {
         <div className="mx-auto flex max-w-2xl items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
-              <Wand className="h-4 w-4 text-muted-foreground" />
+              <Lightbulb className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
               <h1 className="text-base font-semibold tracking-tight text-foreground">
@@ -217,16 +256,14 @@ export function SkillsPage() {
                 )}
               </div>
             )}
-            {!showForm && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowForm(true)}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                {t("skills.installSkill")}
-              </Button>
-            )}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowForm(true)}
+            >
+              <Plus className="mr-1.5 h-3.5 w-3.5" />
+              {t("skills.installSkill")}
+            </Button>
           </div>
 
           {/* ── Skill list ── */}
@@ -256,7 +293,7 @@ export function SkillsPage() {
               transition={{ duration: 0.3, delay: 0.1 }}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary">
-                <Wand className="h-5 w-5 text-muted-foreground-dim" />
+                <Lightbulb className="h-5 w-5 text-muted-foreground-dim" />
               </div>
               <div className="text-center">
                 <p className="text-sm font-medium text-foreground">
@@ -284,95 +321,152 @@ export function SkillsPage() {
               ))}
             </motion.div>
           )}
+        </div>
+      </div>
 
-          {/* ── Install form ── */}
-          {showForm && (
-            <motion.div
-              className="space-y-4 rounded-lg border border-border bg-card p-5"
-              initial={{ opacity: 0, y: 6 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <h3 className="text-sm font-semibold text-foreground">
-                {t("skills.installFormTitle")}
-              </h3>
+      {/* ── Install skill dialog ── */}
+      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t("skills.installFormTitle")}</DialogTitle>
+            <DialogDescription>{t("skills.subtitle")}</DialogDescription>
+          </DialogHeader>
 
-              {/* Source toggle */}
-              <div className="space-y-1.5">
-                <Label className="text-xs">{t("skills.source")}</Label>
-                <div className="flex gap-1 rounded-lg bg-secondary p-1">
-                  {(["git", "url"] as const).map((src) => (
-                    <button
-                      key={src}
-                      type="button"
-                      onClick={() => setInstallSource(src)}
-                      className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
-                        installSource === src
-                          ? "bg-background text-foreground shadow-sm"
-                          : "text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {src === "git" ? t("skills.gitRepo") : t("skills.url")}
-                    </button>
-                  ))}
-                </div>
+          <div className="space-y-4">
+            {/* Error inside dialog */}
+            {error && (
+              <div className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2">
+                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
+                <p className="flex-1 text-sm text-destructive">{error}</p>
+                <button
+                  type="button"
+                  onClick={() => setError(null)}
+                  className="rounded-sm p-0.5 text-destructive/60 transition-colors hover:text-destructive"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
+            )}
 
-              {/* URL field */}
-              <div className="space-y-1.5">
-                <Label htmlFor="skill-url" className="text-xs">
-                  {installSource === "git" ? t("skills.repoUrl") : t("skills.skillUrl")}
-                </Label>
-                <Input
-                  id="skill-url"
-                  placeholder={
-                    installSource === "git"
-                      ? t("skills.repoPlaceholder")
-                      : t("skills.urlPlaceholder")
-                  }
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  className="font-mono"
-                />
+            {/* Source toggle */}
+            <div className="space-y-1.5">
+              <Label className="text-xs">{t("skills.source")}</Label>
+              <div className="flex gap-1 rounded-lg bg-secondary p-1">
+                {(["git", "upload"] as const).map((src) => (
+                  <button
+                    key={src}
+                    type="button"
+                    onClick={() => setInstallSource(src)}
+                    className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-medium transition-all ${
+                      installSource === src
+                        ? "bg-background text-foreground shadow-sm"
+                        : "text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {src === "git" ? t("skills.gitRepo") : t("skills.upload")}
+                  </button>
+                ))}
               </div>
+            </div>
 
-              {/* Skill path (git only) */}
+            {/* Tab content — fixed height so dialog doesn't resize on tab switch */}
+            <div className="min-h-[10rem]">
+              {/* URL field (git mode) */}
               {installSource === "git" && (
                 <div className="space-y-1.5">
-                  <Label htmlFor="skill-path" className="text-xs">
-                    {t("skills.skillPath")}{" "}
-                    <span className="text-muted-foreground">{t("skills.optional")}</span>
-                  </Label>
                   <Input
-                    id="skill-path"
-                    placeholder={t("skills.skillPathPlaceholder")}
-                    value={formSkillPath}
-                    onChange={(e) => setFormSkillPath(e.target.value)}
+                    id="skill-url"
+                    placeholder={t("skills.repoPlaceholder")}
+                    value={formUrl}
+                    onChange={(e) => setFormUrl(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && formUrl.trim() && !submitting) {
+                        handleInstall();
+                      }
+                    }}
                     className="font-mono"
+                    autoFocus
                   />
                 </div>
               )}
 
-              {/* Actions */}
-              <div className="flex justify-end gap-2 pt-1">
-                <Button variant="ghost" size="sm" onClick={resetForm}>
-                  {t("skills.cancel")}
-                </Button>
-                <Button
-                  size="sm"
-                  onClick={handleInstall}
-                  disabled={submitting || !formUrl.trim()}
-                >
-                  {submitting && (
-                    <span className="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+              {/* Upload drop zone */}
+              {installSource === "upload" && (
+                <div className="space-y-1.5">
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 transition-colors ${
+                      isDragging
+                        ? "border-primary bg-primary/5"
+                        : "border-border hover:border-muted-foreground/40 hover:bg-secondary/50"
+                    }`}
+                  >
+                    <Upload className="h-6 w-6 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      {isDragging ? t("skills.dropZoneActive") : t("skills.dropZone")}
+                    </p>
+                    <p className="text-xs text-muted-foreground/70">
+                      {t("skills.dropZoneHint")}
+                    </p>
+                  </div>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept=".zip,.md"
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        setSelectedFiles(e.target.files);
+                      }
+                    }}
+                  />
+                  {selectedFiles && selectedFiles.length > 0 && (
+                    <div className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2">
+                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="flex-1 text-xs text-foreground">
+                        {t("skills.selectedFiles", { count: selectedFiles.length })}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedFiles(null)}
+                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
                   )}
-                  {t("skills.install")}
-                </Button>
-              </div>
-            </motion.div>
-          )}
-        </div>
-      </div>
+                </div>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-end gap-2 pt-1">
+              <Button variant="ghost" size="sm" onClick={resetForm}>
+                {t("skills.cancel")}
+              </Button>
+              <Button
+                size="sm"
+                onClick={handleInstall}
+                disabled={
+                  submitting ||
+                  (installSource === "upload"
+                    ? !selectedFiles || selectedFiles.length === 0
+                    : !formUrl.trim())
+                }
+              >
+                {submitting && (
+                  <span className="mr-1.5 inline-block h-3.5 w-3.5 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                )}
+                {t("skills.install")}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Delete confirmation ── */}
       <AlertDialog

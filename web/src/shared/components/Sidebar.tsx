@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, Wand } from "lucide-react";
+import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { ThemeToggle } from "@/shared/components/ThemeToggle";
 import { LanguageSwitcher } from "@/shared/components/LanguageSwitcher";
@@ -200,7 +200,7 @@ export function Sidebar({
                     asChild
                   >
                     <span>
-                      <Wand className="h-4 w-4" />
+                      <Lightbulb className="h-4 w-4" />
                     </span>
                   </Button>
                 </Link>
@@ -226,7 +226,7 @@ export function Sidebar({
             </Tooltip>
           </>
         ) : (
-          <div className="space-y-0.5">
+          <div className="space-y-1">
             <Button
               onClick={onNewTask}
               variant="outline"
@@ -239,7 +239,7 @@ export function Sidebar({
               href="/skills"
               className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
-              <Wand className="h-4 w-4" />
+              <Lightbulb className="h-4 w-4" />
               {t("sidebar.skills")}
             </Link>
             <Link
@@ -260,7 +260,7 @@ export function Sidebar({
         </div>
       )}
       <div ref={scrollRef} className={cn("relative min-h-0 flex-1 overflow-y-auto", collapsed ? "px-2" : "px-4")}>
-          <div className="space-y-0.5 pb-2">
+          <div className="space-y-1 pb-2">
             {!collapsed && taskHistory.length === 0 && (
               <p className="px-3 py-6 text-center text-xs text-muted-foreground-dim">
                 {t("sidebar.noTasks")}
@@ -312,7 +312,7 @@ export function Sidebar({
                 >
                   {/* Active indicator bar */}
                   {isActive && (
-                    <div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-purple" />
+                    <div className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-accent-purple" />
                   )}
                   <span className={cn(
                     "flex-1 truncate text-sm transition-colors duration-200",
@@ -350,7 +350,7 @@ export function Sidebar({
       {/* Footer: language + theme toggle */}
       <div className={cn(
         "shrink-0 border-t border-border",
-        collapsed ? "flex flex-col items-center gap-1 px-2 py-2" : "space-y-0.5 px-4 py-3",
+        collapsed ? "flex flex-col items-center gap-1 px-2 py-2" : "space-y-1 px-4 py-3",
       )}>
         <LanguageSwitcher collapsed={collapsed} />
         <ThemeToggle collapsed={collapsed} />

@@ -9,8 +9,8 @@ export interface Skill {
 }
 
 export interface SkillInstallParams {
-  readonly source: "git" | "url" | "registry";
   readonly url?: string;
+  readonly source?: "git" | "url" | "registry";
   readonly name?: string;
   readonly skill_path?: string;
 }
@@ -18,7 +18,6 @@ export interface SkillInstallParams {
 export interface RegistrySearchResult {
   readonly name: string;
   readonly description: string;
-  readonly source_path: string;
 }
 
 export async function fetchSkills(): Promise<readonly Skill[]> {
@@ -60,6 +59,22 @@ export async function uninstallSkill(name: string): Promise<void> {
     const detail = await res.text();
     throw new Error(`Failed to uninstall skill: ${detail}`);
   }
+}
+
+export async function uploadSkill(files: FileList): Promise<Skill> {
+  const formData = new FormData();
+  for (const file of Array.from(files)) {
+    formData.append("files", file);
+  }
+  const res = await fetch(`${API_BASE}/skills/upload`, {
+    method: "POST",
+    body: formData,
+  });
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Failed to upload skill: ${detail}`);
+  }
+  return res.json();
 }
 
 export async function searchRegistry(

@@ -20,18 +20,11 @@ interface TerminalWindowProps {
 export function TerminalWindow({ title, children, className }: TerminalWindowProps) {
   return (
     <div className={cn("overflow-hidden rounded-md border border-[var(--color-terminal-border)]", className)}>
-      {/* Title bar with traffic-light dots */}
-      <div className="flex items-center gap-2 bg-[var(--color-terminal-surface)] px-3 py-2">
-        <div className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-full bg-[#ff5f57] dark:opacity-70" />
-          <span className="inline-block h-3 w-3 rounded-full bg-[#febc2e] dark:opacity-70" />
-          <span className="inline-block h-3 w-3 rounded-full bg-[#28c840] dark:opacity-70" />
-        </div>
-        <span className="flex-1 text-center font-mono text-xs text-[var(--color-terminal-dim)]">
+      {/* Title bar */}
+      <div className="border-b border-[var(--color-terminal-border)] bg-[var(--color-terminal-surface)] px-3 py-2">
+        <span className="font-mono text-xs text-[var(--color-terminal-dim)]">
           {title}
         </span>
-        {/* Spacer to balance traffic lights */}
-        <div className="w-[54px]" />
       </div>
 
       {/* Terminal body */}

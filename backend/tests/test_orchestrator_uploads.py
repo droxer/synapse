@@ -9,7 +9,7 @@ from typing import Any
 import pytest
 
 from agent.llm.client import LLMResponse, TokenUsage
-from agent.loop.orchestrator import AgentOrchestrator
+from agent.runtime.orchestrator import AgentOrchestrator
 from agent.sandbox.base import ExecResult
 from agent.skills.loader import SkillRegistry
 from agent.skills.models import SkillContent, SkillMetadata

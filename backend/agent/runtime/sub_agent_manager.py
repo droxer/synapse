@@ -7,8 +7,9 @@ import uuid
 from typing import Callable
 
 from agent.llm.client import ClaudeClient
-from agent.loop.task_runner import AgentResult, TaskAgentConfig, TaskAgentRunner
+from agent.runtime.task_runner import AgentResult, TaskAgentConfig, TaskAgentRunner
 from agent.tools.executor import ToolExecutor
+from agent.tools.local.task_complete import TaskComplete
 from agent.tools.meta.send_message import (
     AgentMessageBus,
     ReceiveMessages,
@@ -235,6 +236,18 @@ class SubAgentManager:
             executor = self._executor_factory(registry)
             self._executors[agent_id] = executor
 
+            # Callback holder — routes task_complete calls to the runner
+            # once it's created (same pattern as _CallbackHolder in builders.py)
+            callback_target: list[TaskAgentRunner | None] = [None]
+
+            async def _on_complete(summary: str) -> None:
+                if callback_target[0] is not None:
+                    await callback_target[0].on_task_complete(summary)
+
+            registry = registry.register(TaskComplete(on_complete=_on_complete))
+            executor = self._executor_factory(registry)
+            self._executors[agent_id] = executor
+
             runner = TaskAgentRunner(
                 agent_id=agent_id,
                 config=config,
@@ -243,6 +256,8 @@ class SubAgentManager:
                 tool_executor=executor,
                 event_emitter=self._emitter,
             )
+            callback_target[0] = runner
+
             return await runner.run()
         except Exception as exc:
             logger.error("Agent %s execution failed: %s", agent_id[:8], exc)

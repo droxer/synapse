@@ -73,8 +73,6 @@
   --font-size-h1--line-height: 1.3;
   --font-size-h2: 1rem;
   --font-size-h2--line-height: 1.3;
-  --font-size-heading: 1rem;
-  --font-size-heading--line-height: 1.3;
   --font-size-body: 0.875rem;
   --font-size-body--line-height: 1.5;
   --font-size-caption: 0.75rem;
@@ -83,8 +81,8 @@
   --font-size-micro--line-height: 1.4;
 
   /* Shadows — warm, soft */
-  --shadow-card: 0 1px 3px rgba(28, 25, 23, 0.08), 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-card-hover: 0 4px 12px rgba(28, 25, 23, 0.10), 0 1px 3px rgba(28, 25, 23, 0.06);
+  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.05);
+  --shadow-card-hover: 0 2px 8px rgba(28, 25, 23, 0.08);
   --shadow-elevated: 0 8px 24px rgba(28, 25, 23, 0.12), 0 2px 8px rgba(28, 25, 23, 0.06);
 
   /* Animations — keep useful ones, remove glow/orbital */
@@ -113,14 +111,6 @@
   }
 
   --animate-shimmer: shimmer 2s linear infinite;
-
-  @keyframes gradientShift {
-    0% { background-position: 0% 50%; }
-    50% { background-position: 100% 50%; }
-    100% { background-position: 0% 50%; }
-  }
-
-  --animate-gradient-shift: gradientShift 3s ease infinite;
 
   @keyframes pulsingDotFade {
     0%, 100% { opacity: 1; }
@@ -177,8 +167,8 @@
   --color-terminal-border: #E8E5E0;
   --color-terminal-text: #2D2D2D;
   --color-terminal-dim: #8B8B96;
-  --shadow-card: 0 1px 3px rgba(28, 25, 23, 0.06), 0 1px 2px rgba(28, 25, 23, 0.03);
-  --shadow-card-hover: 0 4px 12px rgba(28, 25, 23, 0.08), 0 1px 3px rgba(28, 25, 23, 0.04);
+  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04);
+  --shadow-card-hover: 0 2px 8px rgba(28, 25, 23, 0.06);
   --shadow-elevated: 0 8px 24px rgba(28, 25, 23, 0.10), 0 2px 8px rgba(28, 25, 23, 0.05);
 }
 
@@ -223,9 +213,21 @@
   --color-terminal-border: #44403C;
   --color-terminal-text: #D6D3D1;
   --color-terminal-dim: #78716C;
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.2), 0 1px 2px rgba(0, 0, 0, 0.12);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.25), 0 1px 3px rgba(0, 0, 0, 0.15);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.2);
   --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* ─── Custom Tailwind Utilities ─── */
+
+@utility text-micro {
+  font-size: var(--font-size-micro);
+  line-height: var(--font-size-micro--line-height);
+}
+
+@utility text-caption {
+  font-size: var(--font-size-caption);
+  line-height: var(--font-size-caption--line-height);
 }
 
 /* ─── Typography ─── */

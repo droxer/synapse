@@ -10,9 +10,9 @@ from loguru import logger
 from agent.artifacts.manager import ArtifactManager
 from agent.artifacts.storage import StorageBackend
 from agent.llm.client import ClaudeClient
-from agent.loop.orchestrator import AgentOrchestrator
-from agent.loop.planner import PlannerOrchestrator
-from agent.loop.sub_agent_manager import SubAgentManager
+from agent.runtime.orchestrator import AgentOrchestrator
+from agent.runtime.planner import PlannerOrchestrator
+from agent.runtime.sub_agent_manager import SubAgentManager
 from agent.memory.store import PersistentMemoryStore
 from agent.sandbox.base import SandboxProvider
 from agent.skills.loader import SkillRegistry as SkillRegistry

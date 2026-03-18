@@ -29,7 +29,7 @@ export function WebLinks({ query, results, className }: WebLinksProps) {
           {results.length} result{results.length !== 1 ? "s" : ""} for{" "}
           <span className="font-medium text-foreground">&ldquo;{query}&rdquo;</span>
         </span>
-        <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground-dim">
+        <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
           <Globe className="h-3 w-3" />
           Search
         </span>
@@ -47,7 +47,7 @@ export function WebLinks({ query, results, className }: WebLinksProps) {
                 <p className="text-xs font-medium text-user-accent group-hover:underline">
                   {r.title || getDomain(r.url)}
                 </p>
-                <p className="text-[0.625rem] text-muted-foreground-dim">{getDomain(r.url)}</p>
+                <p className="text-micro text-muted-foreground-dim">{getDomain(r.url)}</p>
                 {r.content && (
                   <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
                     {r.content}

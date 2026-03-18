@@ -9,12 +9,12 @@ from typing import Any
 from loguru import logger
 
 from agent.llm.client import ClaudeClient
-from agent.loop.helpers import (
+from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
     process_tool_calls,
 )
-from agent.loop.observer import Observer
+from agent.runtime.observer import Observer
 from agent.sandbox.base import SANDBOX_HOME_DIR
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor

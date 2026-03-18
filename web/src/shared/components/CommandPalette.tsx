@@ -15,7 +15,7 @@ import {
   AppWindow,
   Palette,
   Settings,
-  Wand,
+  Lightbulb,
   Blocks,
   MessageSquare,
 } from "lucide-react";
@@ -43,7 +43,7 @@ const GROUP_HEADING_CLASS =
 
 function ShortcutHint({ keys }: { readonly keys: string }) {
   return (
-    <kbd className="ml-auto shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground">
+    <kbd className="ml-auto shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
       {keys}
     </kbd>
   );
@@ -155,7 +155,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
                   className="h-12 w-full bg-transparent text-sm text-foreground placeholder:text-placeholder outline-none"
                   autoFocus
                 />
-                <kbd className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-[0.625rem] text-muted-foreground">
+                <kbd className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
                   ESC
                 </kbd>
               </div>
@@ -194,7 +194,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
                     }}
                     className={ITEM_CLASS}
                   >
-                    <Wand className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Lightbulb className="h-4 w-4 shrink-0 text-muted-foreground" />
                     {t("command.skills")}
                   </Command.Item>
                   <Command.Item

@@ -11,7 +11,7 @@ from agent.tools.executor import ToolExecutor
 from api.events import EventEmitter, EventType
 
 if TYPE_CHECKING:
-    from agent.loop.orchestrator import AgentState
+    from agent.runtime.orchestrator import AgentState
 
 
 def apply_response_to_state(state: AgentState, response: LLMResponse) -> AgentState:

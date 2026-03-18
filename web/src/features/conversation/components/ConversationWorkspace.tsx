@@ -41,7 +41,7 @@ interface ConversationWorkspaceProps {
   reasoningSteps: string[];
   currentIteration: number;
   isConnected: boolean;
-  onSendMessage: (message: string, files?: File[], skills?: string[]) => void;
+  onSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   onNavigateHome?: () => void;
   isWaitingForAgent?: boolean;
   userCancelled?: boolean;
@@ -75,6 +75,7 @@ export function ConversationWorkspace({
   const [panelOpen, setPanelOpen] = useState(false);
   const autoOpenedRef = useRef(false);
   const [copied, setCopied] = useState(false);
+  const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
 
   const handleCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -122,6 +123,13 @@ export function ConversationWorkspace({
     setPanelOpen((prev) => !prev);
   }, []);
 
+  const handleStepClick = useCallback((stepId: string) => {
+    setPanelOpen(true);
+    // Use a fresh value each time to re-trigger the effect even if same step is clicked twice
+    setHighlightedStepId(null);
+    requestAnimationFrame(() => setHighlightedStepId(stepId));
+  }, []);
+
   const showLoadingSkeleton =
     !userCancelled &&
     (isWaitingForAgent || (assistantPhase.phase !== "idle" && !isStreaming)) &&
@@ -162,7 +170,7 @@ export function ConversationWorkspace({
                   <div
                     key={`msg-${i}`}
                     className={cn(
-                      i > 0 && "mt-7",
+                      i > 0 && "mt-6",
                     )}
                   >
                     {msg.role === "user" ? (
@@ -175,7 +183,7 @@ export function ConversationWorkspace({
                       >
                         <div className="max-w-[80%] min-w-[120px]">
                           {/* Frosted card surface */}
-                          <div className="rounded-md rounded-br-sm bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/10">
+                          <div className="rounded-lg bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/6">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
@@ -209,18 +217,11 @@ export function ConversationWorkspace({
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.25, ease: "easeOut" }}
-                        className="group relative max-w-[85%]"
+                        className={cn(
+                          "group relative max-w-[85%]",
+                          isStreamingThis && "border-l-2 border-ai-border pl-4",
+                        )}
                       >
-                        {/* Atmospheric background on hover / during streaming */}
-                        <div
-                          className={cn(
-                            "pointer-events-none absolute -inset-x-4 -inset-y-3 rounded-md transition-colors duration-300",
-                            isStreamingThis
-                              ? "bg-[var(--color-ai-surface)]"
-                              : "bg-transparent group-hover:bg-[var(--color-ai-surface)]",
-                          )}
-                        />
-
                         <div className="relative">
                           {/* Message body */}
                           <div className="text-sm leading-[1.5] text-foreground">
@@ -300,7 +301,7 @@ export function ConversationWorkspace({
 
               <AnimatePresence mode="wait">
                 {showLoadingSkeleton && (
-                  <div className="mt-7">
+                  <div className="mt-6">
                     <AssistantLoadingSkeleton phase={effectivePhase} />
                   </div>
                 )}
@@ -318,6 +319,7 @@ export function ConversationWorkspace({
                 taskState={taskState}
                 thinkingContent={thinkingContent}
                 onClick={handleProgressCardClick}
+                onStepClick={handleStepClick}
                 panelOpen={panelOpen}
               />
             </div>
@@ -347,6 +349,7 @@ export function ConversationWorkspace({
               agentStatuses={agentStatuses}
               artifacts={artifacts}
               taskState={taskState}
+              highlightedStepId={highlightedStepId}
               onClose={() => setPanelOpen(false)}
             />
           </motion.div>

@@ -41,7 +41,7 @@ export function CodeOutput({ output, icon: Icon, label, className }: CodeOutputP
             type="button"
             onClick={handleCopy}
             aria-label={copied ? "Copied" : "Copy to clipboard"}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
             {copied ? (
               <>
@@ -60,7 +60,7 @@ export function CodeOutput({ output, icon: Icon, label, className }: CodeOutputP
         )}
 
         {Icon && label && (
-          <span className="flex items-center gap-1 text-[0.625rem] text-muted-foreground-dim">
+          <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
             <Icon className="h-3 w-3" />
             {label}
           </span>

@@ -6,6 +6,7 @@ import {
   Monitor,
   CircleCheck,
   CircleX,
+  Loader2,
   X,
   FolderOpen,
 } from "lucide-react";
@@ -35,19 +36,14 @@ function getToolVerb(name: string, t: TFn): string {
   return translated;
 }
 
-/* ── status symbol for terminal-style logs ── */
-function statusSymbol(tc: ToolCallInfo): string {
+/* ── status icon for terminal-style logs ── */
+function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   if (tc.output !== undefined) {
-    return tc.success === false ? "✗" : "✓";
+    return tc.success === false
+      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
+      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />;
   }
-  return "⟳";
-}
-
-function statusColor(tc: ToolCallInfo): string {
-  if (tc.output !== undefined) {
-    return tc.success === false ? "text-accent-rose" : "text-accent-emerald";
-  }
-  return "text-ai-glow";
+  return <Loader2 className="h-3.5 w-3.5 shrink-0 text-ai-glow animate-spin" />;
 }
 
 type PanelTab = "activity" | "files";
@@ -58,6 +54,7 @@ interface AgentComputerPanelProps {
   agentStatuses: AgentStatus[];
   artifacts: ArtifactInfo[];
   taskState: TaskState;
+  highlightedStepId?: string | null;
   onClose?: () => void;
 }
 
@@ -67,14 +64,52 @@ export function AgentComputerPanel({
   agentStatuses,
   artifacts,
   taskState,
+  highlightedStepId,
   onClose,
 }: AgentComputerPanelProps) {
   const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("activity");
+  const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
 
   const TABS: PanelTab[] = ["activity", "files"];
+
+  // Scroll to highlighted step and flash it
+  useEffect(() => {
+    if (!highlightedStepId) return;
+    // Switch to activity tab when a step is clicked
+    setActiveTab("activity");
+    setActiveHighlight(highlightedStepId);
+
+    // Wait a frame for the DOM to update after tab switch
+    requestAnimationFrame(() => {
+      // Exact match first, then prefix match for agent steps (agent-{id}-{ts} → agent-{id})
+      let el = contentRef.current?.querySelector(
+        `[data-step-id="${highlightedStepId}"]`,
+      );
+      if (!el && highlightedStepId.startsWith("agent-")) {
+        // Extract agentId from "agent-{agentId}-{timestamp}"
+        const parts = highlightedStepId.split("-");
+        // agentId may contain dashes, so match by prefix
+        const allStepEls = contentRef.current?.querySelectorAll("[data-step-id]") ?? [];
+        for (const candidate of allStepEls) {
+          const sid = candidate.getAttribute("data-step-id") ?? "";
+          if (sid.startsWith("agent-") && highlightedStepId.startsWith(sid)) {
+            el = candidate;
+            break;
+          }
+        }
+      }
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
+    });
+
+    // Clear highlight after animation
+    const timer = setTimeout(() => setActiveHighlight(null), 1500);
+    return () => clearTimeout(timer);
+  }, [highlightedStepId]);
 
   const handleTabKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -102,6 +137,27 @@ export function AgentComputerPanel({
     () => toolCalls.filter((t) => !HIDDEN_ACTIVITY_TOOLS.has(t.name)),
     [toolCalls],
   );
+
+  // Split tool calls: parent (no agentId) vs grouped by agentId
+  const { parentToolCalls, agentToolCallsMap } = useMemo(() => {
+    const parent: ToolCallInfo[] = [];
+    const agentMap = new Map<string, ToolCallInfo[]>();
+
+    for (const tc of visibleToolCalls) {
+      if (tc.agentId) {
+        const existing = agentMap.get(tc.agentId);
+        if (existing) {
+          existing.push(tc);
+        } else {
+          agentMap.set(tc.agentId, [tc]);
+        }
+      } else {
+        parent.push(tc);
+      }
+    }
+
+    return { parentToolCalls: parent, agentToolCallsMap: agentMap };
+  }, [visibleToolCalls]);
 
   useEffect(() => {
     contentRef.current?.scrollTo({
@@ -156,7 +212,7 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "activity" ? 0 : -1}
             onClick={() => setActiveTab("activity")}
             className={cn(
-              "flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-t-md px-3 py-2 text-xs font-medium transition-colors",
               activeTab === "activity"
                 ? "border-b-2 border-foreground text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -174,7 +230,7 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "files" ? 0 : -1}
             onClick={() => setActiveTab("files")}
             className={cn(
-              "flex items-center gap-1.5 rounded-t-md px-3 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-t-md px-3 py-2 text-xs font-medium transition-colors",
               activeTab === "files"
                 ? "border-b-2 border-foreground text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -183,7 +239,7 @@ export function AgentComputerPanel({
             <FolderOpen className="h-3 w-3" />
             {t("computer.artifacts")}
             {artifacts.length > 0 && (
-              <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-[0.625rem] font-semibold">
+              <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-micro font-semibold">
                 {artifacts.length}
               </span>
             )}
@@ -200,15 +256,15 @@ export function AgentComputerPanel({
 
       {/* ── Activity tab ── */}
       {activeTab === "activity" && isRunning && latestToolCall && (
-        <div className="flex shrink-0 items-center gap-2 border-b border-border bg-secondary/50 px-4 py-2" role="status" aria-live="polite">
+        <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2" role="status" aria-live="polite">
           <PulsingDot size="sm" />
-          <span className="text-xs text-muted-foreground">
+          <span className="text-sm text-muted-foreground">
             {SKILL_TOOL_NAMES.has(latestToolCall.name)
               ? t("computer.loadingSkill", { name: normalizeSkillName(String(latestToolCall.input.name ?? "skill")) })
               : t("computer.usingTool", { verb: getToolVerb(latestToolCall.name, t) })}
           </span>
           {latestToolCall.output === undefined && !SKILL_TOOL_NAMES.has(latestToolCall.name) && (
-            <span className="ml-auto max-w-[240px] truncate font-mono text-xs text-muted-foreground-dim">
+            <span className="ml-auto max-w-[240px] truncate font-mono text-sm text-muted-foreground-dim">
               {formatToolPreview(latestToolCall.input)}
             </span>
           )}
@@ -234,23 +290,29 @@ export function AgentComputerPanel({
               </div>
             )}
 
-            {/* Terminal-style tool call entries */}
-            <div className="space-y-1 font-mono text-xs">
-              {visibleToolCalls.map((tc) =>
+            {/* Parent tool call entries (no agentId) */}
+            <div className="space-y-2 font-mono text-sm">
+              {parentToolCalls.map((tc) =>
                 SKILL_TOOL_NAMES.has(tc.name) ? (
                   <SkillActivityEntry key={tc.id} toolCall={tc} />
                 ) : (
                   <motion.div
                     key={tc.id}
+                    data-step-id={`tool-${tc.id}`}
                     initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
+                    animate={{
+                      opacity: 1,
+                      y: 0,
+                      backgroundColor: activeHighlight === `tool-${tc.id}`
+                        ? "var(--color-secondary)"
+                        : "transparent",
+                    }}
                     transition={{ duration: 0.15, ease: "easeOut" }}
+                    className="rounded-md"
                   >
                     {/* Log line */}
-                    <div className="flex items-start gap-2 py-1">
-                      <span className={cn("shrink-0", statusColor(tc))}>
-                        [{statusSymbol(tc)}]
-                      </span>
+                    <div className="flex items-start gap-2 py-1.5">
+                      <StatusIcon tc={tc} />
                       <span className="text-foreground">
                         {normalizeToolName(tc.name)}
                       </span>
@@ -260,13 +322,9 @@ export function AgentComputerPanel({
                         </span>
                       )}
                       {tc.output === undefined && (
-                        <motion.span
-                          className="text-ai-glow"
-                          animate={{ opacity: [0.3, 1, 0.3] }}
-                          transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                        >
+                        <span className="text-ai-glow animate-pulse">
                           {t("computer.running")}
-                        </motion.span>
+                        </span>
                       )}
                     </div>
 
@@ -287,11 +345,18 @@ export function AgentComputerPanel({
               )}
             </div>
 
-            {/* Agent statuses */}
+            {/* Agent sections with nested tool calls */}
             {agentStatuses.length > 0 && (
               <div className="mt-4 space-y-2">
                 {agentStatuses.map((agent) => (
-                  <AgentStatusRow key={agent.agentId} agent={agent} variant="light" />
+                  <div key={agent.agentId} data-step-id={`agent-${agent.agentId}`}>
+                    <AgentStatusRow
+                      agent={agent}
+                      variant="light"
+                      toolCalls={agentToolCallsMap.get(agent.agentId)}
+                      conversationId={conversationId}
+                    />
+                  </div>
                 ))}
               </div>
             )}

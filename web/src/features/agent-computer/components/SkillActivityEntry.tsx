@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Wand, ChevronRight, Check, Loader2, Package, Globe, FolderGit2 } from "lucide-react";
+import { Lightbulb, ChevronRight, Check, Loader2, Package, Globe, FolderGit2 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
@@ -108,14 +108,14 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
           >
             {isComplete ? (
               isError ? (
-                <Wand aria-hidden="true" className="h-3.5 w-3.5 text-accent-rose/70" />
+                <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-accent-rose/70" />
               ) : (
                 <motion.div
                   initial={{ opacity: 0, rotate: -90 }}
                   animate={{ opacity: 1, rotate: 0 }}
                   transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.1 }}
                 >
-                  <Wand aria-hidden="true" className="h-3.5 w-3.5 text-[var(--color-ai-glow)]" />
+                  <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-[var(--color-ai-glow)]" />
                 </motion.div>
               )
             ) : (
@@ -127,7 +127,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
           <div className="min-w-0 flex-1">
             {/* Row 1: Name + status + source badge */}
             <div className="flex items-center gap-2">
-              <span className="text-xs font-semibold tracking-tight text-foreground">
+              <span className="text-sm font-semibold tracking-tight text-foreground">
                 {displayName}
               </span>
 
@@ -136,7 +136,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
-                  className="inline-flex items-center gap-1 rounded-full bg-[var(--color-ai-glow)]/10 px-1.5 py-0.5 text-[0.625rem] font-medium text-[var(--color-ai-glow)]"
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--color-ai-glow)]/10 px-1.5 py-0.5 text-micro font-medium text-[var(--color-ai-glow)]"
                 >
                   <Check className="h-2.5 w-2.5" />
                   {t("skills.activity.loaded")}
@@ -144,13 +144,13 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {!isComplete && (
-                <span className="text-[0.625rem] font-medium text-[var(--color-ai-glow)]/60">
+                <span className="text-micro font-medium text-[var(--color-ai-glow)]/60">
                   {t("skills.activity.loading")}
                 </span>
               )}
 
               {isError && (
-                <span className="text-[0.625rem] font-medium text-accent-rose/70">
+                <span className="text-micro font-medium text-accent-rose/70">
                   {t("skills.activity.failed")}
                 </span>
               )}
@@ -161,7 +161,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ duration: 0.2 }}
-                  className={cn("ml-auto shrink-0 rounded px-1.5 py-0.5 text-[0.625rem] font-medium", sourceStyle.color)}
+                  className={cn("ml-auto shrink-0 rounded px-1.5 py-0.5 text-micro font-medium", sourceStyle.color)}
                 >
                   {t(sourceLabelKey)}
                 </motion.span>
@@ -174,7 +174,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
 
             {/* Row 2: Description — skeleton while loading, real text when ready, hidden if empty */}
             {showSkeleton ? (
-              <div className="mt-0.5 min-h-[18px]">
+              <div className="mt-1.5 min-h-[18px]">
                 <Skeleton className="h-3 w-48" />
               </div>
             ) : skillMeta?.description ? (
@@ -182,7 +182,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.2 }}
-                className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
+                className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground"
               >
                 {skillMeta.description}
               </motion.p>
@@ -197,12 +197,12 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 className="mt-1.5 flex items-center gap-3"
               >
                 {lineCount > 0 && (
-                  <span className="font-mono text-[0.625rem] text-muted-foreground-dim">
+                  <span className="font-mono text-micro text-muted-foreground-dim">
                     {t("skills.activity.lines", { count: lineCount })}
                   </span>
                 )}
                 {resourceCount > 0 && (
-                  <span className="font-mono text-[0.625rem] text-muted-foreground-dim">
+                  <span className="font-mono text-micro text-muted-foreground-dim">
                     {resourceCount !== 1
                       ? t("skills.activity.resources", { count: resourceCount })
                       : t("skills.activity.resource", { count: resourceCount })}
@@ -213,7 +213,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
 
             {/* Error message */}
             {isError && toolCall.output && (
-              <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-accent-rose/70">
+              <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-accent-rose/70">
                 {toolCall.output.slice(0, 200)}
               </p>
             )}
@@ -224,7 +224,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             <button
               type="button"
               onClick={toggleRaw}
-              className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-[0.625rem] text-muted-foreground-dim transition-colors hover:bg-muted hover:text-muted-foreground"
+              className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground-dim transition-colors hover:bg-muted hover:text-muted-foreground"
               aria-label={showRaw ? t("skills.activity.hideInstructions") : t("skills.activity.showInstructions")}
             >
               <motion.span
@@ -249,7 +249,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               className="overflow-hidden"
             >
               <div className="border-t border-[var(--color-ai-border)] px-3.5 py-2">
-                <pre className="max-h-40 overflow-auto font-mono text-[0.625rem] leading-relaxed text-muted-foreground-dim">
+                <pre className="max-h-40 overflow-auto font-mono text-micro leading-relaxed text-muted-foreground-dim">
                   {toolCall.output}
                 </pre>
               </div>

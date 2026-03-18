@@ -1,4 +1,4 @@
-"""Skill installer — install skills from git repos, URLs, or archives."""
+"""Skill installer — install skills from git repos, URLs, archives, or uploads."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import shutil
 import subprocess
 import tempfile
 import zipfile
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,6 +19,26 @@ from agent.skills.parser import parse_skill_md
 
 _MAX_DOWNLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 _GIT_TIMEOUT = 30  # seconds
+
+
+@dataclass(frozen=True)
+class UploadedFile:
+    """Represents a file uploaded by the user."""
+
+    filename: str
+    data: bytes
+
+# Private/internal IP ranges that should be blocked to prevent SSRF
+_BLOCKED_HOSTS = frozenset(
+    {
+        "localhost",
+        "127.0.0.1",
+        "::1",
+        "0.0.0.0",
+        "169.254.169.254",  # cloud metadata
+        "metadata.google.internal",
+    }
+)
 
 
 class SkillInstaller:
@@ -64,11 +84,15 @@ class SkillInstaller:
             clone_dir = os.path.join(tmp_dir, "repo")
             try:
                 subprocess.run(
-                    ["git", "clone", "--depth", "1", repo_url, clone_dir],
+                    ["git", "clone", "--depth", "1", "--", repo_url, clone_dir],
                     check=True,
                     capture_output=True,
                     timeout=_GIT_TIMEOUT,
                 )
+            except FileNotFoundError as exc:
+                raise RuntimeError(
+                    "git is not installed or not found on PATH"
+                ) from exc
             except subprocess.TimeoutExpired as exc:
                 raise RuntimeError(
                     f"Git clone timed out after {_GIT_TIMEOUT}s"
@@ -102,25 +126,51 @@ class SkillInstaller:
         """
         _validate_https_url(url)
 
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.get(url, follow_redirects=True)
-            response.raise_for_status()
+        timeout = httpx.Timeout(connect=10.0, read=30.0, pool=10.0)
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            # Use streaming to avoid OOM on large responses
+            async with client.stream(
+                "GET", url, follow_redirects=True
+            ) as response:
+                # SSRF: validate the final URL after redirects
+                final_url = str(response.url)
+                _validate_https_url(final_url)
+                _validate_not_internal(final_url)
 
-            content_length = len(response.content)
-            if content_length > _MAX_DOWNLOAD_SIZE:
+                response.raise_for_status()
+
+                chunks: list[bytes] = []
+                total = 0
+                async for chunk in response.aiter_bytes():
+                    total += len(chunk)
+                    if total > _MAX_DOWNLOAD_SIZE:
+                        raise ValueError(
+                            f"Download too large: >{_MAX_DOWNLOAD_SIZE} bytes"
+                        )
+                    chunks.append(chunk)
+
+            content = b"".join(chunks)
+
+        is_zip = url.endswith(".zip")
+
+        # Content-type validation for non-zip downloads
+        if not is_zip:
+            content_type = response.headers.get("content-type", "")
+            if content_type and not content_type.startswith(
+                ("text/", "application/octet-stream")
+            ):
                 raise ValueError(
-                    f"Download too large: {content_length} bytes (max {_MAX_DOWNLOAD_SIZE})"
+                    f"Expected text content for SKILL.md, got: {content_type}"
                 )
 
         with tempfile.TemporaryDirectory() as tmp_dir:
-            if url.endswith(".zip"):
+            if is_zip:
                 archive_path = os.path.join(tmp_dir, "skill.zip")
                 with open(archive_path, "wb") as f:
-                    f.write(response.content)
+                    f.write(content)
 
                 extract_dir = os.path.join(tmp_dir, "extracted")
-                with zipfile.ZipFile(archive_path, "r") as zf:
-                    zf.extractall(extract_dir)
+                _safe_extract_zip(archive_path, extract_dir)
 
                 # Find SKILL.md in extracted content
                 skill_file = _find_skill_md(extract_dir)
@@ -135,7 +185,7 @@ class SkillInstaller:
             os.makedirs(skill_dir, exist_ok=True)
             skill_file = os.path.join(skill_dir, "SKILL.md")
             with open(skill_file, "w", encoding="utf-8") as f:
-                f.write(response.text)
+                f.write(content.decode("utf-8"))
 
             skill = parse_skill_md(skill_file)
             return self._install_skill_dir(skill_dir, skill)
@@ -175,6 +225,86 @@ class SkillInstaller:
 
         return tuple(entries)
 
+    async def install_from_upload(
+        self,
+        files: list[UploadedFile],
+    ) -> SkillContent:
+        """Install a skill from uploaded files.
+
+        Accepts:
+        - A single .zip file → extract and find SKILL.md
+        - A single SKILL.md file → install directly
+        - Multiple files (folder upload) → write all preserving relative paths, find SKILL.md
+
+        Raises
+        ------
+        ValueError for invalid uploads, missing SKILL.md, or path traversal.
+        """
+        if not files:
+            raise ValueError("No files uploaded")
+
+        # Validate total size
+        total_size = sum(len(f.data) for f in files)
+        if total_size > _MAX_DOWNLOAD_SIZE:
+            raise ValueError(
+                f"Upload too large: {total_size} bytes exceeds {_MAX_DOWNLOAD_SIZE} byte limit"
+            )
+
+        # Sanitize all filenames
+        for f in files:
+            _validate_upload_filename(f.filename)
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            if len(files) == 1 and files[0].filename.lower().endswith(".zip"):
+                # Single zip file
+                archive_path = os.path.join(tmp_dir, "upload.zip")
+                with open(archive_path, "wb") as fh:
+                    fh.write(files[0].data)
+
+                extract_dir = os.path.join(tmp_dir, "extracted")
+                _safe_extract_zip(archive_path, extract_dir)
+
+                skill_file = _find_skill_md(extract_dir)
+                if not skill_file:
+                    raise ValueError("No SKILL.md found in uploaded zip")
+
+                skill = parse_skill_md(skill_file)
+                return self._install_skill_dir(os.path.dirname(skill_file), skill)
+
+            if (
+                len(files) == 1
+                and os.path.basename(files[0].filename).upper() == "SKILL.MD"
+            ):
+                # Single SKILL.md file
+                skill_dir = os.path.join(tmp_dir, "skill")
+                os.makedirs(skill_dir, exist_ok=True)
+                skill_file = os.path.join(skill_dir, "SKILL.md")
+                with open(skill_file, "w", encoding="utf-8") as fh:
+                    fh.write(files[0].data.decode("utf-8"))
+
+                skill = parse_skill_md(skill_file)
+                return self._install_skill_dir(skill_dir, skill)
+
+            # Multiple files (folder upload)
+            upload_dir = os.path.join(tmp_dir, "upload")
+            os.makedirs(upload_dir, exist_ok=True)
+            real_upload_dir = os.path.realpath(upload_dir)
+
+            for f in files:
+                target_path = os.path.realpath(os.path.join(upload_dir, f.filename))
+                if not target_path.startswith(real_upload_dir + os.sep) and target_path != real_upload_dir:
+                    raise ValueError(f"Path traversal detected in filename: {f.filename}")
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                with open(target_path, "wb") as fh:
+                    fh.write(f.data)
+
+            skill_file = _find_skill_md(upload_dir)
+            if not skill_file:
+                raise ValueError("No SKILL.md found in uploaded files")
+
+            skill = parse_skill_md(skill_file)
+            return self._install_skill_dir(os.path.dirname(skill_file), skill)
+
     def _install_skill_dir(self, source_dir: str, skill: SkillContent) -> SkillContent:
         """Copy a skill directory into the install location."""
         name = _sanitize_name(skill.metadata.name)
@@ -201,6 +331,38 @@ def _validate_https_url(url: str) -> None:
         raise ValueError("Invalid URL: no host specified")
 
 
+def _validate_not_internal(url: str) -> None:
+    """Reject URLs pointing to internal/metadata services (SSRF prevention)."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname or ""
+    if hostname in _BLOCKED_HOSTS:
+        raise ValueError(f"URL points to a blocked internal host: {hostname}")
+    # Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
+    if hostname.startswith(("10.", "192.168.")):
+        raise ValueError(f"URL points to a private IP address: {hostname}")
+    if hostname.startswith("172."):
+        parts = hostname.split(".")
+        if len(parts) >= 2 and parts[1].isdigit():
+            second_octet = int(parts[1])
+            if 16 <= second_octet <= 31:
+                raise ValueError(
+                    f"URL points to a private IP address: {hostname}"
+                )
+
+
+def _safe_extract_zip(archive_path: str, extract_dir: str) -> None:
+    """Extract a zip file, rejecting entries with path traversal (Zip Slip)."""
+    os.makedirs(extract_dir, exist_ok=True)
+    real_extract_dir = os.path.realpath(extract_dir)
+
+    with zipfile.ZipFile(archive_path, "r") as zf:
+        for member in zf.namelist():
+            target = os.path.realpath(os.path.join(extract_dir, member))
+            if not target.startswith(real_extract_dir + os.sep) and target != real_extract_dir:
+                raise ValueError(f"Zip contains path traversal entry: {member}")
+        zf.extractall(extract_dir)
+
+
 def _sanitize_name(name: str) -> str:
     """Sanitize a skill name for use as a directory name."""
     # Allow only alphanumeric and hyphens
@@ -208,9 +370,41 @@ def _sanitize_name(name: str) -> str:
     return sanitized.strip("-") or "unnamed-skill"
 
 
+def _validate_upload_filename(filename: str) -> None:
+    """Reject filenames with path traversal or unsafe characters."""
+    if not filename:
+        raise ValueError("Empty filename")
+    # Reject absolute paths
+    if os.path.isabs(filename):
+        raise ValueError(f"Absolute path not allowed: {filename}")
+    # Reject path traversal components
+    parts = Path(filename).parts
+    if ".." in parts:
+        raise ValueError(f"Path traversal detected in filename: {filename}")
+    # Reject null bytes
+    if "\x00" in filename:
+        raise ValueError(f"Null byte in filename: {filename}")
+
+
 def _find_skill_md(root: str) -> str | None:
-    """Find the first SKILL.md file in a directory tree."""
+    """Find the SKILL.md file closest to root. Errors if multiple found at same depth."""
+    matches: list[tuple[int, str]] = []
     for dirpath, _dirs, files in os.walk(root):
         if "SKILL.md" in files:
-            return os.path.join(dirpath, "SKILL.md")
-    return None
+            depth = dirpath.replace(root, "").count(os.sep)
+            matches.append((depth, os.path.join(dirpath, "SKILL.md")))
+
+    if not matches:
+        return None
+
+    matches.sort(key=lambda x: x[0])
+    min_depth = matches[0][0]
+    top_level = [path for depth, path in matches if depth == min_depth]
+
+    if len(top_level) > 1:
+        raise ValueError(
+            f"Archive contains multiple SKILL.md files at the same level: "
+            f"{', '.join(top_level)}"
+        )
+
+    return top_level[0]

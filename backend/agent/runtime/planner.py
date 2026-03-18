@@ -8,14 +8,14 @@ from typing import Any, Protocol
 from loguru import logger
 
 from agent.llm.client import ClaudeClient, LLMResponse
-from agent.loop.helpers import (
+from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
     process_tool_calls,
 )
-from agent.loop.observer import Observer
-from agent.loop.orchestrator import AgentState
-from agent.loop.task_runner import TaskAgentConfig
+from agent.runtime.observer import Observer
+from agent.runtime.orchestrator import AgentState
+from agent.runtime.task_runner import TaskAgentConfig
 from agent.tools.executor import ToolExecutor
 from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
 from agent.tools.meta.wait_for_agents import WaitForAgents
@@ -110,7 +110,12 @@ class PlannerOrchestrator:
         """Callback for the task_complete tool."""
         self._task_complete_summary = summary
 
-    async def run(self, user_message: str, attachments: tuple = ()) -> str:
+    async def run(
+        self,
+        user_message: str,
+        attachments: tuple = (),
+        selected_skills: tuple[str, ...] = (),
+    ) -> str:
         """Execute the planner loop and return the final synthesized response.
 
         Emits lifecycle events throughout execution and cleans up

@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import os
+import subprocess
 import tempfile
+import zipfile
 from pathlib import Path
 from types import MappingProxyType
 
@@ -733,6 +735,275 @@ class TestSkillInstaller:
             installer = SkillInstaller(install_dir=tmp)
             with pytest.raises(ValueError, match="HTTPS"):
                 await installer.install_from_url("http://example.com/SKILL.md")
+
+
+# ---------------------------------------------------------------------------
+# Security tests — Zip Slip, SSRF, option injection
+# ---------------------------------------------------------------------------
+
+
+class TestZipSlipPrevention:
+    """Verify that malicious zip entries with path traversal are rejected."""
+
+    def test_zip_slip_rejected(self) -> None:
+        from agent.skills.installer import _safe_extract_zip
+
+        with tempfile.TemporaryDirectory() as tmp:
+            # Create a zip with a path traversal entry
+            archive_path = os.path.join(tmp, "evil.zip")
+            extract_dir = os.path.join(tmp, "extracted")
+            os.makedirs(extract_dir, exist_ok=True)
+
+            with zipfile.ZipFile(archive_path, "w") as zf:
+                zf.writestr("../../etc/evil.txt", "pwned")
+
+            with pytest.raises(ValueError, match="path traversal"):
+                _safe_extract_zip(archive_path, extract_dir)
+
+    def test_safe_zip_allowed(self) -> None:
+        from agent.skills.installer import _safe_extract_zip
+
+        with tempfile.TemporaryDirectory() as tmp:
+            archive_path = os.path.join(tmp, "safe.zip")
+            extract_dir = os.path.join(tmp, "extracted")
+
+            with zipfile.ZipFile(archive_path, "w") as zf:
+                zf.writestr("skill/SKILL.md", "---\nname: ok\ndescription: OK\n---\nBody")
+
+            _safe_extract_zip(archive_path, extract_dir)
+            assert os.path.isfile(os.path.join(extract_dir, "skill", "SKILL.md"))
+
+
+class TestSSRFPrevention:
+    """Verify that internal/private URLs are blocked."""
+
+    def test_localhost_blocked(self) -> None:
+        from agent.skills.installer import _validate_not_internal
+
+        with pytest.raises(ValueError, match="blocked internal host"):
+            _validate_not_internal("https://localhost/SKILL.md")
+
+    def test_metadata_endpoint_blocked(self) -> None:
+        from agent.skills.installer import _validate_not_internal
+
+        with pytest.raises(ValueError, match="blocked internal host"):
+            _validate_not_internal("https://169.254.169.254/latest/meta-data/")
+
+    def test_private_ip_blocked(self) -> None:
+        from agent.skills.installer import _validate_not_internal
+
+        with pytest.raises(ValueError, match="private IP"):
+            _validate_not_internal("https://10.0.0.1/SKILL.md")
+
+        with pytest.raises(ValueError, match="private IP"):
+            _validate_not_internal("https://192.168.1.1/SKILL.md")
+
+        with pytest.raises(ValueError, match="private IP"):
+            _validate_not_internal("https://172.16.0.1/SKILL.md")
+
+    def test_public_url_allowed(self) -> None:
+        from agent.skills.installer import _validate_not_internal
+
+        # Should not raise
+        _validate_not_internal("https://github.com/user/repo")
+
+
+class TestGitOptionInjection:
+    """Verify git clone uses -- separator to prevent option injection."""
+
+    @pytest.mark.asyncio
+    async def test_git_clone_uses_separator(self) -> None:
+        """The git clone command should include '--' before the URL."""
+        from unittest.mock import patch
+        from agent.skills.installer import SkillInstaller
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+
+            with patch("agent.skills.installer.subprocess.run") as mock_run:
+                mock_run.side_effect = subprocess.CalledProcessError(
+                    1, "git", stderr=b"expected failure"
+                )
+                with pytest.raises(RuntimeError):
+                    await installer.install_from_git("https://example.com/repo.git")
+
+                # Verify '--' is in the command before the URL
+                call_args = mock_run.call_args[0][0]
+                assert "--" in call_args
+                url_idx = call_args.index("https://example.com/repo.git")
+                sep_idx = call_args.index("--")
+                assert sep_idx < url_idx
+
+
+class TestGitNotFound:
+    """Verify clear error message when git is not installed."""
+
+    @pytest.mark.asyncio
+    async def test_git_not_found_error(self) -> None:
+        from unittest.mock import patch
+        from agent.skills.installer import SkillInstaller
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+
+            with patch(
+                "agent.skills.installer.subprocess.run",
+                side_effect=FileNotFoundError("git not found"),
+            ):
+                with pytest.raises(RuntimeError, match="git is not installed"):
+                    await installer.install_from_git("https://example.com/repo.git")
+
+
+class TestInstallFromUpload:
+    """Tests for SkillInstaller.install_from_upload."""
+
+    @pytest.mark.asyncio
+    async def test_upload_single_skill_md(self) -> None:
+        from agent.skills.installer import SkillInstaller, UploadedFile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            content = b"---\nname: uploaded-skill\ndescription: An uploaded skill\n---\n# Instructions\nDo stuff."
+            files = [UploadedFile(filename="SKILL.md", data=content)]
+            skill = await installer.install_from_upload(files)
+            assert skill.metadata.name == "uploaded-skill"
+            assert skill.source_type == "user"
+
+    @pytest.mark.asyncio
+    async def test_upload_zip(self) -> None:
+        from agent.skills.installer import SkillInstaller, UploadedFile
+        import io
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+
+            # Build a zip in memory
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w") as zf:
+                zf.writestr(
+                    "my-skill/SKILL.md",
+                    "---\nname: zip-skill\ndescription: From zip\n---\nBody",
+                )
+            zip_data = buf.getvalue()
+
+            files = [UploadedFile(filename="skill.zip", data=zip_data)]
+            skill = await installer.install_from_upload(files)
+            assert skill.metadata.name == "zip-skill"
+
+    @pytest.mark.asyncio
+    async def test_upload_multiple_files(self) -> None:
+        from agent.skills.installer import SkillInstaller, UploadedFile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            files = [
+                UploadedFile(
+                    filename="SKILL.md",
+                    data=b"---\nname: folder-skill\ndescription: Folder upload\n---\nBody",
+                ),
+                UploadedFile(
+                    filename="scripts/helper.py",
+                    data=b"print('hello')",
+                ),
+            ]
+            skill = await installer.install_from_upload(files)
+            assert skill.metadata.name == "folder-skill"
+
+    @pytest.mark.asyncio
+    async def test_upload_path_traversal_rejected(self) -> None:
+        from agent.skills.installer import SkillInstaller, UploadedFile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            files = [
+                UploadedFile(
+                    filename="../../../etc/passwd",
+                    data=b"evil",
+                ),
+            ]
+            with pytest.raises(ValueError, match="Path traversal"):
+                await installer.install_from_upload(files)
+
+    @pytest.mark.asyncio
+    async def test_upload_size_limit(self) -> None:
+        from agent.skills.installer import SkillInstaller, UploadedFile, _MAX_DOWNLOAD_SIZE
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            files = [
+                UploadedFile(
+                    filename="SKILL.md",
+                    data=b"x" * (_MAX_DOWNLOAD_SIZE + 1),
+                ),
+            ]
+            with pytest.raises(ValueError, match="too large"):
+                await installer.install_from_upload(files)
+
+    @pytest.mark.asyncio
+    async def test_upload_no_files(self) -> None:
+        from agent.skills.installer import SkillInstaller
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            with pytest.raises(ValueError, match="No files"):
+                await installer.install_from_upload([])
+
+    @pytest.mark.asyncio
+    async def test_upload_no_skill_md(self) -> None:
+        from agent.skills.installer import SkillInstaller, UploadedFile
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            files = [
+                UploadedFile(filename="README.md", data=b"# Just a readme"),
+                UploadedFile(filename="helper.py", data=b"print('hi')"),
+            ]
+            with pytest.raises(ValueError, match="No SKILL.md"):
+                await installer.install_from_upload(files)
+
+
+class TestFindSkillMd:
+    """Verify _find_skill_md prefers root-level and rejects ambiguous matches."""
+
+    def test_prefers_root_level(self) -> None:
+        from agent.skills.installer import _find_skill_md
+
+        with tempfile.TemporaryDirectory() as tmp:
+            # Root level SKILL.md
+            with open(os.path.join(tmp, "SKILL.md"), "w") as f:
+                f.write("---\nname: root\ndescription: Root\n---\nBody")
+
+            # Nested SKILL.md
+            nested = os.path.join(tmp, "sub", "dir")
+            os.makedirs(nested)
+            with open(os.path.join(nested, "SKILL.md"), "w") as f:
+                f.write("---\nname: nested\ndescription: Nested\n---\nBody")
+
+            result = _find_skill_md(tmp)
+            assert result == os.path.join(tmp, "SKILL.md")
+
+    def test_multiple_at_same_depth_raises(self) -> None:
+        from agent.skills.installer import _find_skill_md
+
+        with tempfile.TemporaryDirectory() as tmp:
+            # Two SKILL.md files at depth 1
+            dir_a = os.path.join(tmp, "a")
+            dir_b = os.path.join(tmp, "b")
+            os.makedirs(dir_a)
+            os.makedirs(dir_b)
+            with open(os.path.join(dir_a, "SKILL.md"), "w") as f:
+                f.write("---\nname: a\ndescription: A\n---\nBody")
+            with open(os.path.join(dir_b, "SKILL.md"), "w") as f:
+                f.write("---\nname: b\ndescription: B\n---\nBody")
+
+            with pytest.raises(ValueError, match="multiple SKILL.md"):
+                _find_skill_md(tmp)
+
+    def test_no_skill_md_returns_none(self) -> None:
+        from agent.skills.installer import _find_skill_md
+
+        with tempfile.TemporaryDirectory() as tmp:
+            assert _find_skill_md(tmp) is None
 
 
 # ---------------------------------------------------------------------------

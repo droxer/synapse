@@ -34,12 +34,13 @@ export interface ConversationContextValue {
   readonly allMessages: ChatMessage[];
   readonly isWaitingForAgent: boolean;
   readonly userCancelled: boolean;
-  readonly handleSendMessage: (message: string, files?: File[], skills?: string[]) => void;
-  readonly handleCreateConversation: (message: string, files?: File[], skills?: string[]) => void;
+  readonly handleSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
+  readonly handleCreateConversation: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   readonly handleSwitchConversation: (conversationId: string) => void;
   readonly handleNewConversation: () => void;
   readonly handleCancel: () => void;
   readonly handleRetry: () => void;
+  readonly createError: string | null;
   readonly pendingAsk: ReturnType<typeof usePendingAsk>["pendingAsk"];
   readonly handlePromptSubmit: (response: string) => Promise<void>;
   readonly respondError: string | null;
@@ -85,6 +86,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     allMessages,
     isWaitingForAgent,
     userCancelled,
+    createError,
     handleSendMessage,
     handleCreateConversation,
     handleSwitchConversation,
@@ -121,6 +123,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     handleNewConversation,
     handleCancel,
     handleRetry,
+    createError,
     pendingAsk,
     handlePromptSubmit,
     respondError,

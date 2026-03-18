@@ -27,6 +27,7 @@ export function ConversationView() {
     handleRetry,
     isWaitingForAgent,
     userCancelled,
+    createError,
   } = useConversationContext();
 
   const isActive = conversationId !== null;
@@ -40,7 +41,11 @@ export function ConversationView() {
           exit={{ opacity: 0, scale: 0.98 }}
           transition={{ duration: 0.25 }}
         >
-          <WelcomeScreen onSubmitTask={handleCreateConversation} />
+          <WelcomeScreen
+            onSubmitTask={handleCreateConversation}
+            error={createError}
+            isLoading={isWaitingForAgent}
+          />
         </motion.div>
       ) : (
         <motion.div

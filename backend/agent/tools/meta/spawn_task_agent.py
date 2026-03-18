@@ -84,7 +84,7 @@ class SpawnTaskAgent(LocalTool):
             return ToolResult.fail("task_description must not be empty")
 
         try:
-            from agent.loop.task_runner import TaskAgentConfig
+            from agent.runtime.task_runner import TaskAgentConfig
             from config.settings import get_settings
 
             model = get_settings().LITE_MODEL if use_lite_model else None
