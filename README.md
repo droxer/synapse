@@ -1,109 +1,68 @@
 # HiAgent
 
-A full-stack AI agent framework with a Python/FastAPI backend and TypeScript/Next.js frontend, connected via Server-Sent Events (SSE).
+An open-source AI agent platform that turns natural language into sandboxed, multi-step actions — with real-time streaming, multi-agent planning, and an extensible skill system.
 
-Users assign tasks through a chat interface. The backend runs a ReAct loop — reasoning, planning, and executing tools in a sandboxed environment — while the frontend streams progress in real time.
+## What It Does
+
+**Chat-driven task execution** — Users describe tasks in plain language. HiAgent's ReAct engine breaks them down, selects the right tools, and executes step-by-step while streaming progress in real time.
+
+**Sandboxed code execution** — Every task runs in an isolated micro-VM (Boxlite). Agents can write and run code, install packages, query databases, automate browsers, and generate files — without touching your host machine.
+
+**Multi-agent planning** — Complex tasks are automatically decomposed into sub-tasks. A planner agent coordinates multiple worker agents that run concurrently, each with their own sandbox.
+
+**Extensible skill system** — Skills are portable YAML definitions that teach agents new methodologies. Install community skills from GitHub or write your own. Skills define instructions, allowed tools, and sandbox requirements.
+
+**MCP integration** — Connect external tools via the Model Context Protocol. Add MCP servers to extend agent capabilities with third-party APIs and services.
+
+**Real-time streaming** — The frontend renders every step as it happens: LLM reasoning, tool execution, code output, generated artifacts, and sub-agent progress — all via Server-Sent Events.
+
+## Features
+
+- **Conversational interface** with file upload, skill selection, and follow-up messages
+- **20+ built-in tools** — web search, code execution, browser automation, file operations, database queries, image generation, document generation
+- **Artifact management** — Files generated in the sandbox are extracted and available for download/preview
+- **Extended thinking** — Configurable thinking budget for deeper reasoning on complex tasks
+- **Persistent memory** — Agents remember context across conversation turns
+- **Conversation history** — Full persistence with PostgreSQL
+- **Dark/light theme** with internationalization (English, Chinese)
+- **Keyboard-first UX** — Command palette (Cmd+K), responsive layout
 
 ## Quick Start
 
 ### Prerequisites
 
-- Python 3.12+
-- Node.js (with npm)
-- [`uv`](https://docs.astral.sh/uv/) package manager
+- Python 3.12+, Node.js (with npm), [`uv`](https://docs.astral.sh/uv/)
+- PostgreSQL (optional, for conversation persistence)
 
 ### Setup
 
 ```bash
-# Clone and install all dependencies
 make install
 
-# Create backend/.env with required keys (see backend/.env.example)
+# Create backend/.env (see backend/.env.example)
 # ANTHROPIC_API_KEY=...
 # TAVILY_API_KEY=...
 
-# Start backend (port 8000) + frontend (port 3000)
 make dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
 
-## Commands
-
-```bash
-make dev              # Start backend + frontend concurrently
-make backend          # Backend only (port 8000)
-make web              # Frontend only (port 3000)
-make install          # Install all dependencies
-make build-web        # Production frontend build
-make clean            # Remove .venv, node_modules, .next
-```
-
-### Backend Testing & Linting
-
-Run from `backend/`:
-
-```bash
-uv run pytest                          # All tests
-uv run pytest path/to/test.py::test_fn # Single test
-uv run pytest --cov                    # With coverage
-uv run ruff check .                    # Lint
-uv run ruff format .                   # Format
-```
-
-## Architecture
-
-```
-HiAgent/
-├── backend/
-│   ├── api/              # FastAPI endpoints + SSE event emitter
-│   ├── agent/
-│   │   ├── loop/         # ReAct orchestrator, planner, sub-agent manager
-│   │   ├── llm/          # Claude API client (anthropic SDK)
-│   │   ├── tools/        # Tool registry, executor, built-in tools
-│   │   ├── sandbox/      # Execution sandbox providers (E2B, BoxLite)
-│   │   └── skills/       # YAML skill definitions
-│   └── config/           # Pydantic Settings
-├── web/
-│   ├── src/
-│   │   ├── app/          # Next.js App Router
-│   │   ├── features/     # Feature modules (welcome, task-view, conversation, agent-activity)
-│   │   ├── shared/       # Shared components, hooks, types, stores
-│   │   └── hooks/        # SSE + agent state hooks
-│   └── next.config.ts    # API proxy to backend
-└── Makefile
-```
-
-### Data Flow
-
-1. User sends a message → frontend POSTs to `/api/tasks`
-2. Frontend opens SSE connection to `/api/tasks/{taskId}/events`
-3. Backend runs the ReAct loop: LLM call → tool execution → emit events → repeat
-4. Frontend renders events in real time across chat and activity panels
-
-### API Endpoints
-
-| Method | Path | Description |
-|--------|------|-------------|
-| `POST` | `/tasks` | Create a new task |
-| `GET` | `/tasks/{task_id}/events` | SSE stream of agent events |
-| `POST` | `/tasks/{task_id}/respond` | Submit user response to agent prompt |
-
 ## Tech Stack
 
-**Backend:** Python 3.12+, FastAPI, Anthropic SDK, Pydantic, uv
+| Layer | Technology |
+|-------|-----------|
+| Backend | Python 3.12+, FastAPI, Anthropic SDK, SQLAlchemy (async), Alembic |
+| Frontend | Next.js 15, React 19, Tailwind CSS 4, Zustand, Framer Motion, Radix UI |
+| Sandbox | Boxlite micro-VMs, E2B (cloud), Docker |
+| Database | PostgreSQL, Redis (optional) |
+| Package Manager | uv (backend), npm (frontend) |
 
-**Frontend:** Next.js 15 (App Router, Turbopack), React 19, Tailwind CSS 4, Zustand, Framer Motion
+## Documentation
 
-## Environment Variables
-
-Required in `backend/.env`:
-
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude |
-| `TAVILY_API_KEY` | Yes | Tavily API key for web search |
-| `REDIS_URL` | No | Redis URL for state persistence |
+- [Development Guide](docs/development.md) — Commands, architecture, API reference, environment variables, and contribution workflow
+- [Design Style Guide](docs/DESIGN_STYLE_GUIDE.md) — UI component patterns, color system, typography, and accessibility
+- [Brand Guidelines](docs/brand-guidelines.md) — Brand identity, color palette, and visual design language
 
 ## License
 
