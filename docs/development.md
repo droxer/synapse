@@ -14,6 +14,10 @@ make install-web      # cd web && npm install
 make build-web        # cd web && npm run build
 make build-sandbox    # Build Boxlite sandbox Docker images
 make clean            # Remove .venv, node_modules, .next
+make test             # Run backend tests: cd backend && uv run pytest
+make lint             # Lint backend: cd backend && uv run ruff check .
+make format           # Format backend: cd backend && uv run ruff format .
+make evals            # Run agent evals (mock backend by default)
 ```
 
 ### Backend Testing & Linting
@@ -26,6 +30,25 @@ uv run pytest path/to/test.py::test_fn # Single test
 uv run pytest --cov                    # With coverage
 uv run ruff check .                    # Lint
 uv run ruff format .                   # Format
+```
+
+### Agent Evals
+
+Run from the project root:
+
+```bash
+make evals                                              # Run all evals (mock backend)
+make evals EVAL_ARGS="--backend live"                   # Run against real Claude API
+make evals EVAL_ARGS="--case web_search_basic"          # Run single case by id
+make evals EVAL_ARGS="--tags agent"                     # Filter by tags (agent, skill, handoff, etc.)
+make evals EVAL_ARGS="--output report.json"             # Write JSON report
+make evals EVAL_ARGS="--judge-model claude-sonnet-4-20250514"  # Custom LLM judge model
+```
+
+Or run directly via uv:
+
+```bash
+cd backend && uv run python -m evals --help
 ```
 
 ### Database Migrations
@@ -131,6 +154,17 @@ HiAgent/
 │   │   └── logging.py       # Loguru setup
 │   ├── config/
 │   │   └── settings.py      # Pydantic Settings (immutable after load)
+│   ├── evals/                # Agent evaluation system
+│   │   ├── models.py         # Frozen dataclasses (EvalCase, EvalResult, EvalMetrics, etc.)
+│   │   ├── loader.py         # YAML eval case parsing + validation
+│   │   ├── collector.py      # EventEmitter subscriber — captures tool calls, tokens, errors
+│   │   ├── runner.py         # EvalRunner — wires orchestrator, runs cases, collects results
+│   │   ├── grader.py         # Programmatic grading (tool_used, skill_activated, agent_spawned, etc.)
+│   │   ├── llm_judge.py      # LLM-as-judge grading via Claude API
+│   │   ├── reporter.py       # Console + JSON report output
+│   │   ├── mock_client.py    # ScriptedLLMClient for deterministic/fast evals
+│   │   ├── __main__.py       # CLI: uv run python -m evals
+│   │   └── cases/            # YAML eval case definitions
 │   ├── migrations/           # Alembic migration scripts
 │   └── tests/                # 50+ test files
 ├── web/
@@ -328,6 +362,34 @@ allowed_tools:
 - **Activation** — Best-match skill prompt injected into orchestrator; agent restricted to allowed tools
 - **Installation** — Clone from GitHub via `SkillInstaller`
 
+### Agent Evaluation System (`evals/`)
+
+A self-contained evaluation framework that hooks into the existing `EventEmitter` to test agent behavior against defined scenarios, measure quality, and catch regressions.
+
+- **YAML eval cases** — Each case defines a user message, grading criteria, mock LLM responses, and expected behavior. Cases are stored in `evals/cases/`.
+
+- **Grading criteria** — 10 programmatic criterion types:
+
+| Criterion | Checks |
+|-----------|--------|
+| `tool_used` / `tool_not_used` | Whether a specific tool was (not) called |
+| `output_regex` / `output_contains` | Final output matches a pattern or substring |
+| `max_iterations` / `tool_call_count` | Execution stayed within limits |
+| `no_errors` | No errors occurred during execution |
+| `skill_activated` | A specific skill was activated |
+| `agent_spawned` | Sub-agents were spawned (by count, task substring, or any) |
+| `agent_handoff` | An agent handoff occurred (optionally to a specific role) |
+
+- **LLM-as-judge** — Sends task context, actual output, and tool call sequence to Claude for qualitative scoring. Uses Haiku by default for cost efficiency.
+
+- **Mock mode** — `ScriptedLLMClient` returns pre-defined LLM responses for deterministic, fast, offline evals. `MockToolExecutor` returns success for all tool calls.
+
+- **Live mode** — Runs against real Claude API to test actual agent behavior.
+
+- **EvalCollector** — Subscribes to `EventEmitter` and captures tool calls, token usage, errors, skill activations, agent spawns, and handoffs into frozen `EvalMetrics`.
+
+- **Built-in eval cases** — 6 scenarios covering web search, code execution, multi-tool chaining, skill invocation, sub-agent spawning, and agent handoff.
+
 ### State Persistence (`agent/state/`)
 
 SQLAlchemy async ORM with five models:
@@ -415,7 +477,7 @@ class AgentState:
         )
 ```
 
-Applied to: `AgentState`, `ToolResult`, `ToolDefinition`, `SandboxConfig`, `SkillMetadata`, `LLMResponse`, `AgentEvent`, `TokenUsage`, `Artifact`, and all result types.
+Applied to: `AgentState`, `ToolResult`, `ToolDefinition`, `SandboxConfig`, `SkillMetadata`, `LLMResponse`, `AgentEvent`, `TokenUsage`, `Artifact`, `EvalCase`, `EvalResult`, `EvalMetrics`, and all result types.
 
 ### Event-Driven Architecture
 

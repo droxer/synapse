@@ -197,6 +197,7 @@ HiAgent/
 │   ├── api/           # Routes, middleware, app factory
 │   ├── agent/         # Agent runtime, tools, sandbox, skills
 │   ├── config/        # Settings (Pydantic)
+│   ├── evals/         # Agent evaluation system (YAML cases, grading, reporting)
 │   ├── migrations/    # Alembic database migrations
 │   └── tests/         # pytest test suite
 ├── web/               # Next.js frontend
@@ -223,6 +224,9 @@ HiAgent/
 | `make build-web` | Production build of frontend |
 | `make build-sandbox` | Build sandbox Docker images |
 | `make migrate` | Run database migrations |
+| `make test` | Run backend tests |
+| `make lint` | Lint backend code |
+| `make evals` | Run agent evals (mock backend) |
 | `make clean` | Remove `.venv`, `node_modules`, `.next` |
 
 ### Backend Testing & Linting

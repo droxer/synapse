@@ -13,6 +13,10 @@ make install-backend  # cd backend && uv sync
 make install-web      # cd web && npm install
 make build-web        # cd web && npm run build
 make build-sandbox    # Build Boxlite sandbox Docker images
+make test             # Run backend tests: cd backend && uv run pytest
+make lint             # Lint backend: cd backend && uv run ruff check .
+make format           # Format backend: cd backend && uv run ruff format .
+make evals            # Run agent evals (mock backend by default)
 ```
 
 **Backend testing/linting** (run from `backend/`):
@@ -22,6 +26,15 @@ uv run pytest path/to/test.py::test_fn # Run single test
 uv run pytest --cov                    # With coverage
 uv run ruff check .                    # Lint
 uv run ruff format .                   # Format
+```
+
+**Agent evals** (run from project root):
+```bash
+make evals                                              # Run all evals (mock backend)
+make evals EVAL_ARGS="--backend live"                   # Run against real Claude API
+make evals EVAL_ARGS="--case web_search_basic"          # Run single case by id
+make evals EVAL_ARGS="--tags agent"                     # Filter by tags
+make evals EVAL_ARGS="--output report.json"             # Write JSON report
 ```
 
 **Database migrations** (run from `backend/`):
@@ -68,6 +81,7 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`agent/mcp/`** — Model Context Protocol: `client.py` (stdio-based MCP communication), `bridge.py` (tool registration), `config.py` (server configuration)
 - **`config/settings.py`** — Pydantic Settings configuration (immutable after load)
 - **`migrations/`** — Alembic database migration scripts
+- **`evals/`** — Agent evaluation system: `models.py` (frozen dataclasses), `loader.py` (YAML case parsing), `collector.py` (EventEmitter subscriber), `runner.py` (orchestrator wiring), `grader.py` (programmatic grading), `llm_judge.py` (LLM-as-judge), `reporter.py` (console/JSON output), `mock_client.py` (scripted LLM), `cases/` (YAML eval definitions)
 
 ### Frontend (`web/`)
 
@@ -112,7 +126,7 @@ Python 3.12+, Node.js with npm, `uv` package manager for backend.
 
 ## Key Patterns
 
-- **Immutability**: Frozen dataclasses throughout backend (`AgentState`, `ToolResult`, `ToolDefinition`, `SandboxConfig`, `SkillMetadata`, `LLMResponse`, `AgentEvent`)
+- **Immutability**: Frozen dataclasses throughout backend (`AgentState`, `ToolResult`, `ToolDefinition`, `SandboxConfig`, `SkillMetadata`, `LLMResponse`, `AgentEvent`, `EvalCase`, `EvalResult`, `EvalMetrics`)
 - **Event-driven**: `EventEmitter` pub/sub bridges agent loop to SSE stream; supports multiple subscribers (SSE, database, logging)
 - **Tool registry**: Immutable registry pattern — tools registered at startup, looked up by name at execution; `register()` and `merge()` return new instances
 - **Repository pattern**: `ConversationRepository` abstracts data access; public APIs return frozen DTOs

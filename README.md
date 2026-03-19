@@ -30,6 +30,7 @@ An open-source AI agent platform that turns natural language into sandboxed, mul
 - **Extended thinking** — Configurable thinking budget for deeper reasoning on complex tasks
 - **Persistent memory** — Agents remember context across conversation turns
 - **Conversation history** — Full persistence with PostgreSQL
+- **Agent evaluation system** — YAML-defined eval cases with programmatic and LLM-as-judge grading, covering tool use, skill invocation, sub-agent spawning, and agent handoff
 - **Dark/light theme** with internationalization (English, Chinese)
 - **Keyboard-first UX** — Command palette (Cmd+K), responsive layout
 

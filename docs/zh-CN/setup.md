@@ -197,6 +197,7 @@ HiAgent/
 │   ├── api/           # 路由、中间件、应用工厂
 │   ├── agent/         # 智能体运行时、工具、沙盒、技能
 │   ├── config/        # 配置（Pydantic）
+│   ├── evals/         # 智能体评测系统（YAML 用例、评分、报告）
 │   ├── migrations/    # Alembic 数据库迁移
 │   └── tests/         # pytest 测试套件
 ├── web/               # Next.js 前端
@@ -223,6 +224,9 @@ HiAgent/
 | `make build-web` | 生产环境构建前端 |
 | `make build-sandbox` | 构建沙盒 Docker 镜像 |
 | `make migrate` | 执行数据库迁移 |
+| `make test` | 运行后端测试 |
+| `make lint` | 后端代码检查 |
+| `make evals` | 运行智能体评测（mock 后端） |
 | `make clean` | 删除 `.venv`、`node_modules`、`.next` |
 
 ### 后端测试与代码检查

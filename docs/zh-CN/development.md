@@ -14,6 +14,10 @@ make install-web      # cd web && npm install
 make build-web        # cd web && npm run build
 make build-sandbox    # 构建 Boxlite 沙箱 Docker 镜像
 make clean            # 清除 .venv、node_modules、.next
+make test             # 运行后端测试: cd backend && uv run pytest
+make lint             # 后端代码检查: cd backend && uv run ruff check .
+make format           # 后端代码格式化: cd backend && uv run ruff format .
+make evals            # 运行智能体评测（默认使用 mock 后端）
 ```
 
 ### 后端测试与代码检查
@@ -26,6 +30,25 @@ uv run pytest path/to/test.py::test_fn # 运行单个测试
 uv run pytest --cov                    # 附带覆盖率
 uv run ruff check .                    # 代码检查
 uv run ruff format .                   # 代码格式化
+```
+
+### 智能体评测
+
+在项目根目录运行：
+
+```bash
+make evals                                              # 运行所有评测（mock 后端）
+make evals EVAL_ARGS="--backend live"                   # 使用真实 Claude API 运行
+make evals EVAL_ARGS="--case web_search_basic"          # 按 id 运行单个用例
+make evals EVAL_ARGS="--tags agent"                     # 按标签过滤（agent、skill、handoff 等）
+make evals EVAL_ARGS="--output report.json"             # 输出 JSON 报告
+make evals EVAL_ARGS="--judge-model claude-sonnet-4-20250514"  # 自定义 LLM 评判模型
+```
+
+或通过 uv 直接运行：
+
+```bash
+cd backend && uv run python -m evals --help
 ```
 
 ### 数据库迁移
@@ -131,6 +154,17 @@ HiAgent/
 │   │   └── logging.py       # Loguru 日志配置
 │   ├── config/
 │   │   └── settings.py      # Pydantic Settings（加载后不可变）
+│   ├── evals/                # 智能体评测系统
+│   │   ├── models.py         # 冻结数据类（EvalCase、EvalResult、EvalMetrics 等）
+│   │   ├── loader.py         # YAML 评测用例解析与验证
+│   │   ├── collector.py      # EventEmitter 订阅者 — 采集工具调用、token 用量、错误
+│   │   ├── runner.py         # EvalRunner — 连接编排器、运行用例、收集结果
+│   │   ├── grader.py         # 编程式评分（tool_used、skill_activated、agent_spawned 等）
+│   │   ├── llm_judge.py      # 基于 LLM 的评判评分（通过 Claude API）
+│   │   ├── reporter.py       # 控制台 + JSON 报告输出
+│   │   ├── mock_client.py    # ScriptedLLMClient — 确定性/快速评测
+│   │   ├── __main__.py       # CLI: uv run python -m evals
+│   │   └── cases/            # YAML 评测用例定义
 │   ├── migrations/           # Alembic 迁移脚本
 │   └── tests/                # 50+ 测试文件
 ├── web/
@@ -328,6 +362,32 @@ allowed_tools:
 - **激活** — 最佳匹配的技能提示注入编排器；智能体被限制为允许的工具
 - **安装** — 通过 `SkillInstaller` 从 GitHub 克隆
 
+### 智能体评测系统 (`evals/`)
+
+一套自包含的评测框架，通过订阅 `EventEmitter` 来测试智能体行为、度量质量并捕获回归。
+
+- **YAML 评测用例** — 每个用例定义用户消息、评分标准、模拟 LLM 响应和预期行为。用例存储在 `evals/cases/` 中。
+
+- **评分标准** — 10 种编程式评判类型：
+
+| 标准 | 检查项 |
+|------|--------|
+| `tool_used` / `tool_not_used` | 是否调用了（未调用）特定工具 |
+| `output_regex` / `output_contains` | 最终输出是否匹配模式或包含子串 |
+| `max_iterations` / `tool_call_count` | 执行是否在限制范围内 |
+| `no_errors` | 执行期间是否发生错误 |
+| `skill_activated` | 是否激活了特定技能 |
+| `agent_spawned` | 是否生成了子智能体（按数量、任务子串或任意） |
+| `agent_handoff` | 是否发生了智能体交接（可选指定目标角色） |
+
+- **LLM 评判模式** — 将任务上下文、实际输出和工具调用序列发送给 Claude 进行定性评分。默认使用 Haiku 以节省成本。
+
+- **Mock 模式** — `ScriptedLLMClient` 返回预定义的 LLM 响应，用于确定性、快速、离线评测。
+
+- **Live 模式** — 使用真实 Claude API 测试实际智能体行为。
+
+- **内置评测用例** — 6 个场景，覆盖网络搜索、代码执行、多工具链式调用、技能激活、子智能体生成和智能体交接。
+
 ### 状态持久化 (`agent/state/`)
 
 基于 SQLAlchemy 异步 ORM 的五个模型：
@@ -415,7 +475,7 @@ class AgentState:
         )
 ```
 
-适用于：`AgentState`、`ToolResult`、`ToolDefinition`、`SandboxConfig`、`SkillMetadata`、`LLMResponse`、`AgentEvent`、`TokenUsage`、`Artifact` 以及所有结果类型。
+适用于：`AgentState`、`ToolResult`、`ToolDefinition`、`SandboxConfig`、`SkillMetadata`、`LLMResponse`、`AgentEvent`、`TokenUsage`、`Artifact`、`EvalCase`、`EvalResult`、`EvalMetrics` 以及所有结果类型。
 
 ### 事件驱动架构
 
