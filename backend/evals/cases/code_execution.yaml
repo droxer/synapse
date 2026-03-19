@@ -1,0 +1,54 @@
+id: code_execution
+name: Code Execution with Python
+description: Agent should use code_run to execute Python code and produce correct output.
+user_message: Calculate the first 10 Fibonacci numbers using Python.
+grading_mode: programmatic
+tags:
+  - code
+  - basic
+max_iterations: 10
+
+criteria:
+  - name: used_code_run
+    type: tool_used
+    value: code_run
+    weight: 2.0
+  - name: output_contains_fibonacci
+    type: output_regex
+    value: "1,\\s*1,\\s*2,\\s*3,\\s*5,\\s*8"
+    weight: 2.0
+  - name: did_not_use_browser
+    type: tool_not_used
+    value: browser_navigate
+    weight: 0.5
+  - name: completed_within_limit
+    type: max_iterations
+    value: 5
+    weight: 1.0
+
+mock_responses:
+  - text: "I'll write Python code to calculate the Fibonacci sequence."
+    tool_calls:
+      - id: tc_code_1
+        name: code_run
+        input:
+          language: python
+          code: |
+            def fibonacci(n):
+                fib = [0, 1]
+                for i in range(2, n):
+                    fib.append(fib[-1] + fib[-2])
+                return fib
+
+            result = fibonacci(10)
+            print(', '.join(str(x) for x in result))
+    stop_reason: tool_use
+    usage:
+      input_tokens: 250
+      output_tokens: 100
+  - text: "The first 10 Fibonacci numbers are: 0, 1, 1, 2, 3, 5, 8, 13, 21, 34"
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 400
+      output_tokens: 60

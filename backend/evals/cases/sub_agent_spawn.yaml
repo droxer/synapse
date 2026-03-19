@@ -1,0 +1,89 @@
+id: sub_agent_spawn
+name: Sub-Agent Spawning
+description: Planner agent should decompose a complex task into sub-agents, spawn them, and wait for results.
+user_message: Research the latest AI trends, write a summary report, and create a comparison chart.
+grading_mode: programmatic
+tags:
+  - agent
+  - planner
+  - advanced
+max_iterations: 15
+
+criteria:
+  - name: spawned_agents
+    type: tool_used
+    value: agent_spawn
+    weight: 3.0
+  - name: waited_for_agents
+    type: tool_used
+    value: agent_wait
+    weight: 2.0
+  - name: output_mentions_report
+    type: output_contains
+    value: report
+    weight: 1.0
+  - name: completed_task
+    type: tool_used
+    value: task_complete
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+  - name: reasonable_tool_count
+    type: tool_call_count
+    value: 8
+    weight: 0.5
+
+mock_responses:
+  - text: "I'll decompose this into three parallel sub-tasks."
+    tool_calls:
+      - id: tc_spawn_1
+        name: agent_spawn
+        input:
+          task_description: "Research the latest AI trends for 2024-2025"
+          role: researcher
+      - id: tc_spawn_2
+        name: agent_spawn
+        input:
+          task_description: "Write a summary report on AI trends"
+          role: writer
+          depends_on: []
+      - id: tc_spawn_3
+        name: agent_spawn
+        input:
+          task_description: "Create a comparison chart of AI technologies"
+          role: data_analyst
+    stop_reason: tool_use
+    usage:
+      input_tokens: 400
+      output_tokens: 200
+  - text: "All agents spawned. Waiting for results."
+    tool_calls:
+      - id: tc_wait_1
+        name: agent_wait
+        input:
+          agent_ids: []
+    stop_reason: tool_use
+    usage:
+      input_tokens: 500
+      output_tokens: 60
+  - text: "All sub-tasks completed. Let me synthesize the results."
+    tool_calls:
+      - id: tc_complete_1
+        name: task_complete
+        input:
+          summary: "The report on AI trends has been completed with research, summary, and comparison chart. Key findings include the rise of multimodal models, agent frameworks, and on-device AI."
+    stop_reason: tool_use
+    usage:
+      input_tokens: 800
+      output_tokens: 120
+  - text: "The report on AI trends has been completed with research, summary, and comparison chart."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 900
+      output_tokens: 60

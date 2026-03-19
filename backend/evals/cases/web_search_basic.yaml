@@ -1,0 +1,44 @@
+id: web_search_basic
+name: Basic Web Search
+description: Agent should use the web_search tool to find information and provide a coherent answer.
+user_message: What is the current population of Tokyo, Japan?
+grading_mode: programmatic
+tags:
+  - search
+  - basic
+max_iterations: 10
+
+criteria:
+  - name: used_web_search
+    type: tool_used
+    value: web_search
+    weight: 2.0
+  - name: output_mentions_population
+    type: output_contains
+    value: population
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 5
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+
+mock_responses:
+  - text: "Let me search for Tokyo's population."
+    tool_calls:
+      - id: tc_search_1
+        name: web_search
+        input:
+          query: "current population of Tokyo Japan"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 200
+      output_tokens: 80
+  - text: "Based on my search, Tokyo has a population of approximately 14 million people in the city proper, and over 37 million in the greater metropolitan area, making it the most populous metropolitan area in the world."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 350
+      output_tokens: 120

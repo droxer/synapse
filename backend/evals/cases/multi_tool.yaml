@@ -1,0 +1,67 @@
+id: multi_tool
+name: Multi-Tool Chaining
+description: Agent should use multiple tools in sequence — search for data, then process it with code.
+user_message: Search for the top 5 most populated countries and write Python code to create a bar chart comparison.
+grading_mode: programmatic
+tags:
+  - multi_tool
+  - advanced
+max_iterations: 15
+
+criteria:
+  - name: used_web_search
+    type: tool_used
+    value: web_search
+    weight: 2.0
+  - name: used_code_run
+    type: tool_used
+    value: code_run
+    weight: 2.0
+  - name: output_mentions_chart
+    type: output_contains
+    value: chart
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+
+mock_responses:
+  - text: "I'll search for the most populated countries first."
+    tool_calls:
+      - id: tc_search_1
+        name: web_search
+        input:
+          query: "top 5 most populated countries 2024"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 300
+      output_tokens: 90
+  - text: "Now I'll create a bar chart with this data."
+    tool_calls:
+      - id: tc_code_1
+        name: code_run
+        input:
+          language: python
+          code: |
+            import matplotlib.pyplot as plt
+            countries = ['India', 'China', 'USA', 'Indonesia', 'Pakistan']
+            populations = [1.44, 1.43, 0.34, 0.28, 0.24]
+            plt.bar(countries, populations)
+            plt.title('Top 5 Most Populated Countries')
+            plt.ylabel('Population (billions)')
+            plt.savefig('population_chart.png')
+            print('Chart saved.')
+    stop_reason: tool_use
+    usage:
+      input_tokens: 500
+      output_tokens: 150
+  - text: "I've created a bar chart comparing the populations of the top 5 most populated countries. The chart shows India and China leading with over 1.4 billion people each."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 600
+      output_tokens: 80

@@ -1,0 +1,68 @@
+id: skill_invocation
+name: Skill Invocation
+description: Agent should activate a skill before starting work, then use tools guided by that skill.
+user_message: Create a data visualization dashboard from this CSV data using the data_science skill.
+grading_mode: programmatic
+tags:
+  - skill
+  - advanced
+max_iterations: 15
+
+criteria:
+  - name: activated_skill
+    type: tool_used
+    value: activate_skill
+    weight: 2.0
+  - name: used_code_after_skill
+    type: tool_used
+    value: code_run
+    weight: 2.0
+  - name: output_mentions_dashboard
+    type: output_contains
+    value: dashboard
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+
+mock_responses:
+  - text: "I'll activate the data science skill first."
+    tool_calls:
+      - id: tc_skill_1
+        name: activate_skill
+        input:
+          name: data_science
+    stop_reason: tool_use
+    usage:
+      input_tokens: 200
+      output_tokens: 60
+  - text: "Now I'll create the dashboard visualization."
+    tool_calls:
+      - id: tc_code_1
+        name: code_run
+        input:
+          language: python
+          code: |
+            import pandas as pd
+            import matplotlib.pyplot as plt
+            df = pd.DataFrame({'category': ['A','B','C'], 'value': [10,20,30]})
+            fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+            axes[0].bar(df['category'], df['value'])
+            axes[1].pie(df['value'], labels=df['category'])
+            plt.suptitle('Data Dashboard')
+            plt.savefig('dashboard.png')
+            print('Dashboard created.')
+    stop_reason: tool_use
+    usage:
+      input_tokens: 400
+      output_tokens: 150
+  - text: "I've created a data visualization dashboard with bar and pie charts showing your CSV data. The dashboard has been saved as dashboard.png."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 500
+      output_tokens: 80

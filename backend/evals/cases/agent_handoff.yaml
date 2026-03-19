@@ -1,0 +1,71 @@
+id: agent_handoff
+name: Agent Handoff
+description: A task agent should recognize it needs a specialist and hand off to a different role.
+user_message: Write a Python web scraper and then have it reviewed for security issues.
+grading_mode: programmatic
+tags:
+  - handoff
+  - agent
+  - advanced
+max_iterations: 15
+
+criteria:
+  - name: wrote_code
+    type: tool_used
+    value: code_run
+    weight: 2.0
+  - name: performed_handoff
+    type: tool_used
+    value: agent_handoff
+    weight: 3.0
+  - name: output_mentions_review
+    type: output_contains
+    value: review
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+
+mock_responses:
+  - text: "I'll write the web scraper first."
+    tool_calls:
+      - id: tc_code_1
+        name: code_run
+        input:
+          language: python
+          code: |
+            import requests
+            from bs4 import BeautifulSoup
+
+            def scrape(url):
+                response = requests.get(url, timeout=10)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                return [a.get('href') for a in soup.find_all('a')]
+
+            print('Scraper ready.')
+    stop_reason: tool_use
+    usage:
+      input_tokens: 300
+      output_tokens: 120
+  - text: "Code written. Now I'll hand off to a security reviewer."
+    tool_calls:
+      - id: tc_handoff_1
+        name: agent_handoff
+        input:
+          target_role: security_reviewer
+          task_description: "Review the Python web scraper for security vulnerabilities including SSRF, injection, and unsafe URL handling."
+          context: "The scraper uses requests and BeautifulSoup. Check for input validation, timeout handling, and URL sanitization."
+    stop_reason: tool_use
+    usage:
+      input_tokens: 500
+      output_tokens: 100
+  - text: "The web scraper has been written and handed off for security review. The reviewer will check for SSRF, injection risks, and unsafe URL handling."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 600
+      output_tokens: 80
