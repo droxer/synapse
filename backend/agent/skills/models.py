@@ -28,6 +28,7 @@ class SkillMetadata:
     license: str = ""
     compatibility: str | None = None
     allowed_tools: tuple[str, ...] = ()
+    dependencies: tuple[str, ...] = ()
     sandbox_template: str | None = None
     metadata: MappingProxyType[str, str] = field(
         default_factory=lambda: _EMPTY_METADATA

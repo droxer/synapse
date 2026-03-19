@@ -682,10 +682,15 @@ async def cancel_turn(
     """
     entry = state.conversations.get(conversation_id)
     if entry is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown conversation: {conversation_id}",
-        )
+        # Conversation was evicted from memory (e.g. SSE reconnect).
+        # If it exists in DB there is simply no running turn to cancel.
+        entry = await _reconstruct_conversation(state, conversation_id)
+        if entry is None:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unknown conversation: {conversation_id}",
+            )
+        return {"status": "no_active_turn"}
 
     if entry.turn_task is None or entry.turn_task.done():
         return {"status": "no_active_turn"}

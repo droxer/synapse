@@ -348,6 +348,14 @@ class AgentOrchestrator:
                 matched.metadata.sandbox_template,
             )
 
+        # Auto-install skill dependencies before any sandbox interaction
+        if (
+            self._auto_injected_skill is not None
+            and matched is not None
+            and matched.metadata.dependencies
+        ):
+            await self._install_skill_dependencies(matched.metadata.dependencies)
+
         uploaded_paths: tuple[str, ...] = ()
         if attachments:
             try:
@@ -427,6 +435,72 @@ class AgentOrchestrator:
             {"result": final_text},
         )
         return final_text
+
+    async def _install_skill_dependencies(
+        self,
+        dependencies: tuple[str, ...],
+    ) -> None:
+        """Auto-install skill dependencies in the sandbox.
+
+        Each dependency uses the format ``manager:package`` (e.g.
+        ``npm:pptxgenjs``, ``pip:pandas``).  If no manager prefix is
+        given, ``pip`` is assumed.
+        """
+        # Group packages by manager
+        by_manager: dict[str, list[str]] = {}
+        for dep in dependencies:
+            if ":" in dep:
+                manager, package = dep.split(":", 1)
+            else:
+                manager, package = "pip", dep
+            manager = manager.strip().lower()
+            package = package.strip()
+            if manager and package:
+                by_manager.setdefault(manager, []).append(package)
+
+        for manager, packages in by_manager.items():
+            packages_str = " ".join(packages)
+            logger.info(
+                "auto_installing_skill_dependencies manager={} packages={}",
+                manager,
+                packages_str,
+            )
+            try:
+                session = await self._executor.get_sandbox_session()
+                if manager == "pip":
+                    result = await session.exec(
+                        f"pip install {packages_str}", timeout=120
+                    )
+                elif manager == "npm":
+                    result = await session.exec(
+                        f"npm install {packages_str}", timeout=120
+                    )
+                else:
+                    logger.warning(
+                        "unknown_dependency_manager manager={}", manager
+                    )
+                    continue
+
+                if not result.success:
+                    logger.error(
+                        "skill_dependency_install_failed manager={} packages={} error={}",
+                        manager,
+                        packages_str,
+                        result.stderr or result.stdout,
+                    )
+                else:
+                    logger.info(
+                        "skill_dependencies_installed manager={} packages={}",
+                        manager,
+                        packages_str,
+                    )
+            except Exception as exc:
+                logger.error(
+                    "skill_dependency_install_error manager={} packages={} error={}",
+                    manager,
+                    packages_str,
+                    exc,
+                )
 
     async def _check_mid_turn_skill_activation(
         self,
@@ -534,6 +608,10 @@ class AgentOrchestrator:
                 skill.metadata.name,
                 skill.metadata.sandbox_template,
             )
+
+        # Auto-install dependencies if specified
+        if skill.metadata.dependencies:
+            await self._install_skill_dependencies(skill.metadata.dependencies)
 
         # Filter tools by allowed_tools if specified
         if skill.metadata.allowed_tools:

@@ -19,6 +19,7 @@ _KNOWN_KEYS = frozenset(
         "license",
         "compatibility",
         "allowed-tools",
+        "dependencies",
         "sandbox-template",
         "metadata",
     }
@@ -135,6 +136,19 @@ def parse_skill_md(path: str) -> SkillContent:
     if isinstance(allowed_tools_raw, str) and allowed_tools_raw.strip():
         allowed_tools = tuple(allowed_tools_raw.strip().split())
 
+    # Parse dependencies — list of "manager:package" strings (e.g. "npm:pptxgenjs")
+    dependencies_raw = fm.get("dependencies", [])
+    dependencies: tuple[str, ...] = ()
+    if isinstance(dependencies_raw, list):
+        deps: list[str] = []
+        for dep in dependencies_raw:
+            dep_str = str(dep).strip()
+            if dep_str:
+                deps.append(dep_str)
+        dependencies = tuple(deps)
+    elif isinstance(dependencies_raw, str) and dependencies_raw.strip():
+        dependencies = tuple(dependencies_raw.strip().split())
+
     # Parse sandbox-template — optional string
     sandbox_template_raw = fm.get("sandbox-template")
     sandbox_template: str | None = None
@@ -153,6 +167,7 @@ def parse_skill_md(path: str) -> SkillContent:
         license=fm.get("license", ""),
         compatibility=compatibility,
         allowed_tools=allowed_tools,
+        dependencies=dependencies,
         sandbox_template=sandbox_template,
         metadata=MappingProxyType(metadata_dict),
     )

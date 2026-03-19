@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Square, Paperclip, ArrowUp, GitFork } from "lucide-react";
+import { Square, Plus, ArrowUp, GitFork } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { FileAttachmentChip } from "@/shared/components/FileAttachmentChip";
 import { SkillSelector } from "@/features/skills";
@@ -82,7 +82,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey) {
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -225,7 +225,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   isWelcome ? "h-8 px-3 bg-secondary/50" : "h-7 bg-secondary/40",
                 )}
               >
-                <Paperclip className="h-3.5 w-3.5" />
+                <Plus className="h-3.5 w-3.5" />
               </Button>
 
               <SkillSelector

@@ -203,6 +203,12 @@ class PlannerOrchestrator:
                         matched.metadata.sandbox_template,
                     )
 
+                # Auto-install dependencies
+                if matched.metadata.dependencies:
+                    await self._install_skill_dependencies(
+                        matched.metadata.dependencies
+                    )
+
                 # Filter tools by allowed_tools
                 if matched.metadata.allowed_tools:
                     allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
@@ -280,6 +286,70 @@ class PlannerOrchestrator:
             return state.mark_completed(self._task_complete_summary)
 
         return state
+
+    async def _install_skill_dependencies(
+        self,
+        dependencies: tuple[str, ...],
+    ) -> None:
+        """Auto-install skill dependencies in the sandbox.
+
+        Format: ``manager:package`` (e.g. ``npm:pptxgenjs``).
+        Defaults to ``pip`` if no manager prefix.
+        """
+        by_manager: dict[str, list[str]] = {}
+        for dep in dependencies:
+            if ":" in dep:
+                manager, package = dep.split(":", 1)
+            else:
+                manager, package = "pip", dep
+            manager = manager.strip().lower()
+            package = package.strip()
+            if manager and package:
+                by_manager.setdefault(manager, []).append(package)
+
+        for manager, packages in by_manager.items():
+            packages_str = " ".join(packages)
+            logger.info(
+                "planner_auto_installing_dependencies manager={} packages={}",
+                manager,
+                packages_str,
+            )
+            try:
+                session = await self._executor.get_sandbox_session()
+                if manager == "pip":
+                    result = await session.exec(
+                        f"pip install {packages_str}", timeout=120
+                    )
+                elif manager == "npm":
+                    result = await session.exec(
+                        f"npm install {packages_str}", timeout=120
+                    )
+                else:
+                    logger.warning(
+                        "unknown_dependency_manager manager={}", manager
+                    )
+                    continue
+
+                if not result.success:
+                    logger.error(
+                        "planner_dependency_install_failed manager={} packages={} error={}",
+                        manager,
+                        packages_str,
+                        result.stderr or result.stdout,
+                    )
+                else:
+                    logger.info(
+                        "planner_dependencies_installed manager={} packages={}",
+                        manager,
+                        packages_str,
+                    )
+            except Exception as exc:
+                logger.error(
+                    "planner_dependency_install_error manager={} packages={} error={}",
+                    manager,
+                    packages_str,
+                    exc,
+                )
 
     async def _call_llm(
         self,
