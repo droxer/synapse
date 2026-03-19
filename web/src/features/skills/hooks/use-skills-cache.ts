@@ -70,7 +70,7 @@ async function refetchSkills(): Promise<void> {
 }
 
 async function fetchAndCacheSingle(name: string): Promise<void> {
-  if (cache.has(name) || pendingFetches.has(name)) return;
+  if (pendingFetches.has(name)) return;
   pendingFetches.add(name);
   try {
     const skill = await fetchSkillDetail(name);
@@ -96,8 +96,11 @@ export function useSkillsCache() {
 
   const getSkill = useCallback((name: string): Skill | null => {
     const cached = cache.get(name) ?? null;
-    // If bulk fetch completed (success or failure) but this skill isn't cached, try individual fetch
     if (cached === null && (bulkFetchState === "done" || bulkFetchState === "failed")) {
+      // Skill not cached at all — try individual fetch
+      fetchAndCacheSingle(name);
+    } else if (cached !== null && cached.instructions === null && !pendingFetches.has(name)) {
+      // Cached from bulk fetch without instructions — fetch full detail
       fetchAndCacheSingle(name);
     }
     return cached;

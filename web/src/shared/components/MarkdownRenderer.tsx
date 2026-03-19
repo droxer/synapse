@@ -69,13 +69,15 @@ const components: Components = {
 
 interface MarkdownRendererProps {
   content: string;
+  className?: string;
 }
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
+  className,
 }: MarkdownRendererProps) {
   return (
-    <div className="markdown-body">
+    <div className={className ?? "markdown-body"}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeHighlight]}

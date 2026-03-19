@@ -54,7 +54,7 @@ function DetailSkeleton() {
     <div className="flex h-full flex-col bg-background">
       {/* Header skeleton */}
       <div className="shrink-0 border-b border-border px-6 py-5">
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
           <div className="h-8 w-8 skeleton-shimmer rounded-md" />
           <div className="h-9 w-9 skeleton-shimmer rounded-lg" />
           <div className="space-y-1.5">
@@ -65,13 +65,15 @@ function DetailSkeleton() {
       </div>
       {/* Content skeleton */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
-        <div className="mx-auto max-w-5xl space-y-6">
-          <div className="space-y-2">
+        <div className="mx-auto max-w-4xl space-y-6">
+          {/* Metadata card skeleton */}
+          <div className="rounded-lg border border-border bg-card p-5 space-y-3">
             <div className="h-4 w-3/4 skeleton-shimmer rounded" />
             <div className="h-4 w-1/2 skeleton-shimmer rounded" />
+            <div className="h-3 w-48 skeleton-shimmer rounded" />
           </div>
-          <div className="h-3 w-48 skeleton-shimmer rounded" />
-          <div className="space-y-2 pt-4">
+          {/* Instructions card skeleton */}
+          <div className="rounded-lg border border-border bg-card p-6 space-y-3">
             <div className="h-4 w-full skeleton-shimmer rounded" />
             <div className="h-4 w-full skeleton-shimmer rounded" />
             <div className="h-4 w-5/6 skeleton-shimmer rounded" />
@@ -126,7 +128,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto flex max-w-5xl items-center gap-3">
+        <div className="mx-auto flex max-w-4xl items-center gap-3">
           <Button
             variant="ghost"
             size="icon-sm"
@@ -141,7 +143,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">
               {normalizeSkillName(skill.name)}
             </h1>
           </div>
@@ -174,7 +176,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
       {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto px-6 py-6">
         <motion.div
-          className="mx-auto max-w-5xl space-y-6"
+          className="mx-auto max-w-4xl space-y-6"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.15, ease: "easeOut", delay: 0.05 }}
@@ -187,31 +189,23 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             </div>
           )}
 
-          {/* Description */}
+          {/* Metadata card */}
           {skill.description && (
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              {skill.description}
-            </p>
+            <div className="rounded-lg border border-border bg-card p-5">
+              <p className="text-sm leading-relaxed text-muted-foreground">
+                {skill.description}
+              </p>
+            </div>
           )}
 
-          {/* Source path */}
-          <div className="flex items-center gap-2">
-            <span className="text-micro text-muted-foreground-dim">
-              {t("skills.sourcePath")}:
-            </span>
-            <span className="font-mono text-micro text-muted-foreground-dim">
-              {skill.source_path}
-            </span>
-          </div>
-
-          {/* Instructions */}
+          {/* Instructions card */}
           <div className="space-y-3">
             <h2 className="text-sm font-medium text-foreground">
               {t("skills.instructions")}
             </h2>
             {skill.instructions ? (
-              <div className="markdown-prose">
-                <MarkdownRenderer content={skill.instructions} />
+              <div className="rounded-lg border border-border bg-card p-6 lg:p-8">
+                <MarkdownRenderer className="markdown-prose" content={skill.instructions} />
               </div>
             ) : (
               <div className="flex items-center justify-center rounded-lg border border-dashed border-border py-10">

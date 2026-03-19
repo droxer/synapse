@@ -40,12 +40,12 @@ export function WelcomeScreen({ onSubmitTask, error, isLoading = false }: Welcom
         animate={{ opacity: 1 }}
         transition={{ duration: 0.12 }}
       >
-        {/* Heading — single fade-in */}
+        {/* Heading — single fade-in (Hero type scale per design guide) */}
         <motion.h1
-          className="mb-8 text-center font-sans text-3xl font-semibold leading-[1.15] tracking-tight text-foreground sm:text-5xl md:text-[3.75rem]"
-          initial={{ opacity: 0, y: 6 }}
+          className="mb-8 text-center font-sans text-2xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-[3.75rem]"
+          initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.2, ease: "easeOut" }}
+          transition={{ duration: 0.12, ease: "easeOut" }}
         >
           {heading}
         </motion.h1>

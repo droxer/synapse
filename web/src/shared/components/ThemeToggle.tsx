@@ -89,11 +89,10 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
     <Button
       variant="ghost"
       aria-label={t("theme.toggle")}
-      className="flex-1 justify-start gap-2 text-sm transition-colors duration-200 hover:bg-sidebar-hover"
+      className="flex-1 justify-center transition-colors duration-200 hover:bg-sidebar-hover"
       size="sm"
     >
       <Icon className={cn("h-4 w-4", spinClass)} />
-      {currentLabel}
     </Button>
   );
 

@@ -242,14 +242,14 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 aria-pressed={usePlanner}
                 onClick={() => setUsePlanner((v) => !v)}
                 className={cn(
-                  "gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors",
+                  "gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors duration-150",
                   isWelcome && "h-8 px-3",
                   !isWelcome && "h-7",
                   usePlanner
-                    ? "bg-primary/10 text-primary border border-primary/20 hover:bg-primary/15"
+                    ? "border border-border bg-secondary text-accent-purple hover:border-border-strong hover:shadow-sm"
                     : cn(
-                        "text-muted-foreground hover:bg-secondary hover:text-foreground",
-                        isWelcome ? "bg-secondary/50" : "bg-secondary/40",
+                        "border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
+                        isWelcome ? "bg-muted" : "bg-transparent",
                       ),
                 )}
                 title={t("chat.plannerHint")}
@@ -257,8 +257,8 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 <GitFork className="h-3.5 w-3.5" />
                 <span className="hidden sm:inline">{t("chat.planLabel")}</span>
                 {usePlanner && (
-                  <span className="relative flex h-1.5 w-1.5">
-                    <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
+                  <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+                    <span className="absolute inset-0 rounded-full bg-accent-purple" />
                   </span>
                 )}
               </Button>
