@@ -93,22 +93,17 @@ export function ConversationWorkspace({
     });
   }, [messages, events, toolCalls]);
 
-  const inlineImageUrls = useMemo(() => {
-    if (!conversationId) return [];
-    // Build a set of artifact IDs known to be images from artifact_created events
-    const imageArtifactIds = new Set(
-      artifacts
-        .filter((a) => a.contentType.startsWith("image/"))
-        .map((a) => a.id),
-    );
-    return toolCalls
-      .filter((tc) => tc.artifactIds && tc.artifactIds.length > 0)
-      .flatMap((tc) =>
-        tc.artifactIds!
-          .filter((aid) => imageArtifactIds.has(aid))
-          .map((aid) => `/api/conversations/${conversationId}/artifacts/${aid}`)
+  const getImageUrlsForMessage = useCallback(
+    (msg: ChatMessage): string[] => {
+      if (!conversationId || !msg.imageArtifactIds || msg.imageArtifactIds.length === 0) {
+        return [];
+      }
+      return msg.imageArtifactIds.map(
+        (aid) => `/api/conversations/${conversationId}/artifacts/${aid}`
       );
-  }, [toolCalls, conversationId, artifacts]);
+    },
+    [conversationId],
+  );
 
   const hasArtifacts = useMemo(
     () => toolCalls.some((tc) => tc.output !== undefined && !NON_ARTIFACT_TOOLS.has(tc.name)),
@@ -232,23 +227,26 @@ export function ConversationWorkspace({
                               {isStreamingThis && <StreamingCursor />}
                             </AnimatePresence>
 
-                            {/* Inline images */}
-                            {isLastAssistant && inlineImageUrls.length > 0 && (
-                              <div className="mt-4 flex flex-wrap gap-3">
-                                {inlineImageUrls.map((url) => (
-                                  /* eslint-disable-next-line @next/next/no-img-element */
-                                  <img
-                                    key={url}
-                                    src={url}
-                                    alt={t("conversation.imageAlt")}
-                                    className="max-h-72 rounded-md border border-border object-contain"
-                                    onError={(e) => {
-                                      (e.currentTarget as HTMLImageElement).style.display = "none";
-                                    }}
-                                  />
-                                ))}
-                              </div>
-                            )}
+                            {/* Inline images for this message */}
+                            {(() => {
+                              const imageUrls = getImageUrlsForMessage(msg);
+                              return imageUrls.length > 0 ? (
+                                <div className="mt-4 flex flex-wrap gap-3">
+                                  {imageUrls.map((url) => (
+                                    /* eslint-disable-next-line @next/next/no-img-element */
+                                    <img
+                                      key={url}
+                                      src={url}
+                                      alt={t("conversation.imageAlt")}
+                                      className="max-h-72 rounded-md border border-border object-contain"
+                                      onError={(e) => {
+                                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                                      }}
+                                    />
+                                  ))}
+                                </div>
+                              ) : null;
+                            })()}
 
                           </div>
 

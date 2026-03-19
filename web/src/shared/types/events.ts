@@ -46,6 +46,7 @@ export interface ChatMessage {
   content: string;
   timestamp: number;
   attachments?: Array<{ name: string; size: number; type: string }>;
+  imageArtifactIds?: string[];
 }
 
 export interface ToolCallInfo {

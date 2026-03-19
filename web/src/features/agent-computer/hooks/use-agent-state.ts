@@ -16,8 +16,32 @@ export function useAgentState(events: AgentEvent[]) {
     const msgs: ChatMessage[] = [];
     let streamingText = "";
     let streamingTimestamp = 0;
+    // Track image artifact IDs from tool results; attach to the next assistant message
+    let pendingImageArtifactIds: string[] = [];
+    // Track which artifact IDs are images
+    const imageArtifactIdSet = new Set<string>();
 
     for (const e of events) {
+      // Collect image artifact IDs from artifact_created events
+      if (e.type === "artifact_created") {
+        const contentType = String(e.data.content_type ?? "");
+        if (contentType.startsWith("image/")) {
+          imageArtifactIdSet.add(String(e.data.artifact_id ?? ""));
+        }
+      }
+
+      // Collect artifact IDs from tool_result events that are images
+      if (e.type === "tool_result") {
+        const artifactIds = Array.isArray(e.data.artifact_ids)
+          ? (e.data.artifact_ids as string[])
+          : [];
+        for (const aid of artifactIds) {
+          if (imageArtifactIdSet.has(aid)) {
+            pendingImageArtifactIds.push(aid);
+          }
+        }
+      }
+
       if (e.type === "text_delta") {
         // Accumulate streaming text from deltas
         streamingText += String(e.data.delta ?? "");
@@ -32,26 +56,42 @@ export function useAgentState(events: AgentEvent[]) {
         streamingText = "";
         streamingTimestamp = 0;
         if (text) {
-          msgs.push({
+          const msg: ChatMessage = {
             role: "assistant",
             content: text,
             timestamp: e.timestamp,
-          });
+          };
+          // Attach any pending image artifacts to this message
+          if (pendingImageArtifactIds.length > 0) {
+            msg.imageArtifactIds = pendingImageArtifactIds;
+            pendingImageArtifactIds = [];
+          }
+          msgs.push(msg);
         }
       } else if (e.type === "message_user") {
-        msgs.push({
+        const msg: ChatMessage = {
           role: "assistant",
           content: String(e.data.message ?? e.data.content ?? ""),
           timestamp: e.timestamp,
-        });
+        };
+        if (pendingImageArtifactIds.length > 0) {
+          msg.imageArtifactIds = pendingImageArtifactIds;
+          pendingImageArtifactIds = [];
+        }
+        msgs.push(msg);
       } else if (e.type === "turn_cancelled") {
         // Finalize any streaming text as a partial message
         if (streamingText) {
-          msgs.push({
+          const msg: ChatMessage = {
             role: "assistant",
             content: streamingText,
             timestamp: streamingTimestamp,
-          });
+          };
+          if (pendingImageArtifactIds.length > 0) {
+            msg.imageArtifactIds = pendingImageArtifactIds;
+            pendingImageArtifactIds = [];
+          }
+          msgs.push(msg);
           streamingText = "";
           streamingTimestamp = 0;
         }
@@ -62,12 +102,39 @@ export function useAgentState(events: AgentEvent[]) {
             (m) => m.role === "assistant" && m.content === result,
           );
           if (!alreadyShown) {
-            msgs.push({
+            const msg: ChatMessage = {
               role: "assistant",
               content: result,
               timestamp: e.timestamp,
-            });
+            };
+            if (pendingImageArtifactIds.length > 0) {
+              msg.imageArtifactIds = pendingImageArtifactIds;
+              pendingImageArtifactIds = [];
+            }
+            msgs.push(msg);
+          } else if (pendingImageArtifactIds.length > 0) {
+            // Attach to the existing matching message
+            const existing = msgs.findLast(
+              (m) => m.role === "assistant" && m.content === result,
+            );
+            if (existing) {
+              existing.imageArtifactIds = [
+                ...(existing.imageArtifactIds ?? []),
+                ...pendingImageArtifactIds,
+              ];
+            }
+            pendingImageArtifactIds = [];
           }
+        } else if (pendingImageArtifactIds.length > 0) {
+          // No result text but have pending images — attach to last assistant message
+          const lastAssistant = msgs.findLast((m) => m.role === "assistant");
+          if (lastAssistant) {
+            lastAssistant.imageArtifactIds = [
+              ...(lastAssistant.imageArtifactIds ?? []),
+              ...pendingImageArtifactIds,
+            ];
+          }
+          pendingImageArtifactIds = [];
         }
       } else if (e.type === "task_error") {
         const error = String(e.data.error ?? "An error occurred");
@@ -76,31 +143,33 @@ export function useAgentState(events: AgentEvent[]) {
           content: `Error: ${error}`,
           timestamp: e.timestamp,
         });
+        pendingImageArtifactIds = [];
       }
     }
 
     // If there's still streaming text (deltas arrived but no llm_response yet),
     // show it as an in-progress message
     if (streamingText) {
-      msgs.push({
+      const msg: ChatMessage = {
         role: "assistant",
         content: streamingText,
         timestamp: streamingTimestamp,
-      });
+      };
+      if (pendingImageArtifactIds.length > 0) {
+        msg.imageArtifactIds = pendingImageArtifactIds;
+        pendingImageArtifactIds = [];
+      }
+      msgs.push(msg);
     }
 
-    // Diagnostic logging — remove after verifying the fix
-    if (events.length > 0) {
-      console.log("[useAgentState] events:", events.map((e) => e.type));
-      console.log("[useAgentState] messages:", msgs.map((m) => ({ role: m.role, len: m.content.length })));
-      const completionEvents = events.filter(
-        (e) => e.type === "turn_complete" || e.type === "task_complete",
-      );
-      if (completionEvents.length > 0) {
-        console.log("[useAgentState] completion events:", completionEvents.map((e) => ({
-          type: e.type,
-          resultLen: String(e.data.result ?? "").length,
-        })));
+    // If there are still pending image artifacts, attach to last assistant message
+    if (pendingImageArtifactIds.length > 0) {
+      const lastAssistant = msgs.findLast((m) => m.role === "assistant");
+      if (lastAssistant) {
+        lastAssistant.imageArtifactIds = [
+          ...(lastAssistant.imageArtifactIds ?? []),
+          ...pendingImageArtifactIds,
+        ];
       }
     }
 
