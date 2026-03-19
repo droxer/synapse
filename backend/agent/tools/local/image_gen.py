@@ -94,16 +94,16 @@ class ImageGen(LocalTool):
         try:
             images_b64 = await self._call_api(prompt, aspect_ratio)
         except MiniMaxAPIError as exc:
-            logger.error("MiniMax API business error: %s", exc)
+            logger.error("MiniMax API business error: {}", exc)
             return ToolResult.fail(str(exc))
         except httpx.HTTPStatusError as exc:
-            logger.error("MiniMax API HTTP error: %s", exc)
+            logger.error("MiniMax API HTTP error: {}", exc)
             return ToolResult.fail(
                 f"MiniMax API error (HTTP {exc.response.status_code}): "
                 f"{exc.response.text[:200]}"
             )
         except httpx.HTTPError as exc:
-            logger.error("MiniMax API request failed: %s", exc)
+            logger.error("MiniMax API request failed: {}", exc)
             return ToolResult.fail(f"MiniMax API request failed: {exc}")
 
         if not images_b64:
@@ -181,5 +181,5 @@ class ImageGen(LocalTool):
         if isinstance(data, dict):
             return data.get("image_base64", [])
 
-        logger.warning("MiniMax API unexpected response structure: %s", list(body.keys()))
+        logger.warning("MiniMax API unexpected response structure: {}", list(body.keys()))
         return []

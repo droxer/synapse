@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CircleCheck, GitFork, CircleX, ChevronRight, Loader2 } from "lucide-react";
+import { CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft } from "lucide-react";
+import { PulsingDot } from "@/shared/components/PulsingDot";
 import { cn } from "@/shared/lib/utils";
 import { normalizeToolName } from "../lib/tool-constants";
 import { formatInput } from "../lib/format-tools";
@@ -16,7 +17,7 @@ function ToolStatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
       ? <CircleX className="h-3 w-3 shrink-0 text-accent-rose" />
       : <CircleCheck className="h-3 w-3 shrink-0 text-accent-emerald" />;
   }
-  return <Loader2 className="h-3 w-3 shrink-0 text-ai-glow animate-spin" />;
+  return <PulsingDot size="sm" />;
 }
 
 interface AgentStatusRowProps {
@@ -43,8 +44,8 @@ export function AgentStatusRow({
         type="button"
         onClick={() => hasTools && setExpanded((prev) => !prev)}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors",
-          isDark ? "bg-white/5" : "bg-secondary",
+          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          isDark ? "bg-secondary" : "bg-secondary",
           hasTools && "cursor-pointer hover:bg-secondary/80",
           !hasTools && "cursor-default",
         )}
@@ -54,15 +55,19 @@ export function AgentStatusRow({
         ) : agent.status === "error" ? (
           <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
         ) : (
-          <motion.span
-            className="h-2 w-2 shrink-0 rounded-full bg-ai-glow"
-            animate={{ opacity: [0.4, 1, 0.4] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          />
+          <PulsingDot size="sm" />
         )}
         <GitFork className={cn("h-3 w-3 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
         <span className={cn("flex-1 truncate", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
-          {agent.description}
+          {agent.description.includes(" → ") ? (
+            <>
+              {agent.description.split(" → ")[0]}
+              <ArrowRightLeft className="inline h-3 w-3 mx-1 text-muted-foreground" />
+              {agent.description.split(" → ").slice(1).join(" → ")}
+            </>
+          ) : (
+            agent.description
+          )}
         </span>
         {hasTools && (
           <span className="text-xs font-mono text-muted-foreground tabular-nums">
@@ -72,7 +77,7 @@ export function AgentStatusRow({
         {hasTools && (
           <motion.span
             animate={{ rotate: expanded ? 90 : 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex items-center"
           >
             <ChevronRight className="h-3 w-3 text-muted-foreground" />
@@ -90,7 +95,7 @@ export function AgentStatusRow({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ type: "spring", stiffness: 300, damping: 28 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
             <div className="ml-5 border-l border-border pl-3 py-1 space-y-1 font-mono text-sm">
@@ -107,7 +112,7 @@ export function AgentStatusRow({
                       </span>
                     )}
                     {tc.output === undefined && (
-                      <span className="text-ai-glow animate-pulse text-xs">
+                      <span className="text-ai-glow text-xs">
                         {t("computer.running")}
                       </span>
                     )}

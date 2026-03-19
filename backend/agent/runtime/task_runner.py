@@ -31,6 +31,18 @@ class TaskAgentConfig:
     depends_on: tuple[str, ...] = ()
     model: str | None = None
     role: str = ""
+    max_handoffs: int = 3
+
+
+@dataclass(frozen=True)
+class HandoffRequest:
+    """Immutable request to hand off to a new agent."""
+
+    target_role: str
+    task_description: str
+    context: str
+    source_messages: tuple[dict, ...]
+    remaining_handoffs: int
 
 
 @dataclass(frozen=True)
@@ -42,6 +54,7 @@ class AgentResult:
     summary: str
     artifacts: tuple[str, ...] = ()
     error: str | None = None
+    handoff: HandoffRequest | None = None
 
 
 TASK_AGENT_SYSTEM_PROMPT = """You are a task agent focused on completing a specific objective.
@@ -101,10 +114,15 @@ class TaskAgentRunner:
         self._observer = observer or Observer()
         self._system_prompt = _build_system_prompt(config)
         self._task_complete_summary: str | None = None
+        self._handoff_request: HandoffRequest | None = None
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
         self._task_complete_summary = summary
+
+    async def on_handoff(self, request: HandoffRequest) -> None:
+        """Callback for the agent_handoff tool."""
+        self._handoff_request = request
 
     async def run(self) -> AgentResult:
         """Execute the task agent loop and return an AgentResult."""
@@ -120,7 +138,7 @@ class TaskAgentRunner:
         try:
             final_text = await self._execute_loop()
         except Exception as exc:
-            logger.error("Task agent %s failed: %s", self._agent_id, exc)
+            logger.exception("Task agent {} failed: {}", self._agent_id, exc)
             await self._emit_complete(success=False, error=str(exc))
             return AgentResult(
                 agent_id=self._agent_id,
@@ -134,6 +152,7 @@ class TaskAgentRunner:
             agent_id=self._agent_id,
             success=True,
             summary=final_text,
+            handoff=self._handoff_request,
         )
 
     async def _emit_complete(
@@ -214,10 +233,24 @@ class TaskAgentRunner:
             executor=self._executor,
             emitter=self._emitter,
             agent_id=self._agent_id,
-            stop_check=lambda: self._task_complete_summary is not None,
+            stop_check=lambda: (
+                self._task_complete_summary is not None
+                or self._handoff_request is not None
+            ),
         )
 
         if self._task_complete_summary is not None:
             return state.mark_completed(self._task_complete_summary)
+
+        if self._handoff_request is not None:
+            handoff_with_messages = HandoffRequest(
+                target_role=self._handoff_request.target_role,
+                task_description=self._handoff_request.task_description,
+                context=self._handoff_request.context,
+                source_messages=state.messages,
+                remaining_handoffs=self._handoff_request.remaining_handoffs,
+            )
+            self._handoff_request = handoff_with_messages
+            return state.mark_completed("Handing off to specialist agent.")
 
         return state

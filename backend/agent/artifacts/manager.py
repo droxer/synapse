@@ -165,7 +165,7 @@ class ArtifactManager:
         async with self._lock:
             self._artifacts[artifact_id] = artifact
 
-        logger.info("artifact_registered name=%s id=%s", filename, artifact_id)
+        logger.info("artifact_registered name={} id={}", filename, artifact_id)
         return artifact
 
     def list_artifacts(self) -> tuple[Artifact, ...]:
@@ -208,7 +208,7 @@ class ArtifactManager:
         """Download a single file, returning its Artifact or None on error."""
         original_name = os.path.basename(remote_path)
         if not original_name:
-            logger.warning("Skipping empty filename from path: %s", remote_path)
+            logger.warning("Skipping empty filename from path: {}", remote_path)
             return None
 
         artifact_id = uuid.uuid4().hex
@@ -224,10 +224,10 @@ class ArtifactManager:
         try:
             await session.download_file(remote_path, temp_path)
         except FileNotFoundError:
-            logger.warning("Remote file not found: %s", remote_path)
+            logger.warning("Remote file not found: {}", remote_path)
             return None
         except Exception as exc:
-            logger.error("Failed to download '%s': %s", remote_path, exc)
+            logger.exception("Failed to download '{}': {}", remote_path, exc)
             return None
 
         try:

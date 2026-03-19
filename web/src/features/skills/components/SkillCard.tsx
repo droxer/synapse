@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { Trash2, Package, FolderGit2, Globe, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
@@ -33,7 +34,10 @@ export function SkillCard({ skill, onDelete }: SkillCardProps) {
   const showDelete = skill.source_type === "user" && onDelete;
 
   return (
-    <div className="group flex h-full flex-col rounded-lg border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:border-border-strong hover:shadow-md">
+    <Link
+      href={`/skills/${encodeURIComponent(skill.name)}`}
+      className="group flex h-full cursor-pointer flex-col rounded-lg border border-border bg-card p-4 shadow-sm transition-all duration-200 hover:border-border-strong hover:shadow-md"
+    >
       {/* Top row: icon + badge + optional delete */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
@@ -57,7 +61,11 @@ export function SkillCard({ skill, onDelete }: SkillCardProps) {
                 "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
                 "hover:text-destructive hover:bg-destructive/10",
               )}
-              onClick={() => onDelete(skill.name)}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDelete(skill.name);
+              }}
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -85,6 +93,6 @@ export function SkillCard({ skill, onDelete }: SkillCardProps) {
           {skill.name}
         </span>
       </div>
-    </div>
+    </Link>
   );
 }

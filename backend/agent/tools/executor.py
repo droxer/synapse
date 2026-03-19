@@ -89,7 +89,7 @@ class ToolExecutor:
         session = await self._sandbox_provider.create_session(config)
         self._sandbox_sessions[template] = session
         logger.info(
-            "Sandbox session created (template=%s, sandbox_id=%s)",
+            "Sandbox session created (template={}, sandbox_id={})",
             template,
             getattr(session, "sandbox_id", None) or "unknown",
         )
@@ -150,6 +150,7 @@ class ToolExecutor:
                 f"Tool '{tool_name}' has an unrecognised type: {type(tool).__name__}",
             )
         except Exception as exc:
+            logger.exception("tool_execution_failed name={}", tool_name)
             return ToolResult.fail(f"Tool '{tool_name}' failed: {exc}")
 
     async def _extract_artifacts(
@@ -188,7 +189,7 @@ class ToolExecutor:
 
         if len(artifacts) < len(path_list):
             logger.warning(
-                "Only %d of %d artifact paths were extracted",
+                "Only {} of {} artifact paths were extracted",
                 len(artifacts),
                 len(path_list),
             )
@@ -236,10 +237,10 @@ class ToolExecutor:
         for template, session in sessions.items():
             try:
                 await self._sandbox_provider.destroy_session(session)
-                logger.info("Sandbox session destroyed (template=%s)", template)
+                logger.info("Sandbox session destroyed (template={})", template)
             except Exception as exc:
                 logger.error(
-                    "Failed to destroy sandbox session (template=%s): %s",
+                    "Failed to destroy sandbox session (template={}): {}",
                     template,
                     exc,
                 )

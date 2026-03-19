@@ -34,7 +34,7 @@ def _create_queue_subscriber(
         try:
             queue.put_nowait(event)
         except asyncio.QueueFull:
-            logger.warning("event_queue_full event_type=%s — dropping event", event.type)
+            logger.warning("event_queue_full event_type={} — dropping event", event.type)
 
     return _subscriber
 
@@ -67,10 +67,10 @@ async def _event_generator(
 
             payload = _serialize_event(event)
             if event.type == EventType.ASK_USER:
-                logger.info("sse_sending_ask_user payload=%s", payload[:200])
+                logger.info("sse_sending_ask_user payload={}", payload[:200])
             yield f"event: {event.type.value}\ndata: {payload}\n\n"
     except (asyncio.CancelledError, GeneratorExit):
-        logger.info("sse_client_disconnected conversation_id=%s", conversation_id)
+        logger.info("sse_client_disconnected conversation_id={}", conversation_id)
 
 
 def _serialize_event(event: AgentEvent) -> str:

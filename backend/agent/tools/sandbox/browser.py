@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from loguru import logger
+
 from agent.tools.base import (
     ExecutionContext,
     SandboxTool,
@@ -75,8 +77,8 @@ async def _capture_screenshot_base64(session: Any) -> str | None:
         result = await session.exec(f"base64 -w0 {_SCREENSHOT_PATH}", timeout=10)
         if result.exit_code == 0 and result.stdout:
             return result.stdout.strip()
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("screenshot_capture_failed error={}", exc)
     return None
 
 

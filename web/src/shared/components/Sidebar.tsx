@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useCallback, useRef, useEffect } from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { Logo } from "@/shared/components/Logo";
 import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { ThemeToggle } from "@/shared/components/ThemeToggle";
@@ -39,6 +39,7 @@ interface SidebarProps {
   onDeleteTask?: (taskId: string) => void;
   onClose?: () => void;
   isMobile?: boolean;
+  activePath?: string;
 }
 
 
@@ -55,6 +56,7 @@ export function Sidebar({
   onDeleteTask,
   onClose,
   isMobile = false,
+  activePath,
 }: SidebarProps) {
   const { t } = useTranslation();
   const [taskToDelete, setTaskToDelete] = useState<ConversationHistoryItem | null>(null);
@@ -140,17 +142,11 @@ export function Sidebar({
       style={collapsed ? undefined : { width }}
     >
       {/* Header: logo + collapse/expand toggle */}
-      <div className={cn("relative flex items-center py-4", collapsed ? "flex-col gap-2 px-2" : "justify-between px-4")}>
+      <div className={cn("relative flex items-center py-3", collapsed ? "flex-col gap-2 px-2" : "justify-between px-4")}>
         <div className="flex items-center gap-2.5">
-          <Image
-            src="/logo.png"
-            alt={t("sidebar.logo")}
-            width={28}
-            height={28}
-            className="rounded-md shrink-0"
-          />
+          <Logo size={28} className="rounded-md" />
           {!collapsed && (
-            <span className="text-sm font-semibold tracking-tight text-foreground whitespace-nowrap">
+            <span className="text-base font-semibold tracking-[-0.03em] text-foreground whitespace-nowrap">
               {t("sidebar.brand")}
             </span>
           )}
@@ -186,10 +182,11 @@ export function Sidebar({
                   className={cn(
                     "group/new flex w-full items-center justify-center rounded-lg p-2",
                     "border border-transparent",
-                    "text-muted-foreground hover:text-foreground",
                     "transition-all duration-200",
-                    "hover:bg-secondary hover:border-border hover:shadow-md",
                     "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    activePath === "/" && !activeTaskId
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary hover:border-border hover:shadow-md",
                   )}
                 >
                   <Plus className="h-4 w-4 transition-transform duration-200 group-hover/new:rotate-90" />
@@ -204,7 +201,12 @@ export function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="w-full text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    className={cn(
+                      "w-full",
+                      activePath === "/skills"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                    )}
                     asChild
                   >
                     <span>
@@ -221,7 +223,12 @@ export function Sidebar({
                   <Button
                     variant="ghost"
                     size="icon-sm"
-                    className="w-full text-muted-foreground hover:text-foreground hover:bg-secondary"
+                    className={cn(
+                      "w-full",
+                      activePath === "/mcp"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                    )}
                     asChild
                   >
                     <span>
@@ -242,35 +249,47 @@ export function Sidebar({
                 "group/new flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5",
                 "border border-transparent",
                 "transition-all duration-200",
-                "hover:bg-secondary hover:border-border hover:shadow-md",
                 "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                activePath === "/" && !activeTaskId
+                  ? "bg-secondary"
+                  : "hover:bg-secondary hover:border-border hover:shadow-md",
               )}
             >
               <div className={cn(
                 "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-                "bg-muted text-muted-foreground",
+                "bg-accent-purple/10 text-accent-purple",
                 "transition-colors duration-200",
-                "group-hover/new:text-foreground",
+                "group-hover/new:bg-accent-purple/15",
               )}>
                 <Plus className="h-3.5 w-3.5 transition-transform duration-200 group-hover/new:rotate-90" />
               </div>
-              <span className="text-sm font-medium text-foreground">
+              <span className="text-[15px] font-medium text-foreground">
                 {t("sidebar.newTask")}
               </span>
             </button>
             <div className="border-t border-border" />
             <Link
               href="/skills"
-              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-3 py-2 text-[15px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                activePath === "/skills"
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
             >
-              <Lightbulb className="h-4 w-4" />
+              <Lightbulb className="h-[18px] w-[18px]" />
               {t("sidebar.skills")}
             </Link>
             <Link
               href="/mcp"
-              className="flex items-center gap-2.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors duration-150 hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-3 py-2 text-[15px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                activePath === "/mcp"
+                  ? "bg-secondary text-foreground"
+                  : "text-muted-foreground hover:bg-secondary hover:text-foreground",
+              )}
             >
-              <Blocks className="h-4 w-4" />
+              <Blocks className="h-[18px] w-[18px]" />
               {t("sidebar.mcp")}
             </Link>
           </div>
@@ -282,8 +301,8 @@ export function Sidebar({
 
       {/* Task list */}
       {!collapsed && (
-        <div className="px-4 pb-1.5 pt-2">
-          <span className="text-xs font-medium text-muted-foreground-dim">{t("sidebar.recentTasks")}</span>
+        <div className="px-4 pb-1 pt-2.5">
+          <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{t("sidebar.recentTasks")}</span>
         </div>
       )}
       <div ref={scrollRef} className={cn("relative min-h-0 flex-1 overflow-y-auto", collapsed ? "px-2" : "px-4")}>
@@ -318,9 +337,9 @@ export function Sidebar({
                 </Tooltip>
               ) : (
                 <div
-                  key={task.id}
                   role="button"
                   tabIndex={0}
+                  key={task.id}
                   aria-current={isActive ? "true" : undefined}
                   onClick={() => onSelectTask?.(task.id)}
                   onKeyDown={(e) => {
@@ -330,7 +349,7 @@ export function Sidebar({
                     }
                   }}
                   className={cn(
-                    "group relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-2 text-left",
+                    "group relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 text-left",
                     "transition-colors duration-200 ease-out",
                     "hover:bg-secondary",
                     "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
@@ -339,10 +358,10 @@ export function Sidebar({
                 >
                   {/* Active indicator bar */}
                   {isActive && (
-                    <div className="absolute left-0 top-1/2 h-5 w-1 -translate-y-1/2 rounded-full bg-accent-purple" />
+                    <div className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent-purple" />
                   )}
                   <span className={cn(
-                    "flex-1 truncate text-sm transition-colors duration-200",
+                    "flex-1 truncate text-[15px] transition-colors duration-200",
                     isActive ? "text-foreground font-medium" : "text-muted-foreground",
                   )}>
                     {task.title}
@@ -380,7 +399,7 @@ export function Sidebar({
           "shrink-0 border-t border-border",
           collapsed
             ? "flex flex-col items-center gap-1 px-2 py-2"
-            : "px-4 py-3",
+            : "px-4 py-2.5",
         )}
       >
         {collapsed ? (
@@ -389,7 +408,7 @@ export function Sidebar({
             <ThemeToggle collapsed />
           </>
         ) : (
-          <div className="flex items-center gap-1 rounded-lg bg-secondary p-1">
+          <div className="flex items-center gap-1.5 rounded-lg bg-secondary p-1">
             <LanguageSwitcher />
             <div className="h-4 w-px shrink-0 bg-border" />
             <ThemeToggle />

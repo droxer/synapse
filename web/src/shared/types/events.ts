@@ -17,6 +17,7 @@ export type EventType =
   | "user_response"
   | "agent_spawn"
   | "agent_complete"
+  | "agent_handoff"
   | "thinking"
   | "sandbox_stdout"
   | "sandbox_stderr"

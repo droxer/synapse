@@ -229,7 +229,7 @@ class PlannerOrchestrator:
                 on_text_delta=_on_text_delta,
             )
         except Exception as exc:
-            logger.error("llm_call_failed_planning error={}", exc)
+            logger.exception("llm_call_failed_planning error={}", exc)
             return None
 
     async def _emit_llm_response(
@@ -270,4 +270,4 @@ class PlannerOrchestrator:
         try:
             await self._sub_agent_manager.cleanup()
         except Exception as exc:
-            logger.error("failed_to_cleanup_sub_agents error={}", exc)
+            logger.exception("failed_to_cleanup_sub_agents error={}", exc)

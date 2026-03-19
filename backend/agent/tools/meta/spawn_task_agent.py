@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from loguru import logger
+
 from agent.tools.base import (
     ExecutionContext,
     LocalTool,
@@ -99,6 +101,7 @@ class SpawnTaskAgent(LocalTool):
             )
             agent_id = await self._manager.spawn(config)
         except Exception as exc:
+            logger.warning("spawn_task_agent_failed error={}", exc)
             return ToolResult.fail(f"Failed to spawn agent: {exc}")
 
         return ToolResult.ok(

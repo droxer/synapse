@@ -61,10 +61,12 @@ export async function uninstallSkill(name: string): Promise<void> {
   }
 }
 
-export async function uploadSkill(files: FileList): Promise<Skill> {
+export async function uploadSkill(files: readonly File[]): Promise<Skill> {
   const formData = new FormData();
-  for (const file of Array.from(files)) {
-    formData.append("files", file);
+  for (const file of files) {
+    // Use webkitRelativePath if available (folder upload), otherwise just name
+    const filename = file.webkitRelativePath || file.name;
+    formData.append("files", file, filename);
   }
   const res = await fetch(`${API_BASE}/skills/upload`, {
     method: "POST",

@@ -212,6 +212,22 @@ export function useAgentState(events: AgentEvent[]) {
           });
         }
       }
+      if (e.type === "agent_handoff") {
+        const parentId = String(e.data.parent_agent_id ?? "");
+        const targetRole = String(e.data.target_role ?? "");
+        const reason = String(e.data.reason ?? "");
+        const existing = agentMap.get(parentId);
+        if (existing) {
+          const handoffNote = reason
+            ? `Handed off to ${targetRole}: ${reason}`
+            : `Handed off to ${targetRole}`;
+          agentMap.set(parentId, {
+            ...existing,
+            description: `${existing.description} → ${handoffNote}`,
+            status: "running",
+          });
+        }
+      }
     }
 
     return Array.from(agentMap.values());

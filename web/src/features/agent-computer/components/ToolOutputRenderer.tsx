@@ -34,13 +34,13 @@ interface CategoryStyle {
 }
 
 const CATEGORY_STYLES: Record<ToolCategory, CategoryStyle> = {
-  code:    { border: "border-l-accent-emerald/60", icon: Terminal,  labelKey: "output.category.code" },
-  file:    { border: "border-l-user-accent/60",    icon: FileCode,  labelKey: "output.category.file" },
-  search:  { border: "border-l-accent-purple/60",  icon: Globe,     labelKey: "output.category.search" },
-  memory:  { border: "border-l-accent-amber/60",   icon: Database,  labelKey: "output.category.memory" },
-  browser: { border: "border-l-ai-glow/60",        icon: Monitor,   labelKey: "output.category.browser" },
-  preview: { border: "border-l-accent-emerald/60", icon: Play,      labelKey: "output.category.preview" },
-  mcp:     { border: "border-l-user-accent/60",    icon: Plug,      labelKey: "output.category.mcp" },
+  code:    { border: "border-l-accent-emerald", icon: Terminal,  labelKey: "output.category.code" },
+  file:    { border: "border-l-user-accent",    icon: FileCode,  labelKey: "output.category.file" },
+  search:  { border: "border-l-accent-purple",  icon: Globe,     labelKey: "output.category.search" },
+  memory:  { border: "border-l-accent-amber",   icon: Database,  labelKey: "output.category.memory" },
+  browser: { border: "border-l-accent-purple",  icon: Monitor,   labelKey: "output.category.browser" },
+  preview: { border: "border-l-accent-emerald", icon: Play,      labelKey: "output.category.preview" },
+  mcp:     { border: "border-l-user-accent",    icon: Plug,      labelKey: "output.category.mcp" },
   default: { border: "border-l-border",            icon: FileText,  labelKey: "" },
 };
 
@@ -156,10 +156,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
         <div className="mt-3 flex items-center gap-2 border-t border-[var(--color-terminal-border)] pt-3">
           {isActive ? (
             <>
-              <span className="relative flex h-2.5 w-2.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-emerald opacity-75" />
-                <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-accent-emerald" />
-              </span>
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-accent-emerald" />
               <span className="text-accent-emerald">
                 {t("output.preview.listening", { port: preview.port ?? "..." })}
               </span>
@@ -210,7 +207,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
 
   // Category-aware rendering for all other tools (markdown fallback)
   return (
-    <div className={cn("mt-2.5 rounded-md border-l-2 bg-muted/60 px-2.5 py-1.5", style.border)}>
+    <div className={cn("mt-2.5 rounded-md border-l-2 bg-muted px-2.5 py-1.5", style.border)}>
       <div className="mb-1.5 flex items-center justify-end">
         {style.labelKey && (
           <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">

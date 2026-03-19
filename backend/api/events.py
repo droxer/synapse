@@ -34,6 +34,7 @@ class EventType(StrEnum):
 
     AGENT_SPAWN = "agent_spawn"
     AGENT_COMPLETE = "agent_complete"
+    AGENT_HANDOFF = "agent_handoff"
 
     THINKING = "thinking"
 

@@ -52,13 +52,14 @@ export function AppSidebar() {
       onNewTask={handleNewConversation}
       onSelectTask={handleSelectConversation}
       collapsed={isMobile ? false : sidebarCollapsed}
-      width={isMobile ? 280 : sidebarWidth}
+      width={isMobile ? 256 : sidebarWidth}
       onToggle={isMobile ? undefined : toggleSidebar}
       onWidthChange={isMobile ? undefined : setSidebarWidth}
       onLoadMore={loadMore}
       onDeleteTask={deleteConversation}
       onClose={isMobile ? closeSidebar : undefined}
       isMobile={isMobile}
+      activePath={pathname}
     />
   );
 

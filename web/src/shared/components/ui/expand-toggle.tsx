@@ -12,7 +12,7 @@ export function ExpandToggle({ expanded, onToggle }: ExpandToggleProps) {
     <button
       type="button"
       onClick={onToggle}
-      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
     >
       {expanded ? (
         <>

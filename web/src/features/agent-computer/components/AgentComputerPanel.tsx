@@ -6,7 +6,6 @@ import {
   Monitor,
   CircleCheck,
   CircleX,
-  Loader2,
   X,
   FolderOpen,
 } from "lucide-react";
@@ -43,7 +42,7 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
       ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
       : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />;
   }
-  return <Loader2 className="h-3.5 w-3.5 shrink-0 text-ai-glow animate-spin" />;
+  return <PulsingDot size="sm" />;
 }
 
 type PanelTab = "activity" | "files";
@@ -184,7 +183,7 @@ export function AgentComputerPanel({
       {/* ── Header with tabs ── */}
       <div className="shrink-0 border-b border-border">
         <div className="flex items-center justify-between px-4 pt-3 pb-0">
-          <span className="text-sm font-semibold tracking-tight text-foreground">
+          <span className="text-[15px] font-semibold tracking-tight text-foreground">
             {t("computer.title")}
           </span>
           <div className="flex items-center gap-1">
@@ -258,7 +257,7 @@ export function AgentComputerPanel({
       {activeTab === "activity" && isRunning && latestToolCall && (
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2" role="status" aria-live="polite">
           <PulsingDot size="sm" />
-          <span className="text-sm text-muted-foreground">
+          <span className="text-[15px] text-muted-foreground">
             {SKILL_TOOL_NAMES.has(latestToolCall.name)
               ? t("computer.loadingSkill", { name: normalizeSkillName(String(latestToolCall.input.name ?? "skill")) })
               : t("computer.usingTool", { verb: getToolVerb(latestToolCall.name, t) })}
@@ -322,7 +321,7 @@ export function AgentComputerPanel({
                         </span>
                       )}
                       {tc.output === undefined && (
-                        <span className="text-ai-glow animate-pulse">
+                        <span className="text-ai-glow">
                           {t("computer.running")}
                         </span>
                       )}

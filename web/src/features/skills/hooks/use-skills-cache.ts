@@ -51,6 +51,24 @@ async function doBulkFetch(): Promise<void> {
   }
 }
 
+/** Force re-fetch the full skills list (e.g. after install/uninstall). */
+async function refetchSkills(): Promise<void> {
+  bulkFetchState = "loading";
+  bumpSnapshot();
+  try {
+    const skills = await fetchSkills();
+    cache.clear();
+    for (const skill of skills) {
+      cache.set(skill.name, skill);
+    }
+    bulkFetchState = "done";
+    bumpSnapshot();
+  } catch {
+    bulkFetchState = "failed";
+    bumpSnapshot();
+  }
+}
+
 async function fetchAndCacheSingle(name: string): Promise<void> {
   if (cache.has(name) || pendingFetches.has(name)) return;
   pendingFetches.add(name);
@@ -89,7 +107,11 @@ export function useSkillsCache() {
     return Array.from(cache.values());
   }, []);
 
+  const refetch = useCallback(() => {
+    refetchSkills();
+  }, []);
+
   const isLoading = bulkFetchState === "idle" || bulkFetchState === "loading";
 
-  return { getSkill, getAllSkills, isLoading } as const;
+  return { getSkill, getAllSkills, refetch, isLoading } as const;
 }

@@ -25,7 +25,7 @@ export function TransportToggle({ value, onChange }: TransportToggleProps) {
             value === transport
               ? "bg-background text-foreground shadow-sm"
               : transport === "stdio"
-                ? "cursor-not-allowed text-muted-foreground/40"
+                ? "cursor-not-allowed text-muted-foreground-dim"
                 : "text-muted-foreground hover:text-foreground",
           )}
         >

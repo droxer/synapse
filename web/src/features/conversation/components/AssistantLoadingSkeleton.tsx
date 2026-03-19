@@ -30,15 +30,15 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -4, transition: { duration: 0.15 } }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
+      exit={{ opacity: 0, y: -4, transition: { duration: 0.1 } }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
     >
       {/* AI indicator row */}
       <div className="mb-2 flex items-center gap-2" role="status" aria-live="polite">
         <PulsingDot size="md" />
-        <span className="text-xs font-medium tracking-wide text-ai-glow/70 uppercase">
+        <span className="text-xs font-medium tracking-wide text-accent-purple/70 uppercase">
           HiAgent
         </span>
       </div>
@@ -46,7 +46,7 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
       {/* Shimmer skeleton + phase label */}
       <div className="pl-[18px] space-y-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-ai-glow/70">{label}</span>
+          <span className="text-sm text-accent-purple/70">{label}</span>
         </div>
         <div className="flex flex-col gap-1.5">
           <Skeleton className="h-3 w-48" />

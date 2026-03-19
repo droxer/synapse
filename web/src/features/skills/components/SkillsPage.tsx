@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, type DragEvent } from "react";
 import { motion } from "framer-motion";
-import { Lightbulb, Plus, Package, Search, X, Upload, FileText } from "lucide-react";
+import { Lightbulb, Plus, Package, Search, X, Upload, FileText, FolderOpen } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
@@ -71,11 +71,46 @@ function SkillSkeleton() {
   );
 }
 
+/** Recursively read all files from a dropped directory, preserving relative paths. */
+async function readDirectoryEntries(
+  dirEntry: FileSystemDirectoryEntry,
+  rootName: string,
+): Promise<File[]> {
+  const files: File[] = [];
+
+  async function readDir(entry: FileSystemDirectoryEntry, path: string) {
+    const reader = entry.createReader();
+    // readEntries may not return all entries in one call
+    let batch: FileSystemEntry[] = [];
+    do {
+      batch = await new Promise<FileSystemEntry[]>((resolve, reject) =>
+        reader.readEntries(resolve, reject),
+      );
+      for (const child of batch) {
+        if (child.isFile) {
+          const file = await new Promise<File>((resolve, reject) =>
+            (child as FileSystemFileEntry).file(resolve, reject),
+          );
+          // Reconstruct with relative path so the backend can rebuild the folder structure
+          const relativePath = `${path}/${file.name}`;
+          const withPath = new File([file], relativePath, { type: file.type });
+          files.push(withPath);
+        } else if (child.isDirectory) {
+          await readDir(child as FileSystemDirectoryEntry, `${path}/${child.name}`);
+        }
+      }
+    } while (batch.length > 0);
+  }
+
+  await readDir(dirEntry, rootName);
+  return files;
+}
+
 type InstallSource = "git" | "upload";
 
 export function SkillsPage() {
   const { t } = useTranslation();
-  const { getAllSkills, isLoading } = useSkillsCache();
+  const { getAllSkills, refetch, isLoading } = useSkillsCache();
   const skills = getAllSkills();
 
   const [error, setError] = useState<string | null>(null);
@@ -88,9 +123,12 @@ export function SkillsPage() {
   const [submitting, setSubmitting] = useState(false);
 
   // Upload state
-  const [selectedFiles, setSelectedFiles] = useState<FileList | null>(null);
+  const [selectedFiles, setSelectedFiles] = useState<File[] | null>(null);
+  const [isFolderUpload, setIsFolderUpload] = useState(false);
+  const [folderName, setFolderName] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Delete confirmation
   const [skillToDelete, setSkillToDelete] = useState<string | null>(null);
@@ -98,6 +136,8 @@ export function SkillsPage() {
   const resetForm = () => {
     setFormUrl("");
     setSelectedFiles(null);
+    setIsFolderUpload(false);
+    setFolderName("");
     setInstallSource("upload");
     setShowForm(false);
   };
@@ -109,6 +149,7 @@ export function SkillsPage() {
       setError(null);
       try {
         await uploadSkill(selectedFiles);
+        refetch();
         resetForm();
       } catch (err) {
         setError(err instanceof Error ? err.message : "Failed to upload skill");
@@ -123,6 +164,7 @@ export function SkillsPage() {
     setError(null);
     try {
       await installSkill({ url: formUrl.trim() });
+      refetch();
       resetForm();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to install skill");
@@ -141,11 +183,24 @@ export function SkillsPage() {
     setIsDragging(false);
   }, []);
 
-  const handleDrop = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback(async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-    if (e.dataTransfer.files.length > 0) {
-      setSelectedFiles(e.dataTransfer.files);
+    const items = e.dataTransfer.items;
+    if (!items || items.length === 0) return;
+
+    const entry = items[0].webkitGetAsEntry?.();
+    if (entry?.isDirectory) {
+      const files = await readDirectoryEntries(entry as FileSystemDirectoryEntry, entry.name);
+      if (files.length > 0) {
+        setSelectedFiles(files);
+        setIsFolderUpload(true);
+        setFolderName(entry.name);
+      }
+    } else if (e.dataTransfer.files.length > 0) {
+      setSelectedFiles(Array.from(e.dataTransfer.files));
+      setIsFolderUpload(false);
+      setFolderName("");
     }
   }, []);
 
@@ -154,6 +209,7 @@ export function SkillsPage() {
     setError(null);
     try {
       await uninstallSkill(skillToDelete);
+      refetch();
       setSkillToDelete(null);
     } catch (err) {
       setError(
@@ -182,7 +238,7 @@ export function SkillsPage() {
         className="shrink-0 border-b border-border px-6 py-5"
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.25, ease: "easeOut" }}
+        transition={{ duration: 0.12, ease: "easeOut" }}
       >
         <div className="mx-auto flex max-w-5xl items-start justify-between">
           <div className="flex items-center gap-3">
@@ -190,7 +246,7 @@ export function SkillsPage() {
               <Lightbulb className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h1 className="text-base font-semibold tracking-tight text-foreground">
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">
                 {t("skills.title")}
               </h1>
               <p className="text-xs text-muted-foreground">
@@ -235,7 +291,7 @@ export function SkillsPage() {
 
           {/* Section header with search + install */}
           <div className="flex items-center gap-3">
-            <h2 className="text-sm font-medium text-muted-foreground">
+            <h2 className="text-[15px] font-medium text-muted-foreground">
               {t("skills.agentSkills")}
             </h2>
             <div className="flex-1" />
@@ -298,7 +354,7 @@ export function SkillsPage() {
               className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border py-14"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.3, delay: 0.1 }}
+              transition={{ duration: 0.12, delay: 0.05 }}
             >
               <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-secondary">
                 <Lightbulb className="h-5 w-5 text-muted-foreground-dim" />
@@ -434,6 +490,13 @@ export function SkillsPage() {
                     <p className="text-xs text-muted-foreground-dim">
                       {t("skills.dropZoneHint")}
                     </p>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
+                      className="text-xs text-primary underline-offset-2 hover:underline"
+                    >
+                      {t("skills.chooseFolder")}
+                    </button>
                   </div>
                   <input
                     ref={fileInputRef}
@@ -443,19 +506,46 @@ export function SkillsPage() {
                     className="hidden"
                     onChange={(e) => {
                       if (e.target.files && e.target.files.length > 0) {
-                        setSelectedFiles(e.target.files);
+                        setSelectedFiles(Array.from(e.target.files));
+                        setIsFolderUpload(false);
+                        setFolderName("");
+                      }
+                    }}
+                  />
+                  <input
+                    ref={folderInputRef}
+                    type="file"
+                    // @ts-expect-error webkitdirectory is not in React's type defs
+                    webkitdirectory=""
+                    className="hidden"
+                    onChange={(e) => {
+                      if (e.target.files && e.target.files.length > 0) {
+                        const files = Array.from(e.target.files);
+                        setSelectedFiles(files);
+                        setIsFolderUpload(true);
+                        // Extract folder name from the first file's webkitRelativePath
+                        const firstPath = files[0].webkitRelativePath;
+                        setFolderName(firstPath ? firstPath.split("/")[0] : "folder");
                       }
                     }}
                   />
                   {selectedFiles && selectedFiles.length > 0 && (
                     <div className="flex items-center gap-2 rounded-md bg-secondary px-3 py-2">
-                      <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                      {isFolderUpload
+                        ? <FolderOpen className="h-3.5 w-3.5 text-muted-foreground" />
+                        : <FileText className="h-3.5 w-3.5 text-muted-foreground" />}
                       <span className="flex-1 text-xs text-foreground">
-                        {t("skills.selectedFiles", { count: selectedFiles.length })}
+                        {isFolderUpload
+                          ? t("skills.selectedFolder", { name: folderName })
+                          : t("skills.selectedFiles", { count: selectedFiles.length })}
                       </span>
                       <button
                         type="button"
-                        onClick={() => setSelectedFiles(null)}
+                        onClick={() => {
+                          setSelectedFiles(null);
+                          setIsFolderUpload(false);
+                          setFolderName("");
+                        }}
                         className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       >
                         <X className="h-3 w-3" />

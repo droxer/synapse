@@ -7,21 +7,50 @@ import uuid
 from typing import Callable
 
 from agent.llm.client import ClaudeClient
-from agent.runtime.task_runner import AgentResult, TaskAgentConfig, TaskAgentRunner
+from agent.runtime.task_runner import AgentResult, HandoffRequest, TaskAgentConfig, TaskAgentRunner
 from agent.tools.executor import ToolExecutor
 from agent.tools.local.task_complete import TaskComplete
+from agent.tools.meta.handoff import AgentHandoff
 from agent.tools.meta.send_message import (
     AgentMessageBus,
     ReceiveMessages,
     SendToAgent,
 )
 from agent.tools.registry import ToolRegistry
-from api.events import EventEmitter
+from api.events import EventEmitter, EventType
 from loguru import logger
 
 # Type aliases for factory callables
 ToolRegistryFactory = Callable[[], ToolRegistry]
 ToolExecutorFactory = Callable[[ToolRegistry], ToolExecutor]
+
+
+def _format_handoff_context(
+    source_messages: tuple[dict, ...],
+    handoff_context: str,
+    source_role: str,
+) -> str:
+    """Format the previous agent's conversation history for the new agent."""
+    parts: list[str] = []
+    parts.append(f"Handed off from agent with role: {source_role}")
+
+    if source_messages:
+        parts.append("\nPrevious conversation:")
+        for msg in source_messages:
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            if isinstance(content, list):
+                text_parts = [
+                    b.get("text", "") for b in content
+                    if isinstance(b, dict) and b.get("type") == "text"
+                ]
+                content = "\n".join(text_parts)
+            parts.append(f"  [{role}]: {content[:500]}")
+
+    if handoff_context:
+        parts.append(f"\nHandoff notes: {handoff_context}")
+
+    return "\n".join(parts)
 
 
 class SubAgentManager:
@@ -123,7 +152,7 @@ class SubAgentManager:
         for agent_id, task in self._agents.items():
             if not task.done():
                 task.cancel()
-                logger.info("Cancelled task agent %s", agent_id[:8])
+                logger.info("Cancelled task agent {}", agent_id[:8])
 
         # Wait for cancellations to propagate
         if self._agents:
@@ -138,7 +167,7 @@ class SubAgentManager:
                 await executor.cleanup()
             except Exception as exc:
                 logger.error(
-                    "Failed to cleanup executor for agent %s: %s",
+                    "Failed to cleanup executor for agent {}: {}",
                     agent_id[:8],
                     exc,
                 )
@@ -153,14 +182,60 @@ class SubAgentManager:
         agent_id: str,
         config: TaskAgentConfig,
     ) -> AgentResult:
-        """Run a single task agent with dependency and concurrency handling."""
+        """Run a task agent with dependency, concurrency, and handoff handling."""
         config = await self._wait_for_dependencies(agent_id, config)
 
-        async with self._semaphore:
-            result = await self._execute_agent(agent_id, config)
+        current_config = config
+        handoff_depth = 0
 
-        self._results[agent_id] = result
-        return result
+        while True:
+            async with self._semaphore:
+                result = await self._execute_agent(agent_id, current_config)
+
+            if result.handoff is None:
+                self._results[agent_id] = result
+                return result
+
+            handoff_depth += 1
+            handoff = result.handoff
+
+            await self._emitter.emit(
+                EventType.AGENT_HANDOFF,
+                {
+                    "source_agent_id": agent_id,
+                    "target_agent_id": agent_id,
+                    "parent_agent_id": agent_id,
+                    "target_role": handoff.target_role,
+                    "reason": handoff.context,
+                    "handoff_depth": handoff_depth,
+                    "remaining_handoffs": handoff.remaining_handoffs,
+                },
+            )
+
+            context = _format_handoff_context(
+                handoff.source_messages,
+                handoff.context,
+                current_config.role,
+            )
+
+            current_config = TaskAgentConfig(
+                task_description=handoff.task_description,
+                context=context,
+                sandbox_template=current_config.sandbox_template,
+                priority=current_config.priority,
+                depends_on=(),
+                model=current_config.model,
+                role=handoff.target_role,
+                max_handoffs=handoff.remaining_handoffs,
+            )
+
+            logger.info(
+                "Agent {} handoff #{} → role={} task={}",
+                agent_id[:8],
+                handoff_depth,
+                handoff.target_role,
+                handoff.task_description[:80],
+            )
 
     async def _wait_for_dependencies(
         self,
@@ -179,7 +254,7 @@ class SubAgentManager:
             dep_task = self._agents.get(dep_id)
             if dep_task is None:
                 logger.warning(
-                    "Agent %s depends on unknown agent %s",
+                    "Agent {} depends on unknown agent {}",
                     agent_id[:8],
                     dep_id[:8],
                 )
@@ -214,6 +289,7 @@ class SubAgentManager:
             depends_on=config.depends_on,
             model=config.model,
             role=config.role,
+            max_handoffs=config.max_handoffs,
         )
 
     async def _execute_agent(
@@ -233,9 +309,6 @@ class SubAgentManager:
                 ReceiveMessages(self._message_bus, receiver_id=agent_id)
             )
 
-            executor = self._executor_factory(registry)
-            self._executors[agent_id] = executor
-
             # Callback holder — routes task_complete calls to the runner
             # once it's created (same pattern as _CallbackHolder in builders.py)
             callback_target: list[TaskAgentRunner | None] = [None]
@@ -245,6 +318,21 @@ class SubAgentManager:
                     await callback_target[0].on_task_complete(summary)
 
             registry = registry.register(TaskComplete(on_complete=_on_complete))
+
+            # Handoff callback — routes agent_handoff calls to the runner
+            handoff_target: list[TaskAgentRunner | None] = [None]
+
+            async def _on_handoff(request: HandoffRequest) -> None:
+                if handoff_target[0] is not None:
+                    await handoff_target[0].on_handoff(request)
+
+            registry = registry.register(
+                AgentHandoff(
+                    on_handoff=_on_handoff,
+                    max_handoffs=config.max_handoffs,
+                )
+            )
+
             executor = self._executor_factory(registry)
             self._executors[agent_id] = executor
 
@@ -257,10 +345,11 @@ class SubAgentManager:
                 event_emitter=self._emitter,
             )
             callback_target[0] = runner
+            handoff_target[0] = runner
 
             return await runner.run()
         except Exception as exc:
-            logger.error("Agent %s execution failed: %s", agent_id[:8], exc)
+            logger.exception("Agent {} execution failed: {}", agent_id[:8], exc)
             return AgentResult(
                 agent_id=agent_id,
                 success=False,

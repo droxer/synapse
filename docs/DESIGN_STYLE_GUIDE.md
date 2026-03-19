@@ -123,9 +123,9 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 
 | Role | Font | Variable | Fallback | Usage Scope |
 |------|------|----------|----------|-------------|
-| Body (sans) | Inter | `--font-inter` | system-ui, -apple-system, sans-serif | All body text, UI chrome, labels, headings, panel titles, including WelcomeScreen hero. Designed for screens at small sizes (14px body). |
-| Display (serif) | Instrument Serif | `--font-instrument-serif` | Georgia, serif | **Reserved for future use.** Loaded but not actively used. Do not use for panel titles, section headers, or UI chrome. |
-| Code (mono) | JetBrains Mono | `--font-jetbrains-mono` | SFMono, Menlo, Consolas, monospace | Code blocks, raw data, terminal logs, keyboard shortcut labels |
+| Body (sans) | Geist Sans | `--font-geist` | Noto Sans SC/TC, system-ui, -apple-system, sans-serif | All body text, UI chrome, labels, headings, panel titles, including WelcomeScreen hero. Modern geometric sans designed for screens. |
+| CJK (sans) | Noto Sans SC / Noto Sans TC | `--font-noto-sans-sc`, `--font-noto-sans-tc` | PingFang SC, Microsoft YaHei, sans-serif | Chinese Simplified and Traditional text. Loaded as web fonts for consistent cross-platform rendering. |
+| Code (mono) | Geist Mono | `--font-geist-mono` | SFMono, Menlo, Consolas, monospace | Code blocks, raw data, terminal logs, keyboard shortcut labels |
 
 ### Type Scale
 
@@ -426,7 +426,7 @@ Any pattern using `opacity-0 group-hover:opacity-100` to reveal actions on hover
 ### Error Pages
 
 The `global-error.tsx` component renders its own `<html>/<body>` tree. It must:
-1. Import and inject font CSS variables (`inter.variable`, `instrumentSerif.variable`, `jetbrainsMono.variable`)
+1. Import and inject font CSS variables (`geist.variable`, `geistMono.variable`, `notoSansSC.variable`, `notoSansTC.variable`)
 2. Use design tokens (`bg-background`, `text-foreground`, etc.) — never hardcoded hex
 
 ---
@@ -463,7 +463,7 @@ These patterns have been found in the codebase and must be avoided:
 | `bg-white/[0.04]`, `bg-black/5` | Use `bg-border/40`, `bg-muted` |
 | `text-white` on colored backgrounds | Use `text-primary-foreground` |
 | `font-bold` on headings | Use `font-semibold` (600) |
-| `font-serif` on any UI element | Serif font is loaded but reserved for future use — use `font-sans` everywhere |
+| `font-serif` on any UI element | Serif font is not loaded — use `font-sans` everywhere |
 | `scale: [1, 1.4, 1]` on dots/icons | Use `opacity: [0.4, 1, 0.4]` |
 | `shadow-[0_0_6px_var(--color-ai-glow)]` | Remove glow — use `shadow-sm` or nothing |
 | `backdrop-blur-sm bg-card/80` on inputs | Use solid `bg-card` |
@@ -478,7 +478,7 @@ These patterns have been found in the codebase and must be avoided:
 | `opacity-0 group-hover:opacity-100` (alone) | Add `group-focus-within:opacity-100` |
 | `style={{ background: "#818CF8" }}` | Use `var(--color-accent-purple)` |
 | Cool gray tokens (zinc, slate) | Use warm stone-based neutrals |
-| `Montserrat` / `geist` font references | Use `Inter` (`--font-inter`) |
+| `Montserrat` / `Inter` font references | Use `Geist Sans` (`--font-geist`) |
 | `text-muted-foreground/60`, `/40` | Use `text-muted-foreground-dim` (WCAG AA) |
 | `border-border/60`, `bg-border/60` | Use `border-border` (no opacity modifiers) |
 | `border-[var(--color-border-active)]` | Use `border-border-active` (Tailwind token) |

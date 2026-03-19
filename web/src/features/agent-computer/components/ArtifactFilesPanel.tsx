@@ -1,64 +1,20 @@
 "use client";
 
-import { useCallback } from "react";
-import {
-  FileText,
-  FileImage,
-  FileCode,
-  FileSpreadsheet,
-  File,
-  Download,
-  Eye,
-  FolderOpen,
-} from "lucide-react";
+import { useState, useCallback } from "react";
+import { Download, Eye, FolderOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { IconButton } from "@/shared/components/IconButton";
 import { useTranslation } from "@/i18n";
 import type { ArtifactInfo } from "@/shared/types";
-
-function formatFileSize(bytes: number): string {
-  if (bytes === 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(1024));
-  const size = bytes / Math.pow(1024, i);
-  return `${size.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
-}
-
-function fileIcon(contentType: string) {
-  if (contentType.startsWith("image/")) return FileImage;
-  if (contentType === "application/pdf") return FileText;
-  if (contentType.includes("wordprocessingml")) return FileText;
-  if (contentType.includes("presentationml")) return FileText;
-  if (
-    contentType.startsWith("text/x-") ||
-    contentType === "text/javascript" ||
-    contentType === "application/json"
-  )
-    return FileCode;
-  if (
-    contentType === "text/csv" ||
-    contentType.includes("spreadsheet")
-  )
-    return FileSpreadsheet;
-  if (contentType.startsWith("text/")) return FileText;
-  return File;
-}
-
-type TFn = (key: string) => string;
-
-function fileCategory(contentType: string, t: TFn): string {
-  if (contentType.startsWith("image/")) return t("artifacts.categoryImage");
-  if (contentType === "application/pdf") return t("artifacts.categoryPdf");
-  if (contentType.includes("wordprocessingml")) return t("artifacts.categoryDocument");
-  if (contentType.includes("spreadsheet")) return t("artifacts.categorySpreadsheet");
-  if (contentType.includes("presentationml")) return t("artifacts.categoryPresentation");
-  if (contentType.startsWith("text/x-") || contentType === "text/javascript" || contentType === "application/json")
-    return t("artifacts.categoryCode");
-  if (contentType === "text/csv") return t("artifacts.categoryData");
-  if (contentType === "text/html") return t("artifacts.categoryHtml");
-  if (contentType.startsWith("text/")) return t("artifacts.categoryText");
-  return t("artifacts.categoryFile");
-}
+import {
+  formatFileSize,
+  fileIcon,
+  fileCategory,
+  fileExtension,
+  fileCategoryColor,
+  isPreviewable,
+} from "../lib/artifact-helpers";
+import { ArtifactPreviewDialog } from "./ArtifactPreviewDialog";
 
 interface ArtifactFilesPanelProps {
   readonly artifacts: ArtifactInfo[];
@@ -67,6 +23,8 @@ interface ArtifactFilesPanelProps {
 
 export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesPanelProps) {
   const { t } = useTranslation();
+  const [previewArtifact, setPreviewArtifact] = useState<ArtifactInfo | null>(null);
+
   const getArtifactUrl = useCallback(
     (artifactId: string) =>
       conversationId
@@ -89,15 +47,6 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
     [getArtifactUrl],
   );
 
-  const handlePreview = useCallback(
-    (artifact: ArtifactInfo) => {
-      const url = getArtifactUrl(artifact.id);
-      if (!url) return;
-      window.open(`${url}?inline=1`, "_blank", "noopener,noreferrer");
-    },
-    [getArtifactUrl],
-  );
-
   if (artifacts.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-5">
@@ -111,6 +60,8 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
     );
   }
 
+  const previewUrl = previewArtifact ? getArtifactUrl(previewArtifact.id) : null;
+
   return (
     <div className="space-y-2 px-5 py-4">
       <p className="mb-3 text-xs font-medium text-muted-foreground">
@@ -119,39 +70,46 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
       {artifacts.map((artifact, i) => {
         const Icon = fileIcon(artifact.contentType);
         const category = fileCategory(artifact.contentType, t);
-        const isPreviewable =
-          artifact.contentType.startsWith("image/") ||
-          artifact.contentType === "application/pdf" ||
-          artifact.contentType.startsWith("text/");
+        const colors = fileCategoryColor(artifact.contentType);
+        const ext = fileExtension(artifact.name);
+        const canPreview = isPreviewable(artifact.contentType);
 
         return (
           <motion.div
             key={artifact.id}
-            className="group flex items-center gap-3 rounded-md border border-border bg-card p-3 transition-colors hover:bg-muted/50"
+            className={`group flex items-center gap-3 rounded-md border border-border border-l-2 bg-card p-3 transition-colors hover:bg-muted/50`}
+            style={{ borderLeftColor: `var(--color-${colors.icon.replace("text-", "")})` }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, delay: i * 0.03 }}
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-muted">
-              <Icon className="h-4 w-4 text-muted-foreground" />
+            <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${colors.bg}`}>
+              <Icon className={`h-4 w-4 ${colors.icon}`} />
             </div>
 
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
-                {artifact.name}
-              </p>
+              <div className="flex items-center gap-1.5">
+                <p className="truncate text-sm font-medium text-foreground">
+                  {artifact.name}
+                </p>
+                {ext && (
+                  <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
+                    {ext}
+                  </span>
+                )}
+              </div>
               <p className="text-xs text-muted-foreground">
                 {category} &middot; {formatFileSize(artifact.size)}
               </p>
             </div>
 
             <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
-              {isPreviewable && (
+              {canPreview && (
                 <IconButton
                   icon={Eye}
                   label={t("artifacts.preview")}
                   size="icon-xs"
-                  onClick={() => handlePreview(artifact)}
+                  onClick={() => setPreviewArtifact(artifact)}
                 />
               )}
               <IconButton
@@ -162,7 +120,6 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
               />
             </div>
 
-            {/* Image thumbnail for image artifacts */}
             {artifact.contentType.startsWith("image/") && conversationId && (
               <div className="shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -176,6 +133,15 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
           </motion.div>
         );
       })}
+
+      <ArtifactPreviewDialog
+        artifact={previewArtifact}
+        artifactUrl={previewUrl}
+        open={previewArtifact !== null}
+        onOpenChange={(open) => {
+          if (!open) setPreviewArtifact(null);
+        }}
+      />
     </div>
   );
 }

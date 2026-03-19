@@ -243,7 +243,7 @@ class BoxliteSession:
                 return
         except Exception:
             logger.warning(
-                "Boxlite base64 upload failed for %s, falling back to copy_in",
+                "Boxlite base64 upload failed for {}, falling back to copy_in",
                 remote_path,
             )
 
@@ -268,7 +268,12 @@ class BoxliteSession:
             raise OSError(f"Uploaded file did not appear at '{remote_path}'")
 
     async def download_file(self, remote_path: str, local_path: str) -> None:
-        """Download a file from the micro-VM via ``copy_out``."""
+        """Download a file from the micro-VM.
+
+        Tries ``copy_out`` first.  If the file does not appear on the host
+        (e.g. ``copy_out`` fails silently), falls back to reading the file
+        via base64-encoded ``exec`` to avoid SDK-level issues.
+        """
         # Verify the file exists in the sandbox
         check = await self.exec(f"test -f {shlex.quote(remote_path)}")
         if not check.success:
@@ -278,14 +283,52 @@ class BoxliteSession:
         if local_dir:
             await asyncio.to_thread(os.makedirs, local_dir, exist_ok=True)
 
-        await self._box.copy_out(remote_path, local_dir or ".")
+        # Attempt 1: copy_out
+        try:
+            await self._box.copy_out(remote_path, local_dir or ".")
 
-        # Rename if needed
-        downloaded_name = os.path.basename(remote_path)
-        target_name = os.path.basename(local_path)
-        if downloaded_name != target_name:
+            downloaded_name = os.path.basename(remote_path)
+            target_name = os.path.basename(local_path)
             downloaded_path = os.path.join(local_dir or ".", downloaded_name)
-            await asyncio.to_thread(os.rename, downloaded_path, local_path)
+
+            # Rename to target if needed
+            if downloaded_name != target_name:
+                if await asyncio.to_thread(os.path.isfile, downloaded_path):
+                    await asyncio.to_thread(os.rename, downloaded_path, local_path)
+
+            if await asyncio.to_thread(os.path.isfile, local_path):
+                return
+        except Exception:
+            logger.warning(
+                "Boxlite copy_out failed for {}, falling back to base64",
+                remote_path,
+            )
+
+        # Attempt 2: base64-encoded exec fallback
+        await self._download_file_via_base64(remote_path, local_path)
+
+    async def _download_file_via_base64(
+        self, remote_path: str, local_path: str
+    ) -> None:
+        """Fallback download path that reads the file via base64 exec."""
+        quoted = shlex.quote(remote_path)
+        result = await self.exec(f"base64 {quoted}")
+        if not result.success:
+            raise OSError(
+                f"Failed to read '{remote_path}' via base64: "
+                f"{result.stderr or result.stdout}"
+            )
+
+        data = base64.b64decode(result.stdout.strip())
+        local_dir = os.path.dirname(local_path)
+        if local_dir:
+            await asyncio.to_thread(os.makedirs, local_dir, exist_ok=True)
+
+        def _write() -> None:
+            with open(local_path, "wb") as f:
+                f.write(data)
+
+        await asyncio.to_thread(_write)
 
     # -- code interpreter (ExtendedSandboxSession) ---------------------------
 
@@ -349,7 +392,7 @@ class BoxliteSession:
         try:
             await self._box.shutdown()
         except Exception as exc:
-            logger.warning("Error shutting down Boxlite sandbox: %s", exc)
+            logger.warning("Error shutting down Boxlite sandbox: {}", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -395,7 +438,7 @@ class BoxliteProvider(SandboxProvider):
                 )
 
         logger.info(
-            "Created Boxlite sandbox (image=%s, memory=%dMiB, cpus=%d)",
+            "Created Boxlite sandbox (image={}, memory={}MiB, cpus={})",
             image,
             config.memory_mb,
             config.cpu_count,

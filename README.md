@@ -1,4 +1,8 @@
-# HiAgent
+<p align="center">
+  <img src="web/public/logo.svg" width="80" height="80" alt="HiAgent logo" />
+</p>
+
+<h1 align="center">HiAgent</h1>
 
 An open-source AI agent platform that turns natural language into sandboxed, multi-step actions — with real-time streaming, multi-agent planning, and an extensible skill system.
 

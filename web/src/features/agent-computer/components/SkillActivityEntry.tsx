@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lightbulb, ChevronRight, Check, Loader2, Package, Globe, FolderGit2 } from "lucide-react";
+import { Lightbulb, ChevronRight, Check, Package, Globe, FolderGit2 } from "lucide-react";
+import { PulsingDot } from "@/shared/components/PulsingDot";
 import { cn } from "@/shared/lib/utils";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
@@ -73,7 +74,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
     <motion.div
       initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.25, ease: "easeOut" }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
       className="my-2"
     >
       <div
@@ -113,13 +114,13 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 <motion.div
                   initial={{ opacity: 0, rotate: -90 }}
                   animate={{ opacity: 1, rotate: 0 }}
-                  transition={{ type: "spring", stiffness: 400, damping: 15, delay: 0.1 }}
+                  transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
                 >
                   <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-[var(--color-ai-glow)]" />
                 </motion.div>
               )
             ) : (
-              <Loader2 aria-hidden="true" className="h-3.5 w-3.5 animate-spin text-[var(--color-ai-glow)]/70" />
+              <PulsingDot size="sm" />
             )}
           </div>
 

@@ -123,7 +123,7 @@ class LocalSession:
     async def close(self) -> None:
         """Mark session as closed. Workspace is preserved for inspection."""
         self._closed = True
-        logger.info("Local sandbox session closed (workdir=%s)", self._workdir)
+        logger.info("Local sandbox session closed (workdir={})", self._workdir)
 
     def _resolve_path(self, path: str) -> Path:
         """Resolve a path and verify it stays within the workspace directory.

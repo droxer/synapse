@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { WelcomeScreen } from "./WelcomeScreen";
 import { ConversationWorkspace } from "./ConversationWorkspace";
 import { useConversationContext } from "../hooks/use-conversation-context";
+import { useAppStore } from "@/shared/stores";
 
 export function ConversationView() {
   const {
@@ -30,6 +31,10 @@ export function ConversationView() {
     createError,
   } = useConversationContext();
 
+  const conversationTitle = useAppStore((s) =>
+    s.conversationHistory.find((c) => c.id === conversationId)?.title,
+  );
+
   const isActive = conversationId !== null;
 
   return (
@@ -38,8 +43,8 @@ export function ConversationView() {
         <motion.div
           key="welcome"
           className="h-full"
-          exit={{ opacity: 0, scale: 0.98 }}
-          transition={{ duration: 0.25 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.12 }}
         >
           <WelcomeScreen
             onSubmitTask={handleCreateConversation}
@@ -53,10 +58,11 @@ export function ConversationView() {
           className="h-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
+          transition={{ duration: 0.12, delay: 0.05 }}
         >
           <ConversationWorkspace
             conversationId={conversationId}
+            conversationTitle={conversationTitle}
             events={events}
             messages={allMessages}
             toolCalls={toolCalls}

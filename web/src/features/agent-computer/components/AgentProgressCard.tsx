@@ -10,7 +10,6 @@ import {
   CircleCheck,
   CircleX,
   Lightbulb,
-  Loader2,
   Play,
   Brain,
   Code,
@@ -210,7 +209,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
     return (
       <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded bg-ai-glow/15">
         <Icon className="h-3 w-3 text-ai-glow" />
-        <span className="absolute inset-0 rounded bg-ai-glow/10 animate-pulse" />
+        <span className="absolute inset-0 rounded bg-ai-glow/10 animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
       </span>
     );
   }
@@ -244,7 +243,7 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
     case "executing":
       return (
         <span className="inline-flex items-center gap-1 rounded-full bg-ai-glow/10 px-2 py-0.5 text-xs font-medium text-ai-glow">
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
@@ -301,9 +300,9 @@ export function AgentProgressCard({
   return (
     <motion.div
       className="overflow-hidden rounded-lg border border-border bg-card hover:border-border-strong transition-colors"
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: "easeOut" }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
     >
       {/* Progress bar — solid accent */}
       <div
@@ -324,7 +323,7 @@ export function AgentProgressCard({
           )}
           initial={{ width: 0 }}
           animate={{ width: `${progressRatio * 100}%` }}
-          transition={{ duration: 0.3, ease: "easeOut" }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
         />
       </div>
 
@@ -334,11 +333,11 @@ export function AgentProgressCard({
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="group flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer"
+          className="group flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-tight text-foreground">
+              <span className="text-[15px] font-semibold tracking-tight text-foreground">
                 {t("progress.title")}
               </span>
               <TaskStateBadge state={taskState} t={t} />
@@ -347,7 +346,7 @@ export function AgentProgressCard({
               <div
                 role="status"
                 aria-live="polite"
-                className="text-sm truncate text-muted-foreground"
+                className="text-[15px] truncate text-muted-foreground"
               >
                 {runningStepTitle}
               </div>

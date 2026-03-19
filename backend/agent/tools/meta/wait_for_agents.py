@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from loguru import logger
+
 from agent.tools.base import (
     ExecutionContext,
     LocalTool,
@@ -51,6 +53,7 @@ class WaitForAgents(LocalTool):
                 agent_ids if agent_ids else None,
             )
         except Exception as exc:
+            logger.warning("wait_for_agents_failed error={}", exc)
             return ToolResult.fail(f"Failed waiting for agents: {exc}")
 
         summaries = {

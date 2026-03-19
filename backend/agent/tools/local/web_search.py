@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from loguru import logger
 from tavily import TavilyClient
 
 from agent.tools.base import (
@@ -56,6 +57,7 @@ class TavilyWebSearch(LocalTool):
         try:
             response = self._client.search(query, max_results=max_results)
         except Exception as exc:
+            logger.warning("web_search_failed error={}", exc)
             return ToolResult.fail(f"Web search failed: {exc}")
 
         results = [

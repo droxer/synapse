@@ -62,9 +62,9 @@
   --color-terminal-dim: #78716C;
 
   /* Font families */
-  --font-sans: var(--font-inter), "PingFang SC", "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
-  --font-serif: var(--font-instrument-serif), Georgia, "Times New Roman", serif;
-  --font-mono: var(--font-jetbrains-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --font-sans: var(--font-geist), var(--font-noto-sans-sc), var(--font-noto-sans-tc), "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  --font-serif: Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   /* Type scale */
   --font-size-hero: 3.75rem;
@@ -73,7 +73,7 @@
   --font-size-h1--line-height: 1.3;
   --font-size-h2: 1rem;
   --font-size-h2--line-height: 1.3;
-  --font-size-body: 0.875rem;
+  --font-size-body: 0.9375rem;
   --font-size-body--line-height: 1.5;
   --font-size-caption: 0.75rem;
   --font-size-caption--line-height: 1.45;
@@ -390,14 +390,10 @@ body {
 }
 
 .markdown-body :not(pre) > code {
-  background: rgba(120, 113, 108, 0.08);
+  background: var(--color-muted);
   border-radius: 0.125rem;
   padding: 0.15em 0.4em;
   font-size: 0.9em;
-}
-
-.dark .markdown-body :not(pre) > code {
-  background: rgba(214, 211, 209, 0.08);
 }
 
 .markdown-body img {
@@ -415,6 +411,142 @@ body {
   overflow-x: auto;
 }
 
+/* ─── Markdown prose (full-page / detail view) ─── */
+
+.markdown-prose {
+  line-height: 1.75;
+  word-wrap: break-word;
+  font-size: 0.9375rem;
+  color: var(--color-foreground);
+}
+
+.markdown-prose > *:first-child {
+  margin-top: 0;
+}
+
+.markdown-prose > *:last-child {
+  margin-bottom: 0;
+}
+
+.markdown-prose p {
+  margin: 0.75em 0;
+}
+
+.markdown-prose h1,
+.markdown-prose h2,
+.markdown-prose h3,
+.markdown-prose h4 {
+  margin: 1.5em 0 0.6em;
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.01em;
+  color: var(--color-foreground);
+}
+
+.markdown-prose h1 { font-size: 1.5em; border-bottom: 1px solid var(--color-border); padding-bottom: 0.3em; }
+.markdown-prose h2 { font-size: 1.3em; border-bottom: 1px solid var(--color-border); padding-bottom: 0.25em; }
+.markdown-prose h3 { font-size: 1.125em; }
+.markdown-prose h4 { font-size: 1em; }
+
+.markdown-prose ul,
+.markdown-prose ol {
+  margin: 0.75em 0;
+  padding-left: 1.75em;
+}
+
+.markdown-prose ul { list-style-type: disc; }
+.markdown-prose ol { list-style-type: decimal; }
+
+.markdown-prose li {
+  margin: 0.35em 0;
+}
+
+.markdown-prose li > ul,
+.markdown-prose li > ol {
+  margin: 0.25em 0;
+}
+
+.markdown-prose blockquote {
+  margin: 1em 0;
+  padding: 0.5em 1em;
+  border-left: 3px solid var(--color-border-strong);
+  color: var(--color-muted-foreground);
+  background: var(--color-secondary);
+  border-radius: 0 0.375rem 0.375rem 0;
+}
+
+.markdown-prose hr {
+  margin: 1.5em 0;
+  border: none;
+  border-top: 1px solid var(--color-border);
+}
+
+.markdown-prose pre {
+  margin: 1em 0;
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  padding: 1em 1.25em;
+  overflow-x: auto;
+  font-size: 0.875em;
+  line-height: 1.6;
+}
+
+.markdown-prose code {
+  font-family: var(--font-mono);
+}
+
+.markdown-prose :not(pre) > code {
+  background: var(--color-muted);
+  border-radius: 0.25rem;
+  padding: 0.2em 0.45em;
+  font-size: 0.875em;
+}
+
+.markdown-prose img {
+  max-width: 100%;
+  border-radius: 0.5rem;
+}
+
+.markdown-prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+  font-size: 0.875em;
+}
+
+.markdown-prose th {
+  background: var(--color-secondary);
+  border: 1px solid var(--color-border);
+  padding: 0.5em 0.75em;
+  text-align: left;
+  font-weight: 600;
+}
+
+.markdown-prose td {
+  border: 1px solid var(--color-border);
+  padding: 0.5em 0.75em;
+}
+
+.markdown-prose a {
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.markdown-prose a:hover {
+  text-decoration-thickness: 2px;
+}
+
+.markdown-prose .katex {
+  font-size: 1em;
+}
+
+.markdown-prose .katex-display {
+  margin: 1em 0;
+  overflow-x: auto;
+}
+
 /* ─── Highlight.js light-mode overrides ─── */
 
 :root .hljs {
@@ -427,7 +559,7 @@ body {
 :root .hljs-literal,
 :root .hljs-section,
 :root .hljs-link {
-  color: #8B5CF6;
+  color: var(--color-accent-purple);
 }
 
 :root .hljs-string,
@@ -440,21 +572,21 @@ body {
 :root .hljs-addition,
 :root .hljs-template-tag,
 :root .hljs-template-variable {
-  color: #059669;
+  color: var(--color-accent-emerald);
 }
 
 :root .hljs-comment,
 :root .hljs-quote,
 :root .hljs-deletion,
 :root .hljs-meta {
-  color: #78716C;
+  color: var(--color-muted-foreground);
 }
 
 :root .hljs-number,
 :root .hljs-regexp,
 :root .hljs-built_in,
 :root .hljs-variable {
-  color: #D97706;
+  color: var(--color-accent-amber);
 }
 
 /* ─── Touch targets (WCAG 2.5.8 — 44px minimum on coarse pointers) ─── */

@@ -152,7 +152,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
           className={cn(
             "relative rounded-lg bg-card border transition-all duration-200",
             isFocused
-              ? "border-border-active shadow-sm"
+              ? "border-border-active shadow-md"
               : "border-border shadow-sm",
             isDragOver && "border-dashed border-border-active bg-secondary/30",
           )}
@@ -205,7 +205,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             rows={isWelcome ? 3 : 1}
             autoFocus={autoFocus || isWelcome}
             className={cn(
-              "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-sm leading-relaxed text-foreground placeholder:text-placeholder outline-none",
+              "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-[15px] leading-relaxed text-foreground placeholder:text-placeholder outline-none",
               disabled && "opacity-50 cursor-not-allowed",
             )}
           />
@@ -258,7 +258,6 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 <span className="hidden sm:inline">{t("chat.planLabel")}</span>
                 {usePlanner && (
                   <span className="relative flex h-1.5 w-1.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
                     <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-primary" />
                   </span>
                 )}

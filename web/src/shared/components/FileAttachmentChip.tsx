@@ -31,7 +31,7 @@ export function FileAttachmentChip({ name, size, previewUrl, onRemove }: FileAtt
           size="icon-xs"
           onClick={onRemove}
           aria-label={t("chat.removeFile", { name })}
-          className="ml-0.5 h-5 w-5 rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+          className="ml-0.5 h-5 w-5 rounded-md text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
         >
           <X className="h-3 w-3" />
         </Button>

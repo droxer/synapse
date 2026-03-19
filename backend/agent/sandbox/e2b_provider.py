@@ -268,7 +268,7 @@ class E2BSession:
             raise
         except Exception as exc:
             logger.error(
-                "E2B exec_stream failed for command '%s': %s\n%s",
+                "E2B exec_stream failed for command '{}': {}\n{}",
                 command,
                 exc,
                 traceback.format_exc(),
@@ -282,7 +282,7 @@ class E2BSession:
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception as exc:
-            logger.warning("Error pausing E2B sandbox, falling back to kill: %s", exc)
+            logger.warning("Error pausing E2B sandbox, falling back to kill: {}", exc)
             await self.kill()
 
     async def kill(self) -> None:
@@ -292,7 +292,7 @@ class E2BSession:
         except (KeyboardInterrupt, SystemExit):
             raise
         except Exception as exc:
-            logger.warning("Error killing E2B sandbox: %s", exc)
+            logger.warning("Error killing E2B sandbox: {}", exc)
 
 
 # ---------------------------------------------------------------------------
@@ -371,7 +371,7 @@ class E2BProvider(SandboxProvider):
             ),
         )
 
-        logger.info("Created E2B sandbox (template=%s)", template_id)
+        logger.info("Created E2B sandbox (template={})", template_id)
         return E2BSession(sandbox=sandbox, config=config)
 
     async def destroy_session(self, session: SandboxSession) -> None:

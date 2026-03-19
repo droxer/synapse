@@ -40,12 +40,6 @@ from agent.tools.sandbox.code_run import CodeRun
 from agent.tools.sandbox.code_search import FileGlob, FileSearch
 from agent.tools.sandbox.computer_use import ComputerAction, ComputerScreenshot
 from agent.tools.sandbox.database import DbCreate, DbQuery, DbSchema
-from agent.tools.sandbox.doc_gen import (
-    DocCreateDOCX,
-    DocCreatePDF,
-    DocCreatePPTX,
-    DocCreateXLSX,
-)
 from agent.tools.sandbox.doc_read import DocRead
 from agent.tools.sandbox.file_ops import FileEdit, FileList, FileRead, FileWrite
 from agent.tools.sandbox.package_install import PackageInstall
@@ -175,11 +169,6 @@ def _build_base_registry(
     registry = registry.register(BrowserType())
     registry = registry.register(BrowserScroll())
     registry = registry.register(BrowserExtract())
-    # Document generation tools
-    registry = registry.register(DocCreatePDF())
-    registry = registry.register(DocCreateDOCX())
-    registry = registry.register(DocCreateXLSX())
-    registry = registry.register(DocCreatePPTX())
     # Database tools
     registry = registry.register(DbCreate())
     registry = registry.register(DbQuery())
@@ -236,11 +225,6 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(BrowserType())
         registry = registry.register(BrowserScroll())
         registry = registry.register(BrowserExtract())
-        # Document generation tools
-        registry = registry.register(DocCreatePDF())
-        registry = registry.register(DocCreateDOCX())
-        registry = registry.register(DocCreateXLSX())
-        registry = registry.register(DocCreatePPTX())
         # Database tools
         registry = registry.register(DbCreate())
         registry = registry.register(DbQuery())

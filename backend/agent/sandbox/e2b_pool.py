@@ -183,7 +183,7 @@ class SandboxPool:
                 if len(entries) < self._max_per_key:
                     entries.append(entry)
 
-        logger.info("Pooled sandbox %s for key %s", sandbox_id, key)
+        logger.info("Pooled sandbox {} for key {}", sandbox_id, key)
 
     async def drain(self) -> None:
         """Kill all pooled sandboxes in parallel. Called on application shutdown."""
@@ -205,11 +205,11 @@ class SandboxPool:
                     api_key=self._api_key,
                 )
                 await asyncio.to_thread(sandbox.kill)
-                logger.info("Drained pooled sandbox %s", entry.sandbox_id)
+                logger.info("Drained pooled sandbox {}", entry.sandbox_id)
             except Exception as exc:
                 logger.warning(
-                    "Failed to drain sandbox %s: %s", entry.sandbox_id, exc
+                    "Failed to drain sandbox {}: {}", entry.sandbox_id, exc
                 )
 
         await asyncio.gather(*[_kill_entry(e) for e in all_entries])
-        logger.info("Sandbox pool drained (%d sandboxes)", len(all_entries))
+        logger.info("Sandbox pool drained ({} sandboxes)", len(all_entries))

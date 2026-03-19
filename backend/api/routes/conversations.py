@@ -214,16 +214,16 @@ async def _run_turn(
         # orchestrator.run() — after skill matching — so that files
         # land in the correct sandbox template (e.g. data_science).
 
-        logger.info("turn_started conversation_id=%s", conversation_id)
+        logger.info("turn_started conversation_id={}", conversation_id)
         result = await orchestrator.run(
             message,
             attachments=attachments,
             selected_skills=selected_skills,
         )
-        logger.info("turn_completed conversation_id=%s", conversation_id)
+        logger.info("turn_completed conversation_id={}", conversation_id)
         return result
     except asyncio.CancelledError:
-        logger.info("turn_cancelled conversation_id=%s", conversation_id)
+        logger.info("turn_cancelled conversation_id={}", conversation_id)
         entry = state.conversations.get(conversation_id)
         if entry is not None:
             await entry.emitter.emit(
@@ -232,7 +232,7 @@ async def _run_turn(
             )
         return "Cancelled."
     except Exception:
-        logger.exception("turn_failed conversation_id=%s", conversation_id)
+        logger.exception("turn_failed conversation_id={}", conversation_id)
         # Emit error event so the frontend is notified (C4 fix)
         entry = state.conversations.get(conversation_id)
         if entry is not None:
@@ -264,7 +264,7 @@ async def _cleanup_conversation(
         await entry.executor.cleanup()
     except Exception as exc:
         logger.error(
-            "cleanup_failed conversation_id=%s error=%s", conversation_id, str(exc)
+            "cleanup_failed conversation_id={} error={}", conversation_id, str(exc)
         )
 
     # Drain remaining events
@@ -274,7 +274,7 @@ async def _cleanup_conversation(
         except asyncio.QueueEmpty:
             break
 
-    logger.info("conversation_cleaned_up conversation_id=%s", conversation_id)
+    logger.info("conversation_cleaned_up conversation_id={}", conversation_id)
 
 
 async def _cleanup_stale_conversations(state: AppState) -> None:
@@ -295,7 +295,7 @@ async def _cleanup_stale_conversations(state: AppState) -> None:
                 if entry.turn_task is None or entry.turn_task.done():
                     stale_ids.append(cid)
         for cid in stale_ids:
-            logger.info("cleaning_stale_conversation id=%s", cid)
+            logger.info("cleaning_stale_conversation id={}", cid)
             await _cleanup_conversation(state, cid)
 
 
@@ -320,7 +320,7 @@ async def _generate_title(
         title = response.text.strip()[:80]
         await emitter.emit(EventType.CONVERSATION_TITLE, {"title": title})
     except Exception:
-        logger.warning("title_generation_failed conversation_id=%s", conversation_id)
+        logger.warning("title_generation_failed conversation_id={}", conversation_id)
 
 
 # ---------------------------------------------------------------------------
@@ -552,12 +552,12 @@ async def send_message(
             await state.db_repo.update_conversation(session, uuid.UUID(conversation_id))
     except Exception as exc:
         logger.warning(
-            "failed_to_update_conversation_timestamp id=%s error=%s",
+            "failed_to_update_conversation_timestamp id={} error={}",
             conversation_id,
             exc,
         )
 
-    logger.info("message_sent conversation_id=%s", conversation_id)
+    logger.info("message_sent conversation_id={}", conversation_id)
     return ConversationResponse(conversation_id=conversation_id)
 
 
@@ -707,7 +707,7 @@ async def cancel_turn(
                 await turn_task
             except (asyncio.CancelledError, Exception):
                 pass
-        logger.info("turn_cancelled conversation_id=%s", conversation_id)
+        logger.info("turn_cancelled conversation_id={}", conversation_id)
 
     asyncio.create_task(_force_cancel_after_timeout())
     return {"status": "cancelling"}
@@ -772,7 +772,7 @@ async def retry_turn(
         ),
     )
 
-    logger.info("turn_retried conversation_id=%s", conversation_id)
+    logger.info("turn_retried conversation_id={}", conversation_id)
     return {"status": "retrying", "message": last_msg}
 
 
@@ -789,5 +789,5 @@ async def delete_conversation(
     )
     if not deleted:
         raise HTTPException(status_code=404, detail="Conversation not found")
-    logger.info("conversation_deleted id=%s", conversation_id)
+    logger.info("conversation_deleted id={}", conversation_id)
     return {"status": "ok"}

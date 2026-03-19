@@ -95,8 +95,8 @@ def _extract_content(html: str, url: str) -> str:
         )
         if result:
             return result
-    except Exception:
-        pass
+    except Exception as exc:
+        logger.debug("trafilatura_extraction_failed error={}", exc)
     return _strip_html_regex(html)
 
 
@@ -148,6 +148,7 @@ class WebFetch(LocalTool):
         except httpx.HTTPStatusError as exc:
             return ToolResult.fail(f"HTTP {exc.response.status_code}: {exc}")
         except Exception as exc:
+            logger.warning("web_fetch_failed url={} error={}", url, exc)
             return ToolResult.fail(f"Fetch failed: {exc}")
 
         content = _extract_content(response.text, url)

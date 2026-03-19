@@ -38,11 +38,11 @@ export function WelcomeScreen({ onSubmitTask, error, isLoading = false }: Welcom
         className="relative z-10 flex w-full max-w-3xl flex-col items-center"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.3 }}
+        transition={{ duration: 0.12 }}
       >
         {/* Heading — single fade-in */}
         <motion.h1
-          className="mb-8 text-center font-sans text-[2rem] font-semibold leading-[1.15] tracking-tight text-foreground sm:text-[2.75rem] md:text-[3.25rem]"
+          className="mb-8 text-center font-sans text-3xl font-semibold leading-[1.15] tracking-tight text-foreground sm:text-5xl md:text-[3.75rem]"
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2, ease: "easeOut" }}

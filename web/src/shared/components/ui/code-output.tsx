@@ -33,7 +33,7 @@ export function CodeOutput({ output, icon: Icon, label, className }: CodeOutputP
   }, [output]);
 
   return (
-    <div className={cn("rounded-md border-l-2 border-l-accent-emerald/60 bg-muted/60 px-3 py-2", className)}>
+    <div className={cn("rounded-md border-l-2 border-l-accent-emerald bg-muted px-3 py-2", className)}>
       {/* Header row: copy button (left) + category label (right) */}
       <div className="mb-1.5 flex items-center justify-between">
         {output.length > 50 ? (
@@ -41,7 +41,7 @@ export function CodeOutput({ output, icon: Icon, label, className }: CodeOutputP
             type="button"
             onClick={handleCopy}
             aria-label={copied ? "Copied" : "Copy to clipboard"}
-            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
           >
             {copied ? (
               <>

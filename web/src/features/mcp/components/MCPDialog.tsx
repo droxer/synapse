@@ -46,7 +46,7 @@ import { useTranslation } from "@/i18n";
 const listContainer = {
   hidden: {},
   show: {
-    transition: { staggerChildren: 0.06, delayChildren: 0.15 },
+    transition: { staggerChildren: 0.02, delayChildren: 0 },
   },
 };
 

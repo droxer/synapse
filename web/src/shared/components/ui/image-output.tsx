@@ -13,7 +13,7 @@ export function ImageOutput({ output, conversationId, artifactIds, className }: 
   const looksLikeUri = output.startsWith("data:") || output.startsWith("http");
 
   return (
-    <div className={cn("rounded-md border-l-2 border-l-ai-glow/60 bg-muted/60 p-3", className)}>
+    <div className={cn("rounded-md border-l-2 border-l-accent-purple bg-muted p-3", className)}>
       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         <ImageIcon className="h-3 w-3" />
         <span>Image output</span>

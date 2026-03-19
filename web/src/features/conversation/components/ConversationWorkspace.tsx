@@ -29,6 +29,7 @@ function formatTime(ts: number): string {
 
 interface ConversationWorkspaceProps {
   conversationId: string | null;
+  conversationTitle?: string;
   events: AgentEvent[];
   messages: ChatMessage[];
   toolCalls: ToolCallInfo[];
@@ -51,6 +52,7 @@ interface ConversationWorkspaceProps {
 
 export function ConversationWorkspace({
   conversationId,
+  conversationTitle,
   events,
   messages,
   toolCalls,
@@ -147,8 +149,8 @@ export function ConversationWorkspace({
       <TopBar
         taskState={taskState}
         isConnected={isConnected}
-        currentIteration={currentIteration}
         onNavigateHome={onNavigateHome}
+        conversationTitle={conversationTitle}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -157,7 +159,7 @@ export function ConversationWorkspace({
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-3 py-4 sm:px-6 sm:py-6">
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+                <p className="text-[15px] text-muted-foreground">{t("conversation.waiting")}</p>
               </div>
             )}
 
@@ -183,8 +185,8 @@ export function ConversationWorkspace({
                       >
                         <div className="max-w-[80%] min-w-[120px]">
                           {/* Frosted card surface */}
-                          <div className="rounded-lg bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/6">
-                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                          <div className="rounded-lg bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/10">
+                            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
                               {msg.content}
                             </p>
                             {msg.attachments && msg.attachments.length > 0 && (
@@ -219,12 +221,12 @@ export function ConversationWorkspace({
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className={cn(
                           "group relative max-w-[85%]",
-                          isStreamingThis && "border-l-2 border-ai-border pl-4",
+                          isStreamingThis && "pl-4",
                         )}
                       >
                         <div className="relative">
                           {/* Message body */}
-                          <div className="text-sm leading-[1.5] text-foreground">
+                          <div className="text-[15px] leading-[1.5] text-foreground">
                             <MarkdownRenderer content={msg.content} />
                             <AnimatePresence>
                               {isStreamingThis && <StreamingCursor />}

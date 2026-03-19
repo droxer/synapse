@@ -54,10 +54,6 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   browser_extract: "Browser Extract",
   // Sandbox: documents
   document_read: "Document Read",
-  document_create_pdf: "Create PDF",
-  document_create_docx: "Create DOCX",
-  document_create_xlsx: "Create XLSX",
-  document_create_pptx: "Create PPTX",
   // Sandbox: database
   database_create: "Database Create",
   database_query: "Database Query",

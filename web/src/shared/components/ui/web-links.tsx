@@ -41,7 +41,7 @@ export function WebLinks({ query, results, className }: WebLinksProps) {
               href={r.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-2"
+              className="flex items-start gap-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-user-accent group-hover:underline">

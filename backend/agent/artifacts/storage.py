@@ -72,7 +72,7 @@ class LocalStorageBackend:
     async def save(self, key: str, data: bytes, content_type: str) -> str:
         file_real = self._resolve_and_validate(key)
         await asyncio.to_thread(self._sync_save, file_real, data)
-        logger.debug("local_storage_saved key=%s size=%d", key, len(data))
+        logger.debug("local_storage_saved key={} size={}", key, len(data))
         return key
 
     async def get_url(
@@ -95,7 +95,7 @@ class LocalStorageBackend:
         file_real = self._resolve_and_validate(key)
         deleted = await asyncio.to_thread(self._sync_delete, file_real)
         if deleted:
-            logger.debug("local_storage_deleted key=%s", key)
+            logger.debug("local_storage_deleted key={}", key)
 
     def _sync_exists(self, key: str) -> bool:
         file_path = os.path.join(self._storage_dir, key)
@@ -159,7 +159,7 @@ class R2StorageBackend:
 
     async def save(self, key: str, data: bytes, content_type: str) -> str:
         await asyncio.to_thread(self._sync_put_object, key, data, content_type)
-        logger.debug("r2_storage_saved key=%s size=%d", key, len(data))
+        logger.debug("r2_storage_saved key={} size={}", key, len(data))
         return key
 
     def _sync_generate_presigned_url(
@@ -195,7 +195,7 @@ class R2StorageBackend:
 
     async def delete(self, key: str) -> None:
         await asyncio.to_thread(self._sync_delete_object, key)
-        logger.debug("r2_storage_deleted key=%s", key)
+        logger.debug("r2_storage_deleted key={}", key)
 
     def _sync_head_object(self, key: str) -> bool:
         try:
