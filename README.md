@@ -4,6 +4,8 @@
 
 <h1 align="center">HiAgent</h1>
 
+<p align="center"><strong>English</strong> | <a href="README.zh-CN.md">简体中文</a></p>
+
 An open-source AI agent platform that turns natural language into sandboxed, multi-step actions — with real-time streaming, multi-agent planning, and an extensible skill system.
 
 ## What It Does

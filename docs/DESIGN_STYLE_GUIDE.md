@@ -1,3 +1,5 @@
+**English** | [简体中文](zh-CN/DESIGN_STYLE_GUIDE.md)
+
 # HiAgent Design Style Guide
 
 > Warm, approachable, content-focused AI interface with generous whitespace and organic softness.

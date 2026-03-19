@@ -1,3 +1,5 @@
+**English** | [简体中文](zh-CN/brand-guidelines.md)
+
 # HiAgent Brand Guidelines
 
 ## Brand Identity

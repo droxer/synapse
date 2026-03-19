@@ -1,0 +1,75 @@
+[English](README.md) | **简体中文**
+
+<p align="center">
+  <img src="web/public/logo.svg" width="80" height="80" alt="HiAgent logo" />
+</p>
+
+<h1 align="center">HiAgent</h1>
+
+一个开源 AI 智能体平台，将自然语言转化为沙盒化的多步骤操作——支持实时流式输出、多智能体协同规划以及可扩展的技能系统。
+
+## 功能概览
+
+**对话驱动的任务执行** — 用户用自然语言描述任务，HiAgent 的 ReAct 引擎会自动拆解任务、选择合适的工具，并逐步执行，同时实时展示进度。
+
+**沙盒化代码执行** — 每个任务都在隔离的微型虚拟机（Boxlite）中运行。智能体可以编写和运行代码、安装软件包、查询数据库、自动化浏览器操作以及生成文件——完全不影响你的主机环境。
+
+**多智能体规划** — 复杂任务会被自动分解为子任务。规划智能体协调多个并发运行的工作智能体，每个工作智能体拥有独立的沙盒环境。
+
+**可扩展的技能系统** — 技能是可移植的 YAML 定义文件，用于教授智能体新的方法论。技能可以定义指令、可用工具和沙盒需求。从 GitHub 导入的功能即将推出。
+
+**MCP 集成** — 通过 Model Context Protocol 连接外部工具。添加 MCP 服务器即可使用第三方 API 和服务扩展智能体能力。
+
+**实时流式输出** — 前端实时渲染每一个步骤：LLM 推理、工具执行、代码输出、生成的产物以及子智能体进度——全部通过 Server-Sent Events 实现。
+
+## 特性
+
+- **对话式界面**，支持文件上传、技能选择和后续消息
+- **20+ 内置工具** — 网页搜索、代码执行、浏览器自动化、文件操作、数据库查询、图片生成、文档生成
+- **产物管理** — 沙盒中生成的文件可供下载和预览
+- **扩展思考** — 可配置的思考预算，用于复杂任务的深度推理
+- **持久化记忆** — 智能体可跨对话轮次记住上下文
+- **对话历史** — 基于 PostgreSQL 的完整持久化存储
+- **深色/浅色主题**，支持国际化（英文、中文）
+- **键盘优先的交互体验** — 命令面板（Cmd+K）、响应式布局
+
+## 快速开始
+
+### 前置要求
+
+- Python 3.12+、Node.js（含 npm）、[`uv`](https://docs.astral.sh/uv/)
+- PostgreSQL（可选，用于对话持久化）
+
+### 安装与启动
+
+```bash
+make install
+
+# 创建 backend/.env（参考 backend/.env.example）
+# ANTHROPIC_API_KEY=...
+# TAVILY_API_KEY=...
+
+make dev
+```
+
+打开 [http://localhost:3000](http://localhost:3000) 即可使用。
+
+## 技术栈
+
+| 层级 | 技术 |
+|------|------|
+| 后端 | Python 3.12+, FastAPI, Anthropic SDK, SQLAlchemy (async), Alembic |
+| 前端 | Next.js 15, React 19, Tailwind CSS 4, Zustand, Framer Motion, Radix UI |
+| 沙盒 | Boxlite micro-VMs, E2B (cloud), Docker |
+| 数据库 | PostgreSQL, Redis（可选） |
+| 包管理 | uv（后端）, npm（前端） |
+
+## 文档
+
+- [开发指南](docs/zh-CN/development.md) — 命令、架构、API 参考、环境变量及贡献流程
+- [设计风格指南](docs/zh-CN/DESIGN_STYLE_GUIDE.md) — UI 组件规范、色彩系统、排版与无障碍设计
+- [品牌指南](docs/zh-CN/brand-guidelines.md) — 品牌标识、色彩方案与视觉设计语言
+
+## 许可证
+
+私有
