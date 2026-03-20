@@ -22,6 +22,12 @@ An open-source AI agent platform that turns natural language into sandboxed, mul
 
 **Real-time streaming** — The frontend renders every step as it happens: LLM reasoning, tool execution, code output, generated artifacts, and sub-agent progress — all via Server-Sent Events.
 
+## Screenshots
+
+| Multi-Agent Planning | Skills System | MCP Integration |
+|:---:|:---:|:---:|
+| ![Multi-Agent Planning](images/multi-agents.png) | ![Skills System](images/skills.png) | ![MCP Integration](images/mcp.png) |
+
 ## Features
 
 - **Conversational interface** with file upload, skill selection, and follow-up messages
