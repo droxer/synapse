@@ -1,16 +1,14 @@
-FROM python:3.12-slim
+ARG BASE_IMAGE=hiagent-sandbox-base
+FROM ${BASE_IMAGE}
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    curl \
-    git \
-    jq \
-    procps \
+# Node.js
+RUN apt-get update \
     && curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
     && apt-get install -y --no-install-recommends nodejs \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
-# WeasyPrint system dependencies (pango, cairo, gdk-pixbuf, fonts)
+# WeasyPrint system deps + virtual display/computer-use tools
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libpango-1.0-0 \
     libpangocairo-1.0-0 \
@@ -19,22 +17,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     fonts-dejavu-core \
     fonts-liberation \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-RUN pip install --no-cache-dir \
-    requests \
-    beautifulsoup4 \
-    pyyaml \
-    reportlab \
-    python-docx \
-    openpyxl \
-    python-pptx \
-    weasyprint \
-    markdown \
-    pygments
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
     xvfb \
     xdotool \
     imagemagick \
@@ -42,8 +24,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
+# Default-specific Python packages
+RUN pip install --no-cache-dir \
+    reportlab \
+    python-docx \
+    python-pptx \
+    weasyprint \
+    markdown \
+    pygments
+
 # Pre-bake document templates
 COPY doc_templates/ /opt/doc_templates/
-
-RUN mkdir -p /home/user
-WORKDIR /home/user

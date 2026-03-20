@@ -1,7 +1,9 @@
 SANDBOX_REGISTRY := ghcr.io/droxer
+SANDBOX_BASE_IMAGE := base
 SANDBOX_IMAGES := default data_science browser
 
 # Image version tags (override with SANDBOX_TAG=vX)
+SANDBOX_TAGS_base :=
 SANDBOX_TAGS_default :=
 SANDBOX_TAGS_data_science :=
 SANDBOX_TAGS_browser := v3
@@ -42,13 +44,24 @@ build-web:
 # e.g. browser -> ghcr.io/droxer/hiagent-sandbox-browser:v3
 sandbox_image = $(SANDBOX_REGISTRY)/hiagent-sandbox-$(1)$(if $(SANDBOX_TAGS_$(1)),:$(SANDBOX_TAGS_$(1)),)
 
+# Local tag for the base image (used as default BASE_IMAGE arg in derived Dockerfiles)
+SANDBOX_BASE_LOCAL_TAG := hiagent-sandbox-base
+
 # Build sandbox Docker images (from container/ folder)
 # Usage: make build-sandbox [SANDBOX=browser]
+# Base image is always built first when building all images.
 build-sandbox:
 ifdef SANDBOX
-	docker build -t $(call sandbox_image,$(SANDBOX)) -f container/Dockerfile.$(SANDBOX) container
+	docker build -t $(call sandbox_image,$(SANDBOX)) \
+		--build-arg BASE_IMAGE=$(SANDBOX_BASE_LOCAL_TAG) \
+		-f container/Dockerfile.$(SANDBOX) container
 else
-	$(foreach img,$(SANDBOX_IMAGES),docker build -t $(call sandbox_image,$(img)) -f container/Dockerfile.$(img) container;)
+	docker build -t $(call sandbox_image,$(SANDBOX_BASE_IMAGE)) \
+		-t $(SANDBOX_BASE_LOCAL_TAG) \
+		-f container/Dockerfile.$(SANDBOX_BASE_IMAGE) container
+	$(foreach img,$(SANDBOX_IMAGES),docker build -t $(call sandbox_image,$(img)) \
+		--build-arg BASE_IMAGE=$(SANDBOX_BASE_LOCAL_TAG) \
+		-f container/Dockerfile.$(img) container;)
 endif
 
 # Push sandbox Docker images to GHCR
@@ -57,6 +70,7 @@ push-sandbox:
 ifdef SANDBOX
 	docker push $(call sandbox_image,$(SANDBOX))
 else
+	docker push $(call sandbox_image,$(SANDBOX_BASE_IMAGE))
 	$(foreach img,$(SANDBOX_IMAGES),docker push $(call sandbox_image,$(img));)
 endif
 
