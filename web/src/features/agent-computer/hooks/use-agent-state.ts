@@ -294,6 +294,7 @@ export function useAgentState(events: AgentEvent[]) {
           name: String(e.data.name ?? ""),
           description: String(e.data.description ?? e.data.task ?? ""),
           status: "running",
+          timestamp: e.timestamp,
         });
       }
       if (e.type === "agent_complete") {

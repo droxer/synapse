@@ -126,12 +126,14 @@ interface ToolOutputRendererProps {
   readonly artifactIds?: string[];
   readonly browserMetadata?: BrowserMetadata;
   readonly computerUseMetadata?: ComputerUseMetadata;
+  readonly agentNameMap?: ReadonlyMap<string, string>;
 }
 
-export function ToolOutputRenderer({ output, toolName, contentType, conversationId, artifactIds, browserMetadata, computerUseMetadata }: ToolOutputRendererProps) {
+export function ToolOutputRenderer({ output, toolName, contentType, conversationId, artifactIds, browserMetadata, computerUseMetadata, agentNameMap }: ToolOutputRendererProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const isLong = output.length > COLLAPSE_THRESHOLD;
+  const resolvedOutput = toolName === "task_complete" ? t("output.taskMarkedComplete") : output;
+  const isLong = resolvedOutput.length > COLLAPSE_THRESHOLD;
   const isCode = CODE_TOOLS.has(toolName) || contentType?.startsWith("text/x-") || contentType?.startsWith("text/javascript");
   const isImage = contentType?.startsWith("image/");
   const isHtml = contentType === "text/html";
@@ -142,7 +144,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
 
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
 
-  const displayText = isLong && !expanded ? output.slice(0, COLLAPSE_THRESHOLD) : output;
+  const displayText = isLong && !expanded ? resolvedOutput.slice(0, COLLAPSE_THRESHOLD) : resolvedOutput;
 
   // Image artifact rendering
   if (isImage) {
@@ -290,7 +292,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
                 ) : (
                   <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 )}
-                <span className="shrink-0 font-mono text-xs text-muted-foreground-dim">{agentId.slice(0, 12)}</span>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 12)}</span>
                 <span className="min-w-0 break-words">{result.error ?? result.summary}</span>
               </div>
             ))}
@@ -327,7 +329,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
               {messages.map((msg, i) => (
                 <div key={i} className="rounded border border-border bg-background/50 px-2.5 py-1.5 text-sm">
                   <div className="mb-0.5 text-xs text-muted-foreground-dim">
-                    {t("output.agentMessageFrom", { id: msg.from.slice(0, 12) })}
+                    {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
                   <div className="text-muted-foreground">{msg.message}</div>
                 </div>

@@ -365,6 +365,7 @@
   "output.generatedImage": "生成的图片",
   "output.agentOutput": "智能体输出",
   "output.imageArtifactHint": "图片产物可用（使用产物查看器显示）",
+  "output.taskMarkedComplete": "任务已标记为完成。",
   "output.terminalCopy": "复制终端输出",
 
   "a11y.collapse": "收起",

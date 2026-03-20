@@ -364,6 +364,7 @@
   "output.generatedImage": "產生的圖片",
   "output.agentOutput": "智慧體輸出",
   "output.imageArtifactHint": "圖片產物可用（使用產物檢視器顯示）",
+  "output.taskMarkedComplete": "任務已標記為完成。",
   "output.terminalCopy": "複製終端輸出",
 
   "a11y.collapse": "收起",

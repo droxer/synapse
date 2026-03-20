@@ -25,6 +25,7 @@ interface AgentStatusRowProps {
   readonly variant?: "light" | "dark";
   readonly toolCalls?: ToolCallInfo[];
   readonly conversationId?: string | null;
+  readonly agentNameMap?: ReadonlyMap<string, string>;
 }
 
 export function AgentStatusRow({
@@ -32,6 +33,7 @@ export function AgentStatusRow({
   variant = "light",
   toolCalls,
   conversationId,
+  agentNameMap,
 }: AgentStatusRowProps) {
   const { t } = useTranslation();
   const isDark = variant === "dark";
@@ -127,7 +129,8 @@ export function AgentStatusRow({
                         conversationId={conversationId ?? null}
                         artifactIds={tc.artifactIds}
                         browserMetadata={tc.browserMetadata}
-                      computerUseMetadata={tc.computerUseMetadata}
+                        computerUseMetadata={tc.computerUseMetadata}
+                        agentNameMap={agentNameMap}
                       />
                     </div>
                   )}

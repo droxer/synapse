@@ -365,6 +365,7 @@
   "output.generatedImage": "Generated image",
   "output.agentOutput": "Agent output",
   "output.imageArtifactHint": "Image artifact available (use artifact viewer to display)",
+  "output.taskMarkedComplete": "Task marked as complete.",
   "output.terminalCopy": "Copy terminal output",
 
   "a11y.collapse": "Collapse",

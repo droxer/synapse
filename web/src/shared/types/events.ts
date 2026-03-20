@@ -101,6 +101,7 @@ export interface AgentStatus {
   name: string;
   description: string;
   status: "running" | "complete" | "error";
+  timestamp: number;
 }
 
 export type AssistantPhase =

@@ -70,7 +70,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
 }
 
 /** Polished display for agent_wait tool calls. */
-function WaitForAgentsDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t: TFn }) {
+function WaitForAgentsDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; readonly t: TFn; readonly agentNameMap: ReadonlyMap<string, string> }) {
   const agentIds = Array.isArray(tc.input.agent_ids) ? tc.input.agent_ids as string[] : [];
   const waitingAll = agentIds.length === 0;
 
@@ -91,7 +91,7 @@ function WaitForAgentsDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t
               key={id}
               className="inline-flex items-center rounded bg-muted px-1.5 py-0.5 font-mono text-micro text-muted-foreground"
             >
-              {String(id).slice(0, 8)}
+              {agentNameMap.get(String(id)) || String(id).slice(0, 8)}
             </span>
           ))}
         </div>
@@ -101,7 +101,7 @@ function WaitForAgentsDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t
 }
 
 /** Polished display for agent_send tool calls. */
-function AgentSendDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t: TFn }) {
+function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; readonly t: TFn; readonly agentNameMap: ReadonlyMap<string, string> }) {
   const targetId = String(tc.input.agent_id ?? "");
   const message = String(tc.input.message ?? "");
   const isBroadcast = targetId === "all";
@@ -113,7 +113,7 @@ function AgentSendDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t: TF
         <span className="text-sm font-medium text-foreground">
           {isBroadcast
             ? t("computer.broadcastMessage")
-            : t("computer.sendToAgent", { id: targetId.slice(0, 8) })}
+            : t("computer.sendToAgent", { id: agentNameMap.get(targetId) || targetId.slice(0, 8) })}
         </span>
       </div>
       {message && (
@@ -126,10 +126,10 @@ function AgentSendDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t: TF
 }
 
 /** Renders the appropriate polished display for an agent meta tool call. */
-function AgentMetaDisplay({ tc, t }: { readonly tc: ToolCallInfo; readonly t: TFn }) {
+function AgentMetaDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; readonly t: TFn; readonly agentNameMap: ReadonlyMap<string, string> }) {
   if (tc.name === "agent_spawn") return <SpawnAgentDisplay tc={tc} />;
-  if (tc.name === "agent_wait") return <WaitForAgentsDisplay tc={tc} t={t} />;
-  if (tc.name === "agent_send") return <AgentSendDisplay tc={tc} t={t} />;
+  if (tc.name === "agent_wait") return <WaitForAgentsDisplay tc={tc} t={t} agentNameMap={agentNameMap} />;
+  if (tc.name === "agent_send") return <AgentSendDisplay tc={tc} t={t} agentNameMap={agentNameMap} />;
   return null;
 }
 
@@ -280,6 +280,38 @@ export function AgentComputerPanel({
     return { parentToolCalls: parent, agentToolCallsMap: agentMap };
   }, [visibleToolCalls]);
 
+  // Unified timeline: interleave parent tool calls and agent status rows by timestamp
+  type TimelineItem =
+    | { readonly kind: "tool"; readonly toolCall: ToolCallInfo }
+    | { readonly kind: "agent"; readonly agent: AgentStatus };
+
+  const timelineItems = useMemo<TimelineItem[]>(() => {
+    const items: TimelineItem[] = [];
+    for (const tc of parentToolCalls) {
+      items.push({ kind: "tool", toolCall: tc });
+    }
+    for (const agent of agentStatuses) {
+      items.push({ kind: "agent", agent });
+    }
+    items.sort((a, b) => {
+      const tsA = a.kind === "tool" ? a.toolCall.timestamp : a.agent.timestamp;
+      const tsB = b.kind === "tool" ? b.toolCall.timestamp : b.agent.timestamp;
+      return tsA - tsB;
+    });
+    return items;
+  }, [parentToolCalls, agentStatuses]);
+
+  // Map agentId → human-readable name for display in wait/send tool calls
+  const agentNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const agent of agentStatuses) {
+      if (agent.name) {
+        map.set(agent.agentId, agent.name);
+      }
+    }
+    return map;
+  }, [agentStatuses]);
+
   useEffect(() => {
     contentRef.current?.scrollTo({
       top: contentRef.current.scrollHeight,
@@ -418,20 +450,30 @@ export function AgentComputerPanel({
               />
             )}
 
-            {/* Parent tool call entries (no agentId) */}
+            {/* Unified timeline: tool calls and agent status rows interleaved by timestamp */}
             <div className="space-y-2 font-mono text-sm">
-              {parentToolCalls.map((tc) =>
-                SKILL_TOOL_NAMES.has(tc.name) ? (
-                  <SkillActivityEntry key={tc.id} toolCall={tc} />
+              {timelineItems.map((item) =>
+                item.kind === "agent" ? (
+                  <div key={`agent-${item.agent.agentId}`} data-step-id={`agent-${item.agent.agentId}`}>
+                    <AgentStatusRow
+                      agent={item.agent}
+                      variant="light"
+                      toolCalls={agentToolCallsMap.get(item.agent.agentId)}
+                      conversationId={conversationId}
+                      agentNameMap={agentNameMap}
+                    />
+                  </div>
+                ) : SKILL_TOOL_NAMES.has(item.toolCall.name) ? (
+                  <SkillActivityEntry key={item.toolCall.id} toolCall={item.toolCall} />
                 ) : (
                   <motion.div
-                    key={tc.id}
-                    data-step-id={`tool-${tc.id}`}
+                    key={item.toolCall.id}
+                    data-step-id={`tool-${item.toolCall.id}`}
                     initial={{ opacity: 0, y: 4 }}
                     animate={{
                       opacity: 1,
                       y: 0,
-                      backgroundColor: activeHighlight === `tool-${tc.id}`
+                      backgroundColor: activeHighlight === `tool-${item.toolCall.id}`
                         ? "var(--color-secondary)"
                         : "transparent",
                     }}
@@ -440,35 +482,35 @@ export function AgentComputerPanel({
                   >
                     {/* Log line */}
                     <div className="flex items-start gap-2 py-1.5">
-                      <StatusIcon tc={tc} />
-                      {tc.name === "browser_use" ? (
+                      <StatusIcon tc={item.toolCall} />
+                      {item.toolCall.name === "browser_use" ? (
                         <>
                           <span className="text-foreground">
-                            {getBrowserStatusText(tc, t)}
+                            {getBrowserStatusText(item.toolCall, t)}
                           </span>
-                          {tc.output === undefined && (
+                          {item.toolCall.output === undefined && (
                             <span className="text-ai-glow">
                               {t("computer.running")}
                             </span>
                           )}
                         </>
-                      ) : COMPUTER_USE_TOOLS.has(tc.name) ? (
+                      ) : COMPUTER_USE_TOOLS.has(item.toolCall.name) ? (
                         <>
                           <span className="text-foreground">
-                            {getComputerUseStatusText(tc, t)}
+                            {getComputerUseStatusText(item.toolCall, t)}
                           </span>
-                          {tc.output === undefined && (
+                          {item.toolCall.output === undefined && (
                             <span className="text-ai-glow">
                               {t("computer.running")}
                             </span>
                           )}
                         </>
-                      ) : AGENT_META_TOOLS.has(tc.name) ? (
+                      ) : AGENT_META_TOOLS.has(item.toolCall.name) ? (
                         <>
                           <span className="text-foreground">
-                            {normalizeToolNameI18n(tc.name, t)}
+                            {normalizeToolNameI18n(item.toolCall.name, t)}
                           </span>
-                          {tc.output === undefined && (
+                          {item.toolCall.output === undefined && (
                             <span className="text-ai-glow">
                               {t("computer.running")}
                             </span>
@@ -477,9 +519,9 @@ export function AgentComputerPanel({
                       ) : (
                         <>
                           <span className="text-foreground">
-                            {normalizeToolNameI18n(tc.name, t)}
+                            {normalizeToolNameI18n(item.toolCall.name, t)}
                           </span>
-                          {tc.output === undefined && (
+                          {item.toolCall.output === undefined && (
                             <span className="text-ai-glow">
                               {t("computer.running")}
                             </span>
@@ -489,28 +531,29 @@ export function AgentComputerPanel({
                     </div>
 
                     {/* Polished agent meta tool display */}
-                    {AGENT_META_TOOLS.has(tc.name) && (
-                      <AgentMetaDisplay tc={tc} t={t} />
+                    {AGENT_META_TOOLS.has(item.toolCall.name) && (
+                      <AgentMetaDisplay tc={item.toolCall} t={t} agentNameMap={agentNameMap} />
                     )}
 
                     {/* Args detail box — skip for browser_use, computer_use, and agent_spawn (have custom displays) */}
-                    {Object.keys(tc.input).length > 0 && tc.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(tc.name) && !AGENT_META_TOOLS.has(tc.name) && (
+                    {Object.keys(item.toolCall.input).length > 0 && item.toolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(item.toolCall.name) && !AGENT_META_TOOLS.has(item.toolCall.name) && (
                       <div className="ml-6 mb-1">
-                        <ToolArgsDisplay input={tc.input} />
+                        <ToolArgsDisplay input={item.toolCall.input} />
                       </div>
                     )}
 
                     {/* Output (collapsible) */}
-                    {tc.output !== undefined && (
+                    {item.toolCall.output !== undefined && (
                       <div className="ml-6 mb-2">
                         <ToolOutputRenderer
-                          output={tc.output}
-                          toolName={tc.name}
-                          contentType={tc.contentType}
+                          output={item.toolCall.output}
+                          toolName={item.toolCall.name}
+                          contentType={item.toolCall.contentType}
                           conversationId={conversationId}
-                          artifactIds={tc.artifactIds}
-                          browserMetadata={tc.browserMetadata}
-                          computerUseMetadata={tc.computerUseMetadata}
+                          artifactIds={item.toolCall.artifactIds}
+                          browserMetadata={item.toolCall.browserMetadata}
+                          computerUseMetadata={item.toolCall.computerUseMetadata}
+                          agentNameMap={agentNameMap}
                         />
                       </div>
                     )}
@@ -518,22 +561,6 @@ export function AgentComputerPanel({
                 ),
               )}
             </div>
-
-            {/* Agent sections with nested tool calls */}
-            {agentStatuses.length > 0 && (
-              <div className="mt-4 space-y-2">
-                {agentStatuses.map((agent) => (
-                  <div key={agent.agentId} data-step-id={`agent-${agent.agentId}`}>
-                    <AgentStatusRow
-                      agent={agent}
-                      variant="light"
-                      toolCalls={agentToolCallsMap.get(agent.agentId)}
-                      conversationId={conversationId}
-                    />
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           {/* ── Consolidated status bar ── */}
