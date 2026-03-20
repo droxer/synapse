@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, type ReactNode } from "react";
+import { createContext, useMemo, type ReactNode } from "react";
 import { useSSE } from "@/shared/hooks";
 import { useAppStore } from "@/shared/stores";
 import { useAgentState } from "@/features/agent-computer";
@@ -81,9 +81,28 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   } = useAgentState(effectiveEvents);
 
   const effectiveTaskState: TaskState = isLive ? taskState : "complete";
-  const effectiveMessages = isLive
-    ? [...historyMessages, ...messages]
-    : historyMessages;
+
+  // Merge DB-persisted messages with event-derived messages so that
+  // intermediate assistant text (from llm_response events during multi-
+  // iteration ReAct loops) is visible in both live and historical views.
+  // DB messages table only stores TURN_COMPLETE / TASK_COMPLETE / MESSAGE_USER,
+  // but llm_response events (saved to events table) carry intermediate text
+  // that useAgentState correctly derives — we must not discard them.
+  const effectiveMessages = useMemo<ChatMessage[]>(() => {
+    const merged = [...historyMessages];
+    for (const msg of messages) {
+      const isDuplicate = merged.some(
+        (m) =>
+          m.role === msg.role &&
+          m.content === msg.content &&
+          Math.abs(m.timestamp - msg.timestamp) < 30_000,
+      );
+      if (!isDuplicate) {
+        merged.push(msg);
+      }
+    }
+    return merged;
+  }, [historyMessages, messages]);
 
   const {
     allMessages,

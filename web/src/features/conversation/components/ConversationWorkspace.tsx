@@ -109,6 +109,26 @@ export function ConversationWorkspace({
     [conversationId],
   );
 
+  const planMessageIndex = useMemo<number | null>(() => {
+    const planEvent = events.find((e) => e.type === "plan_created");
+    if (!planEvent) return null;
+
+    // Find the last assistant message at or before the plan_created event
+    let lastIdx: number | null = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === "assistant" && messages[i].timestamp <= planEvent.timestamp) {
+        lastIdx = i;
+        break;
+      }
+    }
+    // Fallback: first assistant message if none precedes the event
+    if (lastIdx === null) {
+      const firstAssistant = messages.findIndex((m) => m.role === "assistant");
+      lastIdx = firstAssistant >= 0 ? firstAssistant : null;
+    }
+    return lastIdx;
+  }, [events, messages]);
+
   const hasArtifacts = useMemo(
     () => toolCalls.some((tc) => tc.output !== undefined && !NON_ARTIFACT_TOOLS.has(tc.name)),
     [toolCalls],
@@ -259,6 +279,12 @@ export function ConversationWorkspace({
                               ) : null;
                             })()}
 
+                            {/* Plan checklist embedded in this message */}
+                            {i === planMessageIndex && planSteps.length > 0 && (
+                              <div className="mt-4">
+                                <PlanChecklistPanel planSteps={planSteps} taskState={taskState} />
+                              </div>
+                            )}
                           </div>
 
                           {/* Message action bar */}
@@ -310,6 +336,12 @@ export function ConversationWorkspace({
                 );
               })}
 
+              {planMessageIndex === null && planSteps.length > 0 && (
+                <div className="mt-6 max-w-[85%]">
+                  <PlanChecklistPanel planSteps={planSteps} taskState={taskState} />
+                </div>
+              )}
+
               <AnimatePresence mode="wait">
                 {showLoadingSkeleton && (
                   <div className="mt-6">
@@ -320,12 +352,6 @@ export function ConversationWorkspace({
             </div>
 
           </div>
-
-          {planSteps.length > 0 && (
-            <div className={cn("border-t border-border px-6 py-3", !panelOpen && "mx-auto w-full max-w-3xl")}>
-              <PlanChecklistPanel planSteps={planSteps} taskState={taskState} />
-            </div>
-          )}
 
           {events.length > 0 && (
             <div className={cn("border-t border-border px-6 py-3", !panelOpen && "mx-auto w-full max-w-3xl")}>
