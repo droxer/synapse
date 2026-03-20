@@ -76,7 +76,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
               <MessageCircle className="h-4 w-4" />
             </div>
             <div>
-              <h3 id="input-prompt-title" className="text-[15px] font-semibold text-foreground">
+              <h3 id="input-prompt-title" className="text-base font-semibold text-foreground">
                 {t("inputPrompt.title")}
               </h3>
               <p className="text-caption text-muted-foreground">{t("inputPrompt.subtitle")}</p>
@@ -85,7 +85,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
 
           {/* Question */}
           <div className="mb-5 rounded-md border border-border bg-muted p-4">
-            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
+            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
               {question}
             </p>
           </div>
@@ -99,7 +99,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
               onChange={(e) => setValue(e.target.value)}
               placeholder={t("inputPrompt.placeholder")}
               aria-label={t("inputPrompt.ariaLabel")}
-              className="flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-[15px] text-foreground placeholder:text-placeholder outline-none transition-all duration-200 focus-visible:border-border-active focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-all duration-200 focus-visible:border-border-active focus-visible:ring-[3px] focus-visible:ring-ring/50"
             />
             <Button
               type="submit"

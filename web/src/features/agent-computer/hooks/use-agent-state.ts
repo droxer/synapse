@@ -5,6 +5,8 @@ import type {
   AgentEvent,
   ArtifactInfo,
   AssistantPhase,
+  BrowserMetadata,
+  ComputerUseMetadata,
   ChatMessage,
   ToolCallInfo,
   TaskState,
@@ -199,6 +201,25 @@ export function useAgentState(events: AgentEvent[]) {
         const existing = callMap.get(toolId);
         if (existing) {
           const agentId = e.data.agent_id ? String(e.data.agent_id) : existing.agentId;
+          const browserMeta: BrowserMetadata | undefined = existing.name === "browser_use" ? {
+            steps: typeof e.data.steps === "number" ? e.data.steps : undefined,
+            isDone: typeof e.data.is_done === "boolean" ? e.data.is_done : undefined,
+            maxSteps: typeof e.data.max_steps === "number" ? e.data.max_steps : undefined,
+            url: typeof e.data.url === "string" ? e.data.url : undefined,
+            task: typeof e.data.task === "string" ? e.data.task : undefined,
+          } : undefined;
+          const computerUseMeta: ComputerUseMetadata | undefined =
+            (existing.name === "computer_action" || existing.name === "computer_screenshot")
+              ? {
+                  action: typeof e.data.action === "string" ? e.data.action : undefined,
+                  x: typeof e.data.x === "number" ? e.data.x : undefined,
+                  y: typeof e.data.y === "number" ? e.data.y : undefined,
+                  text: typeof e.data.text === "string" ? e.data.text : undefined,
+                  endX: typeof e.data.end_x === "number" ? e.data.end_x : undefined,
+                  endY: typeof e.data.end_y === "number" ? e.data.end_y : undefined,
+                  amount: typeof e.data.amount === "number" ? e.data.amount : undefined,
+                }
+              : undefined;
           callMap.set(toolId, {
             ...existing,
             output: String(e.data.output ?? e.data.result ?? ""),
@@ -209,6 +230,8 @@ export function useAgentState(events: AgentEvent[]) {
             artifactIds: Array.isArray(e.data.artifact_ids)
               ? (e.data.artifact_ids as string[])
               : undefined,
+            browserMetadata: browserMeta,
+            computerUseMetadata: computerUseMeta,
             agentId,
           });
         }

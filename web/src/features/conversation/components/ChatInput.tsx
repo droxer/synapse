@@ -205,7 +205,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             rows={isWelcome ? 3 : 1}
             autoFocus={autoFocus || isWelcome}
             className={cn(
-              "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-[15px] leading-relaxed text-foreground placeholder:text-placeholder outline-none",
+              "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-sm leading-relaxed text-foreground placeholder:text-placeholder outline-none",
               disabled && "opacity-50 cursor-not-allowed",
             )}
           />
@@ -284,6 +284,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 <motion.button
                   key="cancel"
                   type="button"
+                  data-slot="button"
                   onClick={onCancel}
                   aria-label={t("chat.cancelExecution")}
                   initial={{ opacity: 0 }}
@@ -309,6 +310,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 <motion.button
                   key="send"
                   type="submit"
+                  data-slot="button"
                   disabled={disabled || !hasContent}
                   aria-label={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                   initial={{ opacity: 0 }}

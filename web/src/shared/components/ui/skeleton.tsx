@@ -7,7 +7,7 @@ interface SkeletonProps {
 export function Skeleton({ className }: SkeletonProps) {
   return (
     <div
-      className={cn("rounded-full bg-secondary", className)}
+      className={cn("rounded-md bg-secondary", className)}
       style={{
         backgroundImage:
           "linear-gradient(90deg, var(--color-secondary) 0%, var(--color-border) 50%, var(--color-secondary) 100%)",

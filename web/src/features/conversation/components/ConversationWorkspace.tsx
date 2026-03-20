@@ -127,9 +127,16 @@ export function ConversationWorkspace({
     requestAnimationFrame(() => setHighlightedStepId(stepId));
   }, []);
 
+  // When isWaitingForAgent is true, only show the skeleton if the assistant
+  // hasn't responded yet (last message is still from the user). This handles
+  // fast responses where turn_complete resets both taskState and assistantPhase
+  // to idle before the clearing effect fires, leaving isWaitingForAgent stuck.
+  const lastMessage = messages[messages.length - 1];
   const showLoadingSkeleton =
     !userCancelled &&
-    (isWaitingForAgent || (assistantPhase.phase !== "idle" && !isStreaming)) &&
+    (isWaitingForAgent
+      ? lastMessage?.role !== "assistant"
+      : (assistantPhase.phase !== "idle" && !isStreaming)) &&
     messages.length > 0;
 
   const effectivePhase: AssistantPhase = isWaitingForAgent && assistantPhase.phase === "idle"
@@ -154,7 +161,7 @@ export function ConversationWorkspace({
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
-                <p className="text-[15px] text-muted-foreground">{t("conversation.waiting")}</p>
+                <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
               </div>
             )}
 
@@ -181,7 +188,7 @@ export function ConversationWorkspace({
                         <div className="max-w-[80%] min-w-[120px]">
                           {/* Frosted card surface */}
                           <div className="rounded-lg bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/10">
-                            <p className="whitespace-pre-wrap text-[15px] leading-relaxed text-foreground">
+                            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
                             {msg.attachments && msg.attachments.length > 0 && (
@@ -221,7 +228,7 @@ export function ConversationWorkspace({
                       >
                         <div className="relative">
                           {/* Message body */}
-                          <div className="text-[15px] leading-[1.5] text-foreground">
+                          <div className="text-sm leading-[1.5] text-foreground">
                             <MarkdownRenderer content={msg.content} />
                             <AnimatePresence>
                               {isStreamingThis && <StreamingCursor />}

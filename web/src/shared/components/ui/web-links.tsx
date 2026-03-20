@@ -23,7 +23,7 @@ function getDomain(url: string): string {
 
 export function WebLinks({ query, results, className }: WebLinksProps) {
   return (
-    <div className={cn("rounded-md border-l-2 border-l-accent-purple/60 bg-muted/60 px-3 py-2", className)}>
+    <div className={cn("rounded-md border-l-2 border-l-accent-purple bg-muted px-3 py-2", className)}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {results.length} result{results.length !== 1 ? "s" : ""} for{" "}

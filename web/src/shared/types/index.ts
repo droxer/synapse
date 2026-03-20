@@ -5,6 +5,8 @@ export type {
   ChatMessage,
   AttachedFile,
   ToolCallInfo,
+  BrowserMetadata,
+  ComputerUseMetadata,
   ArtifactInfo,
   AgentStatus,
   AssistantPhase,

@@ -124,7 +124,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
         <>
           {/* Backdrop — stronger blur */}
           <motion.div
-            className="fixed inset-0 z-50 bg-black/60 backdrop-blur-md"
+            className="fixed inset-0 z-50 bg-overlay backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

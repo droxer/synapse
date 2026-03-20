@@ -4,7 +4,7 @@ export { ConversationView } from "./components/ConversationView";
 export { PendingAskOverlay } from "./components/PendingAskOverlay";
 export { ChatInput } from "./components/ChatInput";
 export { InputPrompt } from "./components/InputPrompt";
-export { WelcomeScreen } from "./components/WelcomeScreen";
+export { HomeScreen } from "./components/HomeScreen";
 export { ConversationWorkspace } from "./components/ConversationWorkspace";
 export { TypingIndicator } from "./components/TypingIndicator";
 export { AssistantStateIndicator } from "./components/AssistantStateIndicator";

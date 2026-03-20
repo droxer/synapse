@@ -31,6 +31,32 @@ RESULT_START = "''' + _RESULT_START + r'''"
 RESULT_END = "''' + _RESULT_END + r'''"
 
 
+def _collect_extracted_content(history) -> str:
+    """Collect all non-empty extracted_content from action results."""
+    parts = []
+    try:
+        for action_result in history.action_results():
+            text = getattr(action_result, "extracted_content", None)
+            if text and str(text).strip():
+                parts.append(str(text).strip())
+    except Exception:
+        pass
+    return "\n\n".join(parts)
+
+
+def _collect_errors(history) -> list[str]:
+    """Collect error messages from action results."""
+    errors = []
+    try:
+        for action_result in history.action_results():
+            err = getattr(action_result, "error", None)
+            if err and str(err).strip():
+                errors.append(str(err).strip())
+    except Exception:
+        pass
+    return errors
+
+
 async def main():
     with open(CONFIG_PATH) as f:
         config = json.load(f)
@@ -62,6 +88,7 @@ async def main():
             llm=llm,
             browser=browser,
             max_steps=config.get("max_steps", 50),
+            max_failures=10,
             use_vision=True,
         )
 
@@ -70,6 +97,13 @@ async def main():
         output = history.final_result() or ""
         screenshots = history.screenshots()
 
+        # If the agent didn't call done() with a result, collect all
+        # extracted content from the action history as fallback
+        if not output:
+            output = _collect_extracted_content(history)
+
+        errors = _collect_errors(history)
+
         result = {
             "success": True,
             "output": output,
@@ -77,8 +111,21 @@ async def main():
             "is_done": history.is_done(),
         }
 
+        if errors:
+            result["errors"] = errors
+
         if screenshots:
             result["screenshot_base64"] = screenshots[-1]
+            # Write screenshot to file for artifact extraction
+            import base64 as _b64
+            try:
+                _raw = _b64.b64decode(screenshots[-1])
+                _spath = "/home/user/.browser/screenshot.png"
+                with open(_spath, "wb") as _f:
+                    _f.write(_raw)
+                result["screenshot_path"] = _spath
+            except Exception:
+                pass
 
     except Exception as e:
         result = {
@@ -169,16 +216,7 @@ class BrowserUse(SandboxTool):
         )
 
     async def _ensure_installed(self, session: Any) -> None:
-        """Ensure browser-use and xdotool are available in the sandbox."""
-        # xdotool (needed by browser-use for click actions)
-        xdotool_check = await session.exec("which xdotool", timeout=5)
-        if xdotool_check.exit_code != 0:
-            logger.info("Installing xdotool in sandbox")
-            await session.exec(
-                "apt-get update -qq && apt-get install -y -qq xdotool >/dev/null 2>&1",
-                timeout=60,
-            )
-
+        """Ensure browser-use is available in the sandbox."""
         # browser-use python package
         check = await session.exec(
             "python3 -c 'import browser_use'",
@@ -270,19 +308,37 @@ class BrowserUse(SandboxTool):
         output = parsed.get("output", "")
         steps = parsed.get("steps", 0)
         is_done = parsed.get("is_done", False)
+        errors = parsed.get("errors", [])
 
-        summary = output if output else "(browser agent completed with no text output)"
+        if output:
+            summary = output
+        elif is_done:
+            summary = "(browser agent completed the task but produced no text output)"
+        elif errors:
+            # Agent stopped early due to errors — surface them
+            unique_errors = list(dict.fromkeys(errors))  # dedupe, preserve order
+            error_detail = "; ".join(unique_errors[-3:])  # last 3 unique errors
+            summary = f"(browser agent stopped due to errors: {error_detail})"
+        else:
+            summary = "(browser agent completed without producing output)"
+
         if steps:
             summary += f"\n\n[Completed in {steps} steps]"
         if not is_done:
-            summary += "\n[Warning: agent did not reach a final done state]"
+            summary += "\n[Agent did not reach a final done state]"
 
         metadata: dict[str, Any] = {
             "steps": steps,
             "is_done": is_done,
+            "max_steps": max_steps,
+            "url": url or None,
+            "task": task,
         }
         screenshot_b64 = parsed.get("screenshot_base64")
         if screenshot_b64:
             metadata["screenshot_base64"] = screenshot_b64
+        screenshot_path = parsed.get("screenshot_path")
+        if screenshot_path:
+            metadata["artifact_paths"] = [screenshot_path]
 
         return ToolResult.ok(summary, metadata=metadata)

@@ -22,6 +22,7 @@ import {
   AlertTriangle,
   Wrench,
   Plug,
+  Monitor,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
@@ -97,12 +98,52 @@ function buildSteps(
           const tc = toolCalls.find((t) => t.id === toolId);
           const isSkill = toolName === "activate_skill" || toolName === "load_skill";
           const input = (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>;
-          const displayName = isSkill
-            ? normalizeSkillName(String(input.name ?? "skill"))
-            : normalizeToolName(toolName);
-          const stepTitle = isSkill
-            ? t("progress.loadingSkill", { name: displayName })
-            : t("progress.usingTool", { name: displayName });
+          const isBrowser = toolName === "browser_use";
+
+          // Build display name and step title
+          let displayName: string;
+          let stepTitle: string;
+
+          const isComputer = toolName === "computer_action" || toolName === "computer_screenshot";
+
+          if (isComputer) {
+            // Computer use: "Desktop click (640, 480)" or "Desktop screenshot"
+            const action = typeof input.action === "string" ? input.action : undefined;
+            if (toolName === "computer_screenshot" || !action) {
+              displayName = t("output.category.computer");
+              stepTitle = t("progress.desktopAction", { action: "screenshot" });
+            } else {
+              const x = typeof input.x === "number" ? input.x : undefined;
+              const y = typeof input.y === "number" ? input.y : undefined;
+              const coords = x != null && y != null ? ` (${x}, ${y})` : "";
+              displayName = t("output.category.computer");
+              stepTitle = t("progress.desktopAction", { action: action.replace(/_/g, " ") + coords });
+            }
+          } else if (isBrowser) {
+            // Browser: "Browsing www.taobao.com" or "Browsing: task text"
+            let target = "";
+            if (typeof input.url === "string") {
+              try { target = new URL(String(input.url)).hostname; } catch { /* ignore */ }
+            }
+            if (!target && typeof input.task === "string") {
+              const taskStr = String(input.task);
+              target = taskStr.length > 40 ? taskStr.slice(0, 37) + "..." : taskStr;
+            }
+            displayName = target || "web";
+            stepTitle = t("progress.browsing", { target: displayName });
+            // Append step count for completed browser_use
+            if (tc?.output !== undefined && tc.browserMetadata?.steps) {
+              stepTitle += ` (${tc.browserMetadata.steps} steps)`;
+            }
+          } else {
+            displayName = isSkill
+              ? normalizeSkillName(String(input.name ?? "skill"))
+              : normalizeToolName(toolName);
+            stepTitle = isSkill
+              ? t("progress.loadingSkill", { name: displayName })
+              : t("progress.usingTool", { name: displayName });
+          }
+
           steps = [...steps, {
             id: `tool-${toolId}`,
             kind: isSkill ? "skill" : "tool",
@@ -184,6 +225,7 @@ function toolCategoryIcon(category: ToolCategory) {
     case "search": return Globe;
     case "memory": return Database;
     case "browser": return Eye;
+    case "computer": return Monitor;
     case "preview": return Eye;
     case "mcp": return Plug;
     default: return Wrench;
@@ -328,7 +370,7 @@ export function AgentProgressCard({
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
-              <span className="text-[15px] font-semibold tracking-tight text-foreground">
+              <span className="text-base font-semibold tracking-tight text-foreground">
                 {t("progress.title")}
               </span>
               <TaskStateBadge state={taskState} t={t} />
@@ -337,7 +379,7 @@ export function AgentProgressCard({
               <div
                 role="status"
                 aria-live="polite"
-                className="text-[15px] truncate text-muted-foreground"
+                className="text-base truncate text-muted-foreground"
               >
                 {runningStepTitle}
               </div>

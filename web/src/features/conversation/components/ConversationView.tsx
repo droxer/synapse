@@ -1,7 +1,7 @@
 "use client";
 
 import { AnimatePresence, motion } from "framer-motion";
-import { WelcomeScreen } from "./WelcomeScreen";
+import { HomeScreen } from "./HomeScreen";
 import { ConversationWorkspace } from "./ConversationWorkspace";
 import { useConversationContext } from "../hooks/use-conversation-context";
 import { useAppStore } from "@/shared/stores";
@@ -46,7 +46,7 @@ export function ConversationView() {
           exit={{ opacity: 0 }}
           transition={{ duration: 0.12 }}
         >
-          <WelcomeScreen
+          <HomeScreen
             onSubmitTask={handleCreateConversation}
             error={createError}
             isLoading={isWaitingForAgent}

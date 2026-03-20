@@ -19,7 +19,7 @@ export function HtmlOutput({ output, className }: HtmlOutputProps) {
   const displayText = isLong && !expanded ? output.slice(0, COLLAPSE_THRESHOLD) : output;
 
   return (
-    <div className={cn("rounded-md border-l-2 border-l-transparent bg-muted/60 p-3", className)}>
+    <div className={cn("rounded-md border-l-2 border-l-transparent bg-muted p-3", className)}>
       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         <FileText className="h-3 w-3" />
         <span>HTML output</span>

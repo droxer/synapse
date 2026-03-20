@@ -59,7 +59,7 @@ export const useAppStore = create<AppState>()(
       totalConversations: 0,
       isLoadingHistory: false,
       sidebarCollapsed: false,
-      sidebarWidth: 280,
+      sidebarWidth: 256,
       sidebarOpen: false,
 
       startConversation: (conversationId, title) =>

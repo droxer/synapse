@@ -145,6 +145,14 @@ async def process_tool_calls(
                 result_data["artifact_ids"] = list(result.metadata["artifact_ids"])
             if "content_type" in result.metadata:
                 result_data["content_type"] = result.metadata["content_type"]
+            # Forward browser-specific metadata fields
+            for key in ("steps", "is_done", "max_steps", "url", "task"):
+                if key in result.metadata:
+                    result_data[key] = result.metadata[key]
+            # Forward computer_use-specific metadata fields
+            for key in ("action", "x", "y", "text", "end_x", "end_y", "amount"):
+                if key in result.metadata:
+                    result_data[key] = result.metadata[key]
         if agent_id is not None:
             result_data["agent_id"] = agent_id
 

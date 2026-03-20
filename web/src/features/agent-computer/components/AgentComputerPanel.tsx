@@ -23,7 +23,7 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
-import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo } from "@/shared/types";
+import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo, ComputerUseMetadata } from "@/shared/types";
 
 const SKILL_TOOL_NAMES = new Set(["activate_skill", "load_skill"]);
 
@@ -35,6 +35,32 @@ function getToolVerb(name: string, t: TFn): string {
   // If key returns itself, fall back to generic
   if (translated === key) return t("computer.usingToolGeneric", { name: normalizeToolName(name) });
   return translated;
+}
+
+const COMPUTER_USE_TOOLS = new Set(["computer_action", "computer_screenshot"]);
+
+function getComputerUseStatusText(tc: ToolCallInfo, t: TFn): string {
+  const action = tc.computerUseMetadata?.action ?? (tc.input.action as string | undefined);
+  if (tc.name === "computer_screenshot" || !action) {
+    return t("computer.takingScreenshot");
+  }
+  return t("computer.desktopAction", { action: action.replace(/_/g, " ") });
+}
+
+function getBrowserStatusText(tc: ToolCallInfo, t: TFn): string {
+  const url = tc.input.url as string | undefined;
+  if (url) {
+    try {
+      const hostname = new URL(url).hostname;
+      return t("computer.browsingUrl", { hostname });
+    } catch { /* fall through */ }
+  }
+  const task = tc.input.task as string | undefined;
+  if (task) {
+    const truncated = task.length > 60 ? task.slice(0, 57) + "..." : task;
+    return t("computer.browsingTask", { task: truncated });
+  }
+  return t("computer.usingTool", { verb: getToolVerb("browser_use", t) });
 }
 
 /* ── status icon for terminal-style logs ── */
@@ -185,7 +211,7 @@ export function AgentComputerPanel({
       {/* ── Header with tabs ── */}
       <div className="shrink-0 border-b border-border">
         <div className="flex items-center justify-between px-4 pt-3 pb-0">
-          <span className="text-[15px] font-semibold tracking-tight text-foreground">
+          <span className="text-base font-semibold tracking-tight text-foreground">
             {t("computer.title")}
           </span>
           <div className="flex items-center gap-1">
@@ -259,12 +285,16 @@ export function AgentComputerPanel({
       {activeTab === "activity" && isRunning && latestToolCall && (
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2" role="status" aria-live="polite">
           <PulsingDot size="sm" />
-          <span className="text-[15px] text-muted-foreground">
+          <span className="text-base text-muted-foreground">
             {SKILL_TOOL_NAMES.has(latestToolCall.name)
               ? t("computer.loadingSkill", { name: normalizeSkillName(String(latestToolCall.input.name ?? "skill")) })
-              : t("computer.usingTool", { verb: getToolVerb(latestToolCall.name, t) })}
+              : latestToolCall.name === "browser_use"
+                ? getBrowserStatusText(latestToolCall, t)
+                : COMPUTER_USE_TOOLS.has(latestToolCall.name)
+                  ? getComputerUseStatusText(latestToolCall, t)
+                  : t("computer.usingTool", { verb: getToolVerb(latestToolCall.name, t) })}
           </span>
-          {latestToolCall.output === undefined && !SKILL_TOOL_NAMES.has(latestToolCall.name) && (
+          {latestToolCall.output === undefined && !SKILL_TOOL_NAMES.has(latestToolCall.name) && latestToolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(latestToolCall.name) && (
             <span className="ml-auto max-w-[240px] truncate font-mono text-sm text-muted-foreground-dim">
               {formatToolPreview(latestToolCall.input)}
             </span>
@@ -311,18 +341,44 @@ export function AgentComputerPanel({
                     {/* Log line */}
                     <div className="flex items-start gap-2 py-1.5">
                       <StatusIcon tc={tc} />
-                      <span className="text-foreground">
-                        {normalizeToolName(tc.name)}
-                      </span>
-                      {tc.output === undefined && (
-                        <span className="text-ai-glow">
-                          {t("computer.running")}
-                        </span>
+                      {tc.name === "browser_use" ? (
+                        <>
+                          <span className="text-foreground">
+                            {getBrowserStatusText(tc, t)}
+                          </span>
+                          {tc.output === undefined && (
+                            <span className="text-ai-glow">
+                              {t("computer.running")}
+                            </span>
+                          )}
+                        </>
+                      ) : COMPUTER_USE_TOOLS.has(tc.name) ? (
+                        <>
+                          <span className="text-foreground">
+                            {getComputerUseStatusText(tc, t)}
+                          </span>
+                          {tc.output === undefined && (
+                            <span className="text-ai-glow">
+                              {t("computer.running")}
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <>
+                          <span className="text-foreground">
+                            {normalizeToolName(tc.name)}
+                          </span>
+                          {tc.output === undefined && (
+                            <span className="text-ai-glow">
+                              {t("computer.running")}
+                            </span>
+                          )}
+                        </>
                       )}
                     </div>
 
-                    {/* Args detail box */}
-                    {Object.keys(tc.input).length > 0 && (
+                    {/* Args detail box — skip for browser_use and computer_use (info already in log line) */}
+                    {Object.keys(tc.input).length > 0 && tc.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(tc.name) && (
                       <div className="ml-6 mb-1">
                         <ToolArgsDisplay input={tc.input} />
                       </div>
@@ -337,6 +393,8 @@ export function AgentComputerPanel({
                           contentType={tc.contentType}
                           conversationId={conversationId}
                           artifactIds={tc.artifactIds}
+                          browserMetadata={tc.browserMetadata}
+                          computerUseMetadata={tc.computerUseMetadata}
                         />
                       </div>
                     )}

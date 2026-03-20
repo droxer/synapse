@@ -199,6 +199,19 @@ class ComputerAction(SandboxTool):
         }
         if screenshot_b64:
             metadata["screenshot_base64"] = screenshot_b64
+        # Include action parameters for frontend rendering
+        if x is not None:
+            metadata["x"] = x
+        if y is not None:
+            metadata["y"] = y
+        if text:
+            metadata["text"] = text
+        if end_x is not None:
+            metadata["end_x"] = end_x
+        if end_y is not None:
+            metadata["end_y"] = end_y
+        if action in ("scroll_up", "scroll_down"):
+            metadata["amount"] = amount
 
         return ToolResult.ok(
             f"Performed action: {action}",

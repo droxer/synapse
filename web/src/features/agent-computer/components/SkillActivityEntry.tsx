@@ -38,6 +38,30 @@ function countResources(output?: string): number {
   return matches?.length ?? 0;
 }
 
+/** Expandable error message for skill failures (L5). */
+function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key: string) => string }) {
+  const [expanded, setExpanded] = useState(false);
+  const isLong = output.length > 200;
+
+  return (
+    <div className="mt-1.5">
+      <p className={cn("text-sm leading-relaxed text-accent-rose/70", !expanded && "line-clamp-2")}>
+        {expanded ? output : output.slice(0, 200)}
+      </p>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((p) => !p)}
+          className="mt-0.5 text-micro font-medium text-accent-rose/50 hover:text-accent-rose/70 transition-colors"
+          aria-label={expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
+        >
+          {expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /* ── component ── */
 
 interface SkillActivityEntryProps {
@@ -104,7 +128,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             aria-label={isComplete ? (isError ? t("skills.activity.skillFailed") : t("skills.activity.skillLoaded")) : t("skills.activity.skillLoading")}
             className={cn(
               "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-              isError ? "bg-accent-rose/10" : "bg-[var(--color-ai-glow)]/10",
+              isError ? "bg-accent-rose/10" : "bg-[var(--color-ai-surface)]",
             )}
           >
             {isComplete ? (
@@ -116,7 +140,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   animate={{ opacity: 1, rotate: 0 }}
                   transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
                 >
-                  <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-[var(--color-ai-glow)]" />
+                  <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-accent-purple" />
                 </motion.div>
               )
             ) : (
@@ -137,7 +161,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
-                  className="inline-flex items-center gap-1 rounded-full bg-[var(--color-ai-glow)]/10 px-1.5 py-0.5 text-micro font-medium text-[var(--color-ai-glow)]"
+                  className="inline-flex items-center gap-1 rounded-full bg-[var(--color-ai-surface)] px-1.5 py-0.5 text-micro font-medium text-accent-purple"
                 >
                   <Check className="h-2.5 w-2.5" />
                   {t("skills.activity.loaded")}
@@ -145,7 +169,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {!isComplete && (
-                <span className="text-micro font-medium text-[var(--color-ai-glow)]/60">
+                <span className="text-micro font-medium text-accent-purple/70">
                   {t("skills.activity.loading")}
                 </span>
               )}
@@ -214,9 +238,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
 
             {/* Error message */}
             {isError && toolCall.output && (
-              <p className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-accent-rose/70">
-                {toolCall.output.slice(0, 200)}
-              </p>
+              <ErrorMessage output={toolCall.output} t={t} />
             )}
           </div>
 

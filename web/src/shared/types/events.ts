@@ -49,6 +49,24 @@ export interface ChatMessage {
   imageArtifactIds?: string[];
 }
 
+export interface BrowserMetadata {
+  readonly steps?: number;
+  readonly isDone?: boolean;
+  readonly maxSteps?: number;
+  readonly url?: string;
+  readonly task?: string;
+}
+
+export interface ComputerUseMetadata {
+  readonly action?: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly text?: string;
+  readonly endX?: number;
+  readonly endY?: number;
+  readonly amount?: number;
+}
+
 export interface ToolCallInfo {
   id: string;
   name: string;
@@ -57,6 +75,8 @@ export interface ToolCallInfo {
   success?: boolean;
   contentType?: string;
   artifactIds?: string[];
+  browserMetadata?: BrowserMetadata;
+  computerUseMetadata?: ComputerUseMetadata;
   timestamp: number;
   agentId?: string;
 }

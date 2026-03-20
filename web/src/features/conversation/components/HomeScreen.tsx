@@ -6,13 +6,13 @@ import { ChatInput } from "./ChatInput";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { useTranslation } from "@/i18n";
 
-interface WelcomeScreenProps {
+interface HomeScreenProps {
   onSubmitTask: (task: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   error?: string | null;
   isLoading?: boolean;
 }
 
-export function WelcomeScreen({ onSubmitTask, error, isLoading = false }: WelcomeScreenProps) {
+export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScreenProps) {
   const { t } = useTranslation();
   const heading = t("welcome.heading");
   const [dismissed, setDismissed] = useState(false);
@@ -27,12 +27,7 @@ export function WelcomeScreen({ onSubmitTask, error, isLoading = false }: Welcom
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 sm:px-6">
       {/* Subtle warm radial background */}
-      <div
-        className="pointer-events-none absolute inset-0"
-        style={{
-          background: "radial-gradient(ellipse 70% 50% at 50% 45%, var(--color-ai-surface) 0%, transparent 70%)",
-        }}
-      />
+      <div className="pointer-events-none absolute inset-0 welcome-radial-bg" />
 
       <motion.div
         className="relative z-10 flex w-full max-w-3xl flex-col items-center"
@@ -42,7 +37,7 @@ export function WelcomeScreen({ onSubmitTask, error, isLoading = false }: Welcom
       >
         {/* Heading — single fade-in (Hero type scale per design guide) */}
         <motion.h1
-          className="mb-8 text-center font-sans text-2xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-[3.75rem]"
+          className="mb-8 text-center font-sans text-2xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-4xl"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.12, ease: "easeOut" }}

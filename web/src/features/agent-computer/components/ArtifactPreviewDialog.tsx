@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { Download } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -10,6 +10,7 @@ import {
   DialogFooter,
 } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
+import { Skeleton } from "@/shared/components/ui/skeleton";
 import { CodeOutput } from "@/shared/components/ui/code-output";
 import { useTranslation } from "@/i18n";
 import type { ArtifactInfo } from "@/shared/types";
@@ -17,6 +18,7 @@ import {
   fileExtension,
   fileCategoryColor,
   fileIcon,
+  formatFileSize,
 } from "../lib/artifact-helpers";
 
 /** Map file extensions to highlight.js language identifiers. */
@@ -146,9 +148,11 @@ export function ArtifactPreviewDialog({
   const renderContent = () => {
     if (loading) {
       return (
-        <div className="flex h-48 items-center justify-center gap-2 text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
-          <span className="text-sm">{t("artifacts.previewLoading")}</span>
+        <div className="flex h-48 flex-col justify-center gap-3 px-4" aria-busy="true" aria-label={t("artifacts.previewLoading")}>
+          <Skeleton className="h-4 w-2/3" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-4/5" />
+          <p className="text-sm text-muted-foreground">{t("artifacts.previewLoading")}</p>
         </div>
       );
     }
@@ -235,8 +239,13 @@ export function ArtifactPreviewDialog({
             </span>
             <span className="truncate">{artifact.name}</span>
             {ext && (
-              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
+              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
                 {ext}
+              </span>
+            )}
+            {artifact.size > 0 && (
+              <span className="text-xs text-muted-foreground">
+                {formatFileSize(artifact.size)}
               </span>
             )}
           </DialogTitle>

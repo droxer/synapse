@@ -221,7 +221,7 @@ export function MCPDialog({
                         "h-2 w-2 shrink-0 rounded-full transition-colors",
                         server.status === "connected"
                           ? "bg-accent-emerald"
-                          : "bg-muted-foreground/30",
+                          : "bg-border-strong",
                       )}
                     />
                     <span className="sr-only">

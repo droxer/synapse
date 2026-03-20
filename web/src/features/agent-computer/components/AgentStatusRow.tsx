@@ -43,9 +43,10 @@ export function AgentStatusRow({
       <button
         type="button"
         onClick={() => hasTools && setExpanded((prev) => !prev)}
+        aria-label={hasTools ? (expanded ? t("a11y.collapse") : t("a11y.expand")) : undefined}
         className={cn(
           "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-          isDark ? "bg-secondary" : "bg-secondary",
+          "bg-secondary",
           hasTools && "cursor-pointer hover:bg-secondary/80",
           !hasTools && "cursor-default",
         )}
@@ -98,7 +99,7 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-5 border-l border-border pl-3 py-1 space-y-1 font-mono text-sm">
+            <div className="ml-5 border-l border-border bg-muted rounded-md pl-3 py-1 space-y-1 font-mono text-sm">
               {toolCalls.map((tc) => (
                 <div key={tc.id}>
                   <div className="flex items-start gap-2 py-1">
@@ -125,6 +126,8 @@ export function AgentStatusRow({
                         contentType={tc.contentType}
                         conversationId={conversationId ?? null}
                         artifactIds={tc.artifactIds}
+                        browserMetadata={tc.browserMetadata}
+                      computerUseMetadata={tc.computerUseMetadata}
                       />
                     </div>
                   )}

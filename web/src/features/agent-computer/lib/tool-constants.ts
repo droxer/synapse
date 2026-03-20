@@ -93,12 +93,13 @@ export function normalizeToolName(rawName: string): string {
     .join(" ");
 }
 
-export type ToolCategory = "code" | "file" | "search" | "memory" | "browser" | "preview" | "mcp" | "default";
+export type ToolCategory = "code" | "file" | "search" | "memory" | "browser" | "computer" | "preview" | "mcp" | "default";
 
 const SEARCH_TOOLS = new Set(["web_search", "web_fetch"]);
 const MEMORY_TOOLS = new Set(["memory_store", "memory_search", "memory_list"]);
 const PREVIEW_TOOLS = new Set(["preview_start", "preview_stop"]);
 const BROWSER_TOOLS = new Set(["browser_use"]);
+const COMPUTER_TOOLS = new Set(["computer_action", "computer_screenshot"]);
 const FILE_TOOLS = new Set(["file_read", "file_write"]);
 
 export function getToolCategory(toolName: string): ToolCategory {
@@ -108,6 +109,7 @@ export function getToolCategory(toolName: string): ToolCategory {
   if (SEARCH_TOOLS.has(toolName)) return "search";
   if (MEMORY_TOOLS.has(toolName)) return "memory";
   if (BROWSER_TOOLS.has(toolName)) return "browser";
+  if (COMPUTER_TOOLS.has(toolName)) return "computer";
   if (PREVIEW_TOOLS.has(toolName)) return "preview";
   return "default";
 }

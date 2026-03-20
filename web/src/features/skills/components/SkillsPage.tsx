@@ -279,7 +279,7 @@ export function SkillsPage() {
 
           {/* Section header with search + install */}
           <div className="flex items-center gap-3">
-            <h2 className="text-[15px] font-medium text-muted-foreground">
+            <h2 className="text-base font-medium text-muted-foreground">
               {t("skills.agentSkills")}
             </h2>
             <div className="flex-1" />

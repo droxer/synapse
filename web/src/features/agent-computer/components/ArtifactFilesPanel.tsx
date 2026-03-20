@@ -12,6 +12,7 @@ import {
   fileCategory,
   fileExtension,
   fileCategoryColor,
+  fileCategoryBorderColor,
   isPreviewable,
 } from "../lib/artifact-helpers";
 import { ArtifactPreviewDialog } from "./ArtifactPreviewDialog";
@@ -77,8 +78,8 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
         return (
           <motion.div
             key={artifact.id}
-            className={`group flex items-center gap-3 rounded-md border border-border border-l-2 bg-card p-3 transition-colors hover:bg-muted/50`}
-            style={{ borderLeftColor: `var(--color-${colors.icon.replace("text-", "")})` }}
+            className={`group flex items-center gap-3 rounded-md border border-border border-l-2 bg-card p-3 transition-colors hover:bg-secondary`}
+            style={{ borderLeftColor: fileCategoryBorderColor(artifact.contentType) }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.15, delay: i * 0.03 }}
@@ -89,11 +90,11 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
-                <p className="truncate text-sm font-medium text-foreground">
+                <p className="truncate text-sm font-medium text-foreground" title={artifact.name}>
                   {artifact.name}
                 </p>
                 {ext && (
-                  <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
+                  <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-micro uppercase text-muted-foreground">
                     {ext}
                   </span>
                 )}

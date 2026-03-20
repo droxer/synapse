@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useTranslation } from "@/i18n";
 import { formatArgValue } from "../lib/format-tools";
 
 const VALUE_TRUNCATE = 120;
@@ -15,14 +16,17 @@ interface ToolArgsDisplayProps {
 function ValueToggle({
   expanded,
   onToggle,
+  t,
 }: {
   readonly expanded: boolean;
   readonly onToggle: () => void;
+  readonly t: (key: string) => string;
 }) {
   return (
     <button
       type="button"
       onClick={onToggle}
+      aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
       className="ml-1 inline-flex items-center text-micro text-muted-foreground hover:text-foreground transition-colors"
     >
       {expanded ? (
@@ -35,6 +39,7 @@ function ValueToggle({
 }
 
 export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps) {
+  const { t } = useTranslation();
   const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -57,7 +62,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
   return (
     <div
       className={cn(
-        "rounded-md border-l-2 border-border/60 bg-muted/40 font-mono",
+        "rounded-md border-l-2 border-border bg-muted font-mono",
         compact ? "px-2 py-1 text-micro" : "px-2.5 py-1.5 text-xs",
       )}
     >
@@ -98,7 +103,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                   >
                     {displayValue}
                     {isLong && !isExpanded && (
-                      <span className="text-muted-foreground-dim">...</span>
+                      <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>
                     )}
                   </pre>
                 ) : typeof value === "boolean" ? (
@@ -115,7 +120,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                   <span className="break-all text-foreground">
                     {displayValue}
                     {isLong && !isExpanded && (
-                      <span className="text-muted-foreground-dim">...</span>
+                      <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>
                     )}
                   </span>
                 )}
@@ -123,6 +128,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                   <ValueToggle
                     expanded={isExpanded}
                     onToggle={() => toggleKey(key)}
+                    t={t}
                   />
                 )}
               </div>

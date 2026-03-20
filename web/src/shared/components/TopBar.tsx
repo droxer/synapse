@@ -43,14 +43,16 @@ export function TopBar({
         </Button>
         {isActive && conversationTitle && (
           <>
-            <span className="text-[13px] text-muted-foreground-dim">/</span>
-            <span className="truncate text-[13px] font-medium text-foreground">
+            <span className="text-sm text-muted-foreground-dim">/</span>
+            <span className="truncate text-sm font-medium text-foreground">
               {conversationTitle}
             </span>
           </>
         )}
         {isConnected && (
-          <span className="ml-1.5 h-2 w-2 shrink-0 rounded-full bg-accent-emerald" aria-label={t("topbar.connected")} title={t("topbar.connected")} />
+          <span role="status" aria-live="polite" className="ml-1.5 flex items-center">
+            <span className="h-2 w-2 shrink-0 rounded-full bg-accent-emerald" aria-label={t("topbar.connected")} title={t("topbar.connected")} />
+          </span>
         )}
       </div>
 
@@ -58,7 +60,7 @@ export function TopBar({
       <button
         type="button"
         onClick={handleOpenCommandPalette}
-        className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary/50 px-3 py-1 text-[13px] text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground transition-colors hover:bg-sidebar-active hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <Search className="h-3.5 w-3.5" />
         <span>{t("topbar.search")}</span>

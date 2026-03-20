@@ -232,7 +232,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3">
-              <FileCode className="h-10 w-10 text-muted-foreground/20" />
+              <FileCode className="h-10 w-10 text-muted-foreground-dim" />
               <p className="text-sm text-muted-foreground-dim">
                 {t("skills.noFileSelected")}
               </p>

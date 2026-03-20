@@ -42,6 +42,16 @@ export function useConversation(
     }
   }, [isWaitingForAgent, taskState, events.length, assistantPhase.phase]);
 
+  // Failsafe: clear waiting when task reaches a terminal state.
+  // Handles fast responses where all events batch-arrive and both
+  // taskState and assistantPhase are already idle by the time React renders.
+  useEffect(() => {
+    if (!isWaitingForAgent) return;
+    if (taskState === "complete" || taskState === "error") {
+      setIsWaitingForAgent(false);
+    }
+  }, [isWaitingForAgent, taskState]);
+
   // Clear userCancelled when the backend confirms cancellation via SSE
   useEffect(() => {
     if (userCancelled && (taskState === "idle" || taskState === "complete")) {

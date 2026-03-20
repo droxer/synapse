@@ -263,7 +263,7 @@ export function Sidebar({
               )}>
                 <Plus className="h-3.5 w-3.5 transition-transform duration-200 group-hover/new:rotate-90" />
               </div>
-              <span className="text-[15px] font-medium text-foreground">
+              <span className="text-base font-medium text-foreground">
                 {t("sidebar.newTask")}
               </span>
             </button>
@@ -271,7 +271,7 @@ export function Sidebar({
             <Link
               href="/skills"
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-[15px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "flex items-center gap-2.5 rounded-md px-3 py-2 text-base font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/skills"
                   ? "bg-secondary text-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -283,7 +283,7 @@ export function Sidebar({
             <Link
               href="/mcp"
               className={cn(
-                "flex items-center gap-2.5 rounded-md px-3 py-2 text-[15px] font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "flex items-center gap-2.5 rounded-md px-3 py-2 text-base font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/mcp"
                   ? "bg-secondary text-foreground"
                   : "text-muted-foreground hover:bg-secondary hover:text-foreground",
@@ -302,7 +302,7 @@ export function Sidebar({
       {/* Task list */}
       {!collapsed && (
         <div className="px-4 pb-1 pt-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">{t("sidebar.recentTasks")}</span>
+          <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">{t("sidebar.recentTasks")}</span>
         </div>
       )}
       <div ref={scrollRef} className={cn("relative min-h-0 flex-1 overflow-y-auto", collapsed ? "px-2" : "px-4")}>
@@ -329,7 +329,7 @@ export function Sidebar({
                     >
                       <div className={cn(
                         "h-1.5 w-1.5 shrink-0 rounded-full transition-colors duration-200",
-                        isActive ? "bg-accent-purple" : "bg-muted-foreground/30",
+                        isActive ? "bg-accent-purple" : "bg-border-strong",
                       )} />
                     </button>
                   </TooltipTrigger>
@@ -358,10 +358,10 @@ export function Sidebar({
                 >
                   {/* Active indicator bar */}
                   {isActive && (
-                    <div className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-accent-purple" />
+                    <div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-accent-purple" />
                   )}
                   <span className={cn(
-                    "flex-1 truncate text-[15px] transition-colors duration-200",
+                    "flex-1 truncate text-base transition-colors duration-200",
                     isActive ? "text-foreground font-medium" : "text-muted-foreground",
                   )}>
                     {task.title}

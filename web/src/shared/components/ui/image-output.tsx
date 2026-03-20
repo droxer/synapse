@@ -1,5 +1,6 @@
 import { Image as ImageIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useTranslation } from "@/i18n";
 
 interface ImageOutputProps {
   readonly output: string;
@@ -9,6 +10,7 @@ interface ImageOutputProps {
 }
 
 export function ImageOutput({ output, conversationId, artifactIds, className }: ImageOutputProps) {
+  const { t } = useTranslation();
   const hasArtifacts = artifactIds && artifactIds.length > 0 && conversationId;
   const looksLikeUri = output.startsWith("data:") || output.startsWith("http");
 
@@ -16,7 +18,7 @@ export function ImageOutput({ output, conversationId, artifactIds, className }: 
     <div className={cn("rounded-md border-l-2 border-l-accent-purple bg-muted p-3", className)}>
       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         <ImageIcon className="h-3 w-3" />
-        <span>Image output</span>
+        <span>{t("output.imageOutput")}</span>
       </div>
       <div className="flex flex-col items-center gap-3 rounded border border-border bg-background p-2">
         {hasArtifacts ? (
@@ -25,7 +27,7 @@ export function ImageOutput({ output, conversationId, artifactIds, className }: 
             <img
               key={aid}
               src={`/api/conversations/${conversationId}/artifacts/${aid}`}
-              alt="Generated image"
+              alt={t("output.generatedImage")}
               className="max-h-80 rounded object-contain"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
@@ -34,10 +36,10 @@ export function ImageOutput({ output, conversationId, artifactIds, className }: 
           ))
         ) : looksLikeUri ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={output} alt="Agent output" className="max-h-80 rounded object-contain" />
+          <img src={output} alt={t("output.agentOutput")} className="max-h-80 rounded object-contain" />
         ) : (
           <p className="text-xs text-muted-foreground italic">
-            Image artifact available (use artifact viewer to display)
+            {t("output.imageArtifactHint")}
           </p>
         )}
       </div>

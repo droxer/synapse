@@ -21,8 +21,11 @@ import { ImageOutput } from "@/shared/components/ui/image-output";
 import { HtmlOutput } from "@/shared/components/ui/html-output";
 import { CodeOutput } from "@/shared/components/ui/code-output";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
+import { BrowserOutput } from "./BrowserOutput";
+import { ComputerUseOutput } from "./ComputerUseOutput";
 import { CODE_TOOLS } from "../lib/tool-constants";
 import { getToolCategory, type ToolCategory } from "../lib/tool-constants";
+import type { BrowserMetadata, ComputerUseMetadata } from "@/shared/types";
 
 /** Max chars to show before collapsing */
 const COLLAPSE_THRESHOLD = 500;
@@ -37,8 +40,9 @@ const CATEGORY_STYLES: Record<ToolCategory, CategoryStyle> = {
   code:    { border: "border-l-accent-emerald", icon: Terminal,  labelKey: "output.category.code" },
   file:    { border: "border-l-user-accent",    icon: FileCode,  labelKey: "output.category.file" },
   search:  { border: "border-l-accent-purple",  icon: Globe,     labelKey: "output.category.search" },
-  memory:  { border: "border-l-accent-amber",   icon: Database,  labelKey: "output.category.memory" },
-  browser: { border: "border-l-accent-purple",  icon: Monitor,   labelKey: "output.category.browser" },
+  memory:   { border: "border-l-accent-amber",   icon: Database,  labelKey: "output.category.memory" },
+  browser:  { border: "border-l-accent-purple",  icon: Monitor,   labelKey: "output.category.browser" },
+  computer: { border: "border-l-accent-amber",   icon: Monitor,   labelKey: "output.category.computer" },
   preview: { border: "border-l-accent-emerald", icon: Play,      labelKey: "output.category.preview" },
   mcp:     { border: "border-l-user-accent",    icon: Plug,      labelKey: "output.category.mcp" },
   default: { border: "border-l-border",            icon: FileText,  labelKey: "" },
@@ -114,9 +118,11 @@ interface ToolOutputRendererProps {
   readonly contentType?: string;
   readonly conversationId?: string | null;
   readonly artifactIds?: string[];
+  readonly browserMetadata?: BrowserMetadata;
+  readonly computerUseMetadata?: ComputerUseMetadata;
 }
 
-export function ToolOutputRenderer({ output, toolName, contentType, conversationId, artifactIds }: ToolOutputRendererProps) {
+export function ToolOutputRenderer({ output, toolName, contentType, conversationId, artifactIds, browserMetadata, computerUseMetadata }: ToolOutputRendererProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const isLong = output.length > COLLAPSE_THRESHOLD;
@@ -203,7 +209,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
   // Shell exec — terminal-style renderer
   if (toolName === "shell_exec") {
     return (
-      <TerminalWindow title={t("output.shell.title")} className="mt-2.5">
+      <TerminalWindow title={t("output.shell.title")} className="mt-2.5" copyText={stripAnsi(output)}>
         {/* Output */}
         <pre className="whitespace-pre-wrap text-[var(--color-terminal-text)]">
           {stripAnsi(displayText)}
@@ -230,6 +236,31 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
         label={style.labelKey ? t(style.labelKey) : ""}
         language={contentTypeToLang(contentType)}
         className="mt-2.5"
+      />
+    );
+  }
+
+  // Computer use — dedicated rich renderer
+  if (category === "computer" && (toolName === "computer_action" || toolName === "computer_screenshot")) {
+    return (
+      <ComputerUseOutput
+        output={output}
+        computerUseMetadata={computerUseMetadata}
+        toolName={toolName}
+        conversationId={conversationId}
+        artifactIds={artifactIds}
+      />
+    );
+  }
+
+  // Browser use — dedicated rich renderer
+  if (category === "browser" && toolName === "browser_use") {
+    return (
+      <BrowserOutput
+        output={output}
+        browserMetadata={browserMetadata}
+        conversationId={conversationId}
+        artifactIds={artifactIds}
       />
     );
   }

@@ -74,7 +74,7 @@ export function MCPServerCard({ server, onDelete }: MCPServerCardProps) {
               "h-1.5 w-1.5 rounded-full",
               server.status === "connected"
                 ? "bg-accent-emerald"
-                : "bg-muted-foreground/30",
+                : "bg-border-strong",
             )}
           />
           {server.status === "connected"
