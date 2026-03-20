@@ -220,7 +220,13 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(FileSearch())
         registry = registry.register(DocRead())
         # Browser tool
-        registry = registry.register(BrowserUse())
+        registry = registry.register(
+            BrowserUse(
+                anthropic_api_key=settings.ANTHROPIC_API_KEY,
+                model=settings.TASK_MODEL,
+                anthropic_base_url=settings.ANTHROPIC_BASE_URL,
+            )
+        )
         # Database tools
         registry = registry.register(DbCreate())
         registry = registry.register(DbQuery())

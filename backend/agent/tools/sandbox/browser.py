@@ -14,21 +14,24 @@ from agent.tools.base import (
     ToolResult,
 )
 
-_CONFIG_PATH = "/home/user/.browser/config.json"
 _SCRIPT_PATH = "/home/user/.browser/browser_agent.py"
+_SCREENSHOT_PATH = "/home/user/.browser/screenshot.png"
 _RESULT_START = "__BROWSER_USE_RESULT_START__"
 _RESULT_END = "__BROWSER_USE_RESULT_END__"
 _MAX_STEPS_LIMIT = 100
+_BROWSER_USE_VERSION = "0.12.2"
+_DEFAULT_MAX_FAILURES = 5
 
 _BROWSER_USE_SCRIPT = r'''
 import asyncio
+import base64
 import json
 import os
 import traceback
 
-CONFIG_PATH = "''' + _CONFIG_PATH + r'''"
 RESULT_START = "''' + _RESULT_START + r'''"
 RESULT_END = "''' + _RESULT_END + r'''"
+SCREENSHOT_PATH = "''' + _SCREENSHOT_PATH + r'''"
 
 
 def _collect_extracted_content(history) -> str:
@@ -58,12 +61,7 @@ def _collect_errors(history) -> list[str]:
 
 
 async def main():
-    with open(CONFIG_PATH) as f:
-        config = json.load(f)
-
-    os.environ["ANTHROPIC_API_KEY"] = config["api_key"]
-    if config.get("base_url"):
-        os.environ["ANTHROPIC_BASE_URL"] = config["base_url"]
+    config = json.loads(os.environ["BROWSER_USE_CONFIG"])
 
     browser = None
     try:
@@ -88,7 +86,7 @@ async def main():
             llm=llm,
             browser=browser,
             max_steps=config.get("max_steps", 50),
-            max_failures=10,
+            max_failures=config.get("max_failures", 5),
             use_vision=True,
         )
 
@@ -115,15 +113,12 @@ async def main():
             result["errors"] = errors
 
         if screenshots:
-            result["screenshot_base64"] = screenshots[-1]
             # Write screenshot to file for artifact extraction
-            import base64 as _b64
             try:
-                _raw = _b64.b64decode(screenshots[-1])
-                _spath = "/home/user/.browser/screenshot.png"
-                with open(_spath, "wb") as _f:
-                    _f.write(_raw)
-                result["screenshot_path"] = _spath
+                raw = base64.b64decode(screenshots[-1])
+                with open(SCREENSHOT_PATH, "wb") as f:
+                    f.write(raw)
+                result["screenshot_path"] = SCREENSHOT_PATH
             except Exception:
                 pass
 
@@ -175,10 +170,12 @@ class BrowserUse(SandboxTool):
         anthropic_api_key: str,
         model: str = "claude-sonnet-4-20250514",
         anthropic_base_url: str = "",
+        max_failures: int = _DEFAULT_MAX_FAILURES,
     ) -> None:
         self._anthropic_api_key = anthropic_api_key
         self._model = model
         self._anthropic_base_url = anthropic_base_url
+        self._max_failures = max_failures
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -217,7 +214,6 @@ class BrowserUse(SandboxTool):
 
     async def _ensure_installed(self, session: Any) -> None:
         """Ensure browser-use is available in the sandbox."""
-        # browser-use python package
         check = await session.exec(
             "python3 -c 'import browser_use'",
             timeout=15,
@@ -227,19 +223,12 @@ class BrowserUse(SandboxTool):
 
         logger.info("Installing browser-use in sandbox")
         install = await session.exec(
-            "pip install -q browser-use",
+            f"pip install -q browser-use=={_BROWSER_USE_VERSION}",
             timeout=180,
         )
         if install.exit_code != 0:
             stderr = install.stderr or install.stdout or "unknown error"
             raise RuntimeError(f"Failed to install browser-use: {stderr}")
-
-    async def _cleanup_config(self, session: Any) -> None:
-        """Remove the config file containing the API key from the sandbox."""
-        try:
-            await session.exec(f"rm -f {_CONFIG_PATH}", timeout=5)
-        except Exception:
-            logger.debug("Failed to clean up browser config file")
 
     async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
         task: str = kwargs.get("task", "")
@@ -255,35 +244,34 @@ class BrowserUse(SandboxTool):
         except RuntimeError as exc:
             return ToolResult.fail(str(exc))
 
-        # Write config and script to sandbox
+        # Build config (no secrets — API key passed via env var)
         config = {
             "task": task,
             "url": url,
             "max_steps": max_steps,
-            "api_key": self._anthropic_api_key,
-            "base_url": self._anthropic_base_url,
+            "max_failures": self._max_failures,
             "model": self._model,
         }
+
+        # Write script to sandbox
         try:
             await session.exec("mkdir -p /home/user/.browser", timeout=5)
-            await session.write_file(_CONFIG_PATH, json.dumps(config))
             await session.write_file(_SCRIPT_PATH, _BROWSER_USE_SCRIPT)
         except Exception as exc:
-            await self._cleanup_config(session)
             return ToolResult.fail(f"Failed to write browser agent files: {exc}")
+
+        # Build env-var based command (API key never touches disk)
+        env_prefix = f"ANTHROPIC_API_KEY={self._anthropic_api_key}"
+        if self._anthropic_base_url:
+            env_prefix += f" ANTHROPIC_BASE_URL={self._anthropic_base_url}"
+        config_json = json.dumps(config)
+        cmd = f"{env_prefix} BROWSER_USE_CONFIG='{config_json}' python3 {_SCRIPT_PATH}"
 
         # Execute the browser-use agent (long timeout for multi-step tasks)
         try:
-            result = await session.exec(
-                f"python3 {_SCRIPT_PATH}",
-                timeout=300,
-            )
+            result = await session.exec(cmd, timeout=300)
         except Exception as exc:
-            await self._cleanup_config(session)
             return ToolResult.fail(f"Browser agent execution failed: {exc}")
-
-        # Always clean up config file containing API key
-        await self._cleanup_config(session)
 
         # Parse the structured result
         stdout = result.stdout or ""
@@ -334,9 +322,6 @@ class BrowserUse(SandboxTool):
             "url": url or None,
             "task": task,
         }
-        screenshot_b64 = parsed.get("screenshot_base64")
-        if screenshot_b64:
-            metadata["screenshot_base64"] = screenshot_b64
         screenshot_path = parsed.get("screenshot_path")
         if screenshot_path:
             metadata["artifact_paths"] = [screenshot_path]

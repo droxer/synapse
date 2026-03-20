@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+import shlex
 from typing import Any
 
 from agent.tools.base import (
@@ -12,15 +14,11 @@ from agent.tools.base import (
 )
 
 _SCREENSHOT_PATH = "/tmp/desktop_screenshot.png"
-_SETUP_SCRIPT = """\
-#!/bin/bash
-# Ensure Xvfb is running
-if ! pgrep -x Xvfb > /dev/null; then
-    Xvfb :99 -screen 0 1280x720x24 &
-    sleep 1
-fi
-export DISPLAY=:99
-"""
+_SCREEN_WIDTH = 1280
+_SCREEN_HEIGHT = 720
+
+# Allowed pattern for xdotool key names (e.g. "Return", "ctrl+c", "shift+Tab")
+_KEY_NAME_RE = re.compile(r"^[a-zA-Z0-9_+]+$")
 
 
 async def _ensure_desktop(session: Any) -> bool:
@@ -41,7 +39,6 @@ async def _take_screenshot(session: Any) -> str | None:
     """Take a screenshot and return base64-encoded PNG."""
     result = await session.exec(
         f"DISPLAY=:99 import -window root {_SCREENSHOT_PATH} 2>/dev/null "
-        f"|| DISPLAY=:99 scrot {_SCREENSHOT_PATH} 2>/dev/null "
         f"|| DISPLAY=:99 xwd -root -silent | convert xwd:- png:{_SCREENSHOT_PATH}",
         timeout=10,
     )
@@ -108,7 +105,9 @@ class ComputerAction(SandboxTool):
             description=(
                 "Perform a mouse or keyboard action on the virtual desktop. "
                 "Actions include click, type, key press, scroll, and drag. "
-                "A screenshot is automatically taken after each action."
+                "A screenshot is automatically taken after each action. "
+                "Scroll actions apply at the current mouse position; "
+                "use 'move' first to scroll at a specific location."
             ),
             input_schema={
                 "type": "object",
@@ -218,6 +217,16 @@ class ComputerAction(SandboxTool):
             metadata=metadata,
         )
 
+    @staticmethod
+    def _validate_coords(
+        x: int | None,
+        y: int | None,
+    ) -> bool:
+        """Return True if both coordinates are within screen bounds."""
+        if x is None or y is None:
+            return False
+        return 0 <= x <= _SCREEN_WIDTH and 0 <= y <= _SCREEN_HEIGHT
+
     def _build_command(
         self,
         action: str,
@@ -230,27 +239,29 @@ class ComputerAction(SandboxTool):
     ) -> str | None:
         """Build the xdotool command for the given action."""
         if action == "click":
-            if x is None or y is None:
+            if not self._validate_coords(x, y):
                 return None
             return f"xdotool mousemove {x} {y} click 1"
 
         if action == "double_click":
-            if x is None or y is None:
+            if not self._validate_coords(x, y):
                 return None
             return f"xdotool mousemove {x} {y} click --repeat 2 1"
 
         if action == "right_click":
-            if x is None or y is None:
+            if not self._validate_coords(x, y):
                 return None
             return f"xdotool mousemove {x} {y} click 3"
 
         if action == "move":
-            if x is None or y is None:
+            if not self._validate_coords(x, y):
                 return None
             return f"xdotool mousemove {x} {y}"
 
         if action == "drag":
-            if x is None or y is None or end_x is None or end_y is None:
+            if not self._validate_coords(x, y):
+                return None
+            if not self._validate_coords(end_x, end_y):
                 return None
             return (
                 f"xdotool mousemove {x} {y} mousedown 1 "
@@ -260,12 +271,13 @@ class ComputerAction(SandboxTool):
         if action == "type":
             if not text:
                 return None
-            # Use xdotool type with delay for reliability
-            escaped = text.replace("'", "'\\''")
-            return f"xdotool type --delay 50 '{escaped}'"
+            return f"xdotool type --delay 50 {shlex.quote(text)}"
 
         if action == "key":
             if not text:
+                return None
+            # Only allow safe xdotool key names (alphanumeric, +, _)
+            if not _KEY_NAME_RE.match(text):
                 return None
             return f"xdotool key {text}"
 
