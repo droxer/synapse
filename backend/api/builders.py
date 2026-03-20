@@ -29,13 +29,7 @@ from agent.tools.local.task_complete import TaskComplete
 from agent.tools.local.web_fetch import WebFetch
 from agent.tools.local.web_search import TavilyWebSearch
 from agent.tools.registry import ToolRegistry
-from agent.tools.sandbox.browser import (
-    BrowserClick,
-    BrowserExtract,
-    BrowserNavigate,
-    BrowserScroll,
-    BrowserType,
-)
+from agent.tools.sandbox.browser import BrowserUse
 from agent.tools.sandbox.code_interpret import CodeInterpret
 from agent.tools.sandbox.code_run import CodeRun
 from agent.tools.sandbox.code_search import FileGlob, FileSearch
@@ -167,12 +161,14 @@ def _build_base_registry(
     registry = registry.register(FileGlob())
     registry = registry.register(FileSearch())
     registry = registry.register(DocRead())
-    # Browser tools
-    registry = registry.register(BrowserNavigate())
-    registry = registry.register(BrowserClick())
-    registry = registry.register(BrowserType())
-    registry = registry.register(BrowserScroll())
-    registry = registry.register(BrowserExtract())
+    # Browser tool
+    registry = registry.register(
+        BrowserUse(
+            anthropic_api_key=settings.ANTHROPIC_API_KEY,
+            model=settings.TASK_MODEL,
+            anthropic_base_url=settings.ANTHROPIC_BASE_URL,
+        )
+    )
     # Database tools
     registry = registry.register(DbCreate())
     registry = registry.register(DbQuery())
@@ -223,12 +219,8 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(FileGlob())
         registry = registry.register(FileSearch())
         registry = registry.register(DocRead())
-        # Browser tools
-        registry = registry.register(BrowserNavigate())
-        registry = registry.register(BrowserClick())
-        registry = registry.register(BrowserType())
-        registry = registry.register(BrowserScroll())
-        registry = registry.register(BrowserExtract())
+        # Browser tool
+        registry = registry.register(BrowserUse())
         # Database tools
         registry = registry.register(DbCreate())
         registry = registry.register(DbQuery())

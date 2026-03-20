@@ -19,7 +19,7 @@ criteria:
     weight: 2.0
   - name: did_not_use_browser
     type: tool_not_used
-    value: browser_navigate
+    value: browser_use
     weight: 0.5
   - name: completed_within_limit
     type: max_iterations

@@ -1,4 +1,4 @@
-"""Browser automation tools using Playwright inside a sandbox."""
+"""Browser automation tool using the browser-use agent inside a sandbox."""
 
 from __future__ import annotations
 
@@ -14,473 +14,275 @@ from agent.tools.base import (
     ToolResult,
 )
 
-_SCREENSHOT_PATH = "/home/user/.browser/screenshot.png"
-_SCRIPT_PATH = "/home/user/.browser/browser_action.py"
-_WS_FILE = "/home/user/.browser/browser_ws.txt"
+_CONFIG_PATH = "/home/user/.browser/config.json"
+_SCRIPT_PATH = "/home/user/.browser/browser_agent.py"
+_RESULT_START = "__BROWSER_USE_RESULT_START__"
+_RESULT_END = "__BROWSER_USE_RESULT_END__"
+_MAX_STEPS_LIMIT = 100
 
-_VALID_DIRECTIONS = frozenset({"up", "down"})
-_VALID_EXTRACT_TYPES = frozenset({"text", "links", "tables"})
-
-
-def _build_browser_script(action_code: str) -> str:
-    """Wrap action code with Playwright browser setup and screenshot."""
-    return f'''\
-from playwright.sync_api import sync_playwright
+_BROWSER_USE_SCRIPT = r'''
+import asyncio
+import json
 import os
+import traceback
 
-WS_FILE = "{_WS_FILE}"
-
-
-def get_browser():
-    p = sync_playwright().start()
-    if os.path.exists(WS_FILE):
-        try:
-            ws = open(WS_FILE).read().strip()
-            browser = p.chromium.connect(ws)
-            return p, browser
-        except Exception:
-            pass
-    browser = p.chromium.launch(headless=True, args=["--no-sandbox"])
-    return p, browser
+CONFIG_PATH = "''' + _CONFIG_PATH + r'''"
+RESULT_START = "''' + _RESULT_START + r'''"
+RESULT_END = "''' + _RESULT_END + r'''"
 
 
-p, browser = get_browser()
-if browser.contexts:
-    page = browser.contexts[0].pages[0]
-else:
-    page = browser.new_context().new_page()
+async def main():
+    with open(CONFIG_PATH) as f:
+        config = json.load(f)
 
-{action_code}
+    os.environ["ANTHROPIC_API_KEY"] = config["api_key"]
+    if config.get("base_url"):
+        os.environ["ANTHROPIC_BASE_URL"] = config["base_url"]
 
-page.screenshot(path="{_SCREENSHOT_PATH}")
+    browser = None
+    try:
+        from browser_use import Agent, Browser, ChatAnthropic
+
+        llm = ChatAnthropic(
+            model=config["model"],
+            timeout=120,
+        )
+
+        browser = Browser(
+            headless=True,
+            disable_security=True,
+        )
+
+        task = config["task"]
+        if config.get("url"):
+            task = f"First navigate to {config['url']}, then: {task}"
+
+        agent = Agent(
+            task=task,
+            llm=llm,
+            browser=browser,
+            max_steps=config.get("max_steps", 50),
+            use_vision=True,
+        )
+
+        history = await agent.run()
+
+        output = history.final_result() or ""
+        screenshots = history.screenshots()
+
+        result = {
+            "success": True,
+            "output": output,
+            "steps": history.number_of_steps(),
+            "is_done": history.is_done(),
+        }
+
+        if screenshots:
+            result["screenshot_base64"] = screenshots[-1]
+
+    except Exception as e:
+        result = {
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc(),
+        }
+    finally:
+        if browser is not None:
+            try:
+                await browser.close()
+            except Exception:
+                pass
+
+    print(f"\n{RESULT_START}")
+    print(json.dumps(result))
+    print(RESULT_END)
+
+
+asyncio.run(main())
 '''
 
 
-async def _run_browser_script(session: Any, script: str) -> tuple[str, int]:
-    """Write and execute a browser script, returning stdout and exit code."""
-    await session.write_file(_SCRIPT_PATH, script)
-    result = await session.exec(f"python3 {_SCRIPT_PATH}", timeout=60)
-    output = result.stdout or ""
-    if result.stderr:
-        # Filter out container noise (seccomp warnings, etc.)
-        stderr_lines = [
-            line
-            for line in result.stderr.splitlines()
-            if not line.strip().startswith(("WARN", "INFO"))
-            and "seccomp" not in line
-            and "libcontainer" not in line
-        ]
-        filtered_stderr = "\n".join(stderr_lines).strip()
-        if filtered_stderr:
-            output = (
-                f"{output}\n[stderr]\n{filtered_stderr}" if output else filtered_stderr
-            )
-    return output, result.exit_code
-
-
-async def _capture_screenshot_base64(session: Any) -> str | None:
-    """Download screenshot from sandbox and return base64-encoded PNG.
-
-    Uses shell base64 encoding since the sandbox session API only
-    supports text file reads (no ``read_file_bytes``).
-    """
+def _parse_result(stdout: str) -> dict[str, Any] | None:
+    """Extract the JSON result block from script stdout."""
+    start_idx = stdout.find(_RESULT_START)
+    end_idx = stdout.find(_RESULT_END)
+    if start_idx == -1 or end_idx == -1:
+        return None
+    json_str = stdout[start_idx + len(_RESULT_START):end_idx].strip()
     try:
-        result = await session.exec(f"base64 -w0 {_SCREENSHOT_PATH}", timeout=10)
-        if result.exit_code == 0 and result.stdout:
-            return result.stdout.strip()
-    except Exception as exc:
-        logger.debug("screenshot_capture_failed error={}", exc)
-    return None
+        return json.loads(json_str)
+    except json.JSONDecodeError:
+        return None
 
 
-class BrowserNavigate(SandboxTool):
-    """Navigate to a URL and take a screenshot."""
+class BrowserUse(SandboxTool):
+    """Browser automation tool that delegates tasks to a browser-use agent.
+
+    The agent runs autonomously inside the sandbox — navigating, clicking,
+    typing, and extracting content based on a natural-language task
+    description. No CSS selectors or low-level actions required.
+    """
+
+    def __init__(
+        self,
+        anthropic_api_key: str,
+        model: str = "claude-sonnet-4-20250514",
+        anthropic_base_url: str = "",
+    ) -> None:
+        self._anthropic_api_key = anthropic_api_key
+        self._model = model
+        self._anthropic_base_url = anthropic_base_url
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
-            name="browser_navigate",
-            description="Navigate the browser to a URL, take a screenshot, and return the page title.",
+            name="browser_use",
+            description=(
+                "Execute a browser task using an AI-powered browser agent. "
+                "Describe what you want to accomplish in natural language and "
+                "the agent will autonomously navigate, click, type, and extract "
+                "content. A screenshot of the final state is returned."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
+                    "task": {
+                        "type": "string",
+                        "description": (
+                            "Natural language description of the browser task "
+                            "to perform (e.g. 'Find the top story on Hacker News')."
+                        ),
+                    },
                     "url": {
                         "type": "string",
-                        "description": "The URL to navigate to.",
+                        "description": "Optional starting URL to navigate to before executing the task.",
                     },
-                },
-                "required": ["url"],
-            },
-            execution_context=ExecutionContext.SANDBOX,
-            tags=("browser", "sandbox"),
-        )
-
-    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
-        url: str = kwargs.get("url", "")
-        if not url.strip():
-            return ToolResult.fail("URL must not be empty")
-
-        cfg_literal = json.dumps({"url": url})
-        action_code = (
-            "import json, time\n"
-            f"_cfg = json.loads({cfg_literal!r})\n"
-            "last_err = None\n"
-            "for _attempt in range(3):\n"
-            "    try:\n"
-            '        page.goto(_cfg["url"], wait_until="domcontentloaded", timeout=30000)\n'
-            "        last_err = None\n"
-            "        break\n"
-            "    except Exception as e:\n"
-            "        last_err = e\n"
-            "        time.sleep(2)\n"
-            "if last_err is not None:\n"
-            "    raise last_err\n"
-            "print(page.title())"
-        )
-        script = _build_browser_script(action_code)
-
-        try:
-            output, exit_code = await _run_browser_script(session, script)
-        except Exception as exc:
-            return ToolResult.fail(f"Browser navigation failed: {exc}")
-
-        if exit_code != 0:
-            return ToolResult.fail(f"Navigation error (exit {exit_code}): {output}")
-
-        title = output.strip().split("\n")[0] if output.strip() else "Unknown"
-        screenshot_b64 = await _capture_screenshot_base64(session)
-        metadata: dict[str, Any] = {"screenshot": _SCREENSHOT_PATH, "title": title}
-        if screenshot_b64:
-            metadata["screenshot_base64"] = screenshot_b64
-        return ToolResult.ok(
-            f"Navigated to {url}. Page title: {title}",
-            metadata=metadata,
-        )
-
-
-class BrowserClick(SandboxTool):
-    """Click an element by CSS selector and take a screenshot."""
-
-    def definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            name="browser_click",
-            description="Click an element matching a CSS selector and take a screenshot.",
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "selector": {
-                        "type": "string",
-                        "description": "CSS selector of the element to click.",
-                    },
-                },
-                "required": ["selector"],
-            },
-            execution_context=ExecutionContext.SANDBOX,
-            tags=("browser", "sandbox"),
-        )
-
-    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
-        selector: str = kwargs.get("selector", "")
-        if not selector.strip():
-            return ToolResult.fail("Selector must not be empty")
-
-        cfg_literal = json.dumps({"selector": selector})
-        action_code = (
-            "import json, time\n"
-            f"_cfg = json.loads({cfg_literal!r})\n"
-            "_sel = _cfg['selector']\n"
-            "last_err = None\n"
-            "for _attempt in range(3):\n"
-            "    try:\n"
-            "        page.wait_for_selector(_sel, state='visible', timeout=5000)\n"
-            "        page.click(_sel, timeout=10000)\n"
-            "        last_err = None\n"
-            "        break\n"
-            "    except Exception as e:\n"
-            "        last_err = e\n"
-            "        time.sleep(1)\n"
-            "if last_err is not None:\n"
-            "    print(f'URL: {page.url}')\n"
-            "    raise last_err\n"
-            "page.wait_for_timeout(500)"
-        )
-        script = _build_browser_script(action_code)
-
-        try:
-            output, exit_code = await _run_browser_script(session, script)
-        except Exception as exc:
-            return ToolResult.fail(f"Browser click failed: {exc}")
-
-        if exit_code != 0:
-            return ToolResult.fail(f"Click error (exit {exit_code}): {output}")
-
-        screenshot_b64 = await _capture_screenshot_base64(session)
-        metadata: dict[str, Any] = {
-            "screenshot": _SCREENSHOT_PATH,
-            "selector": selector,
-        }
-        if screenshot_b64:
-            metadata["screenshot_base64"] = screenshot_b64
-        return ToolResult.ok(
-            f"Clicked element: {selector}",
-            metadata=metadata,
-        )
-
-
-class BrowserType(SandboxTool):
-    """Type text into an input element by CSS selector."""
-
-    def definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            name="browser_type",
-            description="Type text into an input element matching a CSS selector and take a screenshot.",
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "selector": {
-                        "type": "string",
-                        "description": "CSS selector of the input element.",
-                    },
-                    "text": {
-                        "type": "string",
-                        "description": "Text to type into the element.",
-                    },
-                },
-                "required": ["selector", "text"],
-            },
-            execution_context=ExecutionContext.SANDBOX,
-            tags=("browser", "sandbox"),
-        )
-
-    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
-        selector: str = kwargs.get("selector", "")
-        text: str = kwargs.get("text", "")
-
-        if not selector.strip():
-            return ToolResult.fail("Selector must not be empty")
-        if not text:
-            return ToolResult.fail("Text must not be empty")
-
-        cfg_literal = json.dumps({"selector": selector, "text": text})
-        action_code = (
-            "import json, time\n"
-            f"_cfg = json.loads({cfg_literal!r})\n"
-            "_sel = _cfg['selector']\n"
-            "last_err = None\n"
-            "for _attempt in range(3):\n"
-            "    try:\n"
-            "        page.wait_for_selector(_sel, state='visible', timeout=5000)\n"
-            "        page.fill(_sel, _cfg['text'], timeout=10000)\n"
-            "        last_err = None\n"
-            "        break\n"
-            "    except Exception as e:\n"
-            "        last_err = e\n"
-            "        time.sleep(1)\n"
-            "if last_err is not None:\n"
-            "    print(f'URL: {page.url}')\n"
-            "    raise last_err\n"
-            "page.wait_for_timeout(300)"
-        )
-        script = _build_browser_script(action_code)
-
-        try:
-            output, exit_code = await _run_browser_script(session, script)
-        except Exception as exc:
-            return ToolResult.fail(f"Browser type failed: {exc}")
-
-        if exit_code != 0:
-            return ToolResult.fail(f"Type error (exit {exit_code}): {output}")
-
-        screenshot_b64 = await _capture_screenshot_base64(session)
-        metadata: dict[str, Any] = {
-            "screenshot": _SCREENSHOT_PATH,
-            "selector": selector,
-        }
-        if screenshot_b64:
-            metadata["screenshot_base64"] = screenshot_b64
-        return ToolResult.ok(
-            f"Typed text into: {selector}",
-            metadata=metadata,
-        )
-
-
-class BrowserScroll(SandboxTool):
-    """Scroll the page up or down by a given number of pixels."""
-
-    def definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            name="browser_scroll",
-            description="Scroll the browser page up or down and take a screenshot.",
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "direction": {
-                        "type": "string",
-                        "description": "Scroll direction: 'up' or 'down'.",
-                        "enum": ["up", "down"],
-                    },
-                    "amount": {
+                    "max_steps": {
                         "type": "integer",
-                        "description": "Number of pixels to scroll.",
-                        "default": 500,
+                        "description": "Maximum number of browser actions the agent may take.",
+                        "default": 50,
                     },
                 },
-                "required": ["direction"],
+                "required": ["task"],
             },
             execution_context=ExecutionContext.SANDBOX,
-            tags=("browser", "sandbox"),
+            tags=("browser",),
         )
 
-    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
-        direction: str = kwargs.get("direction", "down").lower()
-        amount: int = kwargs.get("amount", 500)
-
-        if direction not in _VALID_DIRECTIONS:
-            return ToolResult.fail(
-                f"Invalid direction '{direction}'. Must be 'up' or 'down'."
-            )
-        if amount <= 0:
-            return ToolResult.fail("Scroll amount must be a positive integer")
-
-        pixels = -amount if direction == "up" else amount
-        action_code = (
-            f"page.evaluate('window.scrollBy(0, {pixels})')\npage.wait_for_timeout(300)"
-        )
-        script = _build_browser_script(action_code)
-
-        try:
-            output, exit_code = await _run_browser_script(session, script)
-        except Exception as exc:
-            return ToolResult.fail(f"Browser scroll failed: {exc}")
-
-        if exit_code != 0:
-            return ToolResult.fail(f"Scroll error (exit {exit_code}): {output}")
-
-        screenshot_b64 = await _capture_screenshot_base64(session)
-        metadata: dict[str, Any] = {
-            "screenshot": _SCREENSHOT_PATH,
-            "direction": direction,
-        }
-        if screenshot_b64:
-            metadata["screenshot_base64"] = screenshot_b64
-        return ToolResult.ok(
-            f"Scrolled {direction} by {amount}px",
-            metadata=metadata,
-        )
-
-
-_EXTRACT_TEXT_TEMPLATE = """\
-import json as _json
-_cfg = _json.loads({cfg_literal})
-_sel = _cfg.get("selector", "")
-target = page.query_selector(_sel) if _sel else None
-el = target if target else page
-print(el.inner_text())
-"""
-
-_EXTRACT_LINKS_TEMPLATE = """\
-import json as _json
-_cfg = _json.loads({cfg_literal})
-_sel = _cfg.get("selector", "")
-target = page.query_selector(_sel) if _sel else None
-scope = target if target else page
-links = scope.eval_on_selector_all(
-    "a[href]",
-    "els => els.map(e => ({{ text: e.innerText.trim(), href: e.href }}))"
-)
-for link in links:
-    print(f"{{link['text']}} -> {{link['href']}}")
-"""
-
-_EXTRACT_TABLES_TEMPLATE = """\
-import json as _json
-_cfg = _json.loads({cfg_literal})
-_sel = _cfg.get("selector", "")
-target = page.query_selector(_sel) if _sel else None
-scope = target if target else page
-tables = scope.eval_on_selector_all(
-    "table",
-    \"\"\"els => els.map(table => {{
-        const rows = Array.from(table.querySelectorAll("tr"));
-        return rows.map(row => {{
-            const cells = Array.from(row.querySelectorAll("th, td"));
-            return cells.map(c => c.innerText.trim());
-        }});
-    }})\"\"\"
-)
-for i, table in enumerate(tables):
-    print(f"--- Table {{i + 1}} ---")
-    for row in table:
-        print("\\t".join(row))
-"""
-
-
-def _build_extract_code(extract_type: str, cfg_json: str) -> str:
-    """Return the extraction action code for the given type."""
-    templates = {
-        "text": _EXTRACT_TEXT_TEMPLATE,
-        "links": _EXTRACT_LINKS_TEMPLATE,
-        "tables": _EXTRACT_TABLES_TEMPLATE,
-    }
-    return templates[extract_type].format(cfg_literal=repr(cfg_json))
-
-
-class BrowserExtract(SandboxTool):
-    """Extract content from the current page."""
-
-    def definition(self) -> ToolDefinition:
-        return ToolDefinition(
-            name="browser_extract",
-            description="Extract text, links, or tables from the current browser page.",
-            input_schema={
-                "type": "object",
-                "properties": {
-                    "selector": {
-                        "type": "string",
-                        "description": "Optional CSS selector to scope extraction.",
-                    },
-                    "extract_type": {
-                        "type": "string",
-                        "description": "What to extract: 'text', 'links', or 'tables'.",
-                        "enum": ["text", "links", "tables"],
-                        "default": "text",
-                    },
-                },
-                "required": [],
-            },
-            execution_context=ExecutionContext.SANDBOX,
-            tags=("browser", "sandbox"),
-        )
-
-    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
-        selector: str = kwargs.get("selector", "")
-        extract_type: str = kwargs.get("extract_type", "text").lower()
-
-        if extract_type not in _VALID_EXTRACT_TYPES:
-            return ToolResult.fail(
-                f"Invalid extract_type '{extract_type}'. "
-                f"Must be one of: {', '.join(sorted(_VALID_EXTRACT_TYPES))}"
+    async def _ensure_installed(self, session: Any) -> None:
+        """Ensure browser-use and xdotool are available in the sandbox."""
+        # xdotool (needed by browser-use for click actions)
+        xdotool_check = await session.exec("which xdotool", timeout=5)
+        if xdotool_check.exit_code != 0:
+            logger.info("Installing xdotool in sandbox")
+            await session.exec(
+                "apt-get update -qq && apt-get install -y -qq xdotool >/dev/null 2>&1",
+                timeout=60,
             )
 
-        cfg_json = json.dumps({"selector": selector})
-        action_code = _build_extract_code(extract_type, cfg_json)
-        script = _build_browser_script(action_code)
+        # browser-use python package
+        check = await session.exec(
+            "python3 -c 'import browser_use'",
+            timeout=15,
+        )
+        if check.exit_code == 0:
+            return
 
+        logger.info("Installing browser-use in sandbox")
+        install = await session.exec(
+            "pip install -q browser-use",
+            timeout=180,
+        )
+        if install.exit_code != 0:
+            stderr = install.stderr or install.stdout or "unknown error"
+            raise RuntimeError(f"Failed to install browser-use: {stderr}")
+
+    async def _cleanup_config(self, session: Any) -> None:
+        """Remove the config file containing the API key from the sandbox."""
         try:
-            output, exit_code = await _run_browser_script(session, script)
-        except Exception as exc:
-            return ToolResult.fail(f"Browser extraction failed: {exc}")
+            await session.exec(f"rm -f {_CONFIG_PATH}", timeout=5)
+        except Exception:
+            logger.debug("Failed to clean up browser config file")
 
-        if exit_code != 0:
-            return ToolResult.fail(f"Extract error (exit {exit_code}): {output}")
+    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
+        task: str = kwargs.get("task", "")
+        url: str = kwargs.get("url", "")
+        max_steps: int = min(kwargs.get("max_steps", 50), _MAX_STEPS_LIMIT)
 
-        screenshot_b64 = await _capture_screenshot_base64(session)
-        metadata: dict[str, Any] = {
-            "screenshot": _SCREENSHOT_PATH,
-            "extract_type": extract_type,
+        if not task.strip():
+            return ToolResult.fail("Task description must not be empty")
+
+        # Ensure dependencies are installed
+        try:
+            await self._ensure_installed(session)
+        except RuntimeError as exc:
+            return ToolResult.fail(str(exc))
+
+        # Write config and script to sandbox
+        config = {
+            "task": task,
+            "url": url,
+            "max_steps": max_steps,
+            "api_key": self._anthropic_api_key,
+            "base_url": self._anthropic_base_url,
+            "model": self._model,
         }
+        try:
+            await session.exec("mkdir -p /home/user/.browser", timeout=5)
+            await session.write_file(_CONFIG_PATH, json.dumps(config))
+            await session.write_file(_SCRIPT_PATH, _BROWSER_USE_SCRIPT)
+        except Exception as exc:
+            await self._cleanup_config(session)
+            return ToolResult.fail(f"Failed to write browser agent files: {exc}")
+
+        # Execute the browser-use agent (long timeout for multi-step tasks)
+        try:
+            result = await session.exec(
+                f"python3 {_SCRIPT_PATH}",
+                timeout=300,
+            )
+        except Exception as exc:
+            await self._cleanup_config(session)
+            return ToolResult.fail(f"Browser agent execution failed: {exc}")
+
+        # Always clean up config file containing API key
+        await self._cleanup_config(session)
+
+        # Parse the structured result
+        stdout = result.stdout or ""
+        parsed = _parse_result(stdout)
+
+        if parsed is None:
+            error_info = result.stderr or ""
+            if result.exit_code != 0:
+                return ToolResult.fail(
+                    f"Browser agent failed (exit {result.exit_code}): "
+                    f"{stdout}\n{error_info}".strip()
+                )
+            return ToolResult.ok(stdout.strip() or "(no output)")
+
+        if not parsed.get("success"):
+            error_msg = parsed.get("error", "Unknown error")
+            tb = parsed.get("traceback", "")
+            logger.debug("browser_use_error traceback={}", tb)
+            return ToolResult.fail(f"Browser agent error: {error_msg}")
+
+        # Build successful result
+        output = parsed.get("output", "")
+        steps = parsed.get("steps", 0)
+        is_done = parsed.get("is_done", False)
+
+        summary = output if output else "(browser agent completed with no text output)"
+        if steps:
+            summary += f"\n\n[Completed in {steps} steps]"
+        if not is_done:
+            summary += "\n[Warning: agent did not reach a final done state]"
+
+        metadata: dict[str, Any] = {
+            "steps": steps,
+            "is_done": is_done,
+        }
+        screenshot_b64 = parsed.get("screenshot_base64")
         if screenshot_b64:
             metadata["screenshot_base64"] = screenshot_b64
-        return ToolResult.ok(
-            output.strip() if output.strip() else "(no content extracted)",
-            metadata=metadata,
-        )
+
+        return ToolResult.ok(summary, metadata=metadata)

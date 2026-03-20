@@ -36,7 +36,7 @@ from agent.sandbox.base import (
 TEMPLATE_IMAGES: dict[str, str] = {
     "default": "ghcr.io/droxer/hiagent-sandbox-default",
     "data_science": "ghcr.io/droxer/hiagent-sandbox-data-science",
-    "browser": "ghcr.io/droxer/hiagent-sandbox-browser:v2",
+    "browser": "ghcr.io/droxer/hiagent-sandbox-browser:v3",
 }
 
 DEFAULT_IMAGE = "ghcr.io/droxer/hiagent-sandbox-default"

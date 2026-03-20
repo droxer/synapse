@@ -47,11 +47,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   file_glob: "File Glob",
   file_search: "File Search",
   // Sandbox: browser
-  browser_navigate: "Browser Navigate",
-  browser_click: "Browser Click",
-  browser_type: "Browser Type",
-  browser_scroll: "Browser Scroll",
-  browser_extract: "Browser Extract",
+  browser_use: "Browser Use",
   // Sandbox: documents
   document_read: "Document Read",
   // Sandbox: database
@@ -60,7 +56,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   database_schema: "Database Schema",
   // Sandbox: computer use
   computer_screenshot: "Screenshot",
-  computer_action: "Computer Action",
+  computer_action: "Computer Use",
   // Sandbox: preview
   preview_start: "Preview Start",
   preview_stop: "Preview Stop",
@@ -102,7 +98,7 @@ export type ToolCategory = "code" | "file" | "search" | "memory" | "browser" | "
 const SEARCH_TOOLS = new Set(["web_search", "web_fetch"]);
 const MEMORY_TOOLS = new Set(["memory_store", "memory_search", "memory_list"]);
 const PREVIEW_TOOLS = new Set(["preview_start", "preview_stop"]);
-const BROWSER_TOOLS = new Set(["browser_navigate"]);
+const BROWSER_TOOLS = new Set(["browser_use"]);
 const FILE_TOOLS = new Set(["file_read", "file_write"]);
 
 export function getToolCategory(toolName: string): ToolCategory {

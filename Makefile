@@ -1,6 +1,11 @@
 SANDBOX_REGISTRY := ghcr.io/droxer
 SANDBOX_IMAGES := default data_science browser
 
+# Image version tags (override with SANDBOX_TAG=vX)
+SANDBOX_TAGS_default :=
+SANDBOX_TAGS_data_science :=
+SANDBOX_TAGS_browser := v3
+
 .PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals
 
 # Start both backend and web concurrently
@@ -33,22 +38,26 @@ migrate:
 build-web:
 	cd web && npm run build
 
+# Resolve the full image name with optional version tag
+# e.g. browser -> ghcr.io/droxer/hiagent-sandbox-browser:v3
+sandbox_image = $(SANDBOX_REGISTRY)/hiagent-sandbox-$(1)$(if $(SANDBOX_TAGS_$(1)),:$(SANDBOX_TAGS_$(1)),)
+
 # Build sandbox Docker images (from container/ folder)
 # Usage: make build-sandbox [SANDBOX=browser]
 build-sandbox:
 ifdef SANDBOX
-	docker build -t $(SANDBOX_REGISTRY)/hiagent-sandbox-$(SANDBOX) -f container/Dockerfile.$(SANDBOX) container
+	docker build -t $(call sandbox_image,$(SANDBOX)) -f container/Dockerfile.$(SANDBOX) container
 else
-	$(foreach img,$(SANDBOX_IMAGES),docker build -t $(SANDBOX_REGISTRY)/hiagent-sandbox-$(img) -f container/Dockerfile.$(img) container;)
+	$(foreach img,$(SANDBOX_IMAGES),docker build -t $(call sandbox_image,$(img)) -f container/Dockerfile.$(img) container;)
 endif
 
 # Push sandbox Docker images to GHCR
 # Usage: make push-sandbox [SANDBOX=browser]
 push-sandbox:
 ifdef SANDBOX
-	docker push $(SANDBOX_REGISTRY)/hiagent-sandbox-$(SANDBOX)
+	docker push $(call sandbox_image,$(SANDBOX))
 else
-	$(foreach img,$(SANDBOX_IMAGES),docker push $(SANDBOX_REGISTRY)/hiagent-sandbox-$(img);)
+	$(foreach img,$(SANDBOX_IMAGES),docker push $(call sandbox_image,$(img));)
 endif
 
 # Run backend tests
