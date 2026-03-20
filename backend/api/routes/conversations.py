@@ -26,7 +26,7 @@ from api.models import (
     MessageRequest,
     UserInputRequest,
 )
-from api.auth import common_dependencies
+from api.auth import AuthUser, common_dependencies, get_current_user
 from api.builders import _build_orchestrator, _build_planner_orchestrator
 from api.sse import _create_queue_subscriber, _event_generator
 from api.events import AgentEvent, EventEmitter, EventType
@@ -40,6 +40,56 @@ _UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 _EVENT_QUEUE_MAXSIZE = 5000
 
 router = APIRouter(dependencies=common_dependencies)
+
+
+async def _resolve_user_id(
+    auth_user: AuthUser | None,
+    state: AppState,
+) -> uuid.UUID | None:
+    """Resolve a backend user from the auth context.
+
+    Uses find_by_google_id first (read-only), falls back to upsert if user
+    does not exist yet. Returns the user's UUID, or None if not authenticated.
+    """
+    if auth_user is None:
+        return None
+    async with state.db_session_factory() as session:
+        existing = await state.user_repo.find_by_google_id(
+            session, auth_user.google_id
+        )
+        if existing is not None:
+            return existing.id
+        user = await state.user_repo.upsert_from_google(
+            session,
+            google_id=auth_user.google_id,
+            email=auth_user.email,
+            name=auth_user.name,
+            picture=auth_user.picture,
+        )
+    return user.id
+
+
+async def _verify_conversation_ownership(
+    state: AppState,
+    conversation_id: str,
+    auth_user: AuthUser | None,
+) -> None:
+    """Verify the authenticated user owns the conversation.
+
+    Returns 404 (not 403) for unowned resources to prevent enumeration.
+    Skipped when auth_user is None (unauthenticated / AUTH_REQUIRED=False).
+    """
+    if auth_user is None:
+        return
+    user_id = await _resolve_user_id(auth_user, state)
+    if user_id is None:
+        return
+    async with state.db_session_factory() as session:
+        convo = await state.db_repo.get_conversation(session, uuid.UUID(conversation_id))
+    if convo is None:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    if convo.user_id is not None and convo.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Conversation not found")
 
 
 # ---------------------------------------------------------------------------
@@ -335,6 +385,7 @@ async def _generate_title(
 async def create_conversation(
     request: Request,
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> ConversationResponse:
     """Create a new conversation and send the first message.
 
@@ -410,9 +461,10 @@ async def create_conversation(
     state.conversations[conversation_id] = entry
 
     # Persist conversation and register DB subscriber
+    user_id = await _resolve_user_id(auth_user, state)
     async with state.db_session_factory() as session:
         await state.db_repo.create_conversation(
-            session, title=message[:80], conversation_id=conv_uuid
+            session, title=message[:80], conversation_id=conv_uuid, user_id=user_id
         )
 
     # Visibility barrier: confirm the committed row is readable from a fresh
@@ -464,17 +516,20 @@ async def create_conversation(
 
 @router.get("/conversations")
 async def list_conversations(
+    request: Request,
     limit: int = 20,
     offset: int = 0,
     search: str | None = None,
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """List conversations, paginated, newest first."""
     if limit > 100:
         limit = 100
+    user_id = await _resolve_user_id(auth_user, state)
     items, total = await state.db_repo.list_conversations(
-        session, limit=limit, offset=offset, search=search
+        session, limit=limit, offset=offset, search=search, user_id=user_id
     )
     return {
         "items": [
@@ -498,11 +553,13 @@ async def send_message(
     request: Request,
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> ConversationResponse:
     """Send a follow-up message in an existing conversation.
 
     Accepts either JSON (MessageRequest) or multipart/form-data with files.
     """
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     content_type = request.headers.get("content-type", "")
 
     if "multipart/form-data" in content_type:
@@ -566,8 +623,10 @@ async def get_conversation_messages(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get all messages for a conversation (for history replay)."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     conv_uuid = uuid.UUID(conversation_id)
     convo = await state.db_repo.get_conversation(session, conv_uuid)
     if convo is None:
@@ -593,8 +652,10 @@ async def get_conversation_messages(
 async def stream_events(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> StreamingResponse:
     """Stream conversation events via Server-Sent Events (long-lived)."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     entry = state.conversations.get(conversation_id)
     if entry is None:
         entry = await _reconstruct_conversation(state, conversation_id)
@@ -620,8 +681,10 @@ async def get_conversation_events(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return all stored events for a historical conversation."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     conv_uuid = uuid.UUID(conversation_id)
     convo = await state.db_repo.get_conversation(session, conv_uuid)
     if convo is None:
@@ -645,8 +708,10 @@ async def respond_to_prompt(
     body: UserInputRequest,
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, str]:
     """Submit a user response to an ask_user prompt."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     entry = state.conversations.get(conversation_id)
     if entry is None:
         raise HTTPException(
@@ -674,12 +739,14 @@ async def respond_to_prompt(
 async def cancel_turn(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, str]:
     """Cancel the currently running turn.
 
     Returns immediately after signalling cancellation.  A background task
     force-cancels the turn if it doesn't stop within 5 seconds.
     """
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     entry = state.conversations.get(conversation_id)
     if entry is None:
         # Conversation was evicted from memory (e.g. SSE reconnect).
@@ -722,8 +789,10 @@ async def cancel_turn(
 async def retry_turn(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Cancel the last turn, roll back, and re-run the last user message."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     entry = state.conversations.get(conversation_id)
     if entry is None:
         raise HTTPException(
@@ -786,8 +855,10 @@ async def delete_conversation(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, str]:
     """Delete a conversation and clean up in-memory resources."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     await _cleanup_conversation(state, conversation_id)
     deleted = await state.db_repo.delete_conversation(
         session, uuid.UUID(conversation_id)

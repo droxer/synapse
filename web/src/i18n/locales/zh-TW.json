@@ -415,5 +415,9 @@
   "assistant.phaseLive.thinking": "思考中...",
   "assistant.phaseLive.writing": "撰寫中...",
   "assistant.usingToolLive": "使用 {name}...",
-  "assistant.ariaLoading": "{label}..."
+  "assistant.ariaLoading": "{label}...",
+
+  "profile.settings": "設定",
+  "profile.signOut": "登出",
+  "profile.account": "帳戶"
 }

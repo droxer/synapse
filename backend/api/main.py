@@ -17,13 +17,13 @@ from agent.skills.discovery import SkillDiscoverer
 from agent.skills.installer import SkillInstaller
 from agent.skills.loader import SkillRegistry
 from agent.state.database import get_engine, get_session_factory, init_db
-from agent.state.repository import ConversationRepository
+from agent.state.repository import ConversationRepository, UserRepository
 from agent.tools.registry import ToolRegistry
 from api.builders import _build_sandbox_provider
 from api.db_subscriber import PendingWrites
 from api.dependencies import AppState
 from api.models import MCPState
-from api.routes import artifacts, conversations, mcp, skill_files, skills
+from api.routes import artifacts, auth, conversations, mcp, skill_files, skills
 from config.settings import get_settings
 
 
@@ -44,6 +44,7 @@ def _create_app() -> FastAPI:
     db_engine = get_engine(settings.DATABASE_URL)
     db_session_factory = get_session_factory(db_engine)
     db_repo = ConversationRepository()
+    user_repo = UserRepository()
     db_pending_writes = PendingWrites()
 
     # Shared AnthropicClient singleton
@@ -74,6 +75,7 @@ def _create_app() -> FastAPI:
         db_engine=db_engine,
         db_session_factory=db_session_factory,
         db_repo=db_repo,
+        user_repo=user_repo,
         db_pending_writes=db_pending_writes,
         mcp_state=mcp_state,
         sandbox_pool=sandbox_pool,
@@ -139,6 +141,7 @@ def _create_app() -> FastAPI:
     )
 
     # Include routers
+    application.include_router(auth.router)
     application.include_router(conversations.router)
     application.include_router(mcp.router)
     application.include_router(artifacts.router)

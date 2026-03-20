@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from agent.llm.client import AnthropicClient
     from agent.skills.installer import SkillInstaller
     from agent.skills.loader import SkillRegistry
-    from agent.state.repository import ConversationRepository
+    from agent.state.repository import ConversationRepository, UserRepository
     from api.db_subscriber import PendingWrites
     from api.models import ConversationEntry, MCPState
 
@@ -32,6 +32,7 @@ class AppState:
     db_engine: AsyncEngine
     db_session_factory: async_sessionmaker[AsyncSession]
     db_repo: ConversationRepository
+    user_repo: UserRepository
     db_pending_writes: PendingWrites
     conversations: dict[str, ConversationEntry] = field(default_factory=dict)
     mcp_state: MCPState | None = None

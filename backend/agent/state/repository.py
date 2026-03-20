@@ -19,6 +19,7 @@ from agent.state.models import (
     ConversationModel,
     EventModel,
     MessageModel,
+    UserModel,
 )
 from agent.state.schemas import (
     AgentRunRecord,
@@ -26,12 +27,14 @@ from agent.state.schemas import (
     ConversationRecord,
     EventRecord,
     MessageRecord,
+    UserRecord,
 )
 
 
 def _to_conversation(model: ConversationModel) -> ConversationRecord:
     return ConversationRecord(
         id=model.id,
+        user_id=model.user_id,
         title=model.title,
         created_at=model.created_at,
         updated_at=model.updated_at,
@@ -91,8 +94,11 @@ class ConversationRepository:
         session: AsyncSession,
         title: str | None = None,
         conversation_id: uuid.UUID | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> ConversationRecord:
-        model = ConversationModel(id=conversation_id or uuid.uuid4(), title=title)
+        model = ConversationModel(
+            id=conversation_id or uuid.uuid4(), title=title, user_id=user_id
+        )
         session.add(model)
         await session.flush()
         await session.refresh(model)  # need generated id/timestamps before returning
@@ -117,8 +123,11 @@ class ConversationRepository:
         limit: int = 20,
         offset: int = 0,
         search: str | None = None,
+        user_id: uuid.UUID | None = None,
     ) -> tuple[list[ConversationRecord], int]:
         count_stmt = select(func.count()).select_from(ConversationModel)
+        if user_id is not None:
+            count_stmt = count_stmt.where(ConversationModel.user_id == user_id)
         if search:
             count_stmt = count_stmt.where(
                 ConversationModel.title.ilike(f"%{search}%")
@@ -131,6 +140,8 @@ class ConversationRepository:
             .limit(limit)
             .offset(offset)
         )
+        if user_id is not None:
+            stmt = stmt.where(ConversationModel.user_id == user_id)
         if search:
             stmt = stmt.where(ConversationModel.title.ilike(f"%{search}%"))
         result = await session.execute(stmt)
@@ -277,3 +288,77 @@ class ConversationRepository:
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()
         return _to_artifact(model) if model else None
+
+
+# ---------------------------------------------------------------------------
+# User repository
+# ---------------------------------------------------------------------------
+
+
+def _to_user(model: UserModel) -> UserRecord:
+    return UserRecord(
+        id=model.id,
+        google_id=model.google_id,
+        email=model.email,
+        name=model.name,
+        picture=model.picture,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+class UserRepository:
+    """Async repository for user persistence."""
+
+    async def find_by_google_id(
+        self,
+        session: AsyncSession,
+        google_id: str,
+    ) -> UserRecord | None:
+        stmt = select(UserModel).where(UserModel.google_id == google_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_user(model) if model else None
+
+    async def find_by_id(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+    ) -> UserRecord | None:
+        stmt = select(UserModel).where(UserModel.id == user_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_user(model) if model else None
+
+    async def upsert_from_google(
+        self,
+        session: AsyncSession,
+        google_id: str,
+        email: str,
+        name: str,
+        picture: str | None,
+    ) -> UserRecord:
+        """Create or update a user from Google profile info."""
+        stmt = select(UserModel).where(UserModel.google_id == google_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+
+        if model is None:
+            model = UserModel(
+                id=uuid.uuid4(),
+                google_id=google_id,
+                email=email,
+                name=name,
+                picture=picture,
+            )
+            session.add(model)
+        else:
+            model.email = email
+            model.name = name
+            model.picture = picture
+            model.updated_at = datetime.now(timezone.utc)
+
+        await session.flush()
+        await session.refresh(model)
+        await session.commit()
+        return _to_user(model)

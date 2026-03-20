@@ -416,5 +416,9 @@
   "assistant.phaseLive.thinking": "思考中...",
   "assistant.phaseLive.writing": "撰写中...",
   "assistant.usingToolLive": "使用 {name}...",
-  "assistant.ariaLoading": "{label}..."
+  "assistant.ariaLoading": "{label}...",
+
+  "profile.settings": "设置",
+  "profile.signOut": "退出登录",
+  "profile.account": "账户"
 }

@@ -47,11 +47,18 @@
   --color-sidebar-active: #EDE8E3;
   --color-sidebar-hover: #EDE8E3;
 
+  --color-profile-ring: rgba(139, 92, 246, 0.2);
+  --color-profile-ring-hover: rgba(139, 92, 246, 0.35);
+
   --color-terminal-bg: #FAF9F6;
   --color-terminal-surface: #F5F0EB;
   --color-terminal-border: #E8E5E0;
   --color-terminal-text: #2D2D2D;
   --color-terminal-dim: #8B8B96;
+
+  /* Profile ring colors — registered in @theme so Tailwind utilities work */
+  --ring-profile: var(--color-profile-ring);
+  --ring-profile-hover: var(--color-profile-ring-hover);
 
   /* Font families */
   --font-sans: var(--font-geist), var(--font-inter), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, var(--font-noto-sans-sc), var(--font-noto-sans-tc), "PingFang SC", "Microsoft YaHei", sans-serif;
@@ -125,6 +132,13 @@
 
   --animate-pulsing-dot-fade: pulsingDotFade 2s ease-in-out infinite;
   --animate-pulsing-dot-ring: pulsingDotRing 2s ease-out infinite;
+
+  @keyframes scaleIn {
+    0% { opacity: 0; transform: scale(0.95); }
+    100% { opacity: 1; transform: scale(1); }
+  }
+
+  --animate-scale-in: scaleIn 0.15s ease-out;
 }
 
 /* ─── Light mode (default) ─── */
@@ -210,6 +224,8 @@
   --color-sidebar-bg: #181614;
   --color-sidebar-active: #2B2826;
   --color-sidebar-hover: #2B2826;
+  --color-profile-ring: rgba(139, 92, 246, 0.25);
+  --color-profile-ring-hover: rgba(139, 92, 246, 0.45);
   --color-terminal-bg: #181614;
   --color-terminal-surface: #2B2826;
   --color-terminal-border: #4A4540;

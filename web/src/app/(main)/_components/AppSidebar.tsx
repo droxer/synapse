@@ -4,6 +4,7 @@ import { useEffect, useCallback, useRef } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/shared/components";
 import { MobileDrawer } from "@/shared/components/MobileDrawer";
+import { UserMenu } from "@/shared/components/UserMenu";
 import { useAppStore } from "@/shared/stores";
 import { useIsMobile } from "@/shared/hooks/use-media-query";
 
@@ -45,13 +46,15 @@ export function AppSidebar() {
     if (pathname !== "/") router.push("/");
   }, [conversationId, pathname, switchConversation, closeSidebar, router]);
 
+  const isCollapsed = isMobile ? false : sidebarCollapsed;
+
   const sidebar = (
     <Sidebar
       taskHistory={conversationHistory}
       activeTaskId={conversationId}
       onNewTask={handleNewConversation}
       onSelectTask={handleSelectConversation}
-      collapsed={isMobile ? false : sidebarCollapsed}
+      collapsed={isCollapsed}
       width={isMobile ? 256 : sidebarWidth}
       onToggle={isMobile ? undefined : toggleSidebar}
       onWidthChange={isMobile ? undefined : setSidebarWidth}
@@ -60,6 +63,7 @@ export function AppSidebar() {
       onClose={isMobile ? closeSidebar : undefined}
       isMobile={isMobile}
       activePath={pathname}
+      userMenu={<UserMenu collapsed={isCollapsed} />}
     />
   );
 

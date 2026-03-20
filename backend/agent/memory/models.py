@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Index, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 
 from agent.state.models import Base
@@ -25,6 +25,11 @@ class MemoryEntry(Base):
     key = Column(String(500), nullable=False)
     value = Column(Text, nullable=False)
     conversation_id = Column(UUID(as_uuid=True), nullable=True)  # None = global memory
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+    )
     created_at = Column(
         DateTime(timezone=True),
         nullable=False,
@@ -40,4 +45,5 @@ class MemoryEntry(Base):
     __table_args__ = (
         Index("ix_memory_ns_key", "namespace", "key"),
         Index("ix_memory_conversation", "conversation_id"),
+        Index("ix_memory_user", "user_id"),
     )

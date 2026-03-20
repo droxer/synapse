@@ -14,10 +14,24 @@ from typing import Any
 
 
 @dataclass(frozen=True)
+class UserRecord:
+    """Read-only user record."""
+
+    id: uuid.UUID
+    google_id: str
+    email: str
+    name: str
+    picture: str | None
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
 class ConversationRecord:
     """Read-only conversation record."""
 
     id: uuid.UUID
+    user_id: uuid.UUID | None
     title: str | None
     created_at: datetime
     updated_at: datetime

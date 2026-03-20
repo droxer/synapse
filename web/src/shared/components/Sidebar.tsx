@@ -5,8 +5,6 @@ import Link from "next/link";
 import { Logo } from "@/shared/components/Logo";
 import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { ThemeToggle } from "@/shared/components/ThemeToggle";
-import { LanguageSwitcher } from "@/shared/components/LanguageSwitcher";
 import {
   Tooltip,
   TooltipTrigger,
@@ -40,6 +38,7 @@ interface SidebarProps {
   onClose?: () => void;
   isMobile?: boolean;
   activePath?: string;
+  userMenu?: React.ReactNode;
 }
 
 
@@ -57,6 +56,7 @@ export function Sidebar({
   onClose,
   isMobile = false,
   activePath,
+  userMenu,
 }: SidebarProps) {
   const { t } = useTranslation();
   const [taskToDelete, setTaskToDelete] = useState<ConversationHistoryItem | null>(null);
@@ -393,7 +393,7 @@ export function Sidebar({
       </div>
 
 
-      {/* Footer: language + theme settings bar */}
+      {/* Footer: user profile card (includes theme/language controls) */}
       <div
         className={cn(
           "shrink-0 border-t border-border",
@@ -402,18 +402,7 @@ export function Sidebar({
             : "px-4 py-2.5",
         )}
       >
-        {collapsed ? (
-          <>
-            <LanguageSwitcher collapsed />
-            <ThemeToggle collapsed />
-          </>
-        ) : (
-          <div className="flex items-center gap-1.5 rounded-lg bg-secondary p-1">
-            <LanguageSwitcher />
-            <div className="h-4 w-px shrink-0 bg-border" />
-            <ThemeToggle />
-          </div>
-        )}
+        {userMenu}
       </div>
 
       {/* Delete confirmation dialog */}

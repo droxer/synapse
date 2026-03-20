@@ -416,5 +416,9 @@
   "assistant.phaseLive.thinking": "Thinking...",
   "assistant.phaseLive.writing": "Writing...",
   "assistant.usingToolLive": "Using {name}...",
-  "assistant.ariaLoading": "{label}..."
+  "assistant.ariaLoading": "{label}...",
+
+  "profile.settings": "Settings",
+  "profile.signOut": "Sign out",
+  "profile.account": "Account"
 }
