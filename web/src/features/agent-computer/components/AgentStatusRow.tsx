@@ -5,7 +5,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft } from "lucide-react";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { cn } from "@/shared/lib/utils";
-import { normalizeToolName } from "../lib/tool-constants";
+import { normalizeToolName, normalizeAgentName } from "../lib/tool-constants";
 import { ToolOutputRenderer } from "./ToolOutputRenderer";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
 import { useTranslation } from "@/i18n";
@@ -62,12 +62,12 @@ export function AgentStatusRow({
         <span className={cn("flex-1 truncate", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
           {agent.description.includes(" → ") ? (
             <>
-              {agent.name || agent.description.split(" → ")[0]}
+              {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
               <ArrowRightLeft className="inline h-3 w-3 mx-1 text-muted-foreground" />
               {agent.description.split(" → ").slice(1).join(" → ")}
             </>
           ) : (
-            agent.name || agent.description
+            normalizeAgentName(agent.name || agent.description)
           )}
         </span>
         {hasTools && (

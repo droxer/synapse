@@ -30,7 +30,7 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import type { AgentEvent, TaskState, ToolCallInfo, AgentStatus } from "@/shared/types";
-import { normalizeToolNameI18n, getToolCategory } from "@/features/agent-computer/lib/tool-constants";
+import { normalizeToolNameI18n, normalizeAgentName, getToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import type { ToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 
@@ -174,7 +174,7 @@ function buildSteps(
         steps = [...steps, {
           id: `agent-${spawnAgentId}-${event.timestamp}`,
           kind: "agent",
-          title: (String(event.data.name || event.data.description || "working")).slice(0, 55) + toolSuffix,
+          title: normalizeAgentName(String(event.data.name || event.data.description || "working")).slice(0, 55) + toolSuffix,
           status: "running",
         }];
         break;

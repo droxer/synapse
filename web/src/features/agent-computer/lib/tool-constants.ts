@@ -111,6 +111,21 @@ export function normalizeToolName(rawName: string): string {
     .join(" ");
 }
 
+/**
+ * Normalize a spawned agent's display name to Title Case.
+ * Handles snake_case, lowercase, and already-formatted names.
+ */
+export function normalizeAgentName(raw: string): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "Agent";
+  return trimmed
+    .replace(/_/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
+}
+
 export type ToolCategory = "code" | "file" | "search" | "memory" | "browser" | "computer" | "preview" | "mcp" | "agent" | "database" | "default";
 
 const SEARCH_TOOLS = new Set(["web_search", "web_fetch"]);

@@ -120,9 +120,10 @@ HiAgent/
 │   │   │   │   ├── package_install.py  # pip/npm package installation
 │   │   │   │   └── preview.py          # HTML/image preview
 │   │   │   └── meta/        # Agent coordination tools
-│   │   │       ├── spawn_task_agent.py   # Spawn sub-agents
-│   │   │       ├── wait_for_agents.py    # Wait for sub-agent completion
-│   │   │       └── send_message.py       # Agent-to-agent messaging
+│   │   │       ├── plan_create.py         # Declare plan steps (plan mode)
+│   │   │       ├── spawn_task_agent.py    # Spawn sub-agents (with agent names)
+│   │   │       ├── wait_for_agents.py     # Wait for sub-agent completion
+│   │   │       └── send_message.py        # Agent-to-agent messaging
 │   │   ├── sandbox/          # Execution environment providers
 │   │   │   ├── base.py              # SandboxProvider/Session protocols, types
 │   │   │   ├── boxlite_provider.py  # Boxlite micro-VM backend (primary)
@@ -180,9 +181,9 @@ HiAgent/
 │   │   │   │   ├── components/       # ConversationView, ChatInput, WelcomeScreen, etc.
 │   │   │   │   └── hooks/            # use-conversation, use-pending-ask
 │   │   │   ├── agent-computer/       # Agent execution display
-│   │   │   │   ├── components/       # AgentComputerPanel, AgentProgressCard, ToolOutputRenderer
+│   │   │   │   ├── components/       # AgentComputerPanel, AgentProgressCard, ToolOutputRenderer, PlanChecklistPanel
 │   │   │   │   ├── hooks/            # use-agent-state
-│   │   │   │   └── lib/              # format-tools, tool-constants
+│   │   │   │   └── lib/              # tool-constants (tool display names, agent name normalization)
 │   │   │   ├── skills/               # Skills browser & selector
 │   │   │   │   ├── api/              # skills-api.ts
 │   │   │   │   ├── components/       # SkillsPage, SkillSelector, SkillCard
@@ -201,10 +202,11 @@ HiAgent/
 │   ├── next.config.ts               # API proxy to backend
 │   ├── tailwind.config.ts
 │   └── package.json
-├── container/                # Sandbox Docker images
-│   ├── Dockerfile.default        # Standard tools (node, python, git)
-│   ├── Dockerfile.data_science   # ML tools (pandas, numpy, matplotlib)
-│   ├── Dockerfile.browser        # Playwright + browser
+├── container/                # Sandbox Docker images (multi-stage, optimized)
+│   ├── Dockerfile.base           # Base image: Python 3.12, system packages, shared Python deps
+│   ├── Dockerfile.default        # Standard tools: Node.js, Python dev, git (extends base)
+│   ├── Dockerfile.data_science   # ML tools: pandas, numpy, matplotlib (extends base)
+│   ├── Dockerfile.browser        # Playwright + browser automation (extends base)
 │   └── doc_templates/            # Document generation templates
 ├── docs/                     # Documentation
 └── Makefile
@@ -298,6 +300,7 @@ task_complete event ──────────────────► Fr
 | `message_user` | Agent sends text to user |
 | `ask_user` / `user_response` | Agent asks for user input |
 | `agent_spawn` / `agent_complete` | Sub-agent lifecycle |
+| `plan_created` | Plan mode: steps declared before spawning agents |
 | `artifact_created` | New artifact available |
 | `preview_available` / `preview_stopped` | HTML/image preview lifecycle |
 | `conversation_title` | Auto-generated conversation title |
@@ -312,9 +315,9 @@ The runtime engine implements the ReAct (Reason + Act) loop:
 
 - **`AgentOrchestrator`** — Single-agent loop. Calls LLM, executes tool calls, emits events, repeats until `end_turn` or max iterations (50). Uses `AgentState` (frozen dataclass) for immutable state — every mutation returns a new instance.
 
-- **`PlannerOrchestrator`** — Extends the ReAct loop with task decomposition. Breaks complex requests into sub-tasks, spawns worker agents via `SubAgentManager`, and coordinates results.
+- **`PlannerOrchestrator`** — Extends the ReAct loop with task decomposition. Requires agents to call `plan_create` first to declare steps with names and descriptions. Then spawns worker agents via `SubAgentManager`, and coordinates results. Emits `plan_created` event.
 
-- **`SubAgentManager`** — Manages concurrent agents (max 5 concurrent, 20 total). Handles dependency tracking (`depends_on`), per-agent tool registries, and an async message bus for agent-to-agent communication.
+- **`SubAgentManager`** — Manages concurrent agents (max 5 concurrent, 20 total). Handles dependency tracking (`depends_on`), per-agent tool registries, and an async message bus for agent-to-agent communication. Tracks agent names for UI display.
 
 - **`TaskAgentRunner`** — Executes a single sub-task with its own sandbox. Returns `AgentResult` (frozen) with success status, summary, and artifacts.
 

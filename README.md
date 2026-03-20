@@ -14,7 +14,7 @@ An open-source AI agent platform that turns natural language into sandboxed, mul
 
 **Sandboxed code execution** — Every task runs in an isolated micro-VM (Boxlite). Agents can write and run code, install packages, query databases, automate browsers, and generate files — without touching your host machine.
 
-**Multi-agent planning** — Complex tasks are automatically decomposed into sub-tasks. A planner agent coordinates multiple worker agents that run concurrently, each with their own sandbox.
+**Multi-agent planning** — Complex tasks are automatically decomposed into sub-tasks with explicit plan declaration. A planner agent coordinates multiple worker agents that run concurrently, each with their own sandbox. Plan steps are tracked and displayed in real-time.
 
 **Extensible skill system** — Skills are portable YAML definitions that teach agents new methodologies. Skills define instructions, allowed tools, and sandbox requirements. Import from GitHub coming soon.
 
@@ -25,7 +25,8 @@ An open-source AI agent platform that turns natural language into sandboxed, mul
 ## Features
 
 - **Conversational interface** with file upload, skill selection, and follow-up messages
-- **20+ built-in tools** — web search, code execution, browser automation, file operations, database queries, image generation, document generation
+- **20+ built-in tools** — web search, code execution, browser automation (with step tracking), computer use (with action metadata), file operations, database queries, image generation, document generation
+- **Plan mode** — Explicit task decomposition with step names, descriptions, and progress tracking via checklist panel
 - **Artifact management** — Files generated in the sandbox are extracted and available for download/preview
 - **Extended thinking** — Configurable thinking budget for deeper reasoning on complex tasks
 - **Persistent memory** — Agents remember context across conversation turns
