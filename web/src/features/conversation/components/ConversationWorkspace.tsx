@@ -51,6 +51,7 @@ interface ConversationWorkspaceProps {
   userCancelled?: boolean;
   onCancel?: () => void;
   onRetry?: () => void;
+  isLoadingHistory?: boolean;
 }
 
 export function ConversationWorkspace({
@@ -75,6 +76,7 @@ export function ConversationWorkspace({
   userCancelled = false,
   onCancel,
   onRetry,
+  isLoadingHistory = false,
 }: ConversationWorkspaceProps) {
   const { t } = useTranslation();
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -150,6 +152,23 @@ export function ConversationWorkspace({
     setHighlightedStepId(null);
     requestAnimationFrame(() => setHighlightedStepId(stepId));
   }, []);
+
+  // If there's no conversation data and no agent activity, navigate back to
+  // the home screen. This handles stale conversationId persisted in localStorage
+  // after a page reload, or conversations that failed to load.
+  // Wait until history loading completes before deciding.
+  useEffect(() => {
+    if (
+      messages.length === 0 &&
+      events.length === 0 &&
+      !isWaitingForAgent &&
+      !isLoadingHistory &&
+      taskState === "idle" &&
+      onNavigateHome
+    ) {
+      onNavigateHome();
+    }
+  }, [messages.length, events.length, isWaitingForAgent, isLoadingHistory, taskState, onNavigateHome]);
 
   // When isWaitingForAgent is true, only show the skeleton if the assistant
   // hasn't responded yet (last message is still from the user). This handles

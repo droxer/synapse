@@ -30,6 +30,7 @@ export function ConversationView() {
     isWaitingForAgent,
     userCancelled,
     createError,
+    isLoadingHistory,
   } = useConversationContext();
 
   const conversationTitle = useAppStore((s) =>
@@ -83,6 +84,7 @@ export function ConversationView() {
             userCancelled={userCancelled}
             onCancel={handleCancel}
             onRetry={handleRetry}
+            isLoadingHistory={isLoadingHistory}
           />
         </motion.div>
       )}

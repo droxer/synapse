@@ -302,6 +302,8 @@ def _to_user(model: UserModel) -> UserRecord:
         email=model.email,
         name=model.name,
         picture=model.picture,
+        theme=model.theme,
+        locale=model.locale,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -329,6 +331,31 @@ class UserRepository:
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()
         return _to_user(model) if model else None
+
+    async def update_preferences(
+        self,
+        session: AsyncSession,
+        google_id: str,
+        theme: str | None = None,
+        locale: str | None = None,
+    ) -> UserRecord | None:
+        """Update user theme/locale preferences. Returns None if user not found."""
+        stmt = select(UserModel).where(UserModel.google_id == google_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+
+        if theme is not None:
+            model.theme = theme
+        if locale is not None:
+            model.locale = locale
+        model.updated_at = datetime.now(timezone.utc)
+
+        await session.flush()
+        await session.refresh(model)
+        await session.commit()
+        return _to_user(model)
 
     async def upsert_from_google(
         self,

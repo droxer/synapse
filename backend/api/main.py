@@ -142,6 +142,7 @@ def _create_app() -> FastAPI:
 
     # Include routers
     application.include_router(auth.router)
+    application.include_router(auth.user_router)
     application.include_router(conversations.router)
     application.include_router(mcp.router)
     application.include_router(artifacts.router)

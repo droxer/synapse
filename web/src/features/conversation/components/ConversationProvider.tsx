@@ -46,6 +46,7 @@ export interface ConversationContextValue {
   readonly pendingAsk: ReturnType<typeof usePendingAsk>["pendingAsk"];
   readonly handlePromptSubmit: (response: string) => Promise<void>;
   readonly respondError: string | null;
+  readonly isLoadingHistory: boolean;
 }
 
 export const ConversationContext =
@@ -60,7 +61,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const isLive = useAppStore((s) => s.isLiveConversation);
 
   const { events, isConnected, clearLastTurn } = useSSE(conversationId, isLive);
-  const { historyMessages, historyEvents } = useConversationHistory(conversationId);
+  const { historyMessages, historyEvents, isLoading: isLoadingHistory } = useConversationHistory(conversationId);
 
   // Merge history events with live SSE events so the progress card shows
   // persisted activity even after a page refresh (SSE stream starts empty).
@@ -150,6 +151,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     pendingAsk,
     handlePromptSubmit,
     respondError,
+    isLoadingHistory,
   };
 
   return (

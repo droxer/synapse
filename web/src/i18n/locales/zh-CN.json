@@ -418,6 +418,8 @@
   "assistant.usingToolLive": "使用 {name}...",
   "assistant.ariaLoading": "{label}...",
 
+  "profile.language": "语言",
+  "profile.theme": "主题",
   "profile.settings": "设置",
   "profile.signOut": "退出登录",
   "profile.account": "账户"

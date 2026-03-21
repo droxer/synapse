@@ -418,6 +418,8 @@
   "assistant.usingToolLive": "Using {name}...",
   "assistant.ariaLoading": "{label}...",
 
+  "profile.language": "Language",
+  "profile.theme": "Theme",
   "profile.settings": "Settings",
   "profile.signOut": "Sign out",
   "profile.account": "Account"

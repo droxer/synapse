@@ -41,6 +41,8 @@ class UserModel(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, nullable=False)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     picture: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    theme: Mapped[str | None] = mapped_column(String(10), nullable=True)
+    locale: Mapped[str | None] = mapped_column(String(10), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )

@@ -22,6 +22,8 @@ class UserRecord:
     email: str
     name: str
     picture: str | None
+    theme: str | None
+    locale: str | None
     created_at: datetime
     updated_at: datetime
 

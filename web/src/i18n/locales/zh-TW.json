@@ -417,6 +417,8 @@
   "assistant.usingToolLive": "使用 {name}...",
   "assistant.ariaLoading": "{label}...",
 
+  "profile.language": "語言",
+  "profile.theme": "主題",
   "profile.settings": "設定",
   "profile.signOut": "登出",
   "profile.account": "帳戶"
