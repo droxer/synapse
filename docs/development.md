@@ -96,7 +96,7 @@ HiAgent/
 │   │   │   ├── sub_agent_manager.py # SubAgentManager — concurrent agent coordination
 │   │   │   ├── task_runner.py       # TaskAgentRunner — focused sub-task execution
 │   │   │   ├── helpers.py           # apply_response_to_state, process_tool_calls
-│   │   │   └── observer.py          # Context compaction for long conversations
+│   │   │   └── observer.py          # Token-aware tiered context compaction
 │   │   ├── llm/
 │   │   │   └── client.py    # ClaudeClient — async Anthropic SDK wrapper
 │   │   ├── tools/
@@ -352,7 +352,7 @@ The runtime engine implements the ReAct (Reason + Act) loop:
 
 - **`TaskAgentRunner`** — Executes a single sub-task with its own sandbox. Returns `AgentResult` (frozen) with success status, summary, and artifacts.
 
-- **`Observer`** — Context compaction. Keeps the first user message and last 5 interactions in full; truncates older tool results to 100-char previews.
+- **`Observer`** — Token-aware tiered context compaction. Estimates token usage via a `chars/4` heuristic and triggers compaction when the budget is exceeded (default 150K tokens). Uses a two-tier strategy: the **hot tier** keeps the last N tool interactions verbatim (default 5), while the **warm tier** summarises older interactions into a concise bullet list via a lightweight LLM call (Haiku). Falls back to 100-char truncation if summarisation fails or no LLM client is configured. Emits a `CONTEXT_COMPACTED` event with before/after message counts.
 
 ### Tool System (`agent/tools/`)
 
@@ -463,6 +463,9 @@ HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `TASK_MODEL` | `claude-sonnet-4-20250514` | Model for task execution |
 | `LITE_MODEL` | `claude-haiku-4-5-20251001` | Model for simple sub-tasks |
 | `THINKING_BUDGET` | `10000` | Extended thinking token budget (`0` = disabled) |
+| `COMPACT_TOKEN_BUDGET` | `150000` | Estimated token threshold to trigger context compaction |
+| `COMPACT_FULL_INTERACTIONS` | `5` | Recent tool interactions kept verbatim (hot tier) |
+| `COMPACT_SUMMARY_MODEL` | (uses `LITE_MODEL`) | Model for warm-tier summarisation of older interactions |
 
 ### Optional
 

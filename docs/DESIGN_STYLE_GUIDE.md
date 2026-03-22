@@ -2,7 +2,7 @@
 
 # HiAgent Design Style Guide
 
-> Warm, approachable, content-focused AI interface with generous whitespace and organic softness.
+> Clean, precise, content-focused AI interface with generous whitespace and technical clarity.
 
 ---
 
@@ -18,7 +18,7 @@
 
 5. **Token-Driven Styling** — All colors, sizes, and spacing must reference design tokens. Never use hardcoded hex values, raw Tailwind palette classes (e.g., `emerald-500`), or arbitrary pixel values when a token exists. This applies equally to Tailwind classes and inline `style` props (including Framer Motion `style`/`animate` objects — always use `var(--color-*)`).
 
-6. **Warm & Approachable** — The aesthetic should feel human and inviting, not cold and technical. Prefer warm neutrals, soft radii, subtle shadows, and organic softness over sharp edges, cold grays, and flashy glow effects.
+6. **Modern & Professional** — The aesthetic should feel precise and capable, befitting an AI developer tool. Prefer cool slate neutrals, soft radii, subtle shadows, and clean surfaces over warm earthy tones and flashy glow effects.
 
 ---
 
@@ -26,54 +26,54 @@
 
 ### Design Philosophy
 
-The palette is built on **warm stone neutrals** — cream backgrounds, warm grays for text and borders, and a warm violet accent. This creates an approachable, professional feel inspired by modern product sites like junior.so, avoiding the cold "generic AI" aesthetic of pure whites, cool grays, and indigo glows.
+The palette is built on **cool slate neutrals** — clean backgrounds with a subtle blue-gray undertone, paired with a violet accent. This creates a precise, professional feel aligned with modern developer tools like VS Code, Vercel, and Cursor, conveying technical capability and clarity.
 
 ### Core Palette (Light Mode — Default)
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `background` | `#FAF9F6` | Page canvas — warm cream |
-| `foreground` | `#1C1917` | Primary text — warm near-black (stone-900) |
-| `primary` | `#1C1917` | Action buttons, interactive fills |
-| `primary-foreground` | `#FAF9F6` | Text on primary surfaces |
-| `secondary` | `#F5F0EB` | Muted backgrounds, user messages |
-| `secondary-foreground` | `#1C1917` | Text on secondary surfaces |
-| `muted` | `#F5F0EB` | Inactive/disabled backgrounds |
-| `muted-foreground` | `#78716C` | Secondary text, hints, timestamps (stone-500) |
-| `muted-foreground-dim` | `#A8A29E` | Tertiary text with WCAG AA contrast (replaces `/60` and `/40` opacity modifiers) |
-| `card` | `#FFFFFF` | Card/elevated surfaces (white on cream for natural contrast) |
-| `card-foreground` | `#1C1917` | Text on cards |
+| `background` | `#F8FAFC` | Page canvas — cool white (slate-50) |
+| `foreground` | `#0F172A` | Primary text — deep ink (slate-900) |
+| `primary` | `#0F172A` | Action buttons, interactive fills |
+| `primary-foreground` | `#F8FAFC` | Text on primary surfaces |
+| `secondary` | `#F1F5F9` | Muted backgrounds, user messages (slate-100) |
+| `secondary-foreground` | `#0F172A` | Text on secondary surfaces |
+| `muted` | `#F1F5F9` | Inactive/disabled backgrounds |
+| `muted-foreground` | `#64748B` | Secondary text, hints, timestamps (slate-500) |
+| `muted-foreground-dim` | `#94A3B8` | Tertiary text with WCAG AA contrast (replaces `/60` and `/40` opacity modifiers) |
+| `card` | `#FFFFFF` | Card/elevated surfaces (white on cool bg for natural contrast) |
+| `card-foreground` | `#0F172A` | Text on cards |
 | `popover` | `#FFFFFF` | Dropdown/popover bg |
-| `popover-foreground` | `#1C1917` | Text in popovers |
+| `popover-foreground` | `#0F172A` | Text in popovers |
 | `destructive` | `#EF4444` | Error states, delete actions |
 
 ### Core Palette (Dark Mode)
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `background` | `#181614` | Page canvas — warm dark (deeper than stone-900 for better card contrast) |
-| `foreground` | `#EDEDED` | Primary text — soft white |
+| `background` | `#0F1117` | Page canvas — deep ink (blue-black for developer tool feel) |
+| `foreground` | `#E2E8F0` | Primary text — soft slate (slate-200) |
 | `primary` | `#FFFFFF` | Action buttons, interactive fills |
-| `primary-foreground` | `#1C1917` | Text on primary surfaces |
-| `secondary` | `#2B2826` | Muted backgrounds (slightly lighter than old #292524 for contrast) |
-| `secondary-foreground` | `#EDEDED` | Text on secondary surfaces |
-| `muted` | `#2B2826` | Inactive/disabled backgrounds |
-| `muted-foreground` | `#A8A29E` | Secondary text (stone-400) |
-| `muted-foreground-dim` | `#8B8580` | Tertiary text with WCAG 3:1 contrast (replaces `/60` and `/40` opacity modifiers) |
-| `card` | `#2B2826` | Card/elevated surfaces |
-| `card-foreground` | `#EDEDED` | Text on cards |
-| `popover` | `#2B2826` | Dropdown/popover bg |
-| `popover-foreground` | `#EDEDED` | Text in popovers |
+| `primary-foreground` | `#0F172A` | Text on primary surfaces |
+| `secondary` | `#1A1D27` | Muted backgrounds (cool dark with blue undertone) |
+| `secondary-foreground` | `#E2E8F0` | Text on secondary surfaces |
+| `muted` | `#1A1D27` | Inactive/disabled backgrounds |
+| `muted-foreground` | `#94A3B8` | Secondary text (slate-400) |
+| `muted-foreground-dim` | `#64748B` | Tertiary text with WCAG 3:1 contrast (replaces `/60` and `/40` opacity modifiers) |
+| `card` | `#1A1D27` | Card/elevated surfaces |
+| `card-foreground` | `#E2E8F0` | Text on cards |
+| `popover` | `#1A1D27` | Dropdown/popover bg |
+| `popover-foreground` | `#E2E8F0` | Text in popovers |
 | `destructive` | `#F87171` | Error states, delete actions |
 
 ### Borders
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `border` | `#E8E5E0` | `#4A4540` | Default borders, dividers (1px, warm) |
-| `border-strong` | `#D6D3D1` | `#57534E` | Emphasized borders |
-| `border-active` | `#A8A29E` | `#78716C` | Focus state, active input borders |
-| `input` | `#E8E5E0` | `#4A4540` | Input field borders |
+| `border` | `#E2E8F0` | `#2A2D37` | Default borders, dividers (1px, cool) |
+| `border-strong` | `#CBD5E1` | `#3A3D47` | Emphasized borders |
+| `border-active` | `#94A3B8` | `#64748B` | Focus state, active input borders |
+| `input` | `#E2E8F0` | `#2A2D37` | Input field borders |
 
 ### Accent & Semantic Colors
 
@@ -92,19 +92,19 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 
 | Token | Dark | Light |
 |-------|------|-------|
-| `sidebar-bg` | `#181614` | `#F5F0EB` |
-| `sidebar-active` | `#2B2826` | `#EDE8E3` |
-| `sidebar-hover` | `#2B2826` | `#EDE8E3` |
+| `sidebar-bg` | `#0F1117` | `#F1F5F9` |
+| `sidebar-active` | `#1A1D27` | `#E2E8F0` |
+| `sidebar-hover` | `#1A1D27` | `#E2E8F0` |
 
 ### Terminal (Dark Panel)
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `terminal-bg` | `#FAF9F6` | `#181614` | Panel background |
-| `terminal-surface` | `#F5F0EB` | `#2B2826` | Elevated surfaces within panel |
-| `terminal-border` | `#E8E5E0` | `#4A4540` | Panel borders |
-| `terminal-text` | `#2D2D2D` | `#D6D3D1` | Primary terminal text |
-| `terminal-dim` | `#8B8B96` | `#8B8580` | Dimmed icons, secondary text in terminal |
+| `terminal-bg` | `#F8FAFC` | `#0F1117` | Panel background |
+| `terminal-surface` | `#F1F5F9` | `#1A1D27` | Elevated surfaces within panel |
+| `terminal-border` | `#E2E8F0` | `#2A2D37` | Panel borders |
+| `terminal-text` | `#1E293B` | `#CBD5E1` | Primary terminal text |
+| `terminal-dim` | `#94A3B8` | `#64748B` | Dimmed icons, secondary text in terminal |
 
 ### Token Rules
 
@@ -113,7 +113,7 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 - **Text on destructive surfaces** — use `text-primary-foreground`, not `text-white`.
 - **Subtle dividers** — use `bg-border/40`, not `bg-white/[0.04]` (which is invisible in light mode).
 - **Inline code backgrounds** — use `bg-muted` or rely on `.markdown-body` CSS rules. Never use `bg-black/5` (breaks in dark mode).
-- **No cold grays** — use warm stone-based grays throughout. Never use zinc/slate/cool gray tokens.
+- **Use cool slate neutrals** — use slate-based grays throughout. Never use warm stone/brown-tinted gray tokens.
 - **No opacity-modified borders** — use `border-border` (default), `border-border-strong` (hover), or `border-border-active` (focus). Never use `border-border/60`, `bg-border/60`, or other opacity modifiers on borders.
 - **No opacity-modified text for contrast** — use `text-muted-foreground-dim` instead of `text-muted-foreground/60` or `text-muted-foreground/40`. The dim token maintains WCAG AA contrast ratios.
 
@@ -171,25 +171,25 @@ text-rendering: optimizeLegibility;
 
 ## Shadows
 
-Shadows are warm and soft, using `rgba(28, 25, 23, ...)` (warm stone) instead of pure black.
+Shadows use `rgba(15, 23, 42, ...)` (slate-900) in light mode for a cool, neutral tone. Dark mode uses pure black at higher opacity for depth.
 
 ### Light Mode
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `shadow-card` | `0 1px 3px rgba(28,25,23,0.06), 0 1px 2px rgba(28,25,23,0.03)` | Card resting state |
-| `shadow-card-hover` | `0 4px 12px rgba(28,25,23,0.08), 0 1px 3px rgba(28,25,23,0.04)` | Card hover lift |
-| `shadow-elevated` | `0 8px 24px rgba(28,25,23,0.10), 0 2px 8px rgba(28,25,23,0.05)` | Floating overlays: modals, command palette, dropdowns, popovers |
+| `shadow-card` | `0 1px 2px rgba(15,23,42,0.04)` | Card resting state |
+| `shadow-card-hover` | `0 2px 8px rgba(15,23,42,0.06)` | Card hover lift |
+| `shadow-elevated` | `0 8px 24px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.05)` | Floating overlays: modals, command palette, dropdowns, popovers |
 
 ### Dark Mode
 
-Shadows in dark mode are softer than before — rely more on border contrast (improved via `#4A4540` borders on `#181614` background) than heavy shadows.
+Shadows in dark mode rely more on border contrast (`#2A2D37` borders on `#0F1117` background) than heavy shadows.
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `shadow-card` | `0 1px 2px rgba(0,0,0,0.08)` | Card resting state |
-| `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.12)` | Card hover lift |
-| `shadow-elevated` | `0 8px 24px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)` | Floating overlays |
+| `shadow-card` | `0 1px 2px rgba(0,0,0,0.12)` | Card resting state |
+| `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.16)` | Card hover lift |
+| `shadow-elevated` | `0 8px 24px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)` | Floating overlays |
 
 ### Shadow Usage
 
@@ -317,7 +317,7 @@ import { MotionConfig } from "framer-motion";
 
 - Expanded: `w-64` (256px) — default width must be 256px, not 280px
 - Collapsed: `w-12` (48px)
-- Background: `sidebar-bg` token (warm cream in light mode, warm dark in dark mode)
+- Background: `sidebar-bg` token (cool slate in light mode, deep ink in dark mode)
 - Internal padding: `px-4` expanded, `px-2` collapsed — consistent across all sections (header, search, task list)
 - Active indicator: solid `bg-accent-purple` bar (3px wide × 20px tall: `w-[3px] h-5`, no glow shadow)
 - Right-edge separator: use `border-r border-border` on the aside element (not an absolutely-positioned div)
@@ -479,7 +479,7 @@ These patterns have been found in the codebase and must be avoided:
 | `shadow-[0_0_6px_var(--color-ai-glow)]` | Remove glow — use `shadow-sm` or nothing |
 | `backdrop-blur-sm bg-card/80` on inputs | Use solid `bg-card` |
 | `box-shadow: 0 0 20px var(--color-input-glow)` | Use `shadow-md` on focus |
-| `background: #FFFFFF` / `#0A0A0A` | Use `#FAF9F6` (cream) / `#181614` (warm dark) |
+| `background: #FFFFFF` / `#0A0A0A` | Use `#F8FAFC` (cool white) / `#0F1117` (deep ink) |
 | `#818CF8` (cold indigo) | Use `#8B5CF6` (warm violet) via `accent-purple` / `ai-glow` |
 | `border-radius: 0–2px` (sharp) | Use `rounded-lg` (6px) for cards, `rounded-md` (4px) for items |
 | `animation: conicSpin`, `aiGlow`, `orbitalPulse` | Removed — use CSS `@keyframes` opacity pulse |
@@ -488,7 +488,7 @@ These patterns have been found in the codebase and must be avoided:
 | `<span role="button" onClick>` | Use native `<button>` |
 | `opacity-0 group-hover:opacity-100` (alone) | Add `group-focus-within:opacity-100` |
 | `style={{ background: "#818CF8" }}` | Use `var(--color-accent-purple)` |
-| Cool gray tokens (zinc, slate) | Use warm stone-based neutrals |
+| Warm gray tokens (stone, sand, amber-tinted) | Use cool slate-based neutrals |
 | `Montserrat` font references | Use `Geist Sans` (`--font-geist`), Inter is a fallback only |
 | `text-muted-foreground/60`, `/40` | Use `text-muted-foreground-dim` (WCAG AA) |
 | `border-border/60`, `bg-border/60` | Use `border-border` (no opacity modifiers) |

@@ -112,7 +112,9 @@ class TaskAgentRunner:
         self._executor = tool_executor
         self._emitter = event_emitter
         self._max_iterations = max_iterations
-        self._observer = observer or Observer()
+        self._observer = observer or Observer(
+            claude_client=claude_client,
+        )
         self._system_prompt = _build_system_prompt(config)
         self._task_complete_summary: str | None = None
         self._handoff_request: HandoffRequest | None = None
@@ -199,7 +201,14 @@ class TaskAgentRunner:
         """Run a single iteration of the task agent loop."""
         # Compact history before the LLM call if needed
         if self._observer.should_compact(state.messages):
-            compacted = self._observer.compact(state.messages)
+            compacted = await self._observer.compact(state.messages)
+            await self._emitter.emit(
+                EventType.CONTEXT_COMPACTED,
+                {
+                    "original_messages": len(state.messages),
+                    "compacted_messages": len(compacted),
+                },
+            )
             state = replace(state, messages=compacted)
 
         if state.iteration > self._max_iterations:

@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, type DragEvent } from "react";
 import { motion } from "framer-motion";
-import { Lightbulb, Plus, Package, X, Upload, FileText, FolderOpen, Search } from "lucide-react";
+import { Lightbulb, Plus, Package, Globe, X, Upload, FileText, FolderOpen, Search } from "lucide-react";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
@@ -27,6 +27,7 @@ import {
   DialogDescription,
 } from "@/shared/components/ui/dialog";
 import { SkillCard } from "./SkillCard";
+import { SkillSection } from "./SkillSection";
 import { cn } from "@/shared/lib/utils";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
@@ -347,7 +348,8 @@ export function SkillsPage() {
                 dashed
               />
             </motion.div>
-          ) : (
+          ) : filter ? (
+            /* Flat grid when search is active */
             <motion.div
               className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
               variants={listContainer}
@@ -359,11 +361,75 @@ export function SkillsPage() {
                   <SkillCard
                     skill={skill}
                     onDelete={setSkillToDelete}
-                    onToggle={handleToggle}
+                    onToggle={skill.source_type === "bundled" ? undefined : handleToggle}
                   />
                 </motion.div>
               ))}
             </motion.div>
+          ) : (
+            /* Two-section layout when not searching */
+            <div className="space-y-8">
+              {bundledSkills.length > 0 && (
+                <SkillSection
+                  icon={Package}
+                  title={t("skills.sectionBuiltIn")}
+                  description={t("skills.sectionBuiltInDesc")}
+                  count={bundledSkills.length}
+                >
+                  <motion.div
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    variants={listContainer}
+                    initial="hidden"
+                    animate="show"
+                  >
+                    {bundledSkills.map((skill) => (
+                      <motion.div key={skill.name} variants={listItem} className="h-full">
+                        <SkillCard skill={skill} />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                </SkillSection>
+              )}
+
+              <SkillSection
+                icon={Globe}
+                title={t("skills.sectionInstalled")}
+                description={t("skills.sectionInstalledDesc")}
+                count={installedSkills.length}
+              >
+                {installedSkills.length === 0 ? (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.12, delay: 0.05 }}
+                  >
+                    <EmptyState
+                      icon={Globe}
+                      title={t("skills.noInstalledSkills")}
+                      description={t("skills.noInstalledSkillsHint")}
+                      dashed
+                    />
+                  </motion.div>
+                ) : (
+                  <motion.div
+                    className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
+                    variants={listContainer}
+                    initial="hidden"
+                    animate="show"
+                  >
+                    {installedSkills.map((skill) => (
+                      <motion.div key={skill.name} variants={listItem} className="h-full">
+                        <SkillCard
+                          skill={skill}
+                          onDelete={setSkillToDelete}
+                          onToggle={handleToggle}
+                        />
+                      </motion.div>
+                    ))}
+                  </motion.div>
+                )}
+              </SkillSection>
+            </div>
           )}
         </div>
       </div>

@@ -2,7 +2,7 @@
 
 # HiAgent 设计风格指南
 
-> 温暖、亲和、以内容为中心的 AI 界面，拥有充裕的留白和有机的柔和感。
+> 简洁、精准、以内容为中心的 AI 界面，拥有充裕的留白和技术清晰感。
 
 ---
 
@@ -18,7 +18,7 @@
 
 5. **令牌驱动样式** — 所有颜色、尺寸和间距必须引用设计令牌。禁止使用硬编码的十六进制值、原始 Tailwind 调色板类名（如 `emerald-500`）或任意像素值（在令牌存在时）。此规则同样适用于 Tailwind 类名和内联 `style` 属性（包括 Framer Motion 的 `style`/`animate` 对象 — 始终使用 `var(--color-*)`）。
 
-6. **温暖与亲和** — 视觉风格应当人性化、具有亲和力，而非冷峻和技术感。优先使用暖色中性色调、柔和圆角、细微阴影和有机柔和感，避免锐利边缘、冷色灰调和花哨的发光效果。
+6. **现代与专业** — 视觉风格应当精准且富有能力感，符合 AI 开发者工具的定位。优先使用冷色 slate 中性色调、柔和圆角、细微阴影和简洁表面，避免暖色土调和花哨的发光效果。
 
 ---
 
@@ -26,54 +26,54 @@
 
 ### 设计理念
 
-调色板基于**暖石色中性色调**构建 — 奶油色背景、暖灰色文字和边框、暖紫色强调色。这营造出一种亲和、专业的感觉，灵感来自 junior.so 等现代产品网站，避免了纯白、冷灰和靛蓝发光带来的"通用 AI"冷淡美学。
+调色板基于**冷色 slate 中性色调**构建 — 带有微妙蓝灰底色的简洁背景，搭配紫罗兰强调色。这营造出一种精准、专业的感觉，与 VS Code、Vercel、Cursor 等现代开发者工具保持一致，传达技术能力和清晰感。
 
 ### 核心调色板（亮色模式 — 默认）
 
 | 令牌 | Hex | 用途 |
 |------|-----|------|
-| `background` | `#FAF9F6` | 页面画布 — 暖奶油色 |
-| `foreground` | `#1C1917` | 主文字 — 暖近黑色 (stone-900) |
-| `primary` | `#1C1917` | 操作按钮、交互填充 |
-| `primary-foreground` | `#FAF9F6` | 主色表面上的文字 |
-| `secondary` | `#F5F0EB` | 柔和背景、用户消息 |
-| `secondary-foreground` | `#1C1917` | 次色表面上的文字 |
-| `muted` | `#F5F0EB` | 非活跃/禁用背景 |
-| `muted-foreground` | `#78716C` | 次要文字、提示、时间戳 (stone-500) |
-| `muted-foreground-dim` | `#A8A29E` | 三级文字，符合 WCAG AA 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
-| `card` | `#FFFFFF` | 卡片/抬升表面（奶油色背景上的白色形成自然对比） |
-| `card-foreground` | `#1C1917` | 卡片上的文字 |
+| `background` | `#F8FAFC` | 页面画布 — 冷白色 (slate-50) |
+| `foreground` | `#0F172A` | 主文字 — 深墨色 (slate-900) |
+| `primary` | `#0F172A` | 操作按钮、交互填充 |
+| `primary-foreground` | `#F8FAFC` | 主色表面上的文字 |
+| `secondary` | `#F1F5F9` | 柔和背景、用户消息 (slate-100) |
+| `secondary-foreground` | `#0F172A` | 次色表面上的文字 |
+| `muted` | `#F1F5F9` | 非活跃/禁用背景 |
+| `muted-foreground` | `#64748B` | 次要文字、提示、时间戳 (slate-500) |
+| `muted-foreground-dim` | `#94A3B8` | 三级文字，符合 WCAG AA 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
+| `card` | `#FFFFFF` | 卡片/抬升表面（冷色背景上的白色形成自然对比） |
+| `card-foreground` | `#0F172A` | 卡片上的文字 |
 | `popover` | `#FFFFFF` | 下拉菜单/弹出框背景 |
-| `popover-foreground` | `#1C1917` | 弹出框中的文字 |
+| `popover-foreground` | `#0F172A` | 弹出框中的文字 |
 | `destructive` | `#EF4444` | 错误状态、删除操作 |
 
 ### 核心调色板（暗色模式）
 
 | 令牌 | Hex | 用途 |
 |------|-----|------|
-| `background` | `#181614` | 页面画布 — 暖深色（比 stone-900 更深，以获得更好的卡片对比度） |
-| `foreground` | `#EDEDED` | 主文字 — 柔白色 |
+| `background` | `#0F1117` | 页面画布 — 深墨色（蓝黑色调，适合开发者工具） |
+| `foreground` | `#E2E8F0` | 主文字 — 柔 slate 色 (slate-200) |
 | `primary` | `#FFFFFF` | 操作按钮、交互填充 |
-| `primary-foreground` | `#1C1917` | 主色表面上的文字 |
-| `secondary` | `#2B2826` | 柔和背景（比旧的 #292524 略亮以增加对比度） |
-| `secondary-foreground` | `#EDEDED` | 次色表面上的文字 |
-| `muted` | `#2B2826` | 非活跃/禁用背景 |
-| `muted-foreground` | `#A8A29E` | 次要文字 (stone-400) |
-| `muted-foreground-dim` | `#8B8580` | 三级文字，符合 WCAG 3:1 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
-| `card` | `#2B2826` | 卡片/抬升表面 |
-| `card-foreground` | `#EDEDED` | 卡片上的文字 |
-| `popover` | `#2B2826` | 下拉菜单/弹出框背景 |
-| `popover-foreground` | `#EDEDED` | 弹出框中的文字 |
+| `primary-foreground` | `#0F172A` | 主色表面上的文字 |
+| `secondary` | `#1A1D27` | 柔和背景（带蓝色底调的冷深色） |
+| `secondary-foreground` | `#E2E8F0` | 次色表面上的文字 |
+| `muted` | `#1A1D27` | 非活跃/禁用背景 |
+| `muted-foreground` | `#94A3B8` | 次要文字 (slate-400) |
+| `muted-foreground-dim` | `#64748B` | 三级文字，符合 WCAG 3:1 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
+| `card` | `#1A1D27` | 卡片/抬升表面 |
+| `card-foreground` | `#E2E8F0` | 卡片上的文字 |
+| `popover` | `#1A1D27` | 下拉菜单/弹出框背景 |
+| `popover-foreground` | `#E2E8F0` | 弹出框中的文字 |
 | `destructive` | `#F87171` | 错误状态、删除操作 |
 
 ### 边框
 
 | 令牌 | 亮色 | 暗色 | 用途 |
 |------|------|------|------|
-| `border` | `#E8E5E0` | `#4A4540` | 默认边框、分隔线（1px，暖色） |
-| `border-strong` | `#D6D3D1` | `#57534E` | 强调边框 |
-| `border-active` | `#A8A29E` | `#78716C` | 聚焦状态、活跃输入框边框 |
-| `input` | `#E8E5E0` | `#4A4540` | 输入框边框 |
+| `border` | `#E2E8F0` | `#2A2D37` | 默认边框、分隔线（1px，冷色） |
+| `border-strong` | `#CBD5E1` | `#3A3D47` | 强调边框 |
+| `border-active` | `#94A3B8` | `#64748B` | 聚焦状态、活跃输入框边框 |
+| `input` | `#E2E8F0` | `#2A2D37` | 输入框边框 |
 
 ### 强调色与语义色
 
@@ -92,19 +92,19 @@
 
 | 令牌 | 暗色 | 亮色 |
 |------|------|------|
-| `sidebar-bg` | `#181614` | `#F5F0EB` |
-| `sidebar-active` | `#2B2826` | `#EDE8E3` |
-| `sidebar-hover` | `#2B2826` | `#EDE8E3` |
+| `sidebar-bg` | `#0F1117` | `#F1F5F9` |
+| `sidebar-active` | `#1A1D27` | `#E2E8F0` |
+| `sidebar-hover` | `#1A1D27` | `#E2E8F0` |
 
 ### 终端面板（深色面板）
 
 | 令牌 | 亮色 | 暗色 | 用途 |
 |------|------|------|------|
-| `terminal-bg` | `#FAF9F6` | `#181614` | 面板背景 |
-| `terminal-surface` | `#F5F0EB` | `#2B2826` | 面板内的抬升表面 |
-| `terminal-border` | `#E8E5E0` | `#4A4540` | 面板边框 |
-| `terminal-text` | `#2D2D2D` | `#D6D3D1` | 终端主文字 |
-| `terminal-dim` | `#8B8B96` | `#8B8580` | 终端中的弱化图标、次要文字 |
+| `terminal-bg` | `#F8FAFC` | `#0F1117` | 面板背景 |
+| `terminal-surface` | `#F1F5F9` | `#1A1D27` | 面板内的抬升表面 |
+| `terminal-border` | `#E2E8F0` | `#2A2D37` | 面板边框 |
+| `terminal-text` | `#1E293B` | `#CBD5E1` | 终端主文字 |
+| `terminal-dim` | `#94A3B8` | `#64748B` | 终端中的弱化图标、次要文字 |
 
 ### 令牌规则
 
@@ -113,7 +113,7 @@
 - **破坏性表面上的文字** — 使用 `text-primary-foreground`，而非 `text-white`。
 - **细微分隔线** — 使用 `bg-border/40`，而非 `bg-white/[0.04]`（在亮色模式下不可见）。
 - **行内代码背景** — 使用 `bg-muted` 或依赖 `.markdown-body` CSS 规则。禁止使用 `bg-black/5`（在暗色模式下失效）。
-- **禁止冷灰色** — 全面使用暖 stone 系灰色。禁止使用 zinc/slate/cool gray 令牌。
+- **使用冷色 slate 中性色** — 全面使用 slate 系灰色。禁止使用暖 stone/sand/琥珀色调灰色令牌。
 - **禁止透明度修饰的边框** — 使用 `border-border`（默认）、`border-border-strong`（悬停）或 `border-border-active`（聚焦）。禁止使用 `border-border/60`、`bg-border/60` 或其他边框透明度修饰符。
 - **禁止透明度修饰的文字对比度** — 使用 `text-muted-foreground-dim` 替代 `text-muted-foreground/60` 或 `text-muted-foreground/40`。dim 令牌可确保 WCAG AA 对比度。
 
@@ -171,25 +171,25 @@ text-rendering: optimizeLegibility;
 
 ## 阴影
 
-阴影使用暖色调且柔和，采用 `rgba(28, 25, 23, ...)`（暖石色）代替纯黑。
+亮色模式阴影采用 `rgba(15, 23, 42, ...)`（slate-900）实现冷色中性色调。暗色模式使用更高透明度的纯黑以增加深度感。
 
 ### 亮色模式
 
 | 名称 | 值 | 用途 |
 |------|------|------|
-| `shadow-card` | `0 1px 3px rgba(28,25,23,0.06), 0 1px 2px rgba(28,25,23,0.03)` | 卡片静止状态 |
-| `shadow-card-hover` | `0 4px 12px rgba(28,25,23,0.08), 0 1px 3px rgba(28,25,23,0.04)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 8px 24px rgba(28,25,23,0.10), 0 2px 8px rgba(28,25,23,0.05)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
+| `shadow-card` | `0 1px 2px rgba(15,23,42,0.04)` | 卡片静止状态 |
+| `shadow-card-hover` | `0 2px 8px rgba(15,23,42,0.06)` | 卡片悬停抬升 |
+| `shadow-elevated` | `0 8px 24px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.05)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
 
 ### 暗色模式
 
-暗色模式下的阴影更加柔和 — 更多依赖边框对比度（通过 `#181614` 背景上的 `#4A4540` 边框改善）而非重阴影。
+暗色模式下的阴影更多依赖边框对比度（通过 `#0F1117` 背景上的 `#2A2D37` 边框改善）而非重阴影。
 
 | 名称 | 值 | 用途 |
 |------|------|------|
-| `shadow-card` | `0 1px 2px rgba(0,0,0,0.08)` | 卡片静止状态 |
-| `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.12)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 8px 24px rgba(0,0,0,0.2), 0 2px 8px rgba(0,0,0,0.1)` | 浮动覆盖层 |
+| `shadow-card` | `0 1px 2px rgba(0,0,0,0.12)` | 卡片静止状态 |
+| `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.16)` | 卡片悬停抬升 |
+| `shadow-elevated` | `0 8px 24px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)` | 浮动覆盖层 |
 
 ### 阴影使用方式
 
@@ -317,7 +317,7 @@ import { MotionConfig } from "framer-motion";
 
 - 展开：`w-64`（256px）— 默认宽度必须为 256px，而非 280px
 - 折叠：`w-12`（48px）
-- 背景：`sidebar-bg` 令牌（亮色模式为暖奶油色，暗色模式为暖深色）
+- 背景：`sidebar-bg` 令牌（亮色模式为冷 slate 色，暗色模式为深墨色）
 - 内部间距：展开时 `px-4`，折叠时 `px-2` — 所有区域（头部、搜索、任务列表）保持一致
 - 活跃指示器：纯色 `bg-accent-purple` 条（3px 宽 × 20px 高：`w-[3px] h-5`，无发光阴影）
 - 右侧分隔线：在 aside 元素上使用 `border-r border-border`（而非绝对定位的 div）
@@ -479,7 +479,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 | `shadow-[0_0_6px_var(--color-ai-glow)]` | 移除发光 — 使用 `shadow-sm` 或不使用 |
 | `backdrop-blur-sm bg-card/80` 用于输入框 | 使用纯色 `bg-card` |
 | `box-shadow: 0 0 20px var(--color-input-glow)` | 聚焦时使用 `shadow-md` |
-| `background: #FFFFFF` / `#0A0A0A` | 使用 `#FAF9F6`（奶油色）/ `#181614`（暖深色） |
+| `background: #FFFFFF` / `#0A0A0A` | 使用 `#F8FAFC`（冷白色）/ `#0F1117`（深墨色） |
 | `#818CF8`（冷靛蓝色） | 通过 `accent-purple` / `ai-glow` 使用 `#8B5CF6`（暖紫色） |
 | `border-radius: 0–2px`（锐利） | 卡片使用 `rounded-lg` (6px)，项目使用 `rounded-md` (4px) |
 | `animation: conicSpin`、`aiGlow`、`orbitalPulse` | 已移除 — 使用 CSS `@keyframes` 透明度脉冲 |
@@ -488,7 +488,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 | `<span role="button" onClick>` | 使用原生 `<button>` |
 | `opacity-0 group-hover:opacity-100`（单独使用） | 添加 `group-focus-within:opacity-100` |
 | `style={{ background: "#818CF8" }}` | 使用 `var(--color-accent-purple)` |
-| 冷灰色令牌（zinc、slate） | 使用暖 stone 系中性色 |
+| 暖灰色令牌（stone、sand、琥珀色调） | 使用冷色 slate 系中性色 |
 | `Montserrat` 字体引用 | 使用 `Geist Sans`（`--font-geist`），Inter 仅作为回退 |
 | `text-muted-foreground/60`、`/40` | 使用 `text-muted-foreground-dim`（WCAG AA） |
 | `border-border/60`、`bg-border/60` | 使用 `border-border`（无透明度修饰符） |

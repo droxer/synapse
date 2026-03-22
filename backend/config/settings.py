@@ -50,6 +50,15 @@ class Settings(BaseSettings):
     ENVIRONMENT: str = "development"  # "development" or "production"
     RATE_LIMIT_PER_MINUTE: int = 30
 
+    # Context compaction
+    COMPACT_TOKEN_BUDGET: int = (
+        150_000  # Trigger compaction at this estimated token count
+    )
+    COMPACT_FULL_INTERACTIONS: int = 5  # Hot tier: recent interactions kept verbatim
+    COMPACT_SUMMARY_MODEL: str = (
+        ""  # Model for warm-tier summarization (default: LITE_MODEL)
+    )
+
     # Auth (user identity comes from NextAuth via proxy headers)
     AUTH_REQUIRED: bool = False  # When False, unauthenticated requests are allowed
     PROXY_SECRET: str = (

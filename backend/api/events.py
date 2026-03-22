@@ -53,6 +53,8 @@ class EventType(StrEnum):
 
     PLAN_CREATED = "plan_created"
 
+    CONTEXT_COMPACTED = "context_compacted"
+
 
 @dataclass(frozen=True)
 class AgentEvent:

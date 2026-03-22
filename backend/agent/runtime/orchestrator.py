@@ -82,7 +82,9 @@ class AgentOrchestrator:
         self._emitter = event_emitter
         self._system_prompt = system_prompt
         self._max_iterations = max_iterations
-        self._observer = observer or Observer()
+        self._observer = observer or Observer(
+            claude_client=claude_client,
+        )
         self._thinking_budget = thinking_budget
         self._task_complete_summary: str | None = None
         self._cancel_event = asyncio.Event()
@@ -638,9 +640,17 @@ class AgentOrchestrator:
     ) -> AgentState:
         """Run a single iteration of the ReAct loop."""
         # Compact message history before the LLM call if needed
-        if self._observer.should_compact(state.messages):
+        if self._observer.should_compact(state.messages, self._system_prompt):
             logger.debug("compacting_message_history")
-            compacted = self._observer.compact(state.messages)
+            compacted = await self._observer.compact(state.messages)
+            await self._emitter.emit(
+                EventType.CONTEXT_COMPACTED,
+                {
+                    "original_messages": len(state.messages),
+                    "compacted_messages": len(compacted),
+                },
+                iteration=state.iteration,
+            )
             state = replace(state, messages=compacted)
 
         logger.info("iteration={}/{}", state.iteration, self._max_iterations)

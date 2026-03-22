@@ -76,7 +76,7 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`agent/runtime/sub_agent_manager.py`** — Multi-agent coordination with concurrent agent spawning, dependency tracking, and message bus
 - **`agent/runtime/task_runner.py`** — Focused sub-task executor (`TaskAgentRunner`) for spawned agents
 - **`agent/runtime/helpers.py`** — State processing: `apply_response_to_state`, `process_tool_calls`, `extract_final_text`
-- **`agent/runtime/observer.py`** — Context compaction for long conversations
+- **`agent/runtime/observer.py`** — Token-aware tiered context compaction: estimates token usage (`chars/4` heuristic), keeps recent interactions verbatim (hot tier), summarises older interactions via Haiku (warm tier), falls back to truncation on failure. Emits `CONTEXT_COMPACTED` event.
 - **`agent/llm/client.py`** — Claude API client (anthropic SDK) with tool-use support, retry logic, extended thinking
 - **`agent/tools/`** — Tool system: `base.py` (abstractions), `registry.py` (immutable registry), `executor.py` (execution engine). Tools split into:
   - `local/` — web_search, web_fetch, memory, ask_user, message_user, image_gen, activate_skill, task_complete
@@ -154,6 +154,9 @@ Required in `backend/.env` (see `.env.example`):
 - `SKILLS_ENABLED` — Optional, enable skill system (default: `true`)
 - `THINKING_BUDGET` — Optional, extended thinking token budget (default: `10000`, `0` = disabled)
 - `LITE_MODEL` — Optional, model for simple/quick sub-tasks (default: `claude-haiku-4-5-20251001`)
+- `COMPACT_TOKEN_BUDGET` — Optional, estimated token threshold to trigger context compaction (default: `150000`)
+- `COMPACT_FULL_INTERACTIONS` — Optional, number of recent tool interactions kept verbatim (default: `5`)
+- `COMPACT_SUMMARY_MODEL` — Optional, model for summarising older interactions (default: `LITE_MODEL` value)
 - `AUTH_REQUIRED` — Optional, require Google authentication (default: `false`)
 - `PROXY_SECRET` — Optional, shared secret between Next.js proxy and backend (required in production)
 - `ENVIRONMENT` — Optional, `development` (default) or `production`

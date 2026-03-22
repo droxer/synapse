@@ -4,31 +4,31 @@
 
 @theme {
   /* Registered for Tailwind utilities — defaults match light :root; .dark overrides at runtime */
-  --color-background: #FAF9F6;
-  --color-foreground: #1C1917;
-  --color-primary: #1C1917;
-  --color-primary-foreground: #FAF9F6;
-  --color-secondary: #F5F0EB;
-  --color-secondary-foreground: #1C1917;
-  --color-muted: #F5F0EB;
-  --color-muted-foreground: #78716C;
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
+  --color-primary: #0F172A;
+  --color-primary-foreground: #F8FAFC;
+  --color-secondary: #F1F5F9;
+  --color-secondary-foreground: #0F172A;
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
   --color-destructive: #EF4444;
-  --color-border: #E8E5E0;
-  --color-input: #E8E5E0;
-  --color-ring: #1C1917;
+  --color-border: #E2E8F0;
+  --color-input: #E2E8F0;
+  --color-ring: #0F172A;
   --color-card: #FFFFFF;
-  --color-card-foreground: #1C1917;
+  --color-card-foreground: #0F172A;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #1C1917;
+  --color-popover-foreground: #0F172A;
   --radius-sm: 0.125rem;
   --radius-md: 0.25rem;
   --radius-lg: 0.375rem;
   --radius-xl: 0.5rem;
 
-  --color-border-strong: #D6D3D1;
-  --color-border-active: #A8A29E;
-  --color-placeholder: #A8A29E;
-  --color-muted-foreground-dim: #A8A29E;
+  --color-border-strong: #CBD5E1;
+  --color-border-active: #94A3B8;
+  --color-placeholder: #94A3B8;
+  --color-muted-foreground-dim: #94A3B8;
 
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
@@ -41,21 +41,21 @@
   --color-ai-surface: rgba(139, 92, 246, 0.05);
   --color-ai-border: rgba(139, 92, 246, 0.12);
   --color-input-glow: rgba(139, 92, 246, 0.08);
-  --color-overlay: rgba(28, 25, 23, 0.5);
+  --color-overlay: rgba(15, 23, 42, 0.5);
 
-  --color-sidebar-bg: #F5F0EB;
-  --color-sidebar-active: #EDE8E3;
-  --color-sidebar-hover: #EDE8E3;
-  --color-sidebar-foreground-muted: #635D58;
+  --color-sidebar-bg: #F1F5F9;
+  --color-sidebar-active: #E2E8F0;
+  --color-sidebar-hover: #E2E8F0;
+  --color-sidebar-foreground-muted: #64748B;
 
   --color-profile-ring: rgba(139, 92, 246, 0.2);
   --color-profile-ring-hover: rgba(139, 92, 246, 0.35);
 
-  --color-terminal-bg: #FAF9F6;
-  --color-terminal-surface: #F5F0EB;
-  --color-terminal-border: #E8E5E0;
-  --color-terminal-text: #2D2D2D;
-  --color-terminal-dim: #8B8B96;
+  --color-terminal-bg: #F8FAFC;
+  --color-terminal-surface: #F1F5F9;
+  --color-terminal-border: #E2E8F0;
+  --color-terminal-text: #1E293B;
+  --color-terminal-dim: #94A3B8;
 
   /* Profile ring colors — registered in @theme so Tailwind utilities work */
   --ring-profile: var(--color-profile-ring);
@@ -85,9 +85,9 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
-  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-card-hover: 0 2px 8px rgba(28, 25, 23, 0.06);
-  --shadow-elevated: 0 8px 24px rgba(28, 25, 23, 0.10), 0 2px 8px rgba(28, 25, 23, 0.05);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 8px 24px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.05);
 
   /* Animations — keep useful ones, remove glow/orbital */
   --animate-fade-in: fadeIn 0.3s ease-out;
@@ -140,31 +140,38 @@
   }
 
   --animate-scale-in: scaleIn 0.15s ease-out;
+
+  @keyframes modalIn {
+    0% { opacity: 0; transform: translateY(4px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+
+  --animate-modal-in: modalIn 0.15s ease-out;
 }
 
 /* ─── Light mode (default) ─── */
 
 :root {
-  --color-background: #FAF9F6;
-  --color-foreground: #1C1917;
-  --color-primary: #1C1917;
-  --color-primary-foreground: #FAF9F6;
-  --color-secondary: #F5F0EB;
-  --color-secondary-foreground: #1C1917;
-  --color-muted: #F5F0EB;
-  --color-muted-foreground: #78716C;
+  --color-background: #F8FAFC;
+  --color-foreground: #0F172A;
+  --color-primary: #0F172A;
+  --color-primary-foreground: #F8FAFC;
+  --color-secondary: #F1F5F9;
+  --color-secondary-foreground: #0F172A;
+  --color-muted: #F1F5F9;
+  --color-muted-foreground: #64748B;
   --color-destructive: #EF4444;
-  --color-border: #E8E5E0;
-  --color-input: #E8E5E0;
-  --color-ring: #1C1917;
+  --color-border: #E2E8F0;
+  --color-input: #E2E8F0;
+  --color-ring: #0F172A;
   --color-card: #FFFFFF;
-  --color-card-foreground: #1C1917;
+  --color-card-foreground: #0F172A;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #1C1917;
-  --color-border-strong: #D6D3D1;
-  --color-border-active: #A8A29E;
-  --color-placeholder: #A8A29E;
-  --color-muted-foreground-dim: #A8A29E;
+  --color-popover-foreground: #0F172A;
+  --color-border-strong: #CBD5E1;
+  --color-border-active: #94A3B8;
+  --color-placeholder: #94A3B8;
+  --color-muted-foreground-dim: #94A3B8;
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
@@ -175,44 +182,44 @@
   --color-ai-surface: rgba(139, 92, 246, 0.05);
   --color-ai-border: rgba(139, 92, 246, 0.12);
   --color-input-glow: rgba(139, 92, 246, 0.08);
-  --color-sidebar-bg: #F5F0EB;
-  --color-sidebar-active: #EDE8E3;
-  --color-sidebar-hover: #EDE8E3;
-  --color-sidebar-foreground-muted: #635D58;
-  --color-terminal-bg: #FAF9F6;
-  --color-terminal-surface: #F5F0EB;
-  --color-terminal-border: #E8E5E0;
-  --color-terminal-text: #2D2D2D;
-  --color-terminal-dim: #8B8B96;
-  --color-overlay: rgba(28, 25, 23, 0.5);
-  --shadow-card: 0 1px 2px rgba(28, 25, 23, 0.04);
-  --shadow-card-hover: 0 2px 8px rgba(28, 25, 23, 0.06);
-  --shadow-elevated: 0 8px 24px rgba(28, 25, 23, 0.10), 0 2px 8px rgba(28, 25, 23, 0.05);
+  --color-sidebar-bg: #F1F5F9;
+  --color-sidebar-active: #E2E8F0;
+  --color-sidebar-hover: #E2E8F0;
+  --color-sidebar-foreground-muted: #64748B;
+  --color-terminal-bg: #F8FAFC;
+  --color-terminal-surface: #F1F5F9;
+  --color-terminal-border: #E2E8F0;
+  --color-terminal-text: #1E293B;
+  --color-terminal-dim: #94A3B8;
+  --color-overlay: rgba(15, 23, 42, 0.5);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
+  --shadow-card-hover: 0 2px 8px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 8px 24px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.05);
 }
 
 /* ─── Dark mode ─── */
 
 .dark {
-  --color-background: #181614;
-  --color-foreground: #EDEDED;
+  --color-background: #0F1117;
+  --color-foreground: #E2E8F0;
   --color-primary: #FFFFFF;
-  --color-primary-foreground: #1C1917;
-  --color-secondary: #2B2826;
-  --color-secondary-foreground: #EDEDED;
-  --color-muted: #2B2826;
-  --color-muted-foreground: #A8A29E;
+  --color-primary-foreground: #0F172A;
+  --color-secondary: #1A1D27;
+  --color-secondary-foreground: #E2E8F0;
+  --color-muted: #1A1D27;
+  --color-muted-foreground: #94A3B8;
   --color-destructive: #F87171;
-  --color-border: #4A4540;
-  --color-input: #4A4540;
-  --color-ring: #EDEDED;
-  --color-card: #2B2826;
-  --color-card-foreground: #EDEDED;
-  --color-popover: #2B2826;
-  --color-popover-foreground: #EDEDED;
-  --color-border-strong: #57534E;
-  --color-border-active: #78716C;
-  --color-placeholder: #8B8580;
-  --color-muted-foreground-dim: #8B8580;
+  --color-border: #2A2D37;
+  --color-input: #2A2D37;
+  --color-ring: #E2E8F0;
+  --color-card: #1A1D27;
+  --color-card-foreground: #E2E8F0;
+  --color-popover: #1A1D27;
+  --color-popover-foreground: #E2E8F0;
+  --color-border-strong: #3A3D47;
+  --color-border-active: #64748B;
+  --color-placeholder: #64748B;
+  --color-muted-foreground-dim: #64748B;
   --color-accent-emerald: #34D399;
   --color-accent-amber: #D97706;
   --color-accent-rose: #F87171;
@@ -223,21 +230,21 @@
   --color-ai-surface: rgba(139, 92, 246, 0.04);
   --color-ai-border: rgba(139, 92, 246, 0.12);
   --color-input-glow: rgba(139, 92, 246, 0.12);
-  --color-sidebar-bg: #181614;
-  --color-sidebar-active: #2B2826;
-  --color-sidebar-hover: #2B2826;
-  --color-sidebar-foreground-muted: #A8A29E;
+  --color-sidebar-bg: #0F1117;
+  --color-sidebar-active: #1A1D27;
+  --color-sidebar-hover: #1A1D27;
+  --color-sidebar-foreground-muted: #94A3B8;
   --color-profile-ring: rgba(139, 92, 246, 0.25);
   --color-profile-ring-hover: rgba(139, 92, 246, 0.45);
-  --color-terminal-bg: #181614;
-  --color-terminal-surface: #2B2826;
-  --color-terminal-border: #4A4540;
-  --color-terminal-text: #D6D3D1;
-  --color-terminal-dim: #8B8580;
-  --color-overlay: rgba(0, 0, 0, 0.55);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.12);
-  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.2), 0 2px 8px rgba(0, 0, 0, 0.1);
+  --color-terminal-bg: #0F1117;
+  --color-terminal-surface: #1A1D27;
+  --color-terminal-border: #2A2D37;
+  --color-terminal-text: #CBD5E1;
+  --color-terminal-dim: #64748B;
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.12);
+  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.16);
+  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 /* ─── Custom Tailwind Utilities ─── */

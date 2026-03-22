@@ -86,6 +86,62 @@ def _get_skill_registry(state: AppState) -> SkillRegistry:
     return registry
 
 
+async def _sync_skill_to_db(
+    state: AppState,
+    session: Any,
+    auth_user: AuthUser | None,
+    skill: Any,
+) -> None:
+    """Persist a single installed skill to the database for the current user."""
+    skill_repo = _get_skill_repo(state)
+    if skill_repo is None:
+        return
+    user_id = await _resolve_user_id(auth_user, state)
+    if user_id is None:
+        return
+    discovered = [
+        (
+            skill.metadata.name,
+            skill.metadata.description,
+            skill.source_type,
+            str(skill.directory_path),
+        )
+    ]
+    # Fetch existing user skills so sync_user_skills doesn't delete them
+    existing_records = await skill_repo.list_skills(session, user_id=user_id)
+    existing_user = [
+        (r.name, r.description, r.source_type, r.source_path)
+        for r in existing_records
+        if r.user_id is not None
+    ]
+    # Merge existing with newly installed (new skill overwrites if same name)
+    merged: dict[str, tuple[str, str, str, str]] = {t[0]: t for t in existing_user}
+    merged[skill.metadata.name] = discovered[0]
+    await skill_repo.sync_user_skills(session, user_id, list(merged.values()))
+
+
+async def _remove_skill_from_db(
+    state: AppState,
+    session: Any,
+    auth_user: AuthUser | None,
+    skill_name: str,
+) -> None:
+    """Remove a skill from the database for the current user."""
+    skill_repo = _get_skill_repo(state)
+    if skill_repo is None:
+        return
+    user_id = await _resolve_user_id(auth_user, state)
+    if user_id is None:
+        return
+    existing_records = await skill_repo.list_skills(session, user_id=user_id)
+    remaining = [
+        (r.name, r.description, r.source_type, r.source_path)
+        for r in existing_records
+        if r.user_id is not None and r.name != skill_name
+    ]
+    await skill_repo.sync_user_skills(session, user_id, remaining)
+
+
 # ---------------------------------------------------------------------------
 # Route handlers
 # ---------------------------------------------------------------------------
@@ -102,6 +158,21 @@ async def list_skills(
     skill_repo = _get_skill_repo(state)
 
     user_id = await _resolve_user_id(auth_user, state)
+
+    # Lazily sync user-installed skills from disk to database on first list
+    if skill_repo is not None and user_id is not None:
+        user_skills_on_disk = [
+            (
+                s.metadata.name,
+                s.metadata.description,
+                s.source_type,
+                str(s.directory_path),
+            )
+            for s in registry.all_skills()
+            if s.source_type != "bundled"
+        ]
+        if user_skills_on_disk:
+            await skill_repo.sync_user_skills(session, user_id, user_skills_on_disk)
 
     # Query DB for skills visible to this user (shared + user-owned)
     db_records: dict[str, Any] = {}
@@ -200,6 +271,8 @@ def _detect_source(url: str) -> str:
 async def install_skill(
     request: SkillInstallRequest,
     state: AppState = Depends(get_app_state),
+    session: Any = Depends(get_db_session),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """POST /skills/install — install a skill from git, URL, or registry.
 
@@ -264,6 +337,9 @@ async def install_skill(
 
     logger.info("Installed skill '{}' from {}", skill.metadata.name, source)
 
+    # Persist to database for the current user
+    await _sync_skill_to_db(state, session, auth_user, skill)
+
     return SkillResponse(
         name=skill.metadata.name,
         description=skill.metadata.description,
@@ -276,6 +352,8 @@ async def install_skill(
 async def upload_skill(
     files: list[UploadFile],
     state: AppState = Depends(get_app_state),
+    session: Any = Depends(get_db_session),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """POST /skills/upload — install a skill from uploaded files (zip, SKILL.md, or folder)."""
     installer = _get_skill_installer(state)
@@ -301,6 +379,9 @@ async def upload_skill(
 
     logger.info("Installed skill '{}' from upload", skill.metadata.name)
 
+    # Persist to database for the current user
+    await _sync_skill_to_db(state, session, auth_user, skill)
+
     return SkillResponse(
         name=skill.metadata.name,
         description=skill.metadata.description,
@@ -313,6 +394,8 @@ async def upload_skill(
 async def uninstall_skill(
     name: str,
     state: AppState = Depends(get_app_state),
+    session: Any = Depends(get_db_session),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, str]:
     """DELETE /skills/{name} — uninstall a user-installed skill."""
     registry = _get_skill_registry(state)
@@ -334,6 +417,9 @@ async def uninstall_skill(
     async with _registry_lock:
         registry = _get_skill_registry(state)
         state.skill_registry = registry.remove_skill(name)
+
+    # Remove from database
+    await _remove_skill_from_db(state, session, auth_user, name)
 
     return {"detail": f"Skill '{name}' uninstalled"}
 
