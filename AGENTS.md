@@ -20,6 +20,8 @@ make evals            # Run agent evals (mock backend by default)
 make pre-commit       # Install pre-commit hooks
 make pre-commit-all   # Run pre-commit on all files
 make lint-web         # Lint frontend: cd web && npx eslint src/
+make desktop          # Start Tauri desktop app in dev mode
+make build-desktop    # Build Tauri desktop app (.app bundle)
 ```
 
 **Backend testing/linting** (run from `backend/`):
@@ -110,6 +112,22 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`src/i18n/`** — Internationalization with English and Chinese Simplified locales
 - **`next.config.ts`** — Rewrites `/api/*` to `http://localhost:8000/*` (backend proxy)
 
+### Desktop (`web/src-tauri/`)
+
+Tauri v2 desktop shell wrapping the web frontend. See [docs/desktop-app.md](docs/desktop-app.md) for full details.
+
+- **`src/main.rs`** — Entry point
+- **`src/lib.rs`** — Tauri setup, plugin registration (shell, deep-link), custom commands (`open_url`, `get_frontend_url`, `get_sidecar_status`)
+- **`src/config.rs`** — Env-based configuration (`HIAGENT_FRONTEND_PORT`, `HIAGENT_BACKEND_PORT`, `HIAGENT_PROJECT_DIR`)
+- **`src/sidecar.rs`** — Process manager: starts/stops backend (Python) and frontend (Next.js) as child processes with health checks
+- **`tauri.conf.json`** — Window config, CSP, bundle targets, deep-link scheme (`hiagent://`)
+- **`capabilities/default.json`** — ACL permissions for shell, deep-link, devtools
+- **Desktop OAuth** — System browser OAuth flow via nonce-based token exchange:
+  - `src/lib/tauri.ts` — `isTauri()` detection (3-layer: `__TAURI_INTERNALS__`, URL param, localStorage)
+  - `src/app/api/auth/desktop-token/route.ts` — In-memory token exchange API
+  - `src/app/auth/desktop-callback/page.tsx` — Browser-side callback that posts user data
+  - `src/lib/auth.ts` — `desktop-token` Credentials provider for webview session creation
+
 ### Data Flow
 
 1. User sends message → frontend POSTs to `/api/conversations` (with optional planner mode)
@@ -140,7 +158,12 @@ Required in `backend/.env` (see `.env.example`):
 - `PROXY_SECRET` — Optional, shared secret between Next.js proxy and backend (required in production)
 - `ENVIRONMENT` — Optional, `development` (default) or `production`
 
-Python 3.12+, Node.js with npm, `uv` package manager for backend.
+Desktop app env vars (optional, for `make desktop` / `make build-desktop`):
+- `HIAGENT_FRONTEND_PORT` — Optional, Next.js port (default: `3000`)
+- `HIAGENT_BACKEND_PORT` — Optional, FastAPI port (default: `8000`)
+- `HIAGENT_PROJECT_DIR` — Optional, HiAgent repo root (default: auto-detected)
+
+Python 3.12+, Node.js with npm, `uv` package manager for backend. Rust 1.77+ for desktop app.
 
 ## Key Patterns
 
@@ -151,4 +174,3 @@ Python 3.12+, Node.js with npm, `uv` package manager for backend.
 - **Factory functions**: `api/builders.py` creates orchestrators and sandbox providers for dependency injection
 - **Skill auto-matching**: User messages matched against skill descriptions by keyword overlap; best match injected into system prompt
 - **Agent naming**: Spawned agents receive user-friendly names passed via `spawn_task_agent` (required in plan mode, optional in default mode). Normalized via `normalizeAgentName` in frontend.
-- **Authentication**: Google OAuth via NextAuth in frontend, proxy headers forwarded to backend. Per-user skills and MCP server configurations.
