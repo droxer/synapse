@@ -5,9 +5,11 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 interface ExpandToggleProps {
   readonly expanded: boolean;
   readonly onToggle: () => void;
+  readonly showLessLabel?: string;
+  readonly showMoreLabel?: string;
 }
 
-export function ExpandToggle({ expanded, onToggle }: ExpandToggleProps) {
+export function ExpandToggle({ expanded, onToggle, showLessLabel = "Show less", showMoreLabel = "Show more" }: ExpandToggleProps) {
   return (
     <button
       type="button"
@@ -17,12 +19,12 @@ export function ExpandToggle({ expanded, onToggle }: ExpandToggleProps) {
       {expanded ? (
         <>
           <ChevronUp className="h-3 w-3" />
-          Show less
+          {showLessLabel}
         </>
       ) : (
         <>
           <ChevronDown className="h-3 w-3" />
-          Show more
+          {showMoreLabel}
         </>
       )}
     </button>

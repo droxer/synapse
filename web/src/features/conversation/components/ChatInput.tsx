@@ -145,6 +145,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
           type="file"
           multiple
           className="hidden"
+          aria-label={t("chat.attachFile")}
           onChange={handleFileInputChange}
         />
 
@@ -204,6 +205,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             disabled={disabled}
             rows={isWelcome ? 3 : 1}
             autoFocus={autoFocus || isWelcome}
+            aria-label={t("chat.inputLabel")}
             className={cn(
               "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-sm leading-relaxed text-foreground placeholder:text-placeholder outline-none",
               disabled && "opacity-50 cursor-not-allowed",
@@ -266,7 +268,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
               {!isWelcome && (
                 <span
                   className={cn(
-                    "ml-1 text-xs text-muted-foreground select-none transition-opacity duration-150",
+                    "ml-1 hidden sm:inline-flex text-xs text-muted-foreground select-none transition-opacity duration-150",
                     hasContent && !isAgentRunning ? "opacity-100" : "opacity-0",
                   )}
                 >
@@ -292,7 +294,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                   className={cn(
-                    "group flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                    "group flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
                     "bg-muted text-muted-foreground",
                     "transition-colors duration-200 ease-out",
                     "hover:bg-destructive/10 hover:text-destructive",
@@ -318,7 +320,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
                   className={cn(
-                    "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
+                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
                     "transition-colors duration-200 ease-out",
                     "focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none",
                     hasContent

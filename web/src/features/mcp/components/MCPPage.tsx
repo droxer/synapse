@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Blocks,
@@ -8,14 +8,13 @@ import {
   Unplug,
   Search,
 } from "lucide-react";
+import { useState } from "react";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
-import { TransportToggle } from "./TransportToggle";
 import { MCPServerCard } from "./MCPServerCard";
+import { MCPServerForm } from "./MCPServerForm";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -34,31 +33,9 @@ import {
   DialogDescription,
 } from "@/shared/components/ui/dialog";
 import { cn } from "@/shared/lib/utils";
+import { listContainer, listItem } from "@/shared/lib/animations";
 import { useTranslation } from "@/i18n";
-import {
-  fetchMCPServers,
-  addMCPServer,
-  removeMCPServer,
-  toggleMCPServer,
-  type MCPServer,
-} from "../api/mcp-api";
-
-/* ── animation variants ── */
-const listContainer = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.02, delayChildren: 0 },
-  },
-};
-
-const listItem = {
-  hidden: { opacity: 0, y: 6 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.12, ease: "easeOut" as const },
-  },
-};
+import { useMCPServers } from "../hooks/use-mcp-servers";
 
 /* ── shimmer skeleton matching card shape ── */
 function ServerSkeleton() {
@@ -82,88 +59,35 @@ function ServerSkeleton() {
 
 export function MCPPage() {
   const { t } = useTranslation();
-  const [servers, setServers] = useState<readonly MCPServer[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
-  // Add form state
-  const [showForm, setShowForm] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formTransport, setFormTransport] = useState<"stdio" | "sse">("sse");
-  const [formCommand, setFormCommand] = useState("");
-  const [formUrl, setFormUrl] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  // Delete confirmation
-  const [serverToDelete, setServerToDelete] = useState<string | null>(null);
-
-  const loadServers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchMCPServers();
-      setServers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load servers");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    servers,
+    loading,
+    error,
+    setError,
+    showForm,
+    setShowForm,
+    formName,
+    setFormName,
+    formTransport,
+    setFormTransport,
+    formCommand,
+    setFormCommand,
+    formUrl,
+    setFormUrl,
+    submitting,
+    serverToDelete,
+    setServerToDelete,
+    loadServers,
+    resetForm,
+    handleAdd,
+    handleDelete,
+    handleToggle,
+  } = useMCPServers();
 
   useEffect(() => {
     loadServers();
-  }, [loadServers]);
-
-  const resetForm = () => {
-    setFormName("");
-    setFormCommand("");
-    setFormUrl("");
-    setShowForm(false);
-  };
-
-  const handleAdd = async () => {
-    if (!formName.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await addMCPServer({
-        name: formName.trim(),
-        transport: formTransport,
-        command: formTransport === "stdio" ? formCommand : "",
-        url: formTransport === "sse" ? formUrl : "",
-      });
-      resetForm();
-      await loadServers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add server");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!serverToDelete) return;
-    setError(null);
-    try {
-      await removeMCPServer(serverToDelete);
-      setServerToDelete(null);
-      await loadServers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to remove server",
-      );
-    }
-  };
-
-  const handleToggle = useCallback(async (name: string, enabled: boolean) => {
-    setError(null);
-    try {
-      await toggleMCPServer(name, enabled);
-      await loadServers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle server");
-    }
   }, [loadServers]);
 
   const connectedCount = servers.filter(
@@ -317,93 +241,22 @@ export function MCPPage() {
             <DialogDescription>{t("mcp.subtitle")}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {/* Error inside dialog */}
-            {error && (
-              <ErrorBanner message={error} onDismiss={() => setError(null)} variant="compact" />
-            )}
-
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="mcp-name" className="text-xs">
-                {t("mcp.name")}
-              </Label>
-              <Input
-                id="mcp-name"
-                placeholder={t("mcp.namePlaceholder")}
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                className="font-mono"
-                autoFocus
-              />
-            </div>
-
-            {/* Transport toggle */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">{t("mcp.transport")}</Label>
-              <TransportToggle value={formTransport} onChange={setFormTransport} />
-            </div>
-
-            {/* Transport-specific field */}
-            {formTransport === "stdio" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="mcp-command" className="text-xs">
-                  {t("mcp.command")}
-                </Label>
-                <Input
-                  id="mcp-command"
-                  placeholder={t("mcp.commandPlaceholder")}
-                  value={formCommand}
-                  onChange={(e) => setFormCommand(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && formName.trim() && !submitting) {
-                      handleAdd();
-                    }
-                  }}
-                  className="font-mono"
-                />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="mcp-url" className="text-xs">
-                  {t("mcp.urlLabel")}
-                </Label>
-                <Input
-                  id="mcp-url"
-                  placeholder={t("mcp.urlPlaceholder")}
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && formName.trim() && !submitting) {
-                      handleAdd();
-                    }
-                  }}
-                  className="font-mono"
-                />
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetForm}
-              >
-                {t("mcp.cancel")}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleAdd}
-                disabled={submitting || !formName.trim()}
-              >
-                {submitting && (
-                  <span className="mr-1.5 inline-block h-3.5 w-3.5 skeleton-shimmer rounded-sm" />
-                )}
-                {t("mcp.connect")}
-              </Button>
-            </div>
-          </div>
+          <MCPServerForm
+            error={error}
+            onDismissError={() => setError(null)}
+            formName={formName}
+            onFormNameChange={setFormName}
+            formTransport={formTransport}
+            onFormTransportChange={setFormTransport}
+            formCommand={formCommand}
+            onFormCommandChange={setFormCommand}
+            formUrl={formUrl}
+            onFormUrlChange={setFormUrl}
+            submitting={submitting}
+            onSubmit={handleAdd}
+            onCancel={resetForm}
+            idPrefix="mcp-page"
+          />
         </DialogContent>
       </Dialog>
 

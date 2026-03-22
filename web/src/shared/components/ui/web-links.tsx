@@ -11,6 +11,8 @@ interface WebLinksProps {
   readonly query: string;
   readonly results: readonly WebLink[];
   readonly className?: string;
+  readonly resultsLabel?: string;
+  readonly searchLabel?: string;
 }
 
 function getDomain(url: string): string {
@@ -21,17 +23,18 @@ function getDomain(url: string): string {
   }
 }
 
-export function WebLinks({ query, results, className }: WebLinksProps) {
+export function WebLinks({ query, results, className, resultsLabel, searchLabel = "Search" }: WebLinksProps) {
+  const defaultResultsLabel = `${results.length} result${results.length !== 1 ? "s" : ""} for`;
   return (
     <div className={cn("rounded-md border-l-2 border-l-accent-purple bg-muted px-3 py-2", className)}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
-          {results.length} result{results.length !== 1 ? "s" : ""} for{" "}
+          {resultsLabel ?? defaultResultsLabel}{" "}
           <span className="font-medium text-foreground">&ldquo;{query}&rdquo;</span>
         </span>
         <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
           <Globe className="h-3 w-3" />
-          Search
+          {searchLabel}
         </span>
       </div>
       <ul className="space-y-2">

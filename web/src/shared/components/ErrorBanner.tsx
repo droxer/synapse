@@ -8,13 +8,15 @@ interface ErrorBannerProps {
   readonly message: string;
   readonly onDismiss: () => void;
   readonly variant?: "default" | "compact";
+  readonly dismissLabel?: string;
 }
 
-export function ErrorBanner({ message, onDismiss, variant = "default" }: ErrorBannerProps) {
+export function ErrorBanner({ message, onDismiss, variant = "default", dismissLabel = "Dismiss error" }: ErrorBannerProps) {
   const isCompact = variant === "compact";
 
   return (
     <motion.div
+      role="alert"
       className={cn(
         "flex items-center gap-2 border border-destructive/20 bg-destructive/5",
         isCompact
@@ -30,6 +32,7 @@ export function ErrorBanner({ message, onDismiss, variant = "default" }: ErrorBa
       <button
         type="button"
         onClick={onDismiss}
+        aria-label={dismissLabel}
         className="rounded-sm p-0.5 text-destructive/60 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <X className="h-3.5 w-3.5" />

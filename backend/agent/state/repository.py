@@ -20,6 +20,7 @@ from agent.state.models import (
     EventModel,
     MessageModel,
     SkillModel,
+    TokenUsageModel,
     UserModel,
 )
 from agent.state.schemas import (
@@ -30,7 +31,9 @@ from agent.state.schemas import (
     EventRecord,
     MessageRecord,
     SkillRecord,
+    TokenUsageRecord,
     UserRecord,
+    UserUsageSummary,
 )
 
 
@@ -655,3 +658,121 @@ class SkillRepository:
         await session.commit()
         await session.refresh(model)
         return _to_skill(model)
+
+
+# ---------------------------------------------------------------------------
+# Usage repository
+# ---------------------------------------------------------------------------
+
+
+def _to_token_usage(model: TokenUsageModel) -> TokenUsageRecord:
+    return TokenUsageRecord(
+        id=model.id,
+        conversation_id=model.conversation_id,
+        user_id=model.user_id,
+        input_tokens=model.input_tokens,
+        output_tokens=model.output_tokens,
+        request_count=model.request_count,
+        created_at=model.created_at,
+        updated_at=model.updated_at,
+    )
+
+
+class UsageRepository:
+    """Async repository for token usage tracking."""
+
+    async def increment(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+        user_id: uuid.UUID | None,
+        input_tokens: int,
+        output_tokens: int,
+    ) -> None:
+        """Upsert token usage: create row or atomically increment counters."""
+        from sqlalchemy.dialects.postgresql import insert
+
+        stmt = insert(TokenUsageModel).values(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            request_count=1,
+        )
+        stmt = stmt.on_conflict_do_update(
+            index_elements=["conversation_id"],
+            set_={
+                "input_tokens": TokenUsageModel.input_tokens + input_tokens,
+                "output_tokens": TokenUsageModel.output_tokens + output_tokens,
+                "request_count": TokenUsageModel.request_count + 1,
+                "updated_at": datetime.now(timezone.utc),
+            },
+        )
+        await session.execute(stmt)
+        await session.commit()
+
+    async def get_conversation_usage(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+    ) -> TokenUsageRecord | None:
+        """Return token usage for a single conversation."""
+        stmt = select(TokenUsageModel).where(
+            TokenUsageModel.conversation_id == conversation_id
+        )
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_token_usage(model) if model else None
+
+    async def get_user_usage(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        since: datetime | None = None,
+    ) -> UserUsageSummary:
+        """Aggregate token usage across all conversations for a user."""
+        stmt = select(
+            func.coalesce(func.sum(TokenUsageModel.input_tokens), 0),
+            func.coalesce(func.sum(TokenUsageModel.output_tokens), 0),
+            func.coalesce(func.sum(TokenUsageModel.request_count), 0),
+            func.count(),
+        ).where(TokenUsageModel.user_id == user_id)
+
+        if since is not None:
+            stmt = stmt.where(TokenUsageModel.created_at >= since)
+
+        result = await session.execute(stmt)
+        row = result.one()
+        return UserUsageSummary(
+            user_id=user_id,
+            total_input_tokens=int(row[0]),
+            total_output_tokens=int(row[1]),
+            total_requests=int(row[2]),
+            conversation_count=int(row[3]),
+        )
+
+    async def list_conversation_usage(
+        self,
+        session: AsyncSession,
+        user_id: uuid.UUID,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> tuple[list[TokenUsageRecord], int]:
+        """Paginated per-conversation usage breakdown for a user."""
+        count_stmt = (
+            select(func.count())
+            .select_from(TokenUsageModel)
+            .where(TokenUsageModel.user_id == user_id)
+        )
+        total = (await session.execute(count_stmt)).scalar_one()
+
+        stmt = (
+            select(TokenUsageModel)
+            .where(TokenUsageModel.user_id == user_id)
+            .order_by(TokenUsageModel.updated_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await session.execute(stmt)
+        items = [_to_token_usage(m) for m in result.scalars().all()]
+        return items, total

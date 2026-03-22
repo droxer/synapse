@@ -38,10 +38,9 @@ export function useAgentState(events: AgentEvent[]) {
         const artifactIds = Array.isArray(e.data.artifact_ids)
           ? (e.data.artifact_ids as string[])
           : [];
-        for (const aid of artifactIds) {
-          if (imageArtifactIdSet.has(aid)) {
-            pendingImageArtifactIds.push(aid);
-          }
+        const newImageIds = artifactIds.filter((aid) => imageArtifactIdSet.has(aid));
+        if (newImageIds.length > 0) {
+          pendingImageArtifactIds = [...pendingImageArtifactIds, ...newImageIds];
         }
       }
 
@@ -63,10 +62,9 @@ export function useAgentState(events: AgentEvent[]) {
             role: "assistant",
             content: text,
             timestamp: e.timestamp,
+            ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
           };
-          // Attach any pending image artifacts to this message
           if (pendingImageArtifactIds.length > 0) {
-            msg.imageArtifactIds = pendingImageArtifactIds;
             pendingImageArtifactIds = [];
           }
           msgs.push(msg);
@@ -76,9 +74,9 @@ export function useAgentState(events: AgentEvent[]) {
           role: "assistant",
           content: String(e.data.message ?? e.data.content ?? ""),
           timestamp: e.timestamp,
+          ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
         };
         if (pendingImageArtifactIds.length > 0) {
-          msg.imageArtifactIds = pendingImageArtifactIds;
           pendingImageArtifactIds = [];
         }
         msgs.push(msg);
@@ -89,9 +87,9 @@ export function useAgentState(events: AgentEvent[]) {
             role: "assistant",
             content: streamingText,
             timestamp: streamingTimestamp,
+            ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
           };
           if (pendingImageArtifactIds.length > 0) {
-            msg.imageArtifactIds = pendingImageArtifactIds;
             pendingImageArtifactIds = [];
           }
           msgs.push(msg);
@@ -109,33 +107,41 @@ export function useAgentState(events: AgentEvent[]) {
               role: "assistant",
               content: result,
               timestamp: e.timestamp,
+              ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
             };
             if (pendingImageArtifactIds.length > 0) {
-              msg.imageArtifactIds = pendingImageArtifactIds;
               pendingImageArtifactIds = [];
             }
             msgs.push(msg);
           } else if (pendingImageArtifactIds.length > 0) {
-            // Attach to the existing matching message
-            const existing = msgs.findLast(
+            // Attach to the existing matching message (immutably replace in array)
+            const existingIdx = msgs.findLastIndex(
               (m) => m.role === "assistant" && m.content === result,
             );
-            if (existing) {
-              existing.imageArtifactIds = [
-                ...(existing.imageArtifactIds ?? []),
-                ...pendingImageArtifactIds,
-              ];
+            if (existingIdx !== -1) {
+              const existing = msgs[existingIdx];
+              msgs[existingIdx] = {
+                ...existing,
+                imageArtifactIds: [
+                  ...(existing.imageArtifactIds ?? []),
+                  ...pendingImageArtifactIds,
+                ],
+              };
             }
             pendingImageArtifactIds = [];
           }
         } else if (pendingImageArtifactIds.length > 0) {
-          // No result text but have pending images — attach to last assistant message
-          const lastAssistant = msgs.findLast((m) => m.role === "assistant");
-          if (lastAssistant) {
-            lastAssistant.imageArtifactIds = [
-              ...(lastAssistant.imageArtifactIds ?? []),
-              ...pendingImageArtifactIds,
-            ];
+          // No result text but have pending images — attach to last assistant message (immutably replace in array)
+          const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
+          if (lastIdx !== -1) {
+            const lastAssistant = msgs[lastIdx];
+            msgs[lastIdx] = {
+              ...lastAssistant,
+              imageArtifactIds: [
+                ...(lastAssistant.imageArtifactIds ?? []),
+                ...pendingImageArtifactIds,
+              ],
+            };
           }
           pendingImageArtifactIds = [];
         }
@@ -157,9 +163,9 @@ export function useAgentState(events: AgentEvent[]) {
         role: "assistant",
         content: streamingText,
         timestamp: streamingTimestamp,
+        ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
       };
       if (pendingImageArtifactIds.length > 0) {
-        msg.imageArtifactIds = pendingImageArtifactIds;
         pendingImageArtifactIds = [];
       }
       msgs.push(msg);
@@ -167,12 +173,16 @@ export function useAgentState(events: AgentEvent[]) {
 
     // If there are still pending image artifacts, attach to last assistant message
     if (pendingImageArtifactIds.length > 0) {
-      const lastAssistant = msgs.findLast((m) => m.role === "assistant");
-      if (lastAssistant) {
-        lastAssistant.imageArtifactIds = [
-          ...(lastAssistant.imageArtifactIds ?? []),
-          ...pendingImageArtifactIds,
-        ];
+      const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
+      if (lastIdx !== -1) {
+        const lastAssistant = msgs[lastIdx];
+        msgs[lastIdx] = {
+          ...lastAssistant,
+          imageArtifactIds: [
+            ...(lastAssistant.imageArtifactIds ?? []),
+            ...pendingImageArtifactIds,
+          ],
+        };
       }
     }
 
@@ -407,18 +417,6 @@ export function useAgentState(events: AgentEvent[]) {
     return phase;
   }, [events]);
 
-  const activeSkill = useMemo<string | null>(() => {
-    let skill: string | null = null;
-    for (const e of events) {
-      if (e.type === "skill_activated") {
-        skill = String(e.data.name ?? null);
-      } else if (e.type === "turn_start") {
-        skill = null;
-      }
-    }
-    return skill;
-  }, [events]);
-
   const planSteps = useMemo<PlanStep[]>(() => {
     let steps: PlanStep[] = [];
 
@@ -485,6 +483,5 @@ export function useAgentState(events: AgentEvent[]) {
     isStreaming,
     assistantPhase,
     artifacts,
-    activeSkill,
   };
 }

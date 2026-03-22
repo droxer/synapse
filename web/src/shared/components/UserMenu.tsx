@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useCallback } from "react";
 import { signOut, useSession } from "next-auth/react";
-import { LogOut, Settings, Sun, Moon, Monitor, Globe } from "lucide-react";
+import { LogOut, Settings } from "lucide-react";
+import { PreferencesDialog } from "@/features/preferences/PreferencesDialog";
 import {
   Popover,
   PopoverContent,
@@ -20,28 +21,8 @@ import {
   TooltipContent,
 } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
-import { useTranslation, LOCALES, type Locale } from "@/i18n";
-import { useTheme } from "next-themes";
+import { useTranslation } from "@/i18n";
 import { useUserPreferences } from "@/shared/hooks/use-user-preferences";
-
-/** Short script-based labels for the language segmented toggle */
-const LOCALE_SHORT: Record<Locale, string> = {
-  en: "EN",
-  "zh-CN": "\u7B80",
-  "zh-TW": "\u7E41",
-};
-
-type ThemeValue = "light" | "dark" | "system";
-
-const THEME_OPTIONS: readonly {
-  readonly value: ThemeValue;
-  readonly icon: typeof Sun;
-  readonly labelKey: string;
-}[] = [
-  { value: "light", icon: Sun, labelKey: "theme.light" },
-  { value: "dark", icon: Moon, labelKey: "theme.dark" },
-  { value: "system", icon: Monitor, labelKey: "theme.system" },
-];
 
 interface UserMenuProps {
   collapsed?: boolean;
@@ -49,13 +30,15 @@ interface UserMenuProps {
 
 export function UserMenu({ collapsed = false }: UserMenuProps) {
   const { data: session, status } = useSession();
-  const { t, locale, setLocale } = useTranslation();
-  const { theme, setTheme } = useTheme();
-  const { savePreferences } = useUserPreferences();
-  const [mounted, setMounted] = useState(false);
+  const { t } = useTranslation();
+  // Keep preferences hook active so backend sync runs on login
+  useUserPreferences();
+  const [popoverOpen, setPopoverOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
-  useEffect(() => {
-    setMounted(true);
+  const handleOpenSettings = useCallback(() => {
+    setPopoverOpen(false);
+    setSettingsOpen(true);
   }, []);
 
   if (status === "loading") {
@@ -84,7 +67,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
   if (collapsed) {
     return (
       <div className="flex flex-col items-center gap-1">
-        <Popover>
+        <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
           <Tooltip>
             <TooltipTrigger asChild>
               <PopoverTrigger asChild>
@@ -106,27 +89,23 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           <PopoverContent
             side="right"
             align="end"
-            className="w-56 animate-[scaleIn_0.15s_ease-out] rounded-xl border-border bg-card shadow-[var(--shadow-elevated)] p-0"
+            className="w-56 animate-[scaleIn_0.15s_ease-out] rounded-lg border-border bg-card shadow-[var(--shadow-elevated)] p-0"
           >
             <ProfilePopoverContent
               name={name}
               email={email}
               t={t}
-              theme={mounted ? (theme as ThemeValue) ?? "dark" : "dark"}
-              setTheme={setTheme}
-              locale={locale}
-              setLocale={setLocale}
-              savePreferences={savePreferences}
-              mounted={mounted}
+              onOpenSettings={handleOpenSettings}
             />
           </PopoverContent>
         </Popover>
+        <PreferencesDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
       </div>
     );
   }
 
   return (
-    <Popover>
+    <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
       <PopoverTrigger asChild>
         <button
           type="button"
@@ -157,20 +136,16 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
       <PopoverContent
         side="top"
         align="start"
-        className="w-56 animate-[scaleIn_0.15s_ease-out] rounded-xl border-border bg-card shadow-[var(--shadow-elevated)] p-0"
+        className="w-56 animate-[scaleIn_0.15s_ease-out] rounded-lg border-border bg-card shadow-[var(--shadow-elevated)] p-0"
       >
         <ProfilePopoverContent
           name={name}
           email={email}
           t={t}
-          theme={mounted ? (theme as ThemeValue) ?? "dark" : "dark"}
-          setTheme={setTheme}
-          locale={locale}
-          setLocale={setLocale}
-          savePreferences={savePreferences}
-          mounted={mounted}
+          onOpenSettings={handleOpenSettings}
         />
       </PopoverContent>
+      <PreferencesDialog open={settingsOpen} onOpenChange={setSettingsOpen} />
     </Popover>
   );
 }
@@ -179,22 +154,12 @@ function ProfilePopoverContent({
   name,
   email,
   t,
-  theme,
-  setTheme,
-  locale,
-  setLocale,
-  savePreferences,
-  mounted,
+  onOpenSettings,
 }: {
   name: string | null | undefined;
   email: string | null | undefined;
-  t: (key: string) => string;
-  theme: ThemeValue;
-  setTheme: (theme: string) => void;
-  locale: Locale;
-  setLocale: (locale: Locale) => void;
-  savePreferences: (prefs: { theme?: string; locale?: string }) => void;
-  mounted: boolean;
+  t: (key: string, params?: Record<string, string | number>) => string;
+  onOpenSettings: () => void;
 }) {
   return (
     <div className="flex flex-col">
@@ -206,101 +171,16 @@ function ProfilePopoverContent({
 
       <div className="border-t border-border" />
 
-      {/* Language & Theme controls */}
-      <div className="px-3 py-2.5 space-y-2.5">
-        {/* Language row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-foreground">
-            <Globe className="h-4 w-4 text-muted-foreground" />
-            {t("profile.language")}
-          </div>
-          <div
-            className="flex items-center gap-0.5 rounded-md bg-secondary p-0.5"
-            role="radiogroup"
-            aria-label={t("profile.language")}
-          >
-            {LOCALES.map((loc) => {
-              const isActive = loc === locale;
-              return (
-                <button
-                  key={loc}
-                  type="button"
-                  role="radio"
-                  aria-checked={isActive}
-                  onClick={() => {
-                    setLocale(loc);
-                    savePreferences({ locale: loc });
-                  }}
-                  className={cn(
-                    "rounded-sm px-2 py-0.5 text-xs font-medium transition-all duration-150",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                    isActive
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground",
-                  )}
-                >
-                  {LOCALE_SHORT[loc]}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Theme row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2 text-sm text-foreground">
-            {theme === "dark" ? (
-              <Moon className="h-4 w-4 text-muted-foreground" />
-            ) : theme === "light" ? (
-              <Sun className="h-4 w-4 text-muted-foreground" />
-            ) : (
-              <Monitor className="h-4 w-4 text-muted-foreground" />
-            )}
-            {t("profile.theme")}
-          </div>
-          <div
-            className="flex items-center gap-0.5 rounded-md bg-secondary p-0.5"
-            role="radiogroup"
-            aria-label={t("profile.theme")}
-          >
-            {mounted &&
-              THEME_OPTIONS.map(({ value, icon: Icon, labelKey }) => {
-                const isActive = theme === value;
-                return (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={isActive}
-                    aria-label={t(labelKey)}
-                    onClick={() => {
-                      setTheme(value);
-                      savePreferences({ theme: value });
-                    }}
-                    className={cn(
-                      "rounded-sm p-1 transition-all duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
-                      isActive
-                        ? "bg-background text-foreground shadow-sm"
-                        : "text-muted-foreground hover:text-foreground",
-                    )}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                  </button>
-                );
-              })}
-          </div>
-        </div>
-      </div>
-
-      <div className="border-t border-border" />
-
       {/* Actions */}
       <div className="p-1.5">
         <button
           type="button"
-          disabled
-          className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-muted-foreground opacity-50"
+          onClick={onOpenSettings}
+          className={cn(
+            "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm",
+            "text-foreground transition-colors duration-150",
+            "hover:bg-accent",
+          )}
         >
           <Settings className="h-4 w-4" />
           {t("profile.settings")}

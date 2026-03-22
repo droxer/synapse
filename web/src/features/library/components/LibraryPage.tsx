@@ -3,29 +3,15 @@
 import { motion } from "framer-motion";
 import { FolderOpen, Search } from "lucide-react";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/button";
+import { listContainer, listItem } from "@/shared/lib/animations";
 import { useTranslation } from "@/i18n";
 import { useLibrary } from "../hooks/use-library";
 import { useViewMode } from "../hooks/use-view-mode";
 import { ConversationGroup } from "./ConversationGroup";
 import { ViewModeToggle } from "./ViewModeToggle";
-
-const listContainer = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.03, delayChildren: 0 },
-  },
-};
-
-const listItem = {
-  hidden: { opacity: 0, y: 6 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.12, ease: "easeOut" as const },
-  },
-};
 
 function GroupSkeleton() {
   return (
@@ -81,9 +67,7 @@ export function LibraryPage() {
         <div className="mx-auto max-w-5xl space-y-5">
           {/* Error */}
           {error && (
-            <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-3 text-sm text-destructive">
-              {error}
-            </div>
+            <ErrorBanner message={error} onDismiss={() => {}} />
           )}
 
           {/* Filter bar */}

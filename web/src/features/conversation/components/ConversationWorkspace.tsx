@@ -42,8 +42,6 @@ interface ConversationWorkspaceProps {
   thinkingContent: string;
   isStreaming: boolean;
   assistantPhase: AssistantPhase;
-  reasoningSteps: string[];
-  currentIteration: number;
   isConnected: boolean;
   onSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   onNavigateHome?: () => void;
@@ -67,8 +65,6 @@ export function ConversationWorkspace({
   thinkingContent,
   isStreaming,
   assistantPhase,
-  reasoningSteps: _reasoningSteps,
-  currentIteration: _currentIteration,
   isConnected,
   onSendMessage,
   onNavigateHome,
@@ -188,7 +184,9 @@ export function ConversationWorkspace({
 
   return (
     <div
-      className="flex h-screen flex-col"
+      className="flex h-full flex-col"
+      role="region"
+      aria-label="Conversation"
       aria-busy={taskState === "executing" || taskState === "planning"}
     >
       <TopBar
@@ -196,6 +194,7 @@ export function ConversationWorkspace({
         isConnected={isConnected}
         onNavigateHome={onNavigateHome}
         conversationTitle={conversationTitle}
+        conversationId={conversationId}
       />
 
       <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
@@ -287,7 +286,7 @@ export function ConversationWorkspace({
                                       key={url}
                                       src={url}
                                       alt={t("conversation.imageAlt")}
-                                      className="max-h-72 rounded-md border border-border object-contain"
+                                      className="max-h-72 max-w-full rounded-md border border-border object-contain"
                                       onError={(e) => {
                                         (e.currentTarget as HTMLImageElement).style.display = "none";
                                       }}
@@ -300,7 +299,7 @@ export function ConversationWorkspace({
                             {/* Plan checklist embedded in this message */}
                             {i === planMessageIndex && planSteps.length > 0 && (
                               <div className="mt-4">
-                                <PlanChecklistPanel planSteps={planSteps} taskState={taskState} />
+                                <PlanChecklistPanel planSteps={planSteps} />
                               </div>
                             )}
                           </div>
@@ -356,7 +355,7 @@ export function ConversationWorkspace({
 
               {planMessageIndex === null && planSteps.length > 0 && (
                 <div className="mt-6 max-w-[85%]">
-                  <PlanChecklistPanel planSteps={planSteps} taskState={taskState} />
+                  <PlanChecklistPanel planSteps={planSteps} />
                 </div>
               )}
 
@@ -372,7 +371,7 @@ export function ConversationWorkspace({
           </div>
 
           {events.length > 0 && (
-            <div className={cn("border-t border-border px-6 py-3", !panelOpen && "mx-auto w-full max-w-3xl")}>
+            <div className={cn("border-t border-border px-4 sm:px-6 py-3", !panelOpen && "mx-auto w-full max-w-3xl")}>
               <AgentProgressCard
                 events={events}
                 toolCalls={toolCalls}

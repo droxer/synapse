@@ -5,8 +5,7 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { ImageOutput } from "@/shared/components/ui/image-output";
 import type { ComputerUseMetadata } from "@/shared/types";
-
-type TFn = (key: string, params?: Record<string, string | number>) => string;
+import type { TFn } from "@/shared/types/i18n";
 
 function formatActionDescription(
   meta: ComputerUseMetadata | undefined,

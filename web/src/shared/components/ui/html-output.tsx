@@ -10,9 +10,10 @@ const COLLAPSE_THRESHOLD = 500;
 interface HtmlOutputProps {
   readonly output: string;
   readonly className?: string;
+  readonly label?: string;
 }
 
-export function HtmlOutput({ output, className }: HtmlOutputProps) {
+export function HtmlOutput({ output, className, label = "HTML output" }: HtmlOutputProps) {
   const [expanded, setExpanded] = useState(false);
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
   const isLong = output.length > COLLAPSE_THRESHOLD;
@@ -22,7 +23,7 @@ export function HtmlOutput({ output, className }: HtmlOutputProps) {
     <div className={cn("rounded-md border-l-2 border-l-transparent bg-muted p-3", className)}>
       <div className="mb-2 flex items-center gap-1.5 text-xs text-muted-foreground">
         <FileText className="h-3 w-3" />
-        <span>HTML output</span>
+        <span>{label}</span>
       </div>
       <div className="rounded border border-border bg-background p-2">
         <pre className="whitespace-pre-wrap font-mono text-xs leading-relaxed text-muted-foreground">

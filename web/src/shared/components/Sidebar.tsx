@@ -467,6 +467,7 @@ export function Sidebar({
       {!collapsed && !isMobile && (
         <div
           onMouseDown={handleDragStart}
+          aria-hidden="true"
           className={cn(
             "absolute right-0 top-0 h-full w-1 cursor-col-resize hover:bg-primary/20 active:bg-primary/30",
             isDragging && "bg-primary/30",

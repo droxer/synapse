@@ -19,7 +19,8 @@ from loguru import logger
 if TYPE_CHECKING:
     from agent.llm.client import AnthropicClient
 
-_TRUNCATED_TEMPLATE = "[tool_result truncated: {preview}...]"
+_TRUNCATED_TEMPLATE = "[{tool_summary}]"
+_TRUNCATED_FALLBACK_TEMPLATE = "[tool_result truncated: {preview}...]"
 _SCREENSHOT_PLACEHOLDER = "[screenshot captured]"
 _PREVIEW_LENGTH = 100
 
@@ -138,8 +139,10 @@ class Observer:
 
         # Fallback: truncate warm-tier tool results in-place
         logger.warning("llm_summarisation_failed, falling back to truncation")
+        tool_use_map = _build_tool_use_map(warm_messages)
         compacted_warm = tuple(
-            _compact_message(msg, idx=0, keep_full_from=1) for msg in warm_messages
+            _compact_message(msg, idx=0, keep_full_from=1, tool_use_map=tool_use_map)
+            for msg in warm_messages
         )
         return (first_message, *compacted_warm, *hot_messages)
 
@@ -255,8 +258,17 @@ def _compact_message(
     message: dict[str, Any],
     idx: int,
     keep_full_from: int,
+    tool_use_map: dict[str, dict[str, Any]] | None = None,
 ) -> dict[str, Any]:
-    """Return a possibly compacted copy of *message*."""
+    """Return a possibly compacted copy of *message*.
+
+    Parameters
+    ----------
+    tool_use_map:
+        Maps ``tool_use_id`` → ``{"name": ..., "input": ...}`` so that
+        compacted tool results can include a semantic summary instead of
+        a raw text preview.
+    """
     if idx >= keep_full_from:
         return message
 
@@ -264,11 +276,16 @@ def _compact_message(
     if not isinstance(content, list):
         return message
 
-    compacted_content = [_compact_content_block(block) for block in content]
+    compacted_content = [
+        _compact_content_block(block, tool_use_map=tool_use_map) for block in content
+    ]
     return {**message, "content": compacted_content}
 
 
-def _compact_content_block(block: Any) -> Any:
+def _compact_content_block(
+    block: Any,
+    tool_use_map: dict[str, dict[str, Any]] | None = None,
+) -> Any:
     """Return a compacted copy of a single content block."""
     if not isinstance(block, dict):
         return block
@@ -276,7 +293,7 @@ def _compact_content_block(block: Any) -> Any:
     block_type = block.get("type")
 
     if block_type == "tool_result":
-        return _truncate_tool_result(block)
+        return _truncate_tool_result(block, tool_use_map=tool_use_map)
 
     if block_type == "image":
         return {**block, "source": _SCREENSHOT_PLACEHOLDER}
@@ -288,19 +305,105 @@ def _compact_content_block(block: Any) -> Any:
     return block
 
 
-def _truncate_tool_result(block: dict[str, Any]) -> dict[str, Any]:
-    """Return a truncated copy of a tool_result block."""
+def _build_tool_use_map(
+    messages: list[dict[str, Any]] | tuple[dict[str, Any], ...],
+) -> dict[str, dict[str, Any]]:
+    """Scan messages to build a map of tool_use_id → {name, input}."""
+    result: dict[str, dict[str, Any]] = {}
+    for msg in messages:
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if isinstance(block, dict) and block.get("type") == "tool_use":
+                result[block.get("id", "")] = {
+                    "name": block.get("name", ""),
+                    "input": block.get("input", {}),
+                }
+    return result
+
+
+def _summarize_tool_call(
+    tool_name: str,
+    tool_input: dict[str, Any],
+    content_text: str,
+    is_error: bool,
+) -> str:
+    """Build a one-line semantic summary of a tool call + result.
+
+    Examples:
+        ``web_search("AI agents") → success, 5 results``
+        ``shell_exec("npm test") → error: exit code 1``
+        ``file_write("/app/main.py") → success``
+    """
+    # Extract the most meaningful input parameter
+    key_param = ""
+    for candidate in ("query", "command", "url", "path", "code", "task", "id", "name"):
+        val = tool_input.get(candidate)
+        if val and isinstance(val, str):
+            key_param = val[:60]
+            break
+
+    call_repr = f'{tool_name}("{key_param}")' if key_param else tool_name
+    status = "error" if is_error else "success"
+
+    # Add a brief outcome hint
+    hint = ""
+    if not is_error and content_text:
+        # Count result items if JSON array-like
+        stripped = content_text.strip()
+        if stripped.startswith("[") or stripped.startswith("{"):
+            try:
+                parsed = json.loads(stripped)
+                if isinstance(parsed, list):
+                    hint = f", {len(parsed)} results"
+            except (json.JSONDecodeError, ValueError, TypeError):
+                pass
+
+    return f"{call_repr} → {status}{hint}"
+
+
+def _truncate_tool_result(
+    block: dict[str, Any],
+    tool_use_map: dict[str, dict[str, Any]] | None = None,
+) -> dict[str, Any]:
+    """Return a truncated copy of a tool_result block.
+
+    Error results (``is_error: True``) are never truncated — preserving
+    them helps the model learn from failures within a session (Manus-style
+    append-only error preservation).
+    """
+    # Never truncate error results — the model learns from failures
+    if block.get("is_error"):
+        return block
+
     content = block.get("content", "")
 
-    if isinstance(content, list):
-        text = _flatten_content(content)
-        if len(text) <= _PREVIEW_LENGTH:
-            return block
-        preview = text[:_PREVIEW_LENGTH]
-        return {**block, "content": _TRUNCATED_TEMPLATE.format(preview=preview)}
+    # Non-string, non-list content (e.g. numeric) — leave untouched
+    if not isinstance(content, (str, list)):
+        return block
 
-    if isinstance(content, str) and len(content) > _PREVIEW_LENGTH:
-        preview = content[:_PREVIEW_LENGTH]
-        return {**block, "content": _TRUNCATED_TEMPLATE.format(preview=preview)}
+    text = _flatten_content(content) if isinstance(content, list) else content
 
-    return block
+    if isinstance(text, str) and len(text) <= _PREVIEW_LENGTH:
+        return block
+
+    # Try to produce a semantic summary using tool_use context
+    tool_use_id = block.get("tool_use_id", "")
+    if tool_use_map and tool_use_id in tool_use_map:
+        info = tool_use_map[tool_use_id]
+        summary = _summarize_tool_call(
+            info["name"],
+            info.get("input", {}),
+            text if isinstance(text, str) else "",
+            is_error=bool(block.get("is_error")),
+        )
+        return {**block, "content": _TRUNCATED_TEMPLATE.format(tool_summary=summary)}
+
+    # Fallback: raw preview
+    preview = (
+        text[:_PREVIEW_LENGTH]
+        if isinstance(text, str)
+        else str(content)[:_PREVIEW_LENGTH]
+    )
+    return {**block, "content": _TRUNCATED_FALLBACK_TEMPLATE.format(preview=preview)}

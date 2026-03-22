@@ -11,6 +11,7 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { FilePreview } from "@/shared/components/FilePreview";
+import { downloadFile } from "@/shared/lib/download";
 import { useTranslation } from "@/i18n";
 import type { ArtifactInfo } from "@/shared/types";
 import {
@@ -37,12 +38,7 @@ export function ArtifactPreviewDialog({
 
   const handleDownload = useCallback(() => {
     if (!artifactUrl || !artifact) return;
-    const a = document.createElement("a");
-    a.href = artifactUrl;
-    a.download = artifact.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    downloadFile(artifactUrl, artifact.name);
   }, [artifactUrl, artifact]);
 
   if (!artifact) return null;

@@ -27,10 +27,9 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo } from "@/shared/types";
+import type { TFn } from "@/shared/types/i18n";
 
 const SKILL_TOOL_NAMES = new Set(["activate_skill", "load_skill"]);
-
-type TFn = (key: string, params?: Record<string, string | number>) => string;
 
 function getToolVerb(name: string, t: TFn): string {
   const key = `tools.verb.${name}`;
@@ -131,6 +130,33 @@ function AgentMetaDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
   if (tc.name === "agent_wait") return <WaitForAgentsDisplay tc={tc} t={t} agentNameMap={agentNameMap} />;
   if (tc.name === "agent_send") return <AgentSendDisplay tc={tc} t={t} agentNameMap={agentNameMap} />;
   return null;
+}
+
+function getRunningToolStatusText(toolCall: ToolCallInfo, t: TFn): string {
+  if (SKILL_TOOL_NAMES.has(toolCall.name)) {
+    return t("computer.loadingSkill", { name: normalizeSkillName(String(toolCall.input.name ?? "skill")) });
+  }
+  if (toolCall.name === "browser_use") {
+    return getBrowserStatusText(toolCall, t);
+  }
+  if (COMPUTER_USE_TOOLS.has(toolCall.name)) {
+    return getComputerUseStatusText(toolCall, t);
+  }
+  if (toolCall.name === "agent_spawn") {
+    return t("computer.spawningAgent", { name: String(toolCall.input.name ?? "agent") });
+  }
+  if (toolCall.name === "agent_wait") {
+    return t("computer.waitingForAgents");
+  }
+  if (toolCall.name === "agent_send") {
+    return t("computer.sendingMessage");
+  }
+  return t("computer.usingTool", { verb: getToolVerb(toolCall.name, t) });
+}
+
+function RunningBadge({ toolCall, t }: { readonly toolCall: ToolCallInfo; readonly t: TFn }) {
+  if (toolCall.output !== undefined) return null;
+  return <span className="text-ai-glow">{t("computer.running")}</span>;
 }
 
 function getComputerUseStatusText(tc: ToolCallInfo, t: TFn): string {
@@ -410,19 +436,7 @@ export function AgentComputerPanel({
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2" role="status" aria-live="polite">
           <PulsingDot size="sm" />
           <span className="text-base text-muted-foreground">
-            {SKILL_TOOL_NAMES.has(latestToolCall.name)
-              ? t("computer.loadingSkill", { name: normalizeSkillName(String(latestToolCall.input.name ?? "skill")) })
-              : latestToolCall.name === "browser_use"
-                ? getBrowserStatusText(latestToolCall, t)
-                : COMPUTER_USE_TOOLS.has(latestToolCall.name)
-                  ? getComputerUseStatusText(latestToolCall, t)
-                  : latestToolCall.name === "agent_spawn"
-                    ? t("computer.spawningAgent", { name: String(latestToolCall.input.name ?? "agent") })
-                    : latestToolCall.name === "agent_wait"
-                      ? t("computer.waitingForAgents")
-                      : latestToolCall.name === "agent_send"
-                        ? t("computer.sendingMessage")
-                        : t("computer.usingTool", { verb: getToolVerb(latestToolCall.name, t) })}
+            {getRunningToolStatusText(latestToolCall, t)}
           </span>
           {latestToolCall.output === undefined && !SKILL_TOOL_NAMES.has(latestToolCall.name) && latestToolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(latestToolCall.name) && !AGENT_META_TOOLS.has(latestToolCall.name) && (
             <span className="ml-auto max-w-[240px] truncate font-mono text-sm text-muted-foreground-dim">
@@ -486,44 +500,28 @@ export function AgentComputerPanel({
                           <span className="text-foreground">
                             {getBrowserStatusText(item.toolCall, t)}
                           </span>
-                          {item.toolCall.output === undefined && (
-                            <span className="text-ai-glow">
-                              {t("computer.running")}
-                            </span>
-                          )}
+                          <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       ) : COMPUTER_USE_TOOLS.has(item.toolCall.name) ? (
                         <>
                           <span className="text-foreground">
                             {getComputerUseStatusText(item.toolCall, t)}
                           </span>
-                          {item.toolCall.output === undefined && (
-                            <span className="text-ai-glow">
-                              {t("computer.running")}
-                            </span>
-                          )}
+                          <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       ) : AGENT_META_TOOLS.has(item.toolCall.name) ? (
                         <>
                           <span className="text-foreground">
                             {normalizeToolNameI18n(item.toolCall.name, t)}
                           </span>
-                          {item.toolCall.output === undefined && (
-                            <span className="text-ai-glow">
-                              {t("computer.running")}
-                            </span>
-                          )}
+                          <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       ) : (
                         <>
                           <span className="text-foreground">
                             {normalizeToolNameI18n(item.toolCall.name, t)}
                           </span>
-                          {item.toolCall.output === undefined && (
-                            <span className="text-ai-glow">
-                              {t("computer.running")}
-                            </span>
-                          )}
+                          <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       )}
                     </div>

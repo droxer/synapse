@@ -70,10 +70,7 @@ function LoginForm() {
               googleId: data.user.googleId,
             });
 
-            console.log("[desktop-auth] signIn result:", result);
-
             if (result?.error) {
-              console.error("[desktop-auth] signIn failed:", result.error);
               setWaitingForBrowser(false);
               return;
             }
@@ -133,7 +130,7 @@ function LoginForm() {
     <div className="welcome-radial-bg flex min-h-screen items-center justify-center px-4">
       <div className="w-full max-w-sm">
         {/* Card */}
-        <div className="rounded-2xl border border-border bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
+        <div className="rounded-xl border border-border bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
           <div className="flex flex-col items-center gap-6">
             {/* Logo with purple glow */}
             <div
@@ -161,6 +158,7 @@ function LoginForm() {
             {/* Error message */}
             {error && (
               <div
+                role="alert"
                 className="flex w-full items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive animate-[slideUp_0.3s_ease-out]"
                 style={{ animationFillMode: "both" }}
               >
@@ -186,7 +184,10 @@ function LoginForm() {
                   className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:border-[var(--border-strong,var(--border))] hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {isLoading ? (
-                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span role="status">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="sr-only">Signing in...</span>
+                    </span>
                   ) : (
                     <svg
                       className="h-5 w-5"
@@ -220,7 +221,10 @@ function LoginForm() {
             {/* Desktop: waiting for browser auth */}
             {waitingForBrowser && (
               <div className="flex w-full flex-col items-center gap-2 text-center animate-[fadeIn_0.3s_ease-out]">
-                <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                <span role="status">
+                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                  <span className="sr-only">Waiting for browser authentication...</span>
+                </span>
                 <p className="text-sm text-muted-foreground">
                   Complete sign-in in your browser, then return here.
                 </p>
@@ -245,8 +249,9 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="welcome-radial-bg flex min-h-screen items-center justify-center">
+        <div className="welcome-radial-bg flex min-h-screen items-center justify-center" role="status">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
+          <span className="sr-only">Loading...</span>
         </div>
       }
     >

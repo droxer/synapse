@@ -9,11 +9,13 @@ import pytest
 
 from agent.runtime.observer import (
     Observer,
+    _build_tool_use_map,
     _compact_content_block,
     _compute_full_boundary,
     _estimate_tokens,
     _find_tool_interaction_indices,
     _flatten_content,
+    _summarize_tool_call,
     _truncate_tool_result,
 )
 
@@ -362,3 +364,209 @@ class TestCompact:
         assert found_compacted_image, (
             "Expected image block in warm tier to be compacted"
         )
+
+
+# ------------------------------------------------------------------
+# Error preservation
+# ------------------------------------------------------------------
+
+
+class TestErrorPreservation:
+    def test_error_result_never_truncated(self) -> None:
+        """is_error=True tool results must be preserved verbatim."""
+        long_error = "x" * 500
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": long_error,
+            "is_error": True,
+        }
+        result = _truncate_tool_result(block)
+        # Should be the exact same block — no truncation
+        assert result is block
+
+    def test_error_result_with_list_content_preserved(self) -> None:
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": [{"type": "text", "text": "y" * 500}],
+            "is_error": True,
+        }
+        result = _truncate_tool_result(block)
+        assert result is block
+
+    def test_successful_long_result_still_truncated(self) -> None:
+        """Non-error results should still be truncated."""
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": "z" * 500,
+        }
+        result = _truncate_tool_result(block)
+        assert result is not block
+        assert len(result["content"]) < 500
+
+    @pytest.mark.asyncio
+    async def test_compact_preserves_errors_in_warm_tier(self) -> None:
+        """Errors in the warm tier should survive compaction."""
+        obs = Observer(max_full_interactions=1)
+        error_content = "ImportError: No module named 'foo'" + " details" * 50
+        msgs = (
+            _user_msg("task"),
+            _tool_use_msg("code_run"),
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "call_code_run",
+                        "content": error_content,
+                        "is_error": True,
+                    },
+                ],
+            },
+            _tool_use_msg("final"),
+            _tool_result_msg("done"),
+        )
+        result = await obs.compact(msgs)
+        # Find the error block — it should be fully preserved
+        for msg in result:
+            content = msg.get("content")
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("is_error"):
+                        assert block["content"] == error_content
+
+
+# ------------------------------------------------------------------
+# Tool use map
+# ------------------------------------------------------------------
+
+
+class TestBuildToolUseMap:
+    def test_extracts_tool_uses(self) -> None:
+        msgs = [
+            _tool_use_msg("web_search", {"query": "AI agents"}),
+            _tool_result_msg("results here", tool_use_id="call_web_search"),
+        ]
+        tmap = _build_tool_use_map(msgs)
+        assert "call_web_search" in tmap
+        assert tmap["call_web_search"]["name"] == "web_search"
+        assert tmap["call_web_search"]["input"] == {"query": "AI agents"}
+
+    def test_empty_messages(self) -> None:
+        assert _build_tool_use_map([]) == {}
+
+    def test_no_tool_uses(self) -> None:
+        msgs = [_user_msg("hello"), _assistant_msg("hi")]
+        assert _build_tool_use_map(msgs) == {}
+
+    def test_multiple_tool_uses(self) -> None:
+        msgs = [
+            {
+                "role": "assistant",
+                "content": [
+                    {
+                        "type": "tool_use",
+                        "id": "c1",
+                        "name": "web_search",
+                        "input": {"query": "foo"},
+                    },
+                    {
+                        "type": "tool_use",
+                        "id": "c2",
+                        "name": "file_read",
+                        "input": {"path": "/x"},
+                    },
+                ],
+            },
+        ]
+        tmap = _build_tool_use_map(msgs)
+        assert len(tmap) == 2
+        assert tmap["c1"]["name"] == "web_search"
+        assert tmap["c2"]["name"] == "file_read"
+
+
+# ------------------------------------------------------------------
+# Semantic tool summaries
+# ------------------------------------------------------------------
+
+
+class TestSummarizeToolCall:
+    def test_web_search(self) -> None:
+        result = _summarize_tool_call(
+            "web_search",
+            {"query": "AI agents"},
+            "[]",
+            is_error=False,
+        )
+        assert "web_search" in result
+        assert "AI agents" in result
+        assert "success" in result
+
+    def test_error_result(self) -> None:
+        result = _summarize_tool_call(
+            "shell_exec",
+            {"command": "npm test"},
+            "",
+            is_error=True,
+        )
+        assert "error" in result
+        assert "npm test" in result
+
+    def test_json_array_result_count(self) -> None:
+        import json
+
+        data = json.dumps([{"title": "a"}, {"title": "b"}, {"title": "c"}])
+        result = _summarize_tool_call(
+            "web_search",
+            {"query": "test"},
+            data,
+            is_error=False,
+        )
+        assert "3 results" in result
+
+    def test_no_key_param(self) -> None:
+        result = _summarize_tool_call(
+            "browser_view",
+            {},
+            "page content",
+            is_error=False,
+        )
+        assert "browser_view" in result
+        assert "success" in result
+
+    def test_long_param_truncated(self) -> None:
+        result = _summarize_tool_call(
+            "file_write",
+            {"path": "a" * 100},
+            "",
+            is_error=False,
+        )
+        # The path should be truncated to 60 chars
+        assert len(result) < 150
+
+    def test_truncate_uses_semantic_summary(self) -> None:
+        """_truncate_tool_result should use semantic summary when map provided."""
+        tool_use_map = {
+            "call_1": {"name": "web_search", "input": {"query": "test query"}},
+        }
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": "x" * 500,
+        }
+        result = _truncate_tool_result(block, tool_use_map=tool_use_map)
+        # Should contain the semantic summary, not raw truncation
+        assert "web_search" in result["content"]
+        assert "test query" in result["content"]
+
+    def test_truncate_fallback_without_map(self) -> None:
+        """Without a tool_use_map, should fall back to raw preview."""
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": "x" * 500,
+        }
+        result = _truncate_tool_result(block)
+        assert "truncated" in result["content"]

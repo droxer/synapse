@@ -14,6 +14,10 @@ export const NON_ARTIFACT_TOOLS = new Set([
   "memory_search",
   "task_complete",
   "plan_create",
+  "shell_view",
+  "shell_wait",
+  "shell_write",
+  "shell_kill",
 ]);
 
 /** Tools whose output should be rendered as code. */
@@ -21,6 +25,10 @@ export const CODE_TOOLS = new Set([
   "code_run",
   "code_interpret",
   "shell_exec",
+  "shell_view",
+  "shell_wait",
+  "shell_write",
+  "shell_kill",
   "file_read",
 ]);
 
@@ -40,6 +48,10 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   code_run: "Code Run",
   code_interpret: "Code Interpret",
   shell_exec: "Shell Execute",
+  shell_view: "Shell View",
+  shell_wait: "Shell Wait",
+  shell_write: "Shell Write",
+  shell_kill: "Shell Kill",
   package_install: "Package Install",
   // Sandbox: files
   file_read: "File Read",
@@ -50,6 +62,16 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   file_search: "File Search",
   // Sandbox: browser
   browser_use: "Browser Use",
+  browser_navigate: "Browser Navigate",
+  browser_view: "Browser View",
+  browser_click: "Browser Click",
+  browser_input: "Browser Input",
+  browser_select: "Browser Select",
+  browser_scroll_up: "Browser Scroll Up",
+  browser_scroll_down: "Browser Scroll Down",
+  browser_press_key: "Browser Press Key",
+  browser_console_exec: "Browser Console",
+  browser_console_view: "Browser Console View",
   // Sandbox: documents
   document_read: "Document Read",
   // Sandbox: database
@@ -131,7 +153,19 @@ export type ToolCategory = "code" | "file" | "search" | "memory" | "browser" | "
 const SEARCH_TOOLS = new Set(["web_search", "web_fetch"]);
 const MEMORY_TOOLS = new Set(["memory_store", "memory_search", "memory_list"]);
 const PREVIEW_TOOLS = new Set(["preview_start", "preview_stop"]);
-const BROWSER_TOOLS = new Set(["browser_use"]);
+const BROWSER_TOOLS = new Set([
+  "browser_use",
+  "browser_navigate",
+  "browser_view",
+  "browser_click",
+  "browser_input",
+  "browser_select",
+  "browser_scroll_up",
+  "browser_scroll_down",
+  "browser_press_key",
+  "browser_console_exec",
+  "browser_console_view",
+]);
 const COMPUTER_TOOLS = new Set(["computer_action", "computer_screenshot"]);
 const FILE_TOOLS = new Set(["file_read", "file_write"]);
 export const AGENT_TOOLS = new Set(["agent_spawn", "agent_wait", "agent_send", "agent_receive"]);

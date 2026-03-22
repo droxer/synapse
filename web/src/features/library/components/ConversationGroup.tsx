@@ -51,7 +51,7 @@ export function ConversationGroup({ group, viewMode }: ConversationGroupProps) {
       {expanded && (
         <div
           className={cn(
-            "ml-6",
+            "ml-3 sm:ml-6",
             viewMode === "grid"
               ? "grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
               : "space-y-1.5",

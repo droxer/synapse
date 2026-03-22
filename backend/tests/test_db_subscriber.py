@@ -193,3 +193,70 @@ async def test_pending_writes_passed_to_subscriber(
     await subscriber(event)
     # After completion, should be drained
     assert pending_writes.count == 0
+
+
+# ---------------------------------------------------------------------------
+# Token usage tracking
+# ---------------------------------------------------------------------------
+
+
+async def test_llm_response_increments_usage(repo, session_factory) -> None:
+    """LLM_RESPONSE events should persist event and increment usage."""
+    conversation_id = uuid.uuid4()
+    user_id = uuid.uuid4()
+    usage_repo = AsyncMock()
+    subscriber = create_db_subscriber(
+        conversation_id,
+        repo,
+        session_factory,
+        user_id=user_id,
+        usage_repo=usage_repo,
+    )
+    event = _make_event(
+        EventType.LLM_RESPONSE,
+        {
+            "text": "hello",
+            "usage": {"input_tokens": 150, "output_tokens": 50},
+            "stop_reason": "end_turn",
+        },
+    )
+    await subscriber(event)
+    repo.save_event.assert_called_once()
+    usage_repo.increment.assert_called_once_with(
+        repo.save_event.call_args[0][0],  # session
+        conversation_id,
+        user_id,
+        input_tokens=150,
+        output_tokens=50,
+    )
+
+
+async def test_llm_response_skips_zero_usage(repo, session_factory) -> None:
+    """LLM_RESPONSE with zero tokens should not call increment."""
+    conversation_id = uuid.uuid4()
+    usage_repo = AsyncMock()
+    subscriber = create_db_subscriber(
+        conversation_id,
+        repo,
+        session_factory,
+        usage_repo=usage_repo,
+    )
+    event = _make_event(
+        EventType.LLM_RESPONSE,
+        {"text": "hi", "usage": {"input_tokens": 0, "output_tokens": 0}},
+    )
+    await subscriber(event)
+    repo.save_event.assert_called_once()
+    usage_repo.increment.assert_not_called()
+
+
+async def test_llm_response_without_usage_repo(repo, session_factory) -> None:
+    """LLM_RESPONSE should still persist event even without usage_repo."""
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.LLM_RESPONSE,
+        {"text": "hi", "usage": {"input_tokens": 100, "output_tokens": 50}},
+    )
+    await subscriber(event)
+    repo.save_event.assert_called_once()

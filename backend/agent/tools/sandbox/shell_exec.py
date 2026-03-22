@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from typing import Any
 
 from agent.sandbox.base import ExtendedSandboxSession
@@ -12,6 +13,8 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+
+_VALID_SESSION_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
 
 
 def _make_stream_callbacks(
@@ -53,7 +56,7 @@ class ShellExec(SandboxTool):
                     },
                     "timeout": {
                         "type": "integer",
-                        "description": "Timeout in seconds.",
+                        "description": "Timeout in seconds (ignored when id is set).",
                         "default": 30,
                     },
                     "workdir": {
@@ -70,6 +73,15 @@ class ShellExec(SandboxTool):
                             "to view or download."
                         ),
                     },
+                    "id": {
+                        "type": "string",
+                        "description": (
+                            "Optional session name. When provided, the command "
+                            "runs as a named background session and returns "
+                            "immediately. Use shell_view, shell_wait, shell_write, "
+                            "and shell_kill to interact with the session."
+                        ),
+                    },
                 },
                 "required": ["command"],
             },
@@ -83,9 +95,21 @@ class ShellExec(SandboxTool):
         workdir: str | None = kwargs.get("workdir")
         output_files: list[str] = kwargs.get("output_files") or []
         event_emitter: Any | None = kwargs.get("event_emitter")
+        session_id: str | None = kwargs.get("id")
 
         if not command.strip():
             return ToolResult.fail("Command must not be empty")
+
+        # Named background session mode
+        if session_id is not None and session_id.strip():
+            clean_id = session_id.strip()
+            if not _VALID_SESSION_ID.match(clean_id):
+                return ToolResult.fail(
+                    "Invalid session id. Use 1-64 alphanumeric characters, hyphens, or underscores."
+                )
+            return await self._start_background_session(
+                session, command, clean_id, workdir
+            )
 
         try:
             use_streaming = event_emitter is not None and isinstance(
@@ -117,3 +141,52 @@ class ShellExec(SandboxTool):
             metadata["artifact_paths"] = list(output_files)
 
         return ToolResult.ok(combined, metadata=metadata)
+
+    async def _start_background_session(
+        self,
+        session: Any,
+        command: str,
+        session_id: str,
+        workdir: str | None,
+    ) -> ToolResult:
+        """Start a command as a named background session."""
+        from agent.tools.sandbox.shell_tools import _SESSION_DIR
+
+        sdir = f"{_SESSION_DIR}/{session_id}"
+
+        # Build the startup script.
+        # The wrapper records the exit code to a file so shell_wait can
+        # read it reliably (the `wait` builtin only works for child processes
+        # of the same shell).
+        cd_prefix = f"cd {workdir} && " if workdir else ""
+        escaped_cmd = command.replace("'", "'\\''")
+        start_script = (
+            f"mkdir -p {sdir} && "
+            f"mkfifo {sdir}/stdin_pipe 2>/dev/null; "
+            f"nohup sh -c '"
+            f"exec 0< {sdir}/stdin_pipe; "
+            f"{cd_prefix}{escaped_cmd}; "
+            f"echo $? > {sdir}/exit_code"
+            f"' > {sdir}/stdout.log 2> {sdir}/stderr.log & "
+            f"BGPID=$!; "
+            f"echo $BGPID > {sdir}/pid; "
+            f"echo $BGPID"
+        )
+
+        try:
+            result = await session.exec(start_script, timeout=10)
+        except Exception as exc:
+            return ToolResult.fail(f"Failed to start session '{session_id}': {exc}")
+
+        pid_str = result.stdout.strip()
+        if result.exit_code != 0 or not pid_str:
+            return ToolResult.fail(
+                f"Failed to start session '{session_id}': {result.stderr or 'no PID returned'}"
+            )
+
+        return ToolResult.ok(
+            f"Started background session '{session_id}' (PID: {pid_str})\n"
+            f"Use shell_view to check output, shell_write to send input, "
+            f"shell_wait to wait for completion, or shell_kill to stop it.",
+            metadata={"session_id": session_id, "pid": int(pid_str)},
+        )

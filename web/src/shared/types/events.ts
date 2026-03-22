@@ -28,10 +28,10 @@ export type EventType =
   | "plan_created";
 
 export interface AgentEvent {
-  type: EventType;
-  data: Record<string, unknown>;
-  timestamp: number;
-  iteration: number | null;
+  readonly type: EventType;
+  readonly data: Record<string, unknown>;
+  readonly timestamp: number;
+  readonly iteration: number | null;
 }
 
 export type TaskState = "idle" | "planning" | "executing" | "complete" | "error";
@@ -43,10 +43,10 @@ export interface AttachedFile {
 }
 
 export interface ChatMessage {
-  role: "user" | "assistant";
-  content: string;
-  timestamp: number;
-  attachments?: Array<{ name: string; size: number; type: string }>;
+  readonly role: "user" | "assistant";
+  readonly content: string;
+  readonly timestamp: number;
+  readonly attachments?: Array<{ readonly name: string; readonly size: number; readonly type: string }>;
   imageArtifactIds?: string[];
 }
 
@@ -69,17 +69,17 @@ export interface ComputerUseMetadata {
 }
 
 export interface ToolCallInfo {
-  id: string;
-  name: string;
-  input: Record<string, unknown>;
-  output?: string;
-  success?: boolean;
-  contentType?: string;
-  artifactIds?: string[];
-  browserMetadata?: BrowserMetadata;
-  computerUseMetadata?: ComputerUseMetadata;
-  timestamp: number;
-  agentId?: string;
+  readonly id: string;
+  readonly name: string;
+  readonly input: Record<string, unknown>;
+  readonly output?: string;
+  readonly success?: boolean;
+  readonly contentType?: string;
+  readonly artifactIds?: string[];
+  readonly browserMetadata?: BrowserMetadata;
+  readonly computerUseMetadata?: ComputerUseMetadata;
+  readonly timestamp: number;
+  readonly agentId?: string;
 }
 
 export interface ArtifactInfo {
@@ -97,11 +97,11 @@ export interface PlanStep {
 }
 
 export interface AgentStatus {
-  agentId: string;
-  name: string;
-  description: string;
-  status: "running" | "complete" | "error";
-  timestamp: number;
+  readonly agentId: string;
+  readonly name: string;
+  readonly description: string;
+  readonly status: "running" | "complete" | "error";
+  readonly timestamp: number;
 }
 
 export type AssistantPhase =

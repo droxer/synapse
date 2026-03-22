@@ -113,14 +113,7 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
         <div
           className={cn("inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-medium shadow-sm", config.badgeClass)}
         >
-          {activePhase === "thinking" ? (
-            <motion.span
-              animate={shouldReduceMotion ? {} : { opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <Icon className="h-3 w-3" />
-            </motion.span>
-          ) : activePhase === "using_tool" ? (
+          {activePhase === "thinking" || activePhase === "using_tool" ? (
             <motion.span
               animate={shouldReduceMotion ? {} : { opacity: [0.5, 1, 0.5] }}
               transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}

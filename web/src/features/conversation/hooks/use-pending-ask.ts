@@ -14,11 +14,6 @@ export function usePendingAsk(
     const askEvents = events.filter((e) => e.type === "ask_user");
     const responseEvents = events.filter((e) => e.type === "user_response");
 
-    if (askEvents.length > 0) {
-      console.log("[usePendingAsk] askEvents:", askEvents.length, "responseEvents:", responseEvents.length);
-      console.log("[usePendingAsk] first ask data:", JSON.stringify(askEvents[0]?.data));
-    }
-
     const respondedIds = new Set(
       responseEvents.map((e) => String(e.data.request_id ?? "")),
     );

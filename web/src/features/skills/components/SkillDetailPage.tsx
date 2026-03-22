@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { cn } from "@/shared/lib/utils";
+import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { useSkillFiles } from "../hooks/use-skill-files";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
@@ -66,8 +67,8 @@ function DetailSkeleton() {
         </div>
       </div>
       {/* Body skeleton: sidebar + content */}
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-[250px] shrink-0 border-r border-border p-3 space-y-2">
+      <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
+        <div className="w-full md:w-[250px] md:shrink-0 max-h-[200px] md:max-h-none overflow-y-auto border-r border-border p-3 space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-5 skeleton-shimmer rounded" style={{ width: `${60 + Math.random() * 40}%` }} />
           ))}
@@ -180,17 +181,16 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
 
         {/* Error banner */}
         {error && (
-          <div className="mt-3 flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-4 py-2.5">
-            <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-            <p className="flex-1 text-sm text-destructive">{error}</p>
+          <div className="mt-3">
+            <ErrorBanner message={error} onDismiss={() => setError(null)} variant="compact" />
           </div>
         )}
       </div>
 
       {/* ── Body: File Tree + Content Viewer ── */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
         {/* Sidebar: File Tree */}
-        <div className="w-[250px] shrink-0 border-r border-border overflow-y-auto">
+        <div className="w-full md:w-[250px] md:shrink-0 max-h-[200px] md:max-h-none overflow-y-auto border-r border-border">
           {isLoadingTree ? (
             <div className="p-3 space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (

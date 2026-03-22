@@ -71,7 +71,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-md"
+            className="fixed inset-0 z-40 bg-overlay backdrop-blur-md"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}

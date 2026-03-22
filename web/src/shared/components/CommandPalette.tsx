@@ -136,6 +136,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
           <motion.div
             ref={dialogRef}
             role="dialog"
+            aria-modal="true"
             aria-label={t("command.ariaLabel")}
             className="fixed inset-0 z-50 flex items-start justify-center pt-[10vh] sm:pt-[20vh]"
             initial={{ opacity: 0 }}

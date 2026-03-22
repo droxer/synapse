@@ -39,7 +39,7 @@ export function fileIcon(contentType: string) {
   return File;
 }
 
-type TFn = (key: string) => string;
+import type { TFn } from "@/shared/types/i18n";
 
 export function fileCategory(contentType: string, t: TFn): string {
   if (contentType.startsWith("image/")) return t("artifacts.categoryImage");

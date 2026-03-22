@@ -20,6 +20,7 @@ if TYPE_CHECKING:
     from agent.state.repository import (
         ConversationRepository,
         SkillRepository,
+        UsageRepository,
         UserRepository,
     )
     from api.db_subscriber import PendingWrites
@@ -44,6 +45,7 @@ class AppState:
     skill_registry: SkillRegistry | None = None
     skill_installer: SkillInstaller | None = None
     skill_repo: SkillRepository | None = None
+    usage_repo: UsageRepository | None = None
 
 
 def get_app_state(request: Request) -> AppState:

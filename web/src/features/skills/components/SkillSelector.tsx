@@ -139,6 +139,7 @@ export function SkillSelector({
                   value={filter}
                   onChange={(e) => setFilter(e.target.value)}
                   placeholder={t("skills.selector.search")}
+                  aria-label={t("skills.selector.search")}
                   className="flex-1 bg-transparent text-xs text-foreground placeholder:text-placeholder outline-none"
                 />
               </div>
@@ -154,7 +155,7 @@ export function SkillSelector({
                   : t("skills.selector.noMatching")}
               </div>
             ) : (
-              <div className="grid grid-cols-2 gap-1.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                 {filtered.map((skill) => {
                   const isSelected = selectedSkill === skill.name;
                   return (

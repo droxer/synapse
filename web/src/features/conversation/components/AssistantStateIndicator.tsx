@@ -1,6 +1,6 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { Brain, Pencil, Wrench } from "lucide-react";
 import type { AssistantPhase } from "@/shared/types";
 import { normalizeToolNameI18n } from "@/features/agent-computer/lib/tool-constants";
@@ -27,6 +27,7 @@ const PHASE_CONFIG = {
 
 export function AssistantStateIndicator({ phase }: AssistantStateIndicatorProps) {
   const { t } = useTranslation();
+  const prefersReducedMotion = useReducedMotion();
 
   if (phase.phase === "idle") return null;
 
@@ -50,7 +51,7 @@ export function AssistantStateIndicator({ phase }: AssistantStateIndicatorProps)
       >
         {phase.phase === "thinking" || phase.phase === "using_tool" ? (
           <motion.span
-            animate={{ opacity: [0.6, 1, 0.6] }}
+            animate={prefersReducedMotion ? {} : { opacity: [0.6, 1, 0.6] }}
             transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <Icon className="h-3.5 w-3.5" />

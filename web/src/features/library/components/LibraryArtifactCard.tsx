@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Download, Eye } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
+import { downloadFile } from "@/shared/lib/download";
 import { useTranslation } from "@/i18n";
 import {
   fileIcon,
@@ -217,12 +218,7 @@ export function LibraryArtifactCard({
   const artifactUrl = `/api/conversations/${conversationId}/artifacts/${artifact.id}`;
 
   const handleDownload = useCallback(() => {
-    const a = document.createElement("a");
-    a.href = artifactUrl;
-    a.download = artifact.name;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
+    downloadFile(artifactUrl, artifact.name);
   }, [artifactUrl, artifact.name]);
 
   const handlePreview = useCallback(() => {

@@ -195,3 +195,36 @@ class AgentRunModel(Base):
     )
 
     conversation: Mapped[ConversationModel] = relationship(back_populates="agent_runs")
+
+
+class TokenUsageModel(Base):
+    """Cumulative token usage per conversation."""
+
+    __tablename__ = "token_usage"
+    __table_args__ = (
+        Index("ix_token_usage_conversation", "conversation_id", unique=True),
+        Index("ix_token_usage_user_id", "user_id"),
+        Index("ix_token_usage_updated", "updated_at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid,
+        ForeignKey("conversations.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    user_id: Mapped[uuid.UUID | None] = mapped_column(
+        Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    input_tokens: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    output_tokens: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    request_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
+    )
+
+    conversation: Mapped[ConversationModel] = relationship()
+    user: Mapped[UserModel | None] = relationship()

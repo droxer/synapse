@@ -19,8 +19,6 @@ export function ConversationView() {
     thinkingContent,
     isStreaming,
     assistantPhase,
-    reasoningSteps,
-    currentIteration,
     isConnected,
     handleSendMessage,
     handleCreateConversation,
@@ -75,8 +73,6 @@ export function ConversationView() {
             thinkingContent={thinkingContent}
             isStreaming={isStreaming}
             assistantPhase={assistantPhase}
-            reasoningSteps={reasoningSteps}
-            currentIteration={currentIteration}
             isConnected={isConnected}
             onSendMessage={handleSendMessage}
             onNavigateHome={handleNewConversation}

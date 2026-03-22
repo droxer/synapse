@@ -113,3 +113,28 @@ class AgentRunRecord:
     status: str
     result: dict[str, Any] | None
     created_at: datetime
+
+
+@dataclass(frozen=True)
+class TokenUsageRecord:
+    """Read-only token usage record for a single conversation."""
+
+    id: uuid.UUID
+    conversation_id: uuid.UUID
+    user_id: uuid.UUID | None
+    input_tokens: int
+    output_tokens: int
+    request_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass(frozen=True)
+class UserUsageSummary:
+    """Aggregated token usage across all conversations for a user."""
+
+    user_id: uuid.UUID
+    total_input_tokens: int
+    total_output_tokens: int
+    total_requests: int
+    conversation_count: int

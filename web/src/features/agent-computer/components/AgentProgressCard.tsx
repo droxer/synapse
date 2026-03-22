@@ -33,6 +33,7 @@ import type { AgentEvent, TaskState, ToolCallInfo } from "@/shared/types";
 import { normalizeToolNameI18n, normalizeAgentName, getToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import type { ToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
+import type { TFn } from "@/shared/types/i18n";
 
 interface AgentProgressCardProps {
   events: AgentEvent[];
@@ -58,8 +59,6 @@ interface TimelineStep {
   readonly status: "running" | "complete" | "error";
 }
 
-type TFn = (key: string, params?: Record<string, string | number>) => string;
-
 function buildSteps(
   events: AgentEvent[],
   toolCalls: ToolCallInfo[],
@@ -67,7 +66,7 @@ function buildSteps(
   thinkingContent: string,
   t: TFn,
 ): TimelineStep[] {
-  let steps: readonly TimelineStep[] = [];
+  let steps: TimelineStep[] = [];
   const seenTools = new Set<string>();
 
   for (const event of events) {
@@ -225,7 +224,7 @@ function buildSteps(
     }
   }
 
-  return [...steps];
+  return steps;
 }
 
 /* Category-based icon for each tool kind */

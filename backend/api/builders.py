@@ -30,6 +30,18 @@ from agent.tools.local.web_fetch import WebFetch
 from agent.tools.local.web_search import TavilyWebSearch
 from agent.tools.registry import ToolRegistry
 from agent.tools.sandbox.browser import BrowserUse
+from agent.tools.sandbox.browser_tools import (
+    BrowserClick,
+    BrowserConsoleExec,
+    BrowserConsoleView,
+    BrowserInput,
+    BrowserNavigate,
+    BrowserPressKey,
+    BrowserScrollDown,
+    BrowserScrollUp,
+    BrowserSelect,
+    BrowserView,
+)
 from agent.tools.sandbox.code_interpret import CodeInterpret
 from agent.tools.sandbox.code_run import CodeRun
 from agent.tools.sandbox.code_search import FileGlob, FileSearch
@@ -40,6 +52,7 @@ from agent.tools.sandbox.file_ops import FileEdit, FileList, FileRead, FileWrite
 from agent.tools.sandbox.package_install import PackageInstall
 from agent.tools.sandbox.preview import PreviewStart, PreviewStop
 from agent.tools.sandbox.shell_exec import ShellExec
+from agent.tools.sandbox.shell_tools import ShellKill, ShellView, ShellWait, ShellWrite
 from api.events import EventEmitter
 from api.models import MCPState
 from config.settings import get_settings
@@ -152,6 +165,10 @@ def _build_base_registry(
     # Sandbox tools
     registry = registry.register(CodeRun())
     registry = registry.register(ShellExec())
+    registry = registry.register(ShellView())
+    registry = registry.register(ShellWait())
+    registry = registry.register(ShellWrite())
+    registry = registry.register(ShellKill())
     registry = registry.register(CodeInterpret())
     registry = registry.register(FileRead())
     registry = registry.register(FileWrite())
@@ -161,7 +178,7 @@ def _build_base_registry(
     registry = registry.register(FileGlob())
     registry = registry.register(FileSearch())
     registry = registry.register(DocRead())
-    # Browser tool
+    # Browser tools — high-level autonomous agent
     registry = registry.register(
         BrowserUse(
             anthropic_api_key=settings.ANTHROPIC_API_KEY,
@@ -169,6 +186,17 @@ def _build_base_registry(
             anthropic_base_url=settings.ANTHROPIC_BASE_URL,
         )
     )
+    # Browser tools — granular DOM-indexed primitives
+    registry = registry.register(BrowserNavigate())
+    registry = registry.register(BrowserView())
+    registry = registry.register(BrowserClick())
+    registry = registry.register(BrowserInput())
+    registry = registry.register(BrowserSelect())
+    registry = registry.register(BrowserScrollUp())
+    registry = registry.register(BrowserScrollDown())
+    registry = registry.register(BrowserPressKey())
+    registry = registry.register(BrowserConsoleExec())
+    registry = registry.register(BrowserConsoleView())
     # Database tools
     registry = registry.register(DbCreate())
     registry = registry.register(DbQuery())
@@ -210,6 +238,10 @@ def _build_sub_agent_registry_factory(
         # Sandbox tools
         registry = registry.register(CodeRun())
         registry = registry.register(ShellExec())
+        registry = registry.register(ShellView())
+        registry = registry.register(ShellWait())
+        registry = registry.register(ShellWrite())
+        registry = registry.register(ShellKill())
         registry = registry.register(CodeInterpret())
         registry = registry.register(FileRead())
         registry = registry.register(FileWrite())
@@ -219,7 +251,7 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(FileGlob())
         registry = registry.register(FileSearch())
         registry = registry.register(DocRead())
-        # Browser tool
+        # Browser tools — high-level autonomous agent
         registry = registry.register(
             BrowserUse(
                 anthropic_api_key=settings.ANTHROPIC_API_KEY,
@@ -227,6 +259,17 @@ def _build_sub_agent_registry_factory(
                 anthropic_base_url=settings.ANTHROPIC_BASE_URL,
             )
         )
+        # Browser tools — granular DOM-indexed primitives
+        registry = registry.register(BrowserNavigate())
+        registry = registry.register(BrowserView())
+        registry = registry.register(BrowserClick())
+        registry = registry.register(BrowserInput())
+        registry = registry.register(BrowserSelect())
+        registry = registry.register(BrowserScrollUp())
+        registry = registry.register(BrowserScrollDown())
+        registry = registry.register(BrowserPressKey())
+        registry = registry.register(BrowserConsoleExec())
+        registry = registry.register(BrowserConsoleView())
         # Database tools
         registry = registry.register(DbCreate())
         registry = registry.register(DbQuery())

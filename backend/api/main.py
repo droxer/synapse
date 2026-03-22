@@ -20,6 +20,7 @@ from agent.state.database import get_engine, get_session_factory, init_db
 from agent.state.repository import (
     ConversationRepository,
     SkillRepository,
+    UsageRepository,
     UserRepository,
 )
 from agent.tools.registry import ToolRegistry
@@ -27,7 +28,16 @@ from api.builders import _build_sandbox_provider
 from api.db_subscriber import PendingWrites
 from api.dependencies import AppState
 from api.models import MCPState
-from api.routes import artifacts, auth, conversations, library, mcp, skill_files, skills
+from api.routes import (
+    artifacts,
+    auth,
+    conversations,
+    library,
+    mcp,
+    skill_files,
+    skills,
+    usage,
+)
 from config.settings import get_settings
 
 
@@ -64,6 +74,8 @@ def _create_app() -> FastAPI:
     # Discover and register skills
     skill_registry: SkillRegistry | None = None
     skill_installer: SkillInstaller | None = None
+    usage_repo = UsageRepository()
+
     skill_repo: SkillRepository | None = None
     if settings.SKILLS_ENABLED:
         discoverer = SkillDiscoverer(trust_project=settings.SKILLS_TRUST_PROJECT)
@@ -88,6 +100,7 @@ def _create_app() -> FastAPI:
         skill_registry=skill_registry,
         skill_installer=skill_installer,
         skill_repo=skill_repo,
+        usage_repo=usage_repo,
     )
 
     @asynccontextmanager
@@ -178,6 +191,7 @@ def _create_app() -> FastAPI:
     application.include_router(skills.router)
     application.include_router(skill_files.router)
     application.include_router(library.router)
+    application.include_router(usage.router)
 
     return application
 

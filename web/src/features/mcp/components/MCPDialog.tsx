@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Trash2,
@@ -9,9 +9,7 @@ import {
   Radio,
   Unplug,
   Wrench,
-  X,
 } from "lucide-react";
-import { TransportToggle } from "./TransportToggle";
 import {
   Dialog,
   DialogContent,
@@ -20,8 +18,6 @@ import {
   DialogDescription,
 } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
-import { Label } from "@/shared/components/ui/label";
 import { Badge } from "@/shared/components/ui/badge";
 import {
   AlertDialog,
@@ -34,31 +30,10 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { cn } from "@/shared/lib/utils";
-import {
-  fetchMCPServers,
-  addMCPServer,
-  removeMCPServer,
-  toggleMCPServer,
-  type MCPServer,
-} from "../api/mcp-api";
+import { listContainer, listItem } from "@/shared/lib/animations";
 import { useTranslation } from "@/i18n";
-
-/* ── animation variants ── */
-const listContainer = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.02, delayChildren: 0 },
-  },
-};
-
-const listItem = {
-  hidden: { opacity: 0, y: 4 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.12, ease: "easeOut" as const },
-  },
-};
+import { useMCPServers } from "../hooks/use-mcp-servers";
+import { MCPServerForm } from "./MCPServerForm";
 
 /* ── shimmer skeleton ── */
 function ServerSkeleton() {
@@ -83,89 +58,36 @@ export function MCPDialog({
   onOpenChange,
 }: MCPDialogProps) {
   const { t } = useTranslation();
-  const [servers, setServers] = useState<readonly MCPServer[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const [showForm, setShowForm] = useState(false);
-  const [formName, setFormName] = useState("");
-  const [formTransport, setFormTransport] = useState<"stdio" | "sse">("sse");
-  const [formCommand, setFormCommand] = useState("");
-  const [formUrl, setFormUrl] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  const [serverToDelete, setServerToDelete] = useState<string | null>(null);
-
-  const loadServers = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await fetchMCPServers();
-      setServers(data);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load servers");
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const {
+    servers,
+    loading,
+    error,
+    setError,
+    showForm,
+    setShowForm,
+    formName,
+    setFormName,
+    formTransport,
+    setFormTransport,
+    formCommand,
+    setFormCommand,
+    formUrl,
+    setFormUrl,
+    submitting,
+    serverToDelete,
+    setServerToDelete,
+    loadServers,
+    resetForm,
+    handleAdd,
+    handleDelete,
+    handleToggle,
+  } = useMCPServers();
 
   useEffect(() => {
     if (open) {
       loadServers();
     }
   }, [open, loadServers]);
-
-  const resetForm = () => {
-    setFormName("");
-    setFormCommand("");
-    setFormUrl("");
-    setFormTransport("sse");
-    setShowForm(false);
-  };
-
-  const handleAdd = async () => {
-    if (!formName.trim()) return;
-    setSubmitting(true);
-    setError(null);
-    try {
-      await addMCPServer({
-        name: formName.trim(),
-        transport: formTransport,
-        command: formTransport === "stdio" ? formCommand : "",
-        url: formTransport === "sse" ? formUrl : "",
-      });
-      resetForm();
-      await loadServers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to add server");
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleDelete = async () => {
-    if (!serverToDelete) return;
-    setError(null);
-    try {
-      await removeMCPServer(serverToDelete);
-      setServerToDelete(null);
-      await loadServers();
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to remove server",
-      );
-    }
-  };
-
-  const handleToggle = useCallback(async (name: string, enabled: boolean) => {
-    setError(null);
-    try {
-      await toggleMCPServer(name, enabled);
-      await loadServers();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle server");
-    }
-  }, [loadServers]);
 
   return (
     <>
@@ -319,6 +241,7 @@ export function MCPDialog({
                       size="icon-sm"
                       className="shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       onClick={() => setServerToDelete(server.name)}
+                      aria-label={t("mcp.removeServer", { name: server.name })}
                     >
                       <Trash2 className="h-3.5 w-3.5" />
                     </Button>
@@ -334,110 +257,29 @@ export function MCPDialog({
       </Dialog>
 
       {/* Add server dialog */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
+      <Dialog open={showForm} onOpenChange={(isOpen) => { if (!isOpen) resetForm(); }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("mcp.addFormTitle")}</DialogTitle>
             <DialogDescription>{t("mcp.subtitle")}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            {/* Error inside dialog */}
-            {error && (
-              <div className="flex items-center gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2">
-                <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-destructive" />
-                <p className="flex-1 text-sm text-destructive">{error}</p>
-                <button
-                  type="button"
-                  onClick={() => setError(null)}
-                  className="rounded-sm p-0.5 text-destructive transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
-
-            {/* Name */}
-            <div className="space-y-1.5">
-              <Label htmlFor="mcp-dialog-name" className="text-xs">
-                {t("mcp.name")}
-              </Label>
-              <Input
-                id="mcp-dialog-name"
-                placeholder={t("mcp.namePlaceholder")}
-                value={formName}
-                onChange={(e) => setFormName(e.target.value)}
-                className="font-mono"
-                autoFocus
-              />
-            </div>
-
-            {/* Transport toggle */}
-            <div className="space-y-1.5">
-              <Label className="text-xs">{t("mcp.transport")}</Label>
-              <TransportToggle value={formTransport} onChange={setFormTransport} />
-            </div>
-
-            {/* Transport-specific field */}
-            {formTransport === "stdio" ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="mcp-dialog-command" className="text-xs">
-                  {t("mcp.command")}
-                </Label>
-                <Input
-                  id="mcp-dialog-command"
-                  placeholder={t("mcp.commandPlaceholder")}
-                  value={formCommand}
-                  onChange={(e) => setFormCommand(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && formName.trim() && !submitting) {
-                      handleAdd();
-                    }
-                  }}
-                  className="font-mono"
-                />
-              </div>
-            ) : (
-              <div className="space-y-1.5">
-                <Label htmlFor="mcp-dialog-url" className="text-xs">
-                  {t("mcp.urlLabel")}
-                </Label>
-                <Input
-                  id="mcp-dialog-url"
-                  placeholder={t("mcp.urlPlaceholder")}
-                  value={formUrl}
-                  onChange={(e) => setFormUrl(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && formName.trim() && !submitting) {
-                      handleAdd();
-                    }
-                  }}
-                  className="font-mono"
-                />
-              </div>
-            )}
-
-            {/* Actions */}
-            <div className="flex justify-end gap-2 pt-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={resetForm}
-              >
-                {t("mcp.cancel")}
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleAdd}
-                disabled={submitting || !formName.trim()}
-              >
-                {submitting && (
-                  <span className="mr-1.5 inline-block h-3.5 w-3.5 skeleton-shimmer rounded-sm" />
-                )}
-                {t("mcp.connect")}
-              </Button>
-            </div>
-          </div>
+          <MCPServerForm
+            error={error}
+            onDismissError={() => setError(null)}
+            formName={formName}
+            onFormNameChange={setFormName}
+            formTransport={formTransport}
+            onFormTransportChange={setFormTransport}
+            formCommand={formCommand}
+            onFormCommandChange={setFormCommand}
+            formUrl={formUrl}
+            onFormUrlChange={setFormUrl}
+            submitting={submitting}
+            onSubmit={handleAdd}
+            onCancel={resetForm}
+            idPrefix="mcp-dialog"
+          />
         </DialogContent>
       </Dialog>
 

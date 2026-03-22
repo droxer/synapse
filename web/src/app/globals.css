@@ -34,7 +34,11 @@
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
   --color-accent-purple: #8B5CF6;
+  --color-accent-blue: #3B82F6;
   --color-ai-glow: #8B5CF6;
+
+  --color-accent: var(--color-secondary);
+  --color-accent-foreground: var(--color-foreground);
 
   --color-user-accent: #3B82F6;
   --color-user-accent-dim: rgba(59, 130, 246, 0.06);
@@ -176,7 +180,10 @@
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
   --color-accent-purple: #8B5CF6;
+  --color-accent-blue: #3B82F6;
   --color-ai-glow: #8B5CF6;
+  --color-accent: var(--color-secondary);
+  --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #3B82F6;
   --color-user-accent-dim: rgba(59, 130, 246, 0.06);
   --color-ai-surface: rgba(139, 92, 246, 0.05);
@@ -224,7 +231,10 @@
   --color-accent-amber: #D97706;
   --color-accent-rose: #F87171;
   --color-accent-purple: #8B5CF6;
+  --color-accent-blue: #3B82F6;
   --color-ai-glow: #8B5CF6;
+  --color-accent: var(--color-secondary);
+  --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #3B82F6;
   --color-user-accent-dim: rgba(59, 130, 246, 0.08);
   --color-ai-surface: rgba(139, 92, 246, 0.04);

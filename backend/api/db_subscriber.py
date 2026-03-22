@@ -23,7 +23,11 @@ from sqlalchemy.exc import (
 )
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
-from agent.state.repository import ConversationRepository, SkillRepository
+from agent.state.repository import (
+    ConversationRepository,
+    SkillRepository,
+    UsageRepository,
+)
 from api.events import AgentEvent, EventType, SubscriberCallback
 
 # Event types that should not be persisted (too noisy or ephemeral)
@@ -190,6 +194,7 @@ def create_db_subscriber(
     pending_writes: PendingWrites | None = None,
     skill_repo: SkillRepository | None = None,
     user_id: uuid.UUID | None = None,
+    usage_repo: UsageRepository | None = None,
 ) -> SubscriberCallback:
     """Create an async event subscriber that persists to PostgreSQL."""
 
@@ -325,6 +330,27 @@ def create_db_subscriber(
                             skill_name,
                             conversation_id,
                         )
+
+                elif event.type == EventType.LLM_RESPONSE:
+                    await repo.save_event(
+                        session,
+                        conversation_id,
+                        event_type=event.type.value,
+                        data=clean,
+                        iteration=event.iteration,
+                    )
+                    if usage_repo is not None:
+                        usage = clean.get("usage", {})
+                        input_tok = usage.get("input_tokens", 0)
+                        output_tok = usage.get("output_tokens", 0)
+                        if input_tok or output_tok:
+                            await usage_repo.increment(
+                                session,
+                                conversation_id,
+                                user_id,
+                                input_tokens=input_tok,
+                                output_tokens=output_tok,
+                            )
 
                 elif event.type == EventType.CONVERSATION_TITLE:
                     title = clean.get("title", "")

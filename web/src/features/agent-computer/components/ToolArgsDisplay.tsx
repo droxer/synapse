@@ -5,10 +5,9 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { formatArgValue } from "../lib/format-tools";
+import type { TFn } from "@/shared/types/i18n";
 
 const VALUE_TRUNCATE = 120;
-
-type TFn = (key: string, params?: Record<string, string | number>) => string;
 
 const ARG_KEY_I18N: Record<string, string> = {
   url: "tools.arg.url",

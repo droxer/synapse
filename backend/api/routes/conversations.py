@@ -269,6 +269,7 @@ async def _reconstruct_conversation(
         state.db_pending_writes,
         skill_repo=state.skill_repo,
         user_id=convo.user_id,
+        usage_repo=state.usage_repo,
     )
     emitter.subscribe(db_sub)
 
@@ -538,6 +539,7 @@ async def create_conversation(
         state.db_pending_writes,
         skill_repo=state.skill_repo,
         user_id=user_id,
+        usage_repo=state.usage_repo,
     )
     emitter.subscribe(db_sub)
 

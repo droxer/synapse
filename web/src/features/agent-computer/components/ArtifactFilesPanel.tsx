@@ -4,6 +4,7 @@ import { useState, useCallback } from "react";
 import { Download, Eye, FolderOpen } from "lucide-react";
 import { motion } from "framer-motion";
 import { IconButton } from "@/shared/components/IconButton";
+import { downloadFile } from "@/shared/lib/download";
 import { useTranslation } from "@/i18n";
 import type { ArtifactInfo } from "@/shared/types";
 import {
@@ -38,12 +39,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
     (artifact: ArtifactInfo) => {
       const url = getArtifactUrl(artifact.id);
       if (!url) return;
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = artifact.name;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      downloadFile(url, artifact.name);
     },
     [getArtifactUrl],
   );
@@ -94,7 +90,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
             onClick={handleRowClick}
             role="button"
             tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") handleRowClick(); }}
+            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); handleRowClick(); } }}
           >
             <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-md ${colors.bg}`}>
               <Icon className={`h-4 w-4 ${colors.icon}`} />

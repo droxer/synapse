@@ -3,17 +3,16 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckSquare, XSquare, Loader2, ListChecks, Square } from "lucide-react";
 import { useTranslation } from "@/i18n";
-import type { PlanStep, TaskState } from "@/shared/types";
+import type { PlanStep } from "@/shared/types";
 
 interface PlanChecklistPanelProps {
   readonly planSteps: PlanStep[];
-  readonly taskState: TaskState;
 }
 
 function StepIcon({ status }: { readonly status: PlanStep["status"] }) {
   switch (status) {
     case "running":
-      return <Loader2 className="h-4 w-4 animate-spin text-accent-blue" />;
+      return <Loader2 className="h-4 w-4 animate-spin text-user-accent" />;
     case "complete":
       return <CheckSquare className="h-4 w-4 text-accent-emerald" />;
     case "error":
@@ -23,7 +22,7 @@ function StepIcon({ status }: { readonly status: PlanStep["status"] }) {
   }
 }
 
-export function PlanChecklistPanel({ planSteps, taskState: _taskState }: PlanChecklistPanelProps) {
+export function PlanChecklistPanel({ planSteps }: PlanChecklistPanelProps) {
   const { t } = useTranslation();
 
   if (planSteps.length === 0) {
