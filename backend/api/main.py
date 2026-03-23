@@ -34,6 +34,7 @@ from api.routes import (
     conversations,
     library,
     mcp,
+    memory,
     skill_files,
     skills,
     usage,
@@ -192,6 +193,7 @@ def _create_app() -> FastAPI:
     application.include_router(skill_files.router)
     application.include_router(library.router)
     application.include_router(usage.router)
+    application.include_router(memory.router)
 
     return application
 

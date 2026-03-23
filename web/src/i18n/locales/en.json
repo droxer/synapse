@@ -514,5 +514,19 @@
   "preferences.theme.darkDesc": "Easy on the eyes",
   "preferences.theme.systemDesc": "Follows your OS setting",
   "preferences.language.title": "Display Language",
-  "preferences.language.description": "Choose your preferred language"
+  "preferences.language.description": "Choose your preferred language",
+
+  "preferences.tabs.memory": "Memory",
+  "preferences.memory.title": "Agent Memory",
+  "preferences.memory.description": "Memory entries stored by agents during conversations",
+  "preferences.memory.key": "Key",
+  "preferences.memory.value": "Value",
+  "preferences.memory.scope": "Scope",
+  "preferences.memory.lastUpdated": "Updated",
+  "preferences.memory.noData": "No memory entries yet",
+  "preferences.memory.conversation": "Conversation",
+  "preferences.memory.global": "Global",
+  "preferences.memory.page": "Page {current} of {total}",
+  "preferences.memory.previous": "Previous",
+  "preferences.memory.next": "Next"
 }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Zap, Sun, Globe, type LucideIcon } from "lucide-react";
+import { Zap, Sun, Globe, Brain, type LucideIcon } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,6 +12,7 @@ import { useTranslation } from "@/i18n";
 import { TokenUsageTab } from "./components/TokenUsageTab";
 import { ThemeTab } from "./components/ThemeTab";
 import { LanguageTab } from "./components/LanguageTab";
+import { MemoryTab } from "./components/MemoryTab";
 
 interface PreferencesDialogProps {
   readonly open: boolean;
@@ -28,12 +29,14 @@ const MENU_ITEMS: readonly MenuItem[] = [
   { id: "theme", labelKey: "preferences.tabs.theme", icon: Sun },
   { id: "language", labelKey: "preferences.tabs.language", icon: Globe },
   { id: "usage", labelKey: "preferences.tabs.tokenUsage", icon: Zap },
+  { id: "memory", labelKey: "preferences.tabs.memory", icon: Brain },
 ];
 
 const PANELS: Record<string, () => React.JSX.Element> = {
   theme: ThemeTab,
   language: LanguageTab,
   usage: TokenUsageTab,
+  memory: MemoryTab,
 };
 
 export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps) {

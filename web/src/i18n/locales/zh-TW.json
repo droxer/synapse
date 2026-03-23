@@ -513,5 +513,19 @@
   "preferences.theme.darkDesc": "護眼舒適",
   "preferences.theme.systemDesc": "跟隨作業系統設定",
   "preferences.language.title": "顯示語言",
-  "preferences.language.description": "選擇你偏好的語言"
+  "preferences.language.description": "選擇你偏好的語言",
+
+  "preferences.tabs.memory": "記憶",
+  "preferences.memory.title": "智能體記憶",
+  "preferences.memory.description": "智能體在對話中儲存的記憶條目",
+  "preferences.memory.key": "鍵",
+  "preferences.memory.value": "值",
+  "preferences.memory.scope": "範圍",
+  "preferences.memory.lastUpdated": "更新時間",
+  "preferences.memory.noData": "暫無記憶條目",
+  "preferences.memory.conversation": "對話",
+  "preferences.memory.global": "全域",
+  "preferences.memory.page": "第 {current} 頁，共 {total} 頁",
+  "preferences.memory.previous": "上一頁",
+  "preferences.memory.next": "下一頁"
 }

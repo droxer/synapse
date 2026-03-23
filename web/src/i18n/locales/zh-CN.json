@@ -514,5 +514,19 @@
   "preferences.theme.darkDesc": "护眼舒适",
   "preferences.theme.systemDesc": "跟随操作系统设置",
   "preferences.language.title": "显示语言",
-  "preferences.language.description": "选择你偏好的语言"
+  "preferences.language.description": "选择你偏好的语言",
+
+  "preferences.tabs.memory": "记忆",
+  "preferences.memory.title": "智能体记忆",
+  "preferences.memory.description": "智能体在对话中存储的记忆条目",
+  "preferences.memory.key": "键",
+  "preferences.memory.value": "值",
+  "preferences.memory.scope": "范围",
+  "preferences.memory.lastUpdated": "更新时间",
+  "preferences.memory.noData": "暂无记忆条目",
+  "preferences.memory.conversation": "对话",
+  "preferences.memory.global": "全局",
+  "preferences.memory.page": "第 {current} 页，共 {total} 页",
+  "preferences.memory.previous": "上一页",
+  "preferences.memory.next": "下一页"
 }
