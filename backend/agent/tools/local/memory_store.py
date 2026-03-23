@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -13,6 +13,9 @@ from agent.tools.base import (
     ToolResult,
 )
 
+if TYPE_CHECKING:
+    from agent.memory.store import PersistentMemoryStore
+
 
 class MemoryStore(LocalTool):
     """Store a value in the agent's memory under a namespaced key."""
@@ -20,7 +23,7 @@ class MemoryStore(LocalTool):
     def __init__(
         self,
         store: dict[str, str] | None = None,
-        persistent_store: Any | None = None,
+        persistent_store: PersistentMemoryStore | None = None,
     ) -> None:
         self._store = store if store is not None else {}
         self._persistent = persistent_store

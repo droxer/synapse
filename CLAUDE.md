@@ -66,9 +66,10 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`api/routes/skill_files.py`** — Skill file browsing: directory tree and file content endpoints
 - **`api/routes/mcp.py`** — MCP server connection management
 - **`api/routes/auth.py`** — Authentication endpoints: user sync on Google OAuth login, profile retrieval, and preference updates (theme, locale)
+- **`api/routes/memory.py`** — Memory entry browsing and deletion endpoints (`GET /memory`, `DELETE /memory/{id}`), filtered by authenticated user
 - **`api/routes/library.py`** — Library endpoint: artifacts grouped by conversation for browsing
 - **`api/auth/`** — Authentication middleware: `middleware.py` (proxy secret verification, rate limiting, NextAuth header extraction for `AuthUser`)
-- **`api/builders.py`** — Factory functions for orchestrator and sandbox provider creation
+- **`api/builders.py`** — Factory functions for orchestrator and sandbox provider creation. Includes `_format_memory_prompt_section()` for injecting user memories into system prompts.
 - **`api/events.py`** — EventEmitter pub/sub for real-time updates
 - **`api/dependencies.py`** — FastAPI dependency injection (`AppState` container)
 - **`agent/runtime/orchestrator.py`** — Core ReAct loop (`AgentOrchestrator`). Manages LLM calls, tool execution, and iteration tracking. Uses `AgentState` (frozen dataclass) for immutable state.
@@ -79,12 +80,12 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`agent/runtime/observer.py`** — Token-aware tiered context compaction: estimates token usage (`chars/4` heuristic), keeps recent interactions verbatim (hot tier), summarises older interactions via Haiku (warm tier), falls back to truncation on failure. Emits `CONTEXT_COMPACTED` event.
 - **`agent/llm/client.py`** — Claude API client (anthropic SDK) with tool-use support, retry logic, extended thinking
 - **`agent/tools/`** — Tool system: `base.py` (abstractions), `registry.py` (immutable registry), `executor.py` (execution engine). Tools split into:
-  - `local/` — web_search, web_fetch, memory, ask_user, message_user, image_gen, activate_skill, task_complete
+  - `local/` — web_search, web_fetch, memory_store/memory_search/memory_list (user-scoped persistent memory), ask_user, message_user, image_gen, activate_skill, task_complete
   - `sandbox/` — code_interpret, code_run, browser (with step tracking), computer_use (with action metadata), file_ops, database, doc_gen, preview, shell_exec, package_install
   - `meta/` — plan_create (declare plan before spawning), spawn_task_agent (with agent names), wait_for_agents, send_message
 - **`agent/sandbox/`** — Execution sandbox providers: `boxlite_provider.py` (primary, micro-VMs), `e2b_provider.py` (cloud), `local_provider.py` (dev)
 - **`agent/skills/`** — Skill system: `discovery.py` (finds skills), `loader.py` (immutable registry + matching), `parser.py` (SKILL.md frontmatter), `installer.py` (GitHub cloning), `registry_client.py` (external registry API), `models.py` (SkillMetadata, SkillContent, SkillCatalogEntry)
-- **`agent/memory/`** — Persistent per-conversation memory (`PersistentMemoryStore` + `MemoryEntry` SQLAlchemy model)
+- **`agent/memory/`** — User-scoped persistent memory (`PersistentMemoryStore` + `MemoryEntry` SQLAlchemy model). Entries are scoped by `user_id` and accessible across all conversations. Memories are loaded into the system prompt at conversation start via `load_all()` and injected by `_format_memory_prompt_section()` in `api/builders.py`.
 - **`agent/state/`** — Conversation persistence: `database.py` (SQLAlchemy async engine), `models.py` (ConversationModel, MessageModel, EventModel, ArtifactModel, AgentRunModel, UserModel), `repository.py` (data access), `schemas.py` (Pydantic DTOs)
 - **`agent/artifacts/`** — Sandbox artifact extraction (`ArtifactManager`) and storage (`StorageBackend` with local/R2)
 - **`agent/mcp/`** — Model Context Protocol: `client.py` (stdio-based MCP communication), `bridge.py` (tool registration), `config.py` (server configuration)
@@ -105,6 +106,8 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`src/features/skills/`** — Skills browser: `SkillsPage.tsx`, `SkillSelector.tsx`, `SkillCard.tsx`
 - **`src/features/mcp/`** — MCP configuration: `MCPPage.tsx`, `MCPDialog.tsx`, `TransportToggle.tsx`
 - **`src/features/library/`** — Artifact library: `LibraryPage.tsx` (grouped by conversation), `LibraryArtifactCard.tsx`, `ConversationGroup.tsx`, `ViewModeToggle.tsx`
+- **`src/features/preferences/`** — Preferences dialog: `PreferencesDialog.tsx`, `MemoryTab.tsx` (memory entry browser with pagination and delete), `hooks/use-memory-entries.ts`
+- **`src/shared/api/memory-api.ts`** — Memory API layer: `fetchMemoryEntries`, `deleteMemoryEntry`
 - **`src/shared/hooks/use-sse.ts`** — SSE hook with auto-reconnect consuming `/api/conversations/{id}/events`
 - **`src/shared/stores/app-store.ts`** — Zustand persistent store for conversation history and app state
 - **`src/shared/types/events.ts`** — AgentEvent, EventType, TaskState type definitions
@@ -177,3 +180,4 @@ Python 3.12+, Node.js with npm, `uv` package manager for backend. Rust 1.77+ for
 - **Factory functions**: `api/builders.py` creates orchestrators and sandbox providers for dependency injection
 - **Skill auto-matching**: User messages matched against skill descriptions by keyword overlap; best match injected into system prompt
 - **Agent naming**: Spawned agents receive user-friendly names passed via `spawn_task_agent` (required in plan mode, optional in default mode). Normalized via `normalizeAgentName` in frontend.
+- **Personal memory**: User-scoped persistent memory (`PersistentMemoryStore`) keyed by `user_id`. Entries are loaded via `load_all()` and injected into the system prompt at conversation start, making memories available across all conversations. Agents can store/search/list via `memory_store`, `memory_search`, `memory_list` tools. Users can browse and delete entries in the preferences Memory tab.

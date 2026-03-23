@@ -234,8 +234,12 @@ async def _reconstruct_conversation(
 
     persistent_store = PersistentMemoryStore(
         session_factory=state.db_session_factory,
+        user_id=convo.user_id,
         conversation_id=conv_uuid,
     )
+
+    # Load user memories for system prompt injection
+    memory_entries = await persistent_store.load_all()
 
     # Build a user-scoped skill registry for this conversation's owner
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
@@ -249,6 +253,7 @@ async def _reconstruct_conversation(
         persistent_store=persistent_store,
         mcp_state=state.mcp_state,
         skill_registry=user_skill_registry,
+        memory_entries=memory_entries,
     )
 
     entry = ConversationEntry(
@@ -459,13 +464,17 @@ async def create_conversation(
     subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
     emitter.subscribe(subscriber)
 
+    # Resolve user before building orchestrator so we can scope resources
+    user_id = await _resolve_user_id(auth_user, state)
+
     persistent_store = PersistentMemoryStore(
         session_factory=state.db_session_factory,
+        user_id=user_id,
         conversation_id=conv_uuid,
     )
 
-    # Resolve user before building orchestrator so we can scope resources
-    user_id = await _resolve_user_id(auth_user, state)
+    # Load user memories for system prompt injection
+    memory_entries = await persistent_store.load_all()
 
     # Lazily restore per-user MCP servers if not already loaded
     if user_id and state.mcp_state:
@@ -489,6 +498,7 @@ async def create_conversation(
             persistent_store=persistent_store,
             mcp_state=state.mcp_state,
             skill_registry=user_skill_registry,
+            memory_entries=memory_entries,
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -499,6 +509,7 @@ async def create_conversation(
             persistent_store=persistent_store,
             mcp_state=state.mcp_state,
             skill_registry=user_skill_registry,
+            memory_entries=memory_entries,
         )
 
     entry = ConversationEntry(

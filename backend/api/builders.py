@@ -295,6 +295,30 @@ def _build_sub_agent_registry_factory(
 # ---------------------------------------------------------------------------
 
 
+def _format_memory_prompt_section(
+    memory_entries: list[dict[str, str]],
+) -> str:
+    """Format memory entries as a system prompt section."""
+    if not memory_entries:
+        return ""
+    lines = [
+        "\n<personal_memory>",
+        "The following are things you have previously remembered about this user. "
+        "Use this context to personalise your responses. "
+        "You can update or add new memories with the memory_store tool.",
+    ]
+    for entry in memory_entries:
+        ns = entry.get("namespace", "default")
+        key = entry["key"]
+        value = entry["value"]
+        if ns != "default":
+            lines.append(f"- [{ns}] {key}: {value}")
+        else:
+            lines.append(f"- {key}: {value}")
+    lines.append("</personal_memory>")
+    return "\n".join(lines)
+
+
 def _build_orchestrator(
     claude_client: AnthropicClient,
     event_emitter: EventEmitter,
@@ -304,6 +328,7 @@ def _build_orchestrator(
     persistent_store: PersistentMemoryStore | None = None,
     mcp_state: MCPState | None = None,
     skill_registry: SkillRegistry | None = None,
+    memory_entries: list[dict[str, str]] | None = None,
 ) -> tuple[AgentOrchestrator, ToolExecutor]:
     """Build an AgentOrchestrator using a callback holder to avoid two-phase construction."""
     settings = get_settings()
@@ -336,6 +361,11 @@ def _build_orchestrator(
         if catalog_section:
             system_prompt = system_prompt + "\n" + catalog_section
 
+    # Append personal memory to system prompt
+    memory_section = _format_memory_prompt_section(memory_entries or [])
+    if memory_section:
+        system_prompt = system_prompt + "\n" + memory_section
+
     orchestrator = AgentOrchestrator(
         claude_client=claude_client,
         tool_registry=registry,
@@ -360,6 +390,7 @@ def _build_planner_orchestrator(
     persistent_store: PersistentMemoryStore | None = None,
     mcp_state: MCPState | None = None,
     skill_registry: SkillRegistry | None = None,
+    memory_entries: list[dict[str, str]] | None = None,
 ) -> tuple[PlannerOrchestrator, ToolExecutor]:
     """Build a PlannerOrchestrator with properly wired sub-agent registries."""
     settings = get_settings()
@@ -406,6 +437,11 @@ def _build_planner_orchestrator(
             from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 
             planner_prompt = PLANNER_SYSTEM_PROMPT + "\n" + catalog_section
+
+    # Append personal memory to planner system prompt
+    memory_section = _format_memory_prompt_section(memory_entries or [])
+    if memory_section:
+        planner_prompt = planner_prompt + "\n" + memory_section
 
     orchestrator = PlannerOrchestrator(
         claude_client=claude_client,

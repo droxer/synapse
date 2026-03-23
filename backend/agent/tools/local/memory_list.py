@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -14,6 +15,9 @@ from agent.tools.base import (
     ToolResult,
 )
 
+if TYPE_CHECKING:
+    from agent.memory.store import PersistentMemoryStore
+
 
 class MemoryList(LocalTool):
     """List all entries in the agent's memory."""
@@ -21,7 +25,7 @@ class MemoryList(LocalTool):
     def __init__(
         self,
         store: dict[str, str] | None = None,
-        persistent_store: Any | None = None,
+        persistent_store: PersistentMemoryStore | None = None,
     ) -> None:
         self._store = store if store is not None else {}
         self._persistent = persistent_store
@@ -57,7 +61,9 @@ class MemoryList(LocalTool):
                 )
             except Exception as exc:
                 logger.warning(
-                    "memory_persistent_store_fallback key={} error={}", "list", exc
+                    "memory_persistent_list_fallback namespace={} error={}",
+                    namespace,
+                    exc,
                 )
 
         # Fallback to in-memory

@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import json
-from typing import Any
+
+from typing import TYPE_CHECKING, Any
 
 from loguru import logger
 
@@ -14,6 +15,9 @@ from agent.tools.base import (
     ToolResult,
 )
 
+if TYPE_CHECKING:
+    from agent.memory.store import PersistentMemoryStore
+
 
 class MemoryRecall(LocalTool):
     """Search the agent's memory for entries matching a query."""
@@ -21,7 +25,7 @@ class MemoryRecall(LocalTool):
     def __init__(
         self,
         store: dict[str, str] | None = None,
-        persistent_store: Any | None = None,
+        persistent_store: PersistentMemoryStore | None = None,
     ) -> None:
         self._store = store if store is not None else {}
         self._persistent = persistent_store
@@ -68,7 +72,7 @@ class MemoryRecall(LocalTool):
                 )
             except Exception as exc:
                 logger.warning(
-                    "memory_persistent_store_fallback key={} error={}", "recall", exc
+                    "memory_persistent_recall_fallback query={} error={}", query, exc
                 )
 
         # Fallback to in-memory search
