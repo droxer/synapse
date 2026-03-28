@@ -92,11 +92,12 @@ class ShellView(SandboxTool):
         session_id: str = kwargs.get("id", "")
         lines: int = kwargs.get("lines", 50)
 
-        session_id = _validate_session_id(session_id) if session_id else None
-        if session_id is None:
+        validated_id = _validate_session_id(session_id) if session_id else None
+        if validated_id is None:
             return ToolResult.fail(
                 "Invalid session id. Use 1-64 alphanumeric characters, hyphens, or underscores."
             )
+        session_id = validated_id
 
         sdir = _session_dir(session_id)
 
@@ -121,7 +122,7 @@ class ShellView(SandboxTool):
                 status = "running" if running else "exited"
 
             output = result.stdout or "(no output)"
-            metadata = {"session_id": session_id, "status": status}
+            metadata: dict[str, Any] = {"session_id": session_id, "status": status}
             if pid is not None:
                 metadata["pid"] = pid
 
@@ -174,11 +175,12 @@ class ShellWait(SandboxTool):
         session_id: str = kwargs.get("id", "")
         timeout: int = kwargs.get("timeout", 30)
 
-        session_id = _validate_session_id(session_id) if session_id else None
-        if session_id is None:
+        validated_id = _validate_session_id(session_id) if session_id else None
+        if validated_id is None:
             return ToolResult.fail(
                 "Invalid session id. Use 1-64 alphanumeric characters, hyphens, or underscores."
             )
+        session_id = validated_id
 
         sdir = _session_dir(session_id)
 
@@ -292,11 +294,12 @@ class ShellWrite(SandboxTool):
         session_id: str = kwargs.get("id", "")
         stdin_input: str = kwargs.get("input", "")
 
-        session_id = _validate_session_id(session_id) if session_id else None
-        if session_id is None:
+        validated_id = _validate_session_id(session_id) if session_id else None
+        if validated_id is None:
             return ToolResult.fail(
                 "Invalid session id. Use 1-64 alphanumeric characters, hyphens, or underscores."
             )
+        session_id = validated_id
 
         sdir = _session_dir(session_id)
 
@@ -374,11 +377,12 @@ class ShellKill(SandboxTool):
         session_id: str = kwargs.get("id", "")
         signal: str = kwargs.get("signal", "TERM")
 
-        session_id = _validate_session_id(session_id) if session_id else None
-        if session_id is None:
+        validated_id = _validate_session_id(session_id) if session_id else None
+        if validated_id is None:
             return ToolResult.fail(
                 "Invalid session id. Use 1-64 alphanumeric characters, hyphens, or underscores."
             )
+        session_id = validated_id
 
         # Validate signal against allowlist (defense-in-depth beyond JSON schema)
         if signal not in _ALLOWED_SIGNALS:

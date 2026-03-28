@@ -116,6 +116,7 @@
 - **使用冷色 slate 中性色** — 全面使用 slate 系灰色。禁止使用暖 stone/sand/琥珀色调灰色令牌。
 - **禁止透明度修饰的边框** — 使用 `border-border`（默认）、`border-border-strong`（悬停）或 `border-border-active`（聚焦）。禁止使用 `border-border/60`、`bg-border/60` 或其他边框透明度修饰符。
 - **禁止透明度修饰的文字对比度** — 使用 `text-muted-foreground-dim` 替代 `text-muted-foreground/60` 或 `text-muted-foreground/40`。dim 令牌可确保 WCAG AA 对比度。
+- **Iframe 隔离内容** — 对于 iframe 内的 HTML 内容（如文档预览），使用带后备值的 CSS 自定义属性：`color: var(--color-foreground, #0f172a)`。
 
 ---
 
@@ -149,7 +150,9 @@
 | `--lh-normal` | 1.5 | 正文文字、UI 标签 |
 | `--lh-relaxed` | 1.625 | 长文内容、Markdown 散文 |
 
-**禁止使用任意尺寸。** 不得使用 `text-[11px]`、`text-[13px]`、`text-[15px]` 或 `text-[0.9375rem]`。若所需值不在此表中，请选择最接近的比例令牌。
+**禁止使用任意尺寸。** 不得使用 `text-[11px]`、`text-[13px]`、`text-[0.8125rem]`、`text-[15px]` 或 `text-[0.9375rem]`。若所需值不在此表中，请选择最接近的比例令牌。
+
+**注意：** `text-[10px]` 可接受，因为它对应 Micro 尺寸（`--font-size-micro: 0.625rem`），但优先使用 `text-micro` 工具类（如果可用）。
 
 ### 字重与字距
 
@@ -158,6 +161,18 @@
 - 交互元素：Medium (500)
 - 等宽字体用于：代码、原始数据、终端/处理日志、键盘快捷键标签
 - 终端/处理日志文字应使用注释尺寸（`text-xs`，12px）以增加信息密度
+
+### 代码元素默认值
+
+`pre` 和 `code` 元素的基础样式：
+
+```css
+pre, code {
+  font-family: var(--font-mono);   /* Geist Mono → 系统等宽字体回退 */
+  font-size: var(--text-sm);       /* 14px — 禁止使用 0.8125rem 或 13px */
+  line-height: var(--lh-relaxed);  /* 1.625 */
+}
+```
 
 ### 渲染
 
@@ -288,7 +303,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 - **禁止对内容元素使用 `scale`** — 消息、卡片、状态指示器、圆点、进入动画。缩放仅用于按钮。包括圆点上的 `scale: [1, 1.4, 1]` 脉冲和进入动画中的 `scale: 0.98` — 应使用透明度 + translateY 代替。
 - **禁止发光效果** — `box-shadow: 0 0 Xpx` 光晕、`aiGlow` 关键帧、`orbitalPulse` 动画和锥形渐变旋转边框均被禁止。使用细微阴影抬升和透明度脉冲代替。
 - **禁止渐变网格背景** — 移除动态多重渐变背景（`meshDrift`）。最多使用单一细微径向渐变。
-- **禁止毛玻璃效果** — 在输入框、卡片和对话框上使用 `backdrop-blur-sm bg-card/80` 被禁止。应使用纯色 `bg-card`。`backdrop-blur-md` 仅允许用于模态框遮罩背景（对话框后方的暗化层）。
+- **禁止毛玻璃效果** — 在输入框、卡片、状态徽章和对话框上使用 `backdrop-blur-sm bg-card/80` 被禁止。应使用纯色 `bg-card` 或 `bg-secondary`。`backdrop-blur-md` **仅**允许用于模态框遮罩背景（对话框后方的暗化层）。
 - **禁止多余的进入动画** — 动效仅用于状态变化。禁止在静态标题文字上使用装饰性 `filter: blur()`。
 - **尊重 `prefers-reduced-motion`** — 用 `<MotionConfig reducedMotion="user">` 包裹应用（Framer Motion）。globals.css 中的 CSS `prefers-reduced-motion` 媒体查询不会影响 JS 驱动的 Framer Motion 动画。
 
@@ -492,6 +507,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 | `Montserrat` 字体引用 | 使用 `Geist Sans`（`--font-geist`），Inter 仅作为回退 |
 | `text-muted-foreground/60`、`/40` | 使用 `text-muted-foreground-dim`（WCAG AA） |
 | `border-border/60`、`bg-border/60` | 使用 `border-border`（无透明度修饰符） |
+| `backdrop-blur-sm` 用于 UI 元素 | 移除 — 仅使用纯色背景 |
 | `border-[var(--color-border-active)]` | 使用 `border-border-active`（Tailwind 令牌） |
 | `scale: 0.98` 用于进入动画 | 移除缩放 — 仅使用 `opacity` + `y` |
 | 独立的 WelcomeScreen textarea | 使用 `ChatInput variant="welcome"` |

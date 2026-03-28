@@ -28,16 +28,16 @@ function ThemePreview({ variant }: { readonly variant: ThemeValue }) {
       : "bg-gradient-to-r from-[#f8fafc] to-[#1e293b]";
 
   const barColor = variant === "dark"
-    ? "bg-slate-600"
+    ? "bg-muted-foreground"
     : variant === "light"
-      ? "bg-slate-200"
-      : "bg-gradient-to-r from-slate-200 to-slate-600";
+      ? "bg-border-strong"
+      : "bg-gradient-to-r from-border-strong to-muted-foreground";
 
   const dotColor = variant === "dark"
-    ? "bg-slate-500"
+    ? "bg-muted-foreground-dim"
     : variant === "light"
-      ? "bg-slate-300"
-      : "bg-gradient-to-r from-slate-300 to-slate-500";
+      ? "bg-border"
+      : "bg-gradient-to-r from-border to-muted-foreground-dim";
 
   return (
     <div className={cn("h-20 w-full rounded-md border border-border overflow-hidden", bg)}>
@@ -103,7 +103,7 @@ export function ThemeTab() {
             >
               {isActive && (
                 <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-accent-purple">
-                  <Check className="h-3 w-3 text-white" />
+                  <Check className="h-3 w-3 text-primary-foreground" />
                 </div>
               )}
               <ThemePreview variant={value} />

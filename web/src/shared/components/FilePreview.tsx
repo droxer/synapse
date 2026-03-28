@@ -138,10 +138,11 @@ async function convertXlsxToHtml(url: string): Promise<string> {
 const OFFICE_IFRAME_STYLES = `
 <style>
   body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: var(--font-geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
     padding: 24px 32px;
     margin: 0;
-    color: #1a1a1a;
+    color: var(--color-foreground, #0f172a);
+    background: var(--color-background, #f8fafc);
     line-height: 1.6;
     font-size: 14px;
   }
@@ -158,17 +159,17 @@ const OFFICE_IFRAME_STYLES = `
     font-size: 13px;
   }
   th, td {
-    border: 1px solid #ddd;
+    border: 1px solid var(--color-border, #e2e8f0);
     padding: 6px 10px;
     text-align: left;
     white-space: nowrap;
   }
   th {
-    background: #f5f5f5;
+    background: var(--color-secondary, #f1f5f9);
     font-weight: 600;
   }
-  tr:nth-child(even) { background: #fafafa; }
-  tr:hover { background: #f0f0f0; }
+  tr:nth-child(even) { background: var(--color-muted, #f1f5f9); }
+  tr:hover { background: var(--color-secondary, #f1f5f9); }
 </style>
 `;
 

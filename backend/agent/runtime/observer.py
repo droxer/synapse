@@ -95,6 +95,7 @@ class Observer:
     async def compact(
         self,
         messages: tuple[dict[str, Any], ...],
+        system_prompt: str = "",
     ) -> tuple[dict[str, Any], ...]:
         """Return a compacted copy of *messages*.
 

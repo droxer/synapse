@@ -123,7 +123,7 @@ class TestShellView:
         tool = ShellView()
         result = await tool.execute(session=MockSession(), id="../bad")
         assert not result.success
-        assert "Invalid session id" in result.error
+        assert "Invalid session id" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_empty_session_id(self) -> None:
@@ -137,7 +137,7 @@ class TestShellView:
         tool = ShellView()
         result = await tool.execute(session=session, id="nonexistent")
         assert not result.success
-        assert "not found" in result.error
+        assert "not found" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_session_found_running(self) -> None:
@@ -155,7 +155,7 @@ class TestShellView:
         result = await tool.execute(session=session, id="my-server")
         assert result.success
         assert "running" in result.output
-        assert result.metadata["status"] == "running"
+        assert (result.metadata or {}).get("status") == "running"
 
     @pytest.mark.asyncio
     async def test_session_found_exited(self) -> None:
@@ -200,7 +200,7 @@ class TestShellWait:
         tool = ShellWait()
         result = await tool.execute(session=session, id="missing")
         assert not result.success
-        assert "not found" in result.error
+        assert "not found" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_process_exited(self) -> None:
@@ -232,7 +232,7 @@ class TestShellWait:
         result = await tool.execute(session=session, id="server", timeout=5)
         assert result.success
         assert "timed out" in result.output
-        assert result.metadata["timed_out"] is True
+        assert (result.metadata or {}).get("timed_out") is True
 
     @pytest.mark.asyncio
     async def test_nonzero_exit_code(self) -> None:
@@ -249,7 +249,7 @@ class TestShellWait:
         result = await tool.execute(session=session, id="server", timeout=5)
         assert result.success
         assert "exited with code 1" in result.output
-        assert result.metadata["exit_code"] == 1
+        assert (result.metadata or {}).get("exit_code") == 1
 
 
 # ------------------------------------------------------------------
@@ -280,7 +280,7 @@ class TestShellWrite:
         tool = ShellWrite()
         result = await tool.execute(session=session, id="missing", input="data")
         assert not result.success
-        assert "not found" in result.error
+        assert "not found" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_process_not_running(self) -> None:
@@ -293,7 +293,7 @@ class TestShellWrite:
         tool = ShellWrite()
         result = await tool.execute(session=session, id="server", input="data")
         assert not result.success
-        assert "no longer running" in result.error
+        assert "no longer running" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_write_success(self) -> None:
@@ -321,7 +321,7 @@ class TestShellWrite:
         tool = ShellWrite()
         result = await tool.execute(session=session, id="server", input="hello")
         assert not result.success
-        assert "Failed to write" in result.error
+        assert "Failed to write" in (result.error or "")
 
 
 # ------------------------------------------------------------------
@@ -352,7 +352,7 @@ class TestShellKill:
         tool = ShellKill()
         result = await tool.execute(session=session, id="server", signal="SEGV")
         assert not result.success
-        assert "Invalid signal" in result.error
+        assert "Invalid signal" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_all_allowed_signals(self) -> None:
@@ -438,7 +438,7 @@ class TestShellExecBackground:
             session=MockSession(), command="echo hi", id="../bad"
         )
         assert not result.success
-        assert "Invalid session id" in result.error
+        assert "Invalid session id" in (result.error or "")
 
     @pytest.mark.asyncio
     async def test_background_start_success(self) -> None:
@@ -454,7 +454,7 @@ class TestShellExecBackground:
         assert result.success
         assert "5678" in result.output
         assert "dev-server" in result.output
-        assert result.metadata["session_id"] == "dev-server"
+        assert (result.metadata or {}).get("session_id") == "dev-server"
 
     @pytest.mark.asyncio
     async def test_background_start_failure(self) -> None:
@@ -482,4 +482,4 @@ class TestShellExecBackground:
         tool = ShellExec()
         result = await tool.execute(session=MockSession(), command="")
         assert not result.success
-        assert "must not be empty" in result.error
+        assert "must not be empty" in (result.error or "")

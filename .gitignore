@@ -59,4 +59,7 @@ web/dist/
 
 # Artifacts (generated images, etc.)
 backend/artifacts/
+*.db
 docs/superpowers
+.superpowers/
+.worktrees/

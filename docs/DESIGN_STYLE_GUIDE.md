@@ -116,6 +116,7 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 - **Use cool slate neutrals** — use slate-based grays throughout. Never use warm stone/brown-tinted gray tokens.
 - **No opacity-modified borders** — use `border-border` (default), `border-border-strong` (hover), or `border-border-active` (focus). Never use `border-border/60`, `bg-border/60`, or other opacity modifiers on borders.
 - **No opacity-modified text for contrast** — use `text-muted-foreground-dim` instead of `text-muted-foreground/60` or `text-muted-foreground/40`. The dim token maintains WCAG AA contrast ratios.
+- **Iframe isolated content** — For HTML content inside iframes (e.g., document previews), use CSS custom properties with fallbacks: `color: var(--color-foreground, #0f172a)`.
 
 ---
 
@@ -127,7 +128,7 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 |------|------|----------|----------|-------------|
 | Body (sans) | Geist Sans | `--font-geist` | Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Noto Sans SC/TC, PingFang SC, Microsoft YaHei, sans-serif | All body text, UI chrome, labels, headings, panel titles, including WelcomeScreen hero. Modern geometric sans designed for screens. |
 | CJK (sans) | Noto Sans SC / Noto Sans TC | `--font-noto-sans-sc`, `--font-noto-sans-tc` | PingFang SC, Microsoft YaHei, sans-serif | Chinese Simplified and Traditional text. Loaded as web fonts for consistent cross-platform rendering. |
-| Code (mono) | Geist Mono | `--font-geist-mono` | JetBrains Mono, monospace | Code blocks, raw data, terminal logs, keyboard shortcut labels |
+| Code (mono) | Geist Mono | `--font-geist-mono` | ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace | Code blocks, raw data, terminal logs, keyboard shortcut labels |
 
 ### Type Scale
 
@@ -149,7 +150,9 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 | `--lh-normal` | 1.5 | Body text, UI labels |
 | `--lh-relaxed` | 1.625 | Long-form content, markdown prose |
 
-**No arbitrary sizes.** Do not use `text-[11px]`, `text-[13px]`, `text-[15px]`, or `text-[0.9375rem]`. If a value is not in this table, choose the closest scale token.
+**No arbitrary sizes.** Do not use `text-[11px]`, `text-[13px]`, `text-[0.8125rem]`, `text-[15px]`, or `text-[0.9375rem]`. If a value is not in this table, choose the closest scale token.
+
+**Note:** `text-[10px]` is acceptable as it maps to the Micro size (`--font-size-micro: 0.625rem`), but prefer using the `text-micro` utility class when available.
 
 ### Weight & Tracking
 
@@ -158,6 +161,18 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 - Interactive elements: Medium (500)
 - Monospace used for: code, raw data, terminal/processing logs, keyboard shortcut labels
 - Terminal/processing log text should use Caption size (`text-xs`, 12px) for density
+
+### Code Element Defaults
+
+Base `pre` and `code` elements use:
+
+```css
+pre, code {
+  font-family: var(--font-mono);   /* Geist Mono → system mono fallback */
+  font-size: var(--text-sm);       /* 14px — never use 0.8125rem or 13px */
+  line-height: var(--lh-relaxed);  /* 1.625 */
+}
+```
 
 ### Rendering
 
@@ -288,7 +303,7 @@ Professional developer tools use near-instant transitions. No animation should e
 - **No `scale` on content elements** — messages, cards, status indicators, dots, entry animations. Scale is for buttons only. This includes pulsing `scale: [1, 1.4, 1]` on dots, and `scale: 0.98` on entry animations — use opacity + translateY instead.
 - **No glow effects** — `box-shadow: 0 0 Xpx` glow halos, `aiGlow` keyframes, `orbitalPulse` animations, and conic-gradient spinning borders are prohibited. Use subtle shadow lift and opacity pulse instead.
 - **No gradient mesh backgrounds** — animated multi-gradient backgrounds (`meshDrift`) are removed. Use a single subtle radial gradient at most.
-- **No glassmorphism** — `backdrop-blur-sm bg-card/80` on inputs, cards, and dialogs is prohibited. Use solid `bg-card` instead. `backdrop-blur-md` is allowed only on modal overlay backdrops (the dimmed layer behind the dialog).
+- **No glassmorphism** — `backdrop-blur-sm bg-card/80` on inputs, cards, status badges, and dialogs is prohibited. Use solid `bg-card` or `bg-secondary` instead. `backdrop-blur-md` is allowed **only** on modal overlay backdrops (the dimmed layer behind the dialog).
 - **No gratuitous entrance animations** — reserve motion for state changes. Decorative `filter: blur()` on static heading words is prohibited.
 - **Respect `prefers-reduced-motion`** — wrap the app in `<MotionConfig reducedMotion="user">` (Framer Motion). The CSS `prefers-reduced-motion` media query in globals.css does NOT affect JS-driven Framer Motion animations.
 
@@ -437,7 +452,7 @@ Any pattern using `opacity-0 group-hover:opacity-100` to reveal actions on hover
 ### Error Pages
 
 The `global-error.tsx` component renders its own `<html>/<body>` tree. It must:
-1. Import and inject font CSS variables (`geist.variable`, `inter.variable`, `geistMono.variable`, `jetbrainsMono.variable`, `notoSansSC.variable`, `notoSansTC.variable`)
+1. Import and inject font CSS variables (`inter.variable`, `notoSansSC.variable`, `notoSansTC.variable`)
 2. Use design tokens (`bg-background`, `text-foreground`, etc.) — never hardcoded hex
 
 ---
@@ -492,6 +507,7 @@ These patterns have been found in the codebase and must be avoided:
 | `Montserrat` font references | Use `Geist Sans` (`--font-geist`), Inter is a fallback only |
 | `text-muted-foreground/60`, `/40` | Use `text-muted-foreground-dim` (WCAG AA) |
 | `border-border/60`, `bg-border/60` | Use `border-border` (no opacity modifiers) |
+| `backdrop-blur-sm` on UI elements | Remove — use solid backgrounds only |
 | `border-[var(--color-border-active)]` | Use `border-border-active` (Tailwind token) |
 | `scale: 0.98` in entry animations | Remove scale — use only `opacity` + `y` |
 | Separate WelcomeScreen textarea | Use `ChatInput variant="welcome"` |

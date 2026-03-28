@@ -24,7 +24,7 @@ class ToolResult:
     success: bool
     output: str
     error: str | None = None
-    metadata: dict[str, Any] | None = None
+    metadata: types.MappingProxyType[str, Any] | dict[str, Any] | None = None
 
     @classmethod
     def ok(cls, output: str, metadata: dict[str, Any] | None = None) -> ToolResult:

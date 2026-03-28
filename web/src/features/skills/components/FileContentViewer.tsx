@@ -90,14 +90,14 @@ export function FileContentViewer({
       const parts = splitFrontmatter(content);
       if (parts) {
         const combined = `\`\`\`yaml\n${parts.yaml}\n\`\`\`\n\n${parts.body}`;
-        return <MarkdownRenderer content={combined} />;
+        return <MarkdownRenderer content={combined} className="markdown-prose" />;
       }
-      return <MarkdownRenderer content={content} />;
+      return <MarkdownRenderer content={content} className="markdown-prose" />;
     }
 
     // Regular markdown
     if (isMarkdown(path)) {
-      return <MarkdownRenderer content={content} />;
+      return <MarkdownRenderer content={content} className="markdown-prose" />;
     }
 
     // Code files — render through MarkdownRenderer for syntax highlighting

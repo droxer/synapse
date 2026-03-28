@@ -1,6 +1,6 @@
 "use client";
 
-import { inter, jetbrainsMono, notoSansSC, notoSansTC } from "./fonts";
+import { geist, geistMono, notoSansSC, notoSansTC } from "./fonts";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -11,7 +11,7 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
+      className={`${geist.variable} ${geistMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
     >
       <body className="font-sans antialiased bg-background text-foreground">
         <div className="flex h-screen w-screen items-center justify-center">

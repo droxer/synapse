@@ -47,7 +47,7 @@ export function AssistantStateIndicator({ phase }: AssistantStateIndicatorProps)
       transition={{ duration: 0.2, ease: "easeOut" }}
     >
       <div
-        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm backdrop-blur-sm ${config.className}`}
+        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm ${config.className}`}
       >
         {phase.phase === "thinking" || phase.phase === "using_tool" ? (
           <motion.span

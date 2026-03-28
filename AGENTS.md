@@ -67,7 +67,8 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`api/routes/mcp.py`** — MCP server connection management
 - **`api/routes/auth.py`** — Authentication endpoints: user sync on Google OAuth login, profile retrieval, and preference updates (theme, locale)
 - **`api/routes/library.py`** — Library endpoint: artifacts grouped by conversation for browsing
-- **`api/auth/`** — Authentication middleware: `middleware.py` (proxy secret verification, rate limiting, NextAuth header extraction for `AuthUser`)
+- **`api/routes/health.py`** — Health check endpoint (`GET /health`) for load balancer and monitoring
+- **`api/auth/`** — Authentication middleware: `middleware.py` (proxy secret verification, rate limiting with per-user and per-IP limits, NextAuth header extraction for `AuthUser`)
 - **`api/builders.py`** — Factory functions for orchestrator and sandbox provider creation
 - **`api/events.py`** — EventEmitter pub/sub for real-time updates
 - **`api/dependencies.py`** — FastAPI dependency injection (`AppState` container)
@@ -147,7 +148,7 @@ Tauri v2 desktop shell wrapping the web frontend. See [docs/desktop-app.md](docs
 Required in `backend/.env` (see `.env.example`):
 - `ANTHROPIC_API_KEY` — Required
 - `TAVILY_API_KEY` — Required
-- `DATABASE_URL` — Optional, PostgreSQL connection string (default: SQLite fallback)
+- `DATABASE_URL` — Optional, defaults to SQLite (`sqlite+aiosqlite:///./hiagent.db`). Use PostgreSQL in production.
 - `SANDBOX_PROVIDER` — Optional, `boxlite` (default), `e2b`, or `local`
 - `REDIS_URL` — Optional, for caching
 - `STORAGE_PROVIDER` — Optional, `local` (default) or `r2` for artifact storage

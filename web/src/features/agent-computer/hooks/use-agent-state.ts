@@ -442,9 +442,13 @@ export function useAgentState(events: AgentEvent[]) {
       if (e.type === "agent_spawn") {
         const agentName = String(e.data.name ?? "");
         const agentId = String(e.data.agent_id ?? e.data.id ?? "");
-        // Match spawned agent to a plan step by name
+        // Match spawned agent to a plan step by name (case-insensitive, trimmed)
+        // to tolerate minor LLM capitalization/whitespace inconsistencies.
+        const normalizedAgentName = agentName.trim().toLowerCase();
         const matchIdx = steps.findIndex(
-          (s) => s.status === "pending" && s.name === agentName,
+          (s) =>
+            s.status === "pending" &&
+            s.name.trim().toLowerCase() === normalizedAgentName,
         );
         if (matchIdx !== -1) {
           steps = steps.map((s, i) =>
