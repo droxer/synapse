@@ -124,6 +124,33 @@ function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
   );
 }
 
+const THINKING_PREVIEW_LENGTH = 150;
+
+function ThinkingPreview({ text }: { readonly text: string }) {
+  const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const isLong = text.length > THINKING_PREVIEW_LENGTH;
+  const shown = expanded || !isLong ? text : text.slice(0, THINKING_PREVIEW_LENGTH);
+
+  return (
+    <div className="ml-6 mb-1.5 border-l-2 border-accent-purple/40 pl-2 py-0.5">
+      <span className="text-xs italic text-accent-purple/80 leading-relaxed">
+        {shown}
+        {isLong && !expanded && "..."}
+      </span>
+      {isLong && (
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
+          className="ml-1 text-xs text-accent-purple hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded"
+        >
+          {expanded ? t("computer.thinkingCollapse") : t("computer.thinkingReadMore")}
+        </button>
+      )}
+    </div>
+  );
+}
+
 /** Renders the appropriate polished display for an agent meta tool call. */
 function AgentMetaDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; readonly t: TFn; readonly agentNameMap: ReadonlyMap<string, string> }) {
   if (tc.name === "agent_spawn") return <SpawnAgentDisplay tc={tc} />;
@@ -492,6 +519,11 @@ export function AgentComputerPanel({
                     transition={{ duration: 0.15, ease: "easeOut" }}
                     className="rounded-md"
                   >
+                    {/* Thinking preview — shown above the tool call it produced */}
+                    {item.toolCall.thinkingText && (
+                      <ThinkingPreview text={item.toolCall.thinkingText} />
+                    )}
+
                     {/* Log line */}
                     <div className="flex items-start gap-2 py-1.5">
                       <StatusIcon tc={item.toolCall} />

@@ -7,11 +7,12 @@ from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from fastapi import Depends, Request
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.state.database import get_session
 
 if TYPE_CHECKING:
-    from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker
+    from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker
 
     from agent.artifacts.storage import StorageBackend
     from agent.llm.client import AnthropicClient
@@ -55,7 +56,7 @@ def get_app_state(request: Request) -> AppState:
 
 async def get_db_session(
     state: AppState = Depends(get_app_state),
-) -> AsyncGenerator[Any, None]:
+) -> AsyncGenerator[AsyncSession, None]:
     """Yield an async DB session from the shared session factory."""
     async for session in get_session(state.db_session_factory):
         yield session

@@ -129,15 +129,9 @@ class TaskAgentRunner:
 
     async def run(self) -> AgentResult:
         """Execute the task agent loop and return an AgentResult."""
-        await self._emitter.emit(
-            EventType.AGENT_SPAWN,
-            {
-                "agent_id": self._agent_id,
-                "name": self._config.name or "",
-                "task": self._config.task_description,
-                "description": self._config.task_description,
-            },
-        )
+        # AGENT_SPAWN is emitted earlier by SpawnTaskAgent.execute() so the
+        # frontend plan checklist updates immediately without waiting for
+        # semaphore acquisition.
 
         try:
             final_text = await self._execute_loop()

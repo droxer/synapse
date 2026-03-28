@@ -147,14 +147,33 @@ async def _parse_uploads(files: list[UploadFile]) -> tuple[FileAttachment, ...]:
 
     attachments: list[FileAttachment] = []
     max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+    max_filename_len = 255  # Most filesystems limit to 255 chars
+
     for f in files:
         data = await f.read()
+
+        # Check for empty files
+        if len(data) == 0:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File '{f.filename}' is empty",
+            )
+
         if len(data) > max_bytes:
             raise HTTPException(
                 status_code=400,
                 detail=f"File '{f.filename}' exceeds {MAX_FILE_SIZE_MB}MB limit",
             )
+
         safe_name = _sanitize_filename(f.filename or "unnamed")
+
+        # Check filename length after sanitization
+        if len(safe_name) > max_filename_len:
+            raise HTTPException(
+                status_code=400,
+                detail=f"File name exceeds {max_filename_len} characters",
+            )
+
         attachments.append(
             FileAttachment(
                 filename=safe_name,
@@ -883,7 +902,9 @@ async def retry_turn(
                 pass
 
     # Get the last user message before rolling back
-    if not hasattr(orch, "get_last_user_message"):
+    if not hasattr(orch, "get_last_user_message") or not hasattr(
+        orch, "rollback_to_before_last_user_message"
+    ):
         raise HTTPException(
             status_code=400,
             detail="Orchestrator does not support retry",
@@ -897,7 +918,7 @@ async def retry_turn(
         )
 
     # Roll back state and reset cancellation
-    orch.rollback_to_before_last_user_message()  # type: ignore[union-attr]
+    orch.rollback_to_before_last_user_message()  # type: ignore[attr-defined,union-attr]
     if hasattr(orch, "reset_cancel"):
         orch.reset_cancel()  # type: ignore[union-attr]
 

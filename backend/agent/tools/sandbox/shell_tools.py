@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+import boxlite
+
 from agent.tools.base import (
     ExecutionContext,
     SandboxTool,
@@ -98,34 +100,44 @@ class ShellView(SandboxTool):
 
         sdir = _session_dir(session_id)
 
-        # Check session exists
-        check = await session.exec(f"test -d {sdir}", timeout=5)
-        if check.exit_code != 0:
-            return ToolResult.fail(f"Session '{session_id}' not found")
+        try:
+            # Check session exists
+            check = await session.exec(f"test -d {sdir}", timeout=5)
+            if check.exit_code != 0:
+                return ToolResult.fail(f"Session '{session_id}' not found")
 
-        # Read stdout and stderr tails
-        result = await session.exec(
-            f"echo '=== stdout ===' && tail -n {lines} {sdir}/stdout.log 2>/dev/null && "
-            f"echo '\\n=== stderr ===' && tail -n {lines} {sdir}/stderr.log 2>/dev/null",
-            timeout=10,
-        )
+            # Read stdout and stderr tails
+            result = await session.exec(
+                f"echo '=== stdout ===' && tail -n {lines} {sdir}/stdout.log 2>/dev/null && "
+                f"echo '\\n=== stderr ===' && tail -n {lines} {sdir}/stderr.log 2>/dev/null",
+                timeout=10,
+            )
 
-        # Check if process is still running
-        pid = await _read_pid(session, session_id)
-        status = "unknown"
-        if pid is not None:
-            running = await _is_running(session, pid)
-            status = "running" if running else "exited"
+            # Check if process is still running
+            pid = await _read_pid(session, session_id)
+            status = "unknown"
+            if pid is not None:
+                running = await _is_running(session, pid)
+                status = "running" if running else "exited"
 
-        output = result.stdout or "(no output)"
-        metadata = {"session_id": session_id, "status": status}
-        if pid is not None:
-            metadata["pid"] = pid
+            output = result.stdout or "(no output)"
+            metadata = {"session_id": session_id, "status": status}
+            if pid is not None:
+                metadata["pid"] = pid
 
-        return ToolResult.ok(
-            f"[session '{session_id}' — {status}]\n{output}",
-            metadata=metadata,
-        )
+            return ToolResult.ok(
+                f"[session '{session_id}' — {status}]\n{output}",
+                metadata=metadata,
+            )
+        except boxlite.BoxliteError as exc:
+            if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
+                return ToolResult.fail(
+                    f"Session '{session_id}' is no longer available. "
+                    "The sandbox was destroyed (conversation may have ended or timed out)."
+                )
+            return ToolResult.fail(
+                f"Sandbox error while accessing session '{session_id}': {exc}"
+            )
 
 
 class ShellWait(SandboxTool):
@@ -169,68 +181,83 @@ class ShellWait(SandboxTool):
             )
 
         sdir = _session_dir(session_id)
-        pid = await _read_pid(session, session_id)
-        if pid is None:
-            return ToolResult.fail(f"Session '{session_id}' not found or has no PID")
 
-        # Wait for process to exit using a polling loop inside sandbox.
-        # We poll kill -0 rather than using `wait` because the background
-        # process was spawned in a different shell invocation.
-        wait_script = (
-            f"ELAPSED=0; "
-            f"while kill -0 {pid} 2>/dev/null && [ $ELAPSED -lt {timeout} ]; do "
-            f"  sleep 1; ELAPSED=$((ELAPSED+1)); "
-            f"done; "
-            f"if kill -0 {pid} 2>/dev/null; then "
-            f"  echo 'TIMEOUT'; "
-            f"else "
-            f"  echo 'EXITED'; "
-            f"fi"
-        )
-        result = await session.exec(wait_script, timeout=timeout + 10)
+        try:
+            pid = await _read_pid(session, session_id)
+            if pid is None:
+                return ToolResult.fail(
+                    f"Session '{session_id}' not found or has no PID"
+                )
 
-        output_text = result.stdout.strip()
-        timed_out = output_text.startswith("TIMEOUT")
+            # Wait for process to exit using a polling loop inside sandbox.
+            # We poll kill -0 rather than using `wait` because the background
+            # process was spawned in a different shell invocation.
+            wait_script = (
+                f"ELAPSED=0; "
+                f"while kill -0 {pid} 2>/dev/null && [ $ELAPSED -lt {timeout} ]; do "
+                f"  sleep 1; ELAPSED=$((ELAPSED+1)); "
+                f"done; "
+                f"if kill -0 {pid} 2>/dev/null; then "
+                f"  echo 'TIMEOUT'; "
+                f"else "
+                f"  echo 'EXITED'; "
+                f"fi"
+            )
+            result = await session.exec(wait_script, timeout=timeout + 10)
 
-        # Read final output
-        final = await session.exec(
-            f"tail -n 50 {sdir}/stdout.log 2>/dev/null",
-            timeout=5,
-        )
-        stderr = await session.exec(
-            f"tail -n 20 {sdir}/stderr.log 2>/dev/null",
-            timeout=5,
-        )
+            output_text = result.stdout.strip()
+            timed_out = output_text.startswith("TIMEOUT")
 
-        combined = final.stdout or ""
-        if stderr.stdout:
-            combined = (
-                f"{combined}\n[stderr]\n{stderr.stdout}" if combined else stderr.stdout
+            # Read final output
+            final = await session.exec(
+                f"tail -n 50 {sdir}/stdout.log 2>/dev/null",
+                timeout=5,
+            )
+            stderr = await session.exec(
+                f"tail -n 20 {sdir}/stderr.log 2>/dev/null",
+                timeout=5,
             )
 
-        if timed_out:
+            combined = final.stdout or ""
+            if stderr.stdout:
+                combined = (
+                    f"{combined}\n[stderr]\n{stderr.stdout}"
+                    if combined
+                    else stderr.stdout
+                )
+
+            if timed_out:
+                return ToolResult.ok(
+                    f"[session '{session_id}' — timed out after {timeout}s, still running]\n{combined}",
+                    metadata={"session_id": session_id, "timed_out": True, "pid": pid},
+                )
+
+            # Read exit code from file written by the startup wrapper
+            # (see shell_exec.py _start_background_session)
+            exit_code = 0
+            ec_result = await session.exec(
+                f"cat {sdir}/exit_code 2>/dev/null",
+                timeout=5,
+            )
+            if ec_result.exit_code == 0 and ec_result.stdout.strip():
+                try:
+                    exit_code = int(ec_result.stdout.strip())
+                except ValueError:
+                    pass
+
             return ToolResult.ok(
-                f"[session '{session_id}' — timed out after {timeout}s, still running]\n{combined}",
-                metadata={"session_id": session_id, "timed_out": True, "pid": pid},
+                f"[session '{session_id}' — exited with code {exit_code}]\n{combined}",
+                metadata={"session_id": session_id, "exit_code": exit_code, "pid": pid},
             )
-
-        # Read exit code from file written by the startup wrapper
-        # (see shell_exec.py _start_background_session)
-        exit_code = 0
-        ec_result = await session.exec(
-            f"cat {sdir}/exit_code 2>/dev/null",
-            timeout=5,
-        )
-        if ec_result.exit_code == 0 and ec_result.stdout.strip():
-            try:
-                exit_code = int(ec_result.stdout.strip())
-            except ValueError:
-                pass
-
-        return ToolResult.ok(
-            f"[session '{session_id}' — exited with code {exit_code}]\n{combined}",
-            metadata={"session_id": session_id, "exit_code": exit_code, "pid": pid},
-        )
+        except boxlite.BoxliteError as exc:
+            if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
+                return ToolResult.fail(
+                    f"Session '{session_id}' is no longer available. "
+                    "The sandbox was destroyed (conversation may have ended or timed out)."
+                )
+            return ToolResult.fail(
+                f"Sandbox error while accessing session '{session_id}': {exc}"
+            )
 
 
 class ShellWrite(SandboxTool):
@@ -272,33 +299,44 @@ class ShellWrite(SandboxTool):
             )
 
         sdir = _session_dir(session_id)
-        pid = await _read_pid(session, session_id)
-        if pid is None:
-            return ToolResult.fail(f"Session '{session_id}' not found")
 
-        running = await _is_running(session, pid)
-        if not running:
-            return ToolResult.fail(
-                f"Session '{session_id}' (PID {pid}) is no longer running"
+        try:
+            pid = await _read_pid(session, session_id)
+            if pid is None:
+                return ToolResult.fail(f"Session '{session_id}' not found")
+
+            running = await _is_running(session, pid)
+            if not running:
+                return ToolResult.fail(
+                    f"Session '{session_id}' (PID {pid}) is no longer running"
+                )
+
+            # Write to the named pipe
+            # Escape single quotes in input for safe shell embedding
+            escaped = stdin_input.replace("'", "'\\''")
+            result = await session.exec(
+                f"echo '{escaped}' > {sdir}/stdin_pipe",
+                timeout=10,
             )
 
-        # Write to the named pipe
-        # Escape single quotes in input for safe shell embedding
-        escaped = stdin_input.replace("'", "'\\''")
-        result = await session.exec(
-            f"echo '{escaped}' > {sdir}/stdin_pipe",
-            timeout=10,
-        )
+            if result.exit_code != 0:
+                return ToolResult.fail(
+                    f"Failed to write to session '{session_id}': {result.stderr}"
+                )
 
-        if result.exit_code != 0:
-            return ToolResult.fail(
-                f"Failed to write to session '{session_id}': {result.stderr}"
+            return ToolResult.ok(
+                f"Sent input to session '{session_id}' (PID {pid})",
+                metadata={"session_id": session_id, "pid": pid},
             )
-
-        return ToolResult.ok(
-            f"Sent input to session '{session_id}' (PID {pid})",
-            metadata={"session_id": session_id, "pid": pid},
-        )
+        except boxlite.BoxliteError as exc:
+            if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
+                return ToolResult.fail(
+                    f"Session '{session_id}' is no longer available. "
+                    "The sandbox was destroyed (conversation may have ended or timed out)."
+                )
+            return ToolResult.fail(
+                f"Sandbox error while accessing session '{session_id}': {exc}"
+            )
 
 
 class ShellKill(SandboxTool):
@@ -348,29 +386,43 @@ class ShellKill(SandboxTool):
                 f"Invalid signal '{signal}'. Allowed: {', '.join(sorted(_ALLOWED_SIGNALS))}"
             )
 
-        pid = await _read_pid(session, session_id)
-        if pid is None:
-            return ToolResult.fail(f"Session '{session_id}' not found")
+        try:
+            pid = await _read_pid(session, session_id)
+            if pid is None:
+                return ToolResult.fail(f"Session '{session_id}' not found")
 
-        running = await _is_running(session, pid)
-        if not running:
+            running = await _is_running(session, pid)
+            if not running:
+                return ToolResult.ok(
+                    f"Session '{session_id}' (PID {pid}) already exited",
+                    metadata={
+                        "session_id": session_id,
+                        "pid": pid,
+                        "already_exited": True,
+                    },
+                )
+
+            # Send signal
+            result = await session.exec(
+                f"kill -{signal} {pid} 2>&1",
+                timeout=10,
+            )
+
+            if result.exit_code != 0:
+                return ToolResult.fail(
+                    f"Failed to send {signal} to session '{session_id}': {result.stderr or result.stdout}"
+                )
+
             return ToolResult.ok(
-                f"Session '{session_id}' (PID {pid}) already exited",
-                metadata={"session_id": session_id, "pid": pid, "already_exited": True},
+                f"Sent SIG{signal} to session '{session_id}' (PID {pid})",
+                metadata={"session_id": session_id, "pid": pid, "signal": signal},
             )
-
-        # Send signal
-        result = await session.exec(
-            f"kill -{signal} {pid} 2>&1",
-            timeout=10,
-        )
-
-        if result.exit_code != 0:
+        except boxlite.BoxliteError as exc:
+            if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
+                return ToolResult.fail(
+                    f"Session '{session_id}' is no longer available. "
+                    "The sandbox was destroyed (conversation may have ended or timed out)."
+                )
             return ToolResult.fail(
-                f"Failed to send {signal} to session '{session_id}': {result.stderr or result.stdout}"
+                f"Sandbox error while accessing session '{session_id}': {exc}"
             )
-
-        return ToolResult.ok(
-            f"Sent SIG{signal} to session '{session_id}' (PID {pid})",
-            metadata={"session_id": session_id, "pid": pid, "signal": signal},
-        )

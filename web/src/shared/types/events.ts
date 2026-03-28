@@ -80,6 +80,7 @@ export interface ToolCallInfo {
   readonly computerUseMetadata?: ComputerUseMetadata;
   readonly timestamp: number;
   readonly agentId?: string;
+  readonly thinkingText?: string;
 }
 
 export interface ArtifactInfo {

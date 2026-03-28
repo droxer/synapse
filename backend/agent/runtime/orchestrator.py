@@ -77,7 +77,6 @@ class AgentOrchestrator:
             raise ValueError("system_prompt must not be empty")
         self._client = claude_client
         self._base_registry = tool_registry
-        self._registry = tool_registry
         self._executor = tool_executor
         self._emitter = event_emitter
         self._system_prompt = system_prompt
@@ -529,8 +528,9 @@ class AgentOrchestrator:
         if not isinstance(content, list):
             return None
 
-        # Find activate_skill tool_use blocks
+        # Find activate_skill tool_use block (single pass)
         activated_name: str | None = None
+        tool_id: str | None = None
         for block in content:
             if (
                 isinstance(block, dict)
@@ -539,6 +539,7 @@ class AgentOrchestrator:
             ):
                 skill_input = block.get("input", {})
                 activated_name = skill_input.get("name")
+                tool_id = block.get("id")
                 break
 
         if not activated_name:
@@ -547,18 +548,6 @@ class AgentOrchestrator:
         # Skip if this skill is already the active one
         if activated_name == self._auto_injected_skill:
             return None
-
-        # Check if the tool result indicates success (not "already active" or error)
-        # Look for the corresponding tool_result in the next user message
-        tool_id = None
-        for block in content:
-            if (
-                isinstance(block, dict)
-                and block.get("type") == "tool_use"
-                and block.get("name") == "activate_skill"
-            ):
-                tool_id = block.get("id")
-                break
 
         if tool_id is not None:
             # Find the tool result message

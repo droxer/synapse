@@ -121,6 +121,7 @@ class ToolExecutor:
         tool = self._registry.get(tool_name)
 
         if tool is None:
+            logger.warning("unknown_tool_requested name={}", tool_name)
             return ToolResult.fail(f"Unknown tool: {tool_name}")
 
         try:

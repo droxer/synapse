@@ -1,6 +1,6 @@
 """Integration tests for ConversationRepository.
 
-Requires a running PostgreSQL instance.
+Uses SQLite for fast, isolated tests.
 """
 
 import uuid
@@ -10,6 +10,7 @@ import pytest_asyncio
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
+from agent.state.models import Base
 from agent.state.repository import ConversationRepository
 
 from .conftest import TEST_DB_URL
@@ -19,14 +20,15 @@ from .conftest import TEST_DB_URL
 async def session():
     """Create an isolated session using a rolled-back transaction.
 
-    Wraps each test in a top-level transaction that is always rolled
-    back, so tests never modify the real database.  Repository methods
-    call ``session.commit()`` internally; we intercept those commits
-    by starting a SAVEPOINT via ``begin_nested`` and patching
-    ``commit`` to restart the savepoint instead of finalising the
-    outer transaction.
+    Creates tables first, then wraps each test in a transaction that is
+    always rolled back, so tests never modify the database.
     """
     engine = create_async_engine(TEST_DB_URL)
+
+    # Create all tables first
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     async with engine.connect() as conn:
         txn = await conn.begin()
         sess = AsyncSession(bind=conn, expire_on_commit=False)

@@ -109,6 +109,8 @@
   "computer.statusIdle": "Idle",
   "computer.desktopAction": "Desktop: {action}",
   "computer.takingScreenshot": "Taking desktop screenshot",
+  "computer.thinkingReadMore": "read more",
+  "computer.thinkingCollapse": "collapse",
 
   "artifacts.noFiles": "No files generated yet",
   "artifacts.fileCount": "{count} file generated",

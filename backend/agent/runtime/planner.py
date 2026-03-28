@@ -101,7 +101,10 @@ class PlannerOrchestrator:
             PlanCreate(event_emitter=event_emitter),
         )
         registry_with_meta = registry_with_meta.register(
-            SpawnTaskAgent(sub_agent_manager=sub_agent_manager),
+            SpawnTaskAgent(
+                sub_agent_manager=sub_agent_manager,
+                event_emitter=event_emitter,
+            ),
         )
         registry_with_meta = registry_with_meta.register(
             WaitForAgents(sub_agent_manager=sub_agent_manager),

@@ -239,6 +239,8 @@ async def list_servers(
 ) -> dict:
     """GET /mcp/servers - list MCP servers visible to the current user."""
     mcp_state = state.mcp_state
+    if mcp_state is None:
+        raise HTTPException(status_code=503, detail="MCP is not enabled")
     user_id = await _resolve_user_id(auth_user, state)
 
     # Lazily restore user's persisted servers if not yet in memory
@@ -260,6 +262,8 @@ async def add_server(
 ) -> MCPServerResponse:
     """POST /mcp/servers - add and connect a new MCP server for the current user."""
     mcp_state = state.mcp_state
+    if mcp_state is None:
+        raise HTTPException(status_code=503, detail="MCP is not enabled")
     user_id = await _resolve_user_id(auth_user, state)
 
     # Namespace key: per-user servers use "user_id:name"
@@ -343,6 +347,8 @@ async def toggle_server(
 ) -> dict:
     """PATCH /mcp/servers/{name} - toggle a server's enabled state."""
     mcp_state = state.mcp_state
+    if mcp_state is None:
+        raise HTTPException(status_code=503, detail="MCP is not enabled")
     user_id = await _resolve_user_id(auth_user, state)
     key = mcp_state.user_key(user_id, name) if user_id else name
 
@@ -383,7 +389,7 @@ async def toggle_server(
                 ) from exc
         else:
             # Disconnect: remove tools, close client
-            client = mcp_state.clients.pop(key, None)
+            client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
             if client is not None:
                 await client.close()
             if mcp_state.registry is not None:
@@ -405,6 +411,8 @@ async def remove_server(
 ) -> dict:
     """DELETE /mcp/servers/{name} - disconnect and remove a user's MCP server."""
     mcp_state = state.mcp_state
+    if mcp_state is None:
+        raise HTTPException(status_code=503, detail="MCP is not enabled")
     user_id = await _resolve_user_id(auth_user, state)
 
     key = mcp_state.user_key(user_id, name) if user_id else name
@@ -413,7 +421,7 @@ async def remove_server(
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
 
     async with mcp_state.lock:
-        client = mcp_state.clients.pop(key, None)
+        client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
         if client is not None:
             await client.close()
 

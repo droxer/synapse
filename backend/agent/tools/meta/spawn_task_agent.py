@@ -12,15 +12,21 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from api.events import EventEmitter, EventType
 
 
 class SpawnTaskAgent(LocalTool):
     """Spawn a new task agent to handle a focused sub-task."""
 
-    def __init__(self, sub_agent_manager: Any) -> None:
+    def __init__(
+        self,
+        sub_agent_manager: Any,
+        event_emitter: EventEmitter | None = None,
+    ) -> None:
         if sub_agent_manager is None:
             raise ValueError("SubAgentManager must not be None")
         self._manager = sub_agent_manager
+        self._emitter = event_emitter
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -110,6 +116,19 @@ class SpawnTaskAgent(LocalTool):
         except Exception as exc:
             logger.warning("spawn_task_agent_failed error={}", exc)
             return ToolResult.fail(f"Failed to spawn agent: {exc}")
+
+        # Emit AGENT_SPAWN immediately so the frontend can update the plan
+        # checklist without waiting for the async task to acquire the semaphore.
+        if self._emitter is not None:
+            await self._emitter.emit(
+                EventType.AGENT_SPAWN,
+                {
+                    "agent_id": agent_id,
+                    "name": name,
+                    "description": task_description,
+                    "task": task_description,
+                },
+            )
 
         return ToolResult.ok(
             f"Agent spawned with id: {agent_id}",

@@ -32,6 +32,7 @@ from api.routes import (
     artifacts,
     auth,
     conversations,
+    health,
     library,
     mcp,
     memory,
@@ -183,7 +184,8 @@ def _create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
-    # Include routers
+    # Include routers (health first for load balancer priority)
+    application.include_router(health.router)
     application.include_router(auth.router)
     application.include_router(auth.user_router)
     application.include_router(conversations.router)

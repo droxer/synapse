@@ -151,11 +151,11 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "relative rounded-lg bg-card border transition-all duration-200",
+            "relative rounded-lg bg-card transition-all duration-200",
             isFocused
-              ? "border-border-active shadow-md"
-              : "border-border shadow-sm",
-            isDragOver && "border-dashed border-border-active bg-secondary/30",
+              ? "shadow-[0_0_0_3px_var(--color-input-glow),var(--shadow-card-hover)]"
+              : "shadow-[var(--shadow-card)]",
+            isDragOver && "border border-dashed border-border-active bg-secondary/30",
           )}
         >
           {/* File & skill attachment shelf */}

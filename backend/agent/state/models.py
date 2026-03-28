@@ -1,4 +1,4 @@
-"""SQLAlchemy ORM models for PostgreSQL persistence.
+"""SQLAlchemy ORM models for database persistence.
 
 These models are strictly internal to the repository layer.
 All public APIs return frozen DTOs from ``schemas.py``.
@@ -20,8 +20,14 @@ from sqlalchemy import (
     Text,
     Uuid,
 )
-from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+
+# Use generic JSON type for cross-database compatibility (PostgreSQL + SQLite)
+# This automatically selects JSONB for PostgreSQL and JSON for SQLite
+try:
+    from sqlalchemy import JSON
+except ImportError:
+    from sqlalchemy.types import JSON
 
 
 def _utcnow() -> datetime:
@@ -99,7 +105,7 @@ class MessageModel(Base):
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
     role: Mapped[str] = mapped_column(String(20), nullable=False)
-    content: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    content: Mapped[dict] = mapped_column(JSON, nullable=False)
     iteration: Mapped[int | None] = mapped_column(Integer, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
@@ -115,12 +121,12 @@ class EventModel(Base):
         Index("ix_events_conversation_type", "conversation_id", "event_type"),
     )
 
-    id: Mapped[int] = mapped_column(BigInteger, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
     event_type: Mapped[str] = mapped_column(String(50), nullable=False)
-    data: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    data: Mapped[dict] = mapped_column(JSON, nullable=False)
     iteration: Mapped[int | None] = mapped_column(Integer, nullable=True)
     timestamp: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
@@ -187,9 +193,9 @@ class AgentRunModel(Base):
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
-    config: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    config: Mapped[dict] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
-    result: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )

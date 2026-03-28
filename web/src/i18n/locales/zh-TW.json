@@ -109,6 +109,8 @@
   "computer.statusIdle": "閒置",
   "computer.desktopAction": "桌面：{action}",
   "computer.takingScreenshot": "正在截取桌面截圖",
+  "computer.thinkingReadMore": "展開",
+  "computer.thinkingCollapse": "收起",
 
   "artifacts.noFiles": "尚未產生檔案",
   "artifacts.fileCount": "已產生 {count} 個檔案",

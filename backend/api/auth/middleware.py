@@ -107,16 +107,34 @@ class _RateLimiter:
         return True
 
 
-_rate_limiter = _RateLimiter(max_requests=get_settings().RATE_LIMIT_PER_MINUTE)
+# IP-based rate limiter (for unauthenticated requests)
+_ip_rate_limiter = _RateLimiter(max_requests=get_settings().RATE_LIMIT_PER_MINUTE)
+
+# User-based rate limiter (for authenticated requests) - higher limit
+_user_rate_limiter = _RateLimiter(max_requests=get_settings().RATE_LIMIT_PER_MINUTE * 2)
 
 
-async def _check_rate_limit(request: Request) -> None:
-    """Enforce per-IP rate limiting (disabled in development)."""
+async def _check_rate_limit(
+    request: Request, auth_user: AuthUser | None = None
+) -> None:
+    """Enforce per-user or per-IP rate limiting (disabled in development).
+
+    Authenticated users get a higher rate limit than anonymous IPs.
+    """
     settings = get_settings()
     if settings.ENVIRONMENT == "development":
         return
-    client_ip = request.client.host if request.client else "unknown"
-    if not _rate_limiter.check(client_ip):
+
+    # Use user ID if authenticated, otherwise fall back to IP
+    if auth_user is not None:
+        key = f"user:{auth_user.google_id}"
+        limiter = _user_rate_limiter
+    else:
+        client_ip = request.client.host if request.client else "unknown"
+        key = f"ip:{client_ip}"
+        limiter = _ip_rate_limiter
+
+    if not limiter.check(key):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")
 
 
@@ -160,4 +178,13 @@ async def get_current_user(request: Request) -> AuthUser | None:
 # Common dependencies applied to all protected routes
 # ---------------------------------------------------------------------------
 
-common_dependencies = [Depends(_verify_api_key), Depends(_check_rate_limit)]
+
+async def _check_rate_limit_with_user(
+    request: Request,
+    auth_user: AuthUser | None = Depends(get_current_user),
+) -> None:
+    """Wrapper to inject auth_user into rate limit check."""
+    await _check_rate_limit(request, auth_user)
+
+
+common_dependencies = [Depends(_verify_api_key), Depends(_check_rate_limit_with_user)]

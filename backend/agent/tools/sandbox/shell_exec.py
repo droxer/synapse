@@ -6,6 +6,8 @@ import asyncio
 import re
 from typing import Any
 
+import boxlite
+
 from agent.sandbox.base import ExtendedSandboxSession
 from agent.tools.base import (
     ExecutionContext,
@@ -127,6 +129,13 @@ class ShellExec(SandboxTool):
                 )
             else:
                 result = await session.exec(command, timeout=timeout, workdir=workdir)
+        except boxlite.BoxliteError as exc:
+            if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
+                return ToolResult.fail(
+                    "The sandbox session is no longer available. "
+                    "It may have been destroyed due to conversation ending or timeout."
+                )
+            return ToolResult.fail(f"Sandbox error: {exc}")
         except Exception as exc:
             return ToolResult.fail(f"Shell execution failed: {exc}")
 

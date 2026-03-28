@@ -71,10 +71,16 @@ SubscriberCallback = Callable[[AgentEvent], Coroutine[Any, Any, None]]
 
 
 class EventEmitter:
-    """Pub/sub event emitter for agent lifecycle events."""
+    """Pub/sub event emitter for agent lifecycle events.
 
-    def __init__(self) -> None:
+    Includes backpressure protection via max_pending limit to prevent
+    unbounded memory growth when subscribers are slow.
+    """
+
+    def __init__(self, max_pending: int = 1000) -> None:
         self._subscribers: list[SubscriberCallback] = []
+        self._max_pending = max_pending
+        self._pending_count = 0
 
     def subscribe(self, callback: SubscriberCallback) -> None:
         """Register an async callback to receive all emitted events.
@@ -110,18 +116,36 @@ class EventEmitter:
             data: Arbitrary event payload.
             iteration: Optional iteration number for loop-related events.
         """
+        from loguru import logger
+
+        # Backpressure: drop events if too many pending
+        if self._pending_count >= self._max_pending:
+            logger.warning(
+                "event_emitter_backpressure event_type={} pending={} — dropping event",
+                event_type,
+                self._pending_count,
+            )
+            return
+
         event = AgentEvent(
             type=event_type,
             data=data,
             iteration=iteration,
         )
-        from loguru import logger
 
-        results = await asyncio.gather(
-            *[subscriber(event) for subscriber in self._subscribers],
-            return_exceptions=True,
-        )
-        for subscriber, result in zip(self._subscribers, results):
+        # Snapshot subscribers to avoid race conditions during iteration
+        subscribers = self._subscribers
+        self._pending_count += len(subscribers)
+
+        try:
+            results = await asyncio.gather(
+                *[subscriber(event) for subscriber in subscribers],
+                return_exceptions=True,
+            )
+        finally:
+            self._pending_count = max(0, self._pending_count - len(subscribers))
+
+        for subscriber, result in zip(subscribers, results):
             if isinstance(result, Exception):
                 logger.error(
                     "Subscriber {} failed for event {}: {}",

@@ -1,6 +1,6 @@
 """Integration tests for UsageRepository.
 
-Requires a running PostgreSQL instance.
+Uses SQLite for fast, isolated tests.
 """
 
 import uuid
@@ -10,7 +10,7 @@ import pytest_asyncio
 from sqlalchemy import event
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
-from agent.state.models import ConversationModel, UserModel
+from agent.state.models import Base, ConversationModel, UserModel
 from agent.state.repository import UsageRepository
 
 from .conftest import TEST_DB_URL
@@ -20,6 +20,11 @@ from .conftest import TEST_DB_URL
 async def session():
     """Isolated session with rolled-back transaction."""
     engine = create_async_engine(TEST_DB_URL)
+
+    # Create all tables first
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
     async with engine.connect() as conn:
         txn = await conn.begin()
         sess = AsyncSession(bind=conn, expire_on_commit=False)

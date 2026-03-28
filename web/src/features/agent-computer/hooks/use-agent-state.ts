@@ -192,8 +192,13 @@ export function useAgentState(events: AgentEvent[]) {
   const toolCalls = useMemo<ToolCallInfo[]>(() => {
     const callMap = new Map<string, ToolCallInfo>();
     const insertOrder: string[] = [];
+    let pendingThinking = "";
 
     for (const e of events) {
+      if (e.type === "thinking") {
+        pendingThinking = String(e.data.text ?? e.data.content ?? "");
+      }
+
       if (e.type === "tool_call") {
         const toolId = String(e.data.tool_id ?? e.data.id ?? crypto.randomUUID());
         const agentId = e.data.agent_id ? String(e.data.agent_id) : undefined;
@@ -203,9 +208,11 @@ export function useAgentState(events: AgentEvent[]) {
           input: (e.data.input ?? e.data.tool_input ?? e.data.arguments ?? {}) as Record<string, unknown>,
           timestamp: e.timestamp,
           agentId,
+          thinkingText: pendingThinking || undefined,
         };
         callMap.set(toolId, entry);
         insertOrder.push(toolId);
+        pendingThinking = "";
       }
       if (e.type === "tool_result") {
         const toolId = String(e.data.tool_id ?? e.data.id ?? "");
