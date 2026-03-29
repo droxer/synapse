@@ -28,7 +28,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
     <Link
       href={`/skills/${encodeURIComponent(skill.name)}`}
       className={cn(
-        "group flex h-full cursor-pointer flex-col rounded-lg border bg-card p-4 shadow-sm transition-all duration-200",
+        "group flex h-full cursor-pointer flex-col rounded-lg border bg-card p-4 shadow-card transition-all duration-200",
         isDisabled
           ? "border-border/60 hover:border-border"
           : "border-border hover:border-border-strong",

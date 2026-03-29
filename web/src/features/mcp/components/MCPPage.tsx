@@ -40,7 +40,7 @@ import { useMCPServers } from "../hooks/use-mcp-servers";
 /* ── shimmer skeleton matching card shape ── */
 function ServerSkeleton() {
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-card">
       <div className="flex items-start justify-between">
         <div className="h-9 w-9 shrink-0 rounded-lg skeleton-shimmer" />
         <div className="h-4 w-14 skeleton-shimmer" />
@@ -112,9 +112,9 @@ export function MCPPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto flex max-w-5xl items-start justify-between">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <Blocks className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>

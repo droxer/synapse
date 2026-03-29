@@ -197,9 +197,9 @@ export function ConversationWorkspace({
         conversationId={conversationId}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden md:flex-row">
+      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Left pane: Conversation */}
-        <div className={cn("flex flex-col", panelOpen ? "w-full border-b border-border md:w-1/2 md:border-b-0 md:border-r" : "w-full")}>
+        <div className={cn("flex flex-col", panelOpen ? "w-full border-b border-border lg:w-1/2 lg:border-b-0 lg:border-r" : "w-full")}>
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
@@ -227,7 +227,7 @@ export function ConversationWorkspace({
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className="flex justify-end"
                       >
-                        <div className="max-w-[80%] min-w-[120px]">
+                        <div className="max-w-[90%] min-w-[120px] sm:max-w-[80%]">
                           {/* Frosted card surface */}
                           <div className="rounded-lg bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/10">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
@@ -264,7 +264,7 @@ export function ConversationWorkspace({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className={cn(
-                          "group relative max-w-[85%]",
+                          "group relative max-w-full min-w-0 sm:max-w-[85%]",
                           isStreamingThis && "pl-4",
                         )}
                       >

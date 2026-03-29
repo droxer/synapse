@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
+import { Library } from "lucide-react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/button";
@@ -62,10 +63,20 @@ export function LibraryPage() {
     return { totalFiles, totalSize, totalConversations: groups.length };
   }, [groups]);
 
-  const statsLine =
-    stats.totalFiles > 0
-      ? `${stats.totalFiles} ${stats.totalFiles === 1 ? "file" : "files"} · ${formatBytes(stats.totalSize)} · ${stats.totalConversations} ${stats.totalConversations === 1 ? "conversation" : "conversations"}`
-      : null;
+  const statsLine = useMemo(() => {
+    if (stats.totalFiles === 0) return null;
+    const filesLabel = t(
+      stats.totalFiles === 1 ? "library.statsFile" : "library.statsFiles",
+      { count: stats.totalFiles },
+    );
+    const convsLabel = t(
+      stats.totalConversations === 1
+        ? "library.statsConversation"
+        : "library.statsConversations",
+      { count: stats.totalConversations },
+    );
+    return `${filesLabel} · ${formatBytes(stats.totalSize)} · ${convsLabel}`;
+  }, [stats, t]);
 
   return (
     <div className="flex h-full flex-col bg-background">
@@ -76,16 +87,23 @@ export function LibraryPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto flex max-w-5xl items-end justify-between">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight text-foreground">
-              {t("library.title")}
-            </h1>
-            {isLoading && !statsLine ? (
-              <div className="h-3.5 w-48 skeleton-shimmer rounded mt-1.5" />
-            ) : statsLine ? (
-              <p className="text-xs text-muted-foreground mt-0.5">{statsLine}</p>
-            ) : null}
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+          <div className="flex items-center gap-3">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+              <Library aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <div>
+              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+                {t("library.title")}
+              </h1>
+              {isLoading && !statsLine ? (
+                <div className="h-3 w-40 skeleton-shimmer rounded mt-1" />
+              ) : statsLine ? (
+                <p className="text-xs text-muted-foreground">{statsLine}</p>
+              ) : (
+                <p className="text-xs text-muted-foreground">{t("library.subtitle")}</p>
+              )}
+            </div>
           </div>
         </div>
       </motion.div>
@@ -101,9 +119,6 @@ export function LibraryPage() {
           {/* Filter bar */}
           {groups.length > 0 || filter ? (
             <div className="flex shrink-0 items-center gap-3">
-              {statsLine && (
-                <span className="text-xs text-muted-foreground">{statsLine}</span>
-              )}
               <div className="flex-1" />
               <SearchInput
                 value={filter}

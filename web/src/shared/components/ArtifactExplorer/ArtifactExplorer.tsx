@@ -77,7 +77,7 @@ export function ArtifactExplorer({
           contentType: artifact.content_type,
           size: artifact.size,
           conversationId: group.conversation_id,
-          conversationTitle: group.title ?? "Conversation",
+          conversationTitle: group.title ?? t("library.untitledTask"),
           createdAt: artifact.created_at,
           filePath: artifact.file_path || artifact.name,
         }),

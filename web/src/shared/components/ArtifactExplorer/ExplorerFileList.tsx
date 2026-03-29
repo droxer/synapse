@@ -31,9 +31,9 @@ export const GRID_COLS_CLASS = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 g
 // Date formatting
 // ---------------------------------------------------------------------------
 
-function formatRelativeDate(dateStr: string): { relative: string; absolute: string } {
+function formatRelativeDate(dateStr: string, locale: string): { relative: string; absolute: string } {
   const date = new Date(dateStr);
-  const absolute = date.toLocaleDateString(undefined, {
+  const absolute = date.toLocaleDateString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
@@ -44,11 +44,13 @@ function formatRelativeDate(dateStr: string): { relative: string; absolute: stri
   const diffHr = Math.floor(diffMin / 60);
   const diffDays = Math.floor(diffHr / 24);
 
+  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+
   let relative: string;
-  if (diffSec < 60) relative = "just now";
-  else if (diffMin < 60) relative = `${diffMin}m ago`;
-  else if (diffHr < 24) relative = `${diffHr}h ago`;
-  else if (diffDays < 7) relative = `${diffDays}d ago`;
+  if (diffSec < 60) relative = rtf.format(0, "second");
+  else if (diffMin < 60) relative = rtf.format(-diffMin, "minute");
+  else if (diffHr < 24) relative = rtf.format(-diffHr, "hour");
+  else if (diffDays < 7) relative = rtf.format(-diffDays, "day");
   else relative = absolute;
 
   return { relative, absolute };
@@ -86,7 +88,7 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
   // ── Small square for list layout ─────────────────────────────────────────
   if (layout === "list") {
     return (
-      <div className={`h-12 w-12 shrink-0 rounded-xl overflow-hidden ${bg} flex items-center justify-center`}>
+      <div className={`h-12 w-12 shrink-0 rounded-lg overflow-hidden ${bg} flex items-center justify-center`}>
         {isImage && artifactUrl ? (
           <img
             src={artifactUrl}
@@ -274,11 +276,11 @@ function FileCard({
   onToggleSelection,
   onDownload,
 }: FileCardProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const ext = fileExtension(item.name);
   const sizeText = formatFileSize(item.size, t);
   const { relative: relativeDate, absolute: absoluteDate } = item.createdAt
-    ? formatRelativeDate(item.createdAt)
+    ? formatRelativeDate(item.createdAt, locale)
     : { relative: "", absolute: "" };
   const accentBorderColor = fileCategoryBorderColor(item.contentType);
   const { icon: iconColor } = fileCategoryColor(item.contentType);
@@ -289,12 +291,12 @@ function FileCard({
       <motion.button
         type="button"
         className={[
-          "rounded-xl bg-card border overflow-hidden shadow-sm transition-shadow duration-200 cursor-pointer flex flex-col relative group text-left w-full",
+          "rounded-lg bg-card border overflow-hidden shadow-card transition-all duration-200 cursor-pointer flex flex-col relative group text-left w-full",
           "border-l-2",
           isSelected
-            ? "ring-2 ring-primary border-border/50 border-l-primary shadow-md"
-            : "border-border/50 hover:shadow-md",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+            ? "ring-[3px] ring-primary border-border/50 border-l-primary shadow-card-hover"
+            : "border-border/50 hover:border-border-strong hover:shadow-card-hover",
+          "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
         ].join(" ")}
         style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
         initial={{ opacity: 0, scale: 0.97 }}
@@ -369,12 +371,12 @@ function FileCard({
     <motion.button
       type="button"
       className={[
-        "rounded-xl bg-card border p-2.5 shadow-sm transition-colors duration-200 cursor-pointer flex items-center gap-3 relative group text-left w-full",
+        "rounded-lg bg-card border p-2.5 shadow-card transition-all duration-200 cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l-2",
         isSelected
-          ? "ring-2 ring-primary border-border/50 border-l-primary bg-primary/5"
-          : "border-border/50 hover:bg-card/80",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+          ? "ring-[3px] ring-primary border-border/50 border-l-primary bg-primary/5"
+          : "border-border/50 hover:border-border-strong hover:bg-secondary/40",
+        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
       ].join(" ")}
       style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
       initial={{ opacity: 0, x: -8 }}
@@ -459,7 +461,7 @@ export function ExplorerFileList({
   onDeleteSelected,
   mode,
 }: ExplorerFileListProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
   const isMultiSelectMode = selectedIds.size > 0;
   const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -536,7 +538,7 @@ export function ExplorerFileList({
               const groupItems = items.filter((item) => item.conversationId === group.id);
               if (groupItems.length === 0) return null;
 
-              const { relative: groupDate, absolute: groupAbsDate } = formatRelativeDate(group.createdAt);
+              const { relative: groupDate, absolute: groupAbsDate } = formatRelativeDate(group.createdAt, locale);
 
               return (
                 <div key={group.id} className="mb-8 last:mb-0">
@@ -545,7 +547,7 @@ export function ExplorerFileList({
                       {group.title}
                     </h3>
                     <span className="shrink-0 text-xs text-muted-foreground">
-                      {groupItems.length} {groupItems.length === 1 ? "file" : "files"}
+                      {t(groupItems.length === 1 ? "library.statsFile" : "library.statsFiles", { count: groupItems.length })}
                     </span>
                     <span className="shrink-0 text-xs text-muted-foreground/60" title={groupAbsDate}>
                       {groupDate}

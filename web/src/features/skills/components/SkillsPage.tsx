@@ -255,9 +255,9 @@ export function SkillsPage() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto flex max-w-5xl items-start justify-between">
+        <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-secondary">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
               <Lightbulb aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>

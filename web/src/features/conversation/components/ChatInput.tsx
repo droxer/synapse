@@ -133,7 +133,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   const isWelcome = variant === "welcome";
 
   return (
-    <div className={cn(!isWelcome && "shrink-0 px-4 pb-4 pt-2")}>
+    <div className={cn(!isWelcome && "shrink-0 px-4 pb-safe-4 pt-2")}>
       <form
         onSubmit={handleSubmit}
         onDragOver={handleDragOver}
