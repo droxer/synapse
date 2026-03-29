@@ -110,6 +110,26 @@ LITE_MODEL=claude-haiku-4-5-20251001       # 简单子任务模型
 | `MINIMAX_API_KEY` | [minimaxi.com](https://www.minimaxi.com/) | 否（启用图片生成） |
 | `E2B_API_KEY` | [e2b.dev](https://e2b.dev/) | 否（仅 `SANDBOX_PROVIDER=e2b` 时需要） |
 
+### 频道集成
+
+如需启用 Telegram 频道集成：
+
+```bash
+# 启用频道功能
+CHANNELS_ENABLED=true
+
+# Webhook 基础 URL（Telegram 需要用于发送 webhook）
+# 必须是公网可访问的地址
+CHANNELS_WEBHOOK_BASE_URL=https://your-domain.com
+```
+
+Webhook URL 格式为：`{CHANNELS_WEBHOOK_BASE_URL}/api/channels/telegram/webhook`
+
+**设置 Telegram：**
+1. 在 Telegram 上通过 [@BotFather](https://t.me/botfather) 创建机器人
+2. 复制机器人令牌并在频道页面进行配置
+3. HiAgent 将自动设置 webhook
+
 ### 沙盒提供者
 
 | 提供者 | 适用场景 | 依赖 |
@@ -219,7 +239,7 @@ HiAgent/
 ├── web/               # Next.js 前端
 │   └── src/
 │       ├── app/       # 页面（App Router）
-│       ├── features/  # 功能模块（对话、智能体面板、技能、MCP、资料库）
+│       ├── features/  # 功能模块（对话、智能体面板、技能、MCP、资料库、频道）
 │       ├── shared/    # 共享组件、hooks、状态管理、类型定义
 │       └── i18n/      # 国际化（en、zh-CN）
 ├── container/         # 沙盒 Dockerfiles

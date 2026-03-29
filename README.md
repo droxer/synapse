@@ -20,6 +20,8 @@ An open-source AI agent platform that does the work for you. Describe any task i
 
 **MCP integration** — Connect external tools via the Model Context Protocol. Add MCP servers to extend agent capabilities with third-party APIs and services.
 
+**Channel integrations** — Connect messaging platforms like Telegram to chat with HiAgent directly from your favorite apps. Supports bot configuration, account linking, and seamless conversation sync.
+
 **Real-time streaming** — The frontend renders every step as it happens: LLM reasoning, tool execution, code output, generated artifacts, and sub-agent progress — all via Server-Sent Events.
 
 ## Screenshots
@@ -39,6 +41,7 @@ An open-source AI agent platform that does the work for you. Describe any task i
 - **Persistent memory** — Agents remember context across conversation turns
 - **Conversation history** — Full persistence with PostgreSQL
 - **Agent evaluation system** — YAML-defined eval cases with programmatic and LLM-as-judge grading, covering tool use, skill invocation, sub-agent spawning, and agent handoff
+- **Channel integrations** — Connect messaging platforms (Telegram) to chat with HiAgent from your favorite apps
 - **User preferences** — Persistent theme (dark/light/system) and locale settings per user
 - **Dark/light theme** with internationalization (English, Chinese)
 - **Keyboard-first UX** — Command palette (Cmd+K), responsive layout

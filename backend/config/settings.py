@@ -64,6 +64,12 @@ class Settings(BaseSettings):
     PROXY_SECRET: str = (
         ""  # Shared secret between Next.js proxy and backend; required in production
     )
+    # Channels (IM integrations — Telegram, etc.)
+    CHANNELS_ENABLED: bool = False  # Feature flag for channel integrations
+    CHANNELS_WEBHOOK_BASE_URL: str = (
+        ""  # Optional public base URL override for per-user webhook setup
+    )
+
     DEFAULT_SYSTEM_PROMPT: str = (
         "You are a helpful AI assistant with access to a sandboxed coding environment "
         "where you can write and execute code, manage files, browse the web, and more.\n\n"

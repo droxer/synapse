@@ -110,6 +110,26 @@ LITE_MODEL=claude-haiku-4-5-20251001       # Model for simple sub-tasks
 | `MINIMAX_API_KEY` | [minimaxi.com](https://www.minimaxi.com/) | No (enables image generation) |
 | `E2B_API_KEY` | [e2b.dev](https://e2b.dev/) | No (only if `SANDBOX_PROVIDER=e2b`) |
 
+### Channel Integrations
+
+To enable Telegram channel integration:
+
+```bash
+# Enable channels feature
+CHANNELS_ENABLED=true
+
+# Webhook base URL (required for Telegram to send webhooks)
+# Must be publicly accessible
+CHANNELS_WEBHOOK_BASE_URL=https://your-domain.com
+```
+
+The webhook URL will be: `{CHANNELS_WEBHOOK_BASE_URL}/api/channels/telegram/webhook`
+
+**Setting up Telegram:**
+1. Create a bot via [@BotFather](https://t.me/botfather) on Telegram
+2. Copy the bot token and configure it in the Channels page
+3. HiAgent will automatically set up the webhook
+
 ### Sandbox Providers
 
 | Provider | When to use | Requires |
@@ -219,7 +239,7 @@ HiAgent/
 ├── web/               # Next.js frontend
 │   └── src/
 │       ├── app/       # Pages (App Router)
-│       ├── features/  # Feature modules (conversation, agent-computer, skills, mcp, library)
+│       ├── features/  # Feature modules (conversation, agent-computer, skills, mcp, library, channels)
 │       ├── shared/    # Shared components, hooks, stores, types
 │       └── i18n/      # Internationalization (en, zh-CN)
 ├── container/         # Sandbox Dockerfiles

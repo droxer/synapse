@@ -68,8 +68,9 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 
 ### Backend (`backend/`)
 - **`api/main.py`** — FastAPI app factory, initializes shared state (Claude client, sandbox provider, storage, DB)
-- **`api/routes/`** — `conversations.py` (SSE streams, planning), `artifacts.py`, `skills.py`, `mcp.py`, `auth.py`, `library.py`
+- **`api/routes/`** — `conversations.py` (SSE streams, planning), `artifacts.py`, `skills.py`, `mcp.py`, `auth.py`, `library.py`, `channels.py` (Telegram webhook, bot config, channel conversations)
 - **`api/auth/`** — Authentication middleware (proxy secret verification, rate limiting, NextAuth header extraction)
+- **`api/channels/`** — Channel integration: `schemas.py` (frozen DTOs), `repository.py` (DB access), `provider.py` (Telegram provider), `responder.py` (SSE response to channels), `router.py` (link token, account management)
 - **`api/builders.py`** — Factory functions for orchestrator and sandbox provider creation
 - **`agent/runtime/`** — Core execution components:
   - `orchestrator.py` — Core ReAct loop, immutable state
@@ -86,9 +87,15 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 
 ### Frontend (`web/`)
 - **Next.js 15** with App Router, React 19, Tailwind CSS 4, Turbopack
-- **`src/app/`** — Pages: conversation, skills browser, MCP config, library, login
+- **`src/app/`** — Pages: conversation, skills browser, MCP config, library, channels, login
 - **`src/features/conversation/`** — Chat UI, API hooks, auto-reconnecting SSE logic
 - **`src/features/agent-computer/`** — Agent execution display (tool output rendering, agent timelines, sub-agent statuses)
+- **`src/features/channels/`** — Channel integration:
+  - `api/channel-api.ts` — API functions (list conversations, manage Telegram bot config, link tokens)
+  - `components/ChannelProviderIcon.tsx` — Provider identity system (Telegram, WhatsApp, Discord, Slack, WeChat SVG icons + badge)
+  - `components/ChannelConversationList.tsx` — Split-panel conversation list with provider avatar, last message preview, session indicator
+  - `components/ChannelChatView.tsx` — Isolated chat view (SSE, history loading, message merging, no global store)
+  - `components/TelegramLinkCard.tsx` — Telegram bot configuration UI
 - **`src/shared/stores/app-store.ts`** — Zustand persistent store
 - **`next.config.ts`** — Rewrites `/api/*` to `http://localhost:8000/*`
 
@@ -96,20 +103,30 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 Tauri v2 desktop shell wrapping the web frontend. Uses `sidecar.rs` process manager to start/stop backend Python and frontend Next.js child processes.
 
 ### Data Flow
+
+**Chat Flow**
 1. User sends message → frontend POSTs to `/api/conversations` (with optional planner mode)
 2. Frontend opens SSE connection to `/api/conversations/{id}/events`
 3. **If planner mode**: Backend calls `plan_create` → declares steps → spawns agents concurrently → waits for completion
 4. **Default mode**: Backend runs ReAct loop: LLM call → tool execution → emit events → repeat
 5. Frontend renders events in real-time (messages, timeline, tool outputs, sub-agents)
 
+**Channels Flow**
+1. User links Telegram account via bot config endpoint → backend generates webhook secret
+2. User sends message via Telegram → bot receives webhook → backend creates conversation/session if needed
+3. Backend runs ReAct loop against channel message (same as chat flow)
+4. Agent responses emitted as Telegram messages via `ChannelResponder`
+5. Frontend displays channel conversations in split-panel UI (left: list, right: chat view)
+
 ## Key Patterns
-- **Immutability**: Frozen dataclasses throughout backend (`AgentState`, `ToolResult`, `SkillMetadata`, `LLMResponse`)
+- **Immutability**: Frozen dataclasses throughout backend (`AgentState`, `ToolResult`, `SkillMetadata`, `LLMResponse`, `ChannelConversationRecord`)
 - **Event-driven**: `EventEmitter` pub/sub bridges agent loop to SSE stream
 - **Tool registry**: Immutable registry pattern — tools registered at startup, looked up by name
 - **Skill auto-matching**: User messages matched against skill descriptions; best match injected into prompt
 - **Agent naming**: Spawned agents receive friendly names via `spawn_task_agent`
+- **Channels isolation**: Channel chat views manage their own SSE connections, history loading, and state independently (no global app store dependency)
 
 ## Environment
 Required in `backend/.env`: `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`.
-Optional: `DATABASE_URL` (SQLite default, use PostgreSQL in production), `SANDBOX_PROVIDER` (`boxlite`/`e2b`/`local`), `REDIS_URL`, `STORAGE_PROVIDER` (`local`/`r2`), `SKILLS_ENABLED`, `THINKING_BUDGET`, `LITE_MODEL`, `COMPACT_TOKEN_BUDGET`, `AUTH_REQUIRED`, `PROXY_SECRET`.
+Optional: `DATABASE_URL` (SQLite default, use PostgreSQL in production), `SANDBOX_PROVIDER` (`boxlite`/`e2b`/`local`), `REDIS_URL`, `STORAGE_PROVIDER` (`local`/`r2`), `SKILLS_ENABLED`, `THINKING_BUDGET`, `LITE_MODEL`, `COMPACT_TOKEN_BUDGET`, `AUTH_REQUIRED`, `PROXY_SECRET`, `CHANNELS_ENABLED` (enable Telegram channel integration), `CHANNELS_WEBHOOK_BASE_URL` (webhook base URL for channel providers).
 Desktop app optional env vars: `HIAGENT_FRONTEND_PORT`, `HIAGENT_BACKEND_PORT`, `HIAGENT_PROJECT_DIR`.

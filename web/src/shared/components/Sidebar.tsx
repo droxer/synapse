@@ -3,7 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Logo } from "@/shared/components/Logo";
-import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, FolderOpen, Lightbulb } from "lucide-react";
+import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, FolderOpen, Lightbulb, Radio } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Tooltip,
@@ -196,6 +196,28 @@ export function Sidebar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
+                <Link href="/channels">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    className={cn(
+                      "w-full",
+                      activePath === "/channels"
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                    )}
+                    asChild
+                  >
+                    <span>
+                      <Radio className="h-4 w-4" />
+                    </span>
+                  </Button>
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{t("sidebar.channels")}</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
                 <Link href="/library">
                   <Button
                     variant="ghost"
@@ -289,6 +311,19 @@ export function Sidebar({
                 {t("sidebar.newTask")}
               </span>
             </button>
+            <Link
+              href="/channels"
+              aria-label={t("sidebar.channels")}
+              className={cn(
+                "flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                activePath === "/channels"
+                  ? "bg-secondary text-foreground"
+                  : "text-sidebar-foreground-muted hover:bg-secondary hover:text-foreground",
+              )}
+            >
+              <Radio className="h-4 w-4" />
+              {t("sidebar.channels")}
+            </Link>
             <Link
               href="/library"
               aria-label={t("sidebar.library")}

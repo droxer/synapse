@@ -97,7 +97,15 @@ HiAgent/
 │   │   │   ├── skill_files.py    # Skill file browsing (directory tree + file content)
 │   │   │   ├── mcp.py            # MCP server management
 │   │   │   ├── auth.py           # Auth endpoints (user sync, profile, preferences)
-│   │   │   └── library.py        # Library (artifacts grouped by conversation)
+│   │   │   ├── library.py        # Library (artifacts grouped by conversation)
+│   │   │   └── channels.py       # Telegram channel integration, webhook ingress
+│   │   ├── channels/          # Channel integration module
+│   │   │   ├── __init__.py
+│   │   │   ├── schemas.py     # Frozen DTOs (ChannelConversationRecord, ChannelSessionRecord, etc.)
+│   │   │   ├── repository.py  # Data access for channel accounts, sessions, conversations
+│   │   │   ├── provider.py    # ChannelProvider protocol, TelegramProvider implementation
+│   │   │   ├── responder.py   # ChannelResponder — subscribes to events, sends to Telegram
+│   │   │   └── router.py      # ChannelRouter — handles inbound messages, link tokens
 │   │   ├── auth/              # Authentication middleware
 │   │   │   ├── __init__.py
 │   │   │   └── middleware.py  # Proxy secret verification, rate limiting, NextAuth headers
@@ -199,6 +207,7 @@ HiAgent/
 │   │   ├── app/              # Next.js App Router
 │   │   │   └── (main)/      # Main layout group
 │   │   │       ├── page.tsx          # Conversation page
+│   │   │       ├── channels/page.tsx # Channel conversations (split-panel: list + chat)
 │   │   │       ├── skills/page.tsx   # Skills browser
 │   │   │       ├── mcp/page.tsx      # MCP configuration
 │   │   │       └── library/page.tsx  # Artifact library
@@ -212,6 +221,10 @@ HiAgent/
 │   │   │   │   ├── components/       # AgentComputerPanel, AgentProgressCard, ToolOutputRenderer, PlanChecklistPanel
 │   │   │   │   ├── hooks/            # use-agent-state
 │   │   │   │   └── lib/              # tool-constants (tool display names, agent name normalization)
+│   │   │   ├── channels/             # Channel integration (Telegram, future: WhatsApp, Discord, etc.)
+│   │   │   │   ├── api/              # channel-api.ts (list conversations, bot config, link tokens)
+│   │   │   │   ├── components/       # ChannelProviderIcon, ChannelConversationList, ChannelChatView, TelegramLinkCard
+│   │   │   │   └── lib/              # Provider color/label utilities
 │   │   │   ├── skills/               # Skills browser & selector
 │   │   │   │   ├── api/              # skills-api.ts
 │   │   │   │   ├── components/       # SkillsPage, SkillSelector, SkillCard
@@ -329,6 +342,19 @@ task_complete event ──────────────────► Fr
 | Method | Path | Description |
 |--------|------|-------------|
 | `GET` | `/library` | List artifacts grouped by conversation. Query: `limit`, `offset` |
+
+### Channels
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/channels/telegram/webhook` | Telegram bot webhook ingress (verified via X-Telegram-Bot-API-Secret-Token) |
+| `POST` | `/channels/telegram/config` | Save/update Telegram bot token and webhook configuration. Body: `bot_token` |
+| `DELETE` | `/channels/telegram/config` | Disable Telegram bot and delete webhook |
+| `POST` | `/channels/link-token` | Create a one-time link token for account pairing. Body: `provider` |
+| `GET` | `/channels/accounts` | List linked channel accounts for current user |
+| `DELETE` | `/channels/accounts/{account_id}` | Unlink a channel account |
+| `GET` | `/channels/conversations` | List channel conversations with last message preview and session status |
+| `GET` | `/channels/status` | Get channel feature status (enabled providers, bot config, account links) |
 
 ### SSE Event Types
 
@@ -511,6 +537,8 @@ HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `AUTH_REQUIRED` | `false` | Require Google authentication for all requests |
 | `PROXY_SECRET` | — | Shared secret between Next.js proxy and backend (required in production) |
 | `ENVIRONMENT` | `development` | Environment mode: `development` or `production` |
+| `CHANNELS_ENABLED` | `false` | Enable Telegram channel integration |
+| `CHANNELS_WEBHOOK_BASE_URL` | — | Webhook base URL for channel providers (e.g., `https://your-domain.com`) |
 
 ---
 

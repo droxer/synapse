@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import column, func, select, table
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.state.models import (
@@ -130,7 +130,12 @@ class ConversationRepository:
         search: str | None = None,
         user_id: uuid.UUID | None = None,
     ) -> tuple[list[ConversationRecord], int]:
+        # Subquery to exclude conversations owned by a channel session
+        _channel_sessions = table("channel_sessions", column("conversation_id"))
+        _channel_conv_ids = select(_channel_sessions.c.conversation_id)
+
         count_stmt = select(func.count()).select_from(ConversationModel)
+        count_stmt = count_stmt.where(~ConversationModel.id.in_(_channel_conv_ids))
         if user_id is not None:
             count_stmt = count_stmt.where(ConversationModel.user_id == user_id)
         if search:
@@ -139,6 +144,7 @@ class ConversationRepository:
 
         stmt = (
             select(ConversationModel)
+            .where(~ConversationModel.id.in_(_channel_conv_ids))
             .order_by(ConversationModel.created_at.desc())
             .limit(limit)
             .offset(offset)

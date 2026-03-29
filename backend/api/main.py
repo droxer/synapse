@@ -31,6 +31,7 @@ from api.models import MCPState
 from api.routes import (
     artifacts,
     auth,
+    channels,
     conversations,
     health,
     library,
@@ -196,6 +197,7 @@ def _create_app() -> FastAPI:
     application.include_router(library.router)
     application.include_router(usage.router)
     application.include_router(memory.router)
+    application.include_router(channels.router)
 
     return application
 
