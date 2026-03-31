@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
-from agent.mcp.bridge import MCPBridgedTool
+from agent.mcp.bridge import MCPBridgedTool, mcp_server_tag
 from agent.mcp.client import MCPClient, MCPStdioClient
 from agent.mcp.config import MCPServerConfig
 from agent.mcp.repository import (
@@ -123,7 +123,7 @@ async def _discover_mcp_tools(
             await client.connect()
             tools = await client.list_tools()
             for schema in tools:
-                bridged = MCPBridgedTool(schema, client)
+                bridged = MCPBridgedTool(schema, client, server_key=cfg.name)
                 try:
                     registry = registry.register(bridged)
                     logger.info(
@@ -170,7 +170,7 @@ async def _restore_persisted_servers(
             await client.connect()
             tools = await client.list_tools()
             for schema in tools:
-                bridged = MCPBridgedTool(schema, client)
+                bridged = MCPBridgedTool(schema, client, server_key=key)
                 try:
                     registry = registry.register(bridged)
                     logger.info(
@@ -209,11 +209,11 @@ def _build_server_response(mcp_state: Any, key: str) -> MCPServerResponse:
     # Extract display name (strip user_id prefix if present)
     display_name = key.split(":", 1)[-1] if ":" in key else key
 
-    # Match tools by the bare server name (used as tag)
+    server_tag = mcp_server_tag(key)
     tool_count = 0
     if mcp_state.registry is not None:
         for defn in mcp_state.registry.list_tools():
-            if display_name in (defn.tags or ()):
+            if server_tag in (defn.tags or ()):
                 tool_count += 1
 
     return MCPServerResponse(
@@ -306,7 +306,7 @@ async def add_server(
             tools = await client.list_tools()
             registry = mcp_state.registry or ToolRegistry()
             for schema in tools:
-                bridged = MCPBridgedTool(schema, client)
+                bridged = MCPBridgedTool(schema, client, server_key=key)
                 try:
                     registry = registry.register(bridged)
                 except ValueError:
@@ -368,13 +368,16 @@ async def toggle_server(
     async with mcp_state.lock:
         if request.enabled:
             # Re-connect: create client, register tools
+            existing_client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
+            if existing_client is not None:
+                await existing_client.close()
             client = _create_client_for_config(updated)
             try:
                 await client.connect()
                 tools = await client.list_tools()
                 registry = mcp_state.registry or ToolRegistry()
                 for schema in tools:
-                    bridged = MCPBridgedTool(schema, client)
+                    bridged = MCPBridgedTool(schema, client, server_key=key)
                     try:
                         registry = registry.register(bridged)
                     except ValueError:
@@ -393,7 +396,9 @@ async def toggle_server(
             if client is not None:
                 await client.close()
             if mcp_state.registry is not None:
-                mcp_state.registry = mcp_state.registry.remove_by_tag(name)
+                mcp_state.registry = mcp_state.registry.remove_by_tag(
+                    mcp_server_tag(key)
+                )
             # Keep config in memory (with enabled=False) so UI can list it
             mcp_state.configs[key] = updated
 
@@ -428,7 +433,7 @@ async def remove_server(
         mcp_state.configs.pop(key, None)
 
         if mcp_state.registry is not None:
-            mcp_state.registry = mcp_state.registry.remove_by_tag(name)
+            mcp_state.registry = mcp_state.registry.remove_by_tag(mcp_server_tag(key))
 
     # Remove from database.
     try:

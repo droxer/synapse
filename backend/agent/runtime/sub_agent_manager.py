@@ -180,6 +180,7 @@ class SubAgentManager:
 
         self._agents.clear()
         self._results.clear()
+        self._configs.clear()
         self._executors.clear()
         self._message_bus.clear()
 

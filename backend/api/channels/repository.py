@@ -280,7 +280,27 @@ class ChannelRepository:
         display_name: str | None = None,
         bot_config_id: uuid.UUID | None = None,
     ) -> ChannelAccountRecord:
-        """Create a new channel account linking."""
+        """Create or relink a channel account for the same provider identity."""
+        existing_stmt = select(ChannelAccountModel).where(
+            ChannelAccountModel.provider == provider,
+            ChannelAccountModel.provider_user_id == provider_user_id,
+            ChannelAccountModel.bot_config_id == bot_config_id,
+        )
+        existing_result = await session.execute(existing_stmt)
+        existing = existing_result.scalar_one_or_none()
+
+        if existing is not None:
+            existing.user_id = user_id
+            existing.provider_chat_id = provider_chat_id
+            existing.display_name = display_name
+            existing.status = "active"
+            existing.linked_at = _utcnow()
+            existing.updated_at = _utcnow()
+            await session.flush()
+            await session.refresh(existing)
+            await session.commit()
+            return _to_account(existing)
+
         model = ChannelAccountModel(
             id=uuid.uuid4(),
             user_id=user_id,
@@ -320,9 +340,13 @@ class ChannelRepository:
         channel_account_id: uuid.UUID,
     ) -> ChannelSessionRecord | None:
         """Find the active session for a channel account."""
-        stmt = select(ChannelSessionModel).where(
-            ChannelSessionModel.channel_account_id == channel_account_id,
-            ChannelSessionModel.is_active.is_(True),
+        stmt = (
+            select(ChannelSessionModel)
+            .where(
+                ChannelSessionModel.channel_account_id == channel_account_id,
+                ChannelSessionModel.is_active.is_(True),
+            )
+            .with_for_update()
         )
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()

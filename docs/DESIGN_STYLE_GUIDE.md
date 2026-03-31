@@ -26,20 +26,20 @@
 
 ### Design Philosophy
 
-The palette is built on **cool slate neutrals** — clean backgrounds with a subtle blue-gray undertone, paired with a violet accent. This creates a precise, professional feel aligned with modern developer tools like VS Code, Vercel, and Cursor, conveying technical capability and clarity.
+The palette is built on **deep zinc neutrals** — high-contrast flats and deep darks, paired with a minimal violet accent. This creates a precise, professional feel aligned with modern developer tools like VS Code, Vercel, and Cursor, conveying technical capability and clarity.
 
 ### Core Palette (Light Mode — Default)
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `background` | `#F8FAFC` | Page canvas — cool white (slate-50) |
-| `foreground` | `#0F172A` | Primary text — deep ink (slate-900) |
-| `primary` | `#0F172A` | Action buttons, interactive fills |
-| `primary-foreground` | `#F8FAFC` | Text on primary surfaces |
-| `secondary` | `#F1F5F9` | Muted backgrounds, user messages (slate-100) |
-| `secondary-foreground` | `#0F172A` | Text on secondary surfaces |
-| `muted` | `#F1F5F9` | Inactive/disabled backgrounds |
-| `muted-foreground` | `#64748B` | Secondary text, hints, timestamps (slate-500) |
+| `background` | `#FFFFFF` | Page canvas — flat white |
+| `foreground` | `#09090B` | Primary text — deep zinc |
+| `primary` | `#18181b` | Action buttons, interactive fills |
+| `primary-foreground` | `#FAFAFA` | Text on primary surfaces |
+| `secondary` | `#F4F4F5` | Muted backgrounds, user messages |
+| `secondary-foreground` | `#18181B` | Text on secondary surfaces |
+| `muted` | `#F4F4F5` | Inactive/disabled backgrounds |
+| `muted-foreground` | `#71717A` | Secondary text, hints, timestamps |
 | `muted-foreground-dim` | `#94A3B8` | Tertiary text with WCAG AA contrast (replaces `/60` and `/40` opacity modifiers) |
 | `card` | `#FFFFFF` | Card/elevated surfaces (white on cool bg for natural contrast) |
 | `card-foreground` | `#0F172A` | Text on cards |
@@ -51,18 +51,18 @@ The palette is built on **cool slate neutrals** — clean backgrounds with a sub
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `background` | `#0F1117` | Page canvas — deep ink (blue-black for developer tool feel) |
-| `foreground` | `#E2E8F0` | Primary text — soft slate (slate-200) |
+| `background` | `#09090B` | Page canvas — deep zinc (strict minimal developer tool feel) |
+| `foreground` | `#FAFAFA` | Primary text — crisp white |
 | `primary` | `#FFFFFF` | Action buttons, interactive fills |
 | `primary-foreground` | `#0F172A` | Text on primary surfaces |
-| `secondary` | `#1A1D27` | Muted backgrounds (cool dark with blue undertone) |
+| `secondary` | `#18181B` | Muted backgrounds (flat dark zinc) |
 | `secondary-foreground` | `#E2E8F0` | Text on secondary surfaces |
 | `muted` | `#1A1D27` | Inactive/disabled backgrounds |
 | `muted-foreground` | `#94A3B8` | Secondary text (slate-400) |
 | `muted-foreground-dim` | `#64748B` | Tertiary text with WCAG 3:1 contrast (replaces `/60` and `/40` opacity modifiers) |
-| `card` | `#1A1D27` | Card/elevated surfaces |
+| `card` | `#09090B` | Card/elevated surfaces |
 | `card-foreground` | `#E2E8F0` | Text on cards |
-| `popover` | `#1A1D27` | Dropdown/popover bg |
+| `popover` | `#09090B` | Dropdown/popover bg |
 | `popover-foreground` | `#E2E8F0` | Text in popovers |
 | `destructive` | `#F87171` | Error states, delete actions |
 
@@ -70,7 +70,7 @@ The palette is built on **cool slate neutrals** — clean backgrounds with a sub
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `border` | `#E2E8F0` | `#2A2D37` | Default borders, dividers (1px, cool) |
+| `border` | `#E4E4E7` | `#27272A` | Default borders, dividers (1px, flat) |
 | `border-strong` | `#CBD5E1` | `#3A3D47` | Emphasized borders |
 | `border-active` | `#94A3B8` | `#64748B` | Focus state, active input borders |
 | `input` | `#E2E8F0` | `#2A2D37` | Input field borders |
@@ -186,7 +186,7 @@ text-rendering: optimizeLegibility;
 
 ## Shadows
 
-Shadows use `rgba(15, 23, 42, ...)` (slate-900) in light mode for a cool, neutral tone. Dark mode uses pure black at higher opacity for depth.
+Shadows are highly minimal, preferring crisp 1px borders (`0 0 0 1px`) over large blurred drop shadows to create flat, definitive separation. Dark mode uses pure black at higher opacity for depth.
 
 ### Light Mode
 
@@ -194,7 +194,7 @@ Shadows use `rgba(15, 23, 42, ...)` (slate-900) in light mode for a cool, neutra
 |------|-------|-------|
 | `shadow-card` | `0 1px 2px rgba(15,23,42,0.04)` | Card resting state |
 | `shadow-card-hover` | `0 2px 8px rgba(15,23,42,0.06)` | Card hover lift |
-| `shadow-elevated` | `0 8px 24px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.05)` | Floating overlays: modals, command palette, dropdowns, popovers |
+| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)` | Floating overlays: modals, command palette, dropdowns, popovers |
 
 ### Dark Mode
 
@@ -204,7 +204,7 @@ Shadows in dark mode rely more on border contrast (`#2A2D37` borders on `#0F1117
 |------|-------|-------|
 | `shadow-card` | `0 1px 2px rgba(0,0,0,0.12)` | Card resting state |
 | `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.16)` | Card hover lift |
-| `shadow-elevated` | `0 8px 24px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)` | Floating overlays |
+| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.4)` | Floating overlays |
 
 ### Shadow Usage
 
@@ -245,7 +245,7 @@ The central nervous system of the application. Also accessible via the TopBar se
 
 ### Chat Messages
 
-**User messages**: Right-aligned bubble card with subtle accent tint. Styled with `bg-[var(--color-user-accent-dim)]`, a 1px border at `border-[var(--color-user-accent)]/10`, and asymmetric rounded corners (`rounded-2xl rounded-br-md`). Max width 80%.
+**User messages**: Right-aligned bubble card. Styled with a flat `bg-secondary/40`, a crisp 1px border at `border-border/50`, and `rounded-md` corners. Max width 80%.
 
 **Assistant messages**: Left-aligned, plain text with markdown rendering. No bubble, no border — `text-sm leading-[1.5] text-foreground`. Max width 85%. AI indicator: "HIAGENT" label in `text-xs font-medium tracking-wide text-accent-purple/70 uppercase`. Action buttons (copy, retry) use hover-reveal pattern: `opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150`.
 

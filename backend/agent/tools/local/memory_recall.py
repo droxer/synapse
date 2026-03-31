@@ -63,7 +63,7 @@ class MemoryRecall(LocalTool):
         if not query.strip():
             return ToolResult.fail("Query must not be empty")
 
-        if self._persistent is not None:
+        if self._persistent is not None and self._persistent.is_available:
             try:
                 matches = await self._persistent.recall(query, namespace)
                 return ToolResult.ok(

@@ -122,6 +122,7 @@ function contentTypeToLang(contentType?: string): string | undefined {
 interface ToolOutputRendererProps {
   readonly output: string;
   readonly toolName: string;
+  readonly success?: boolean;
   readonly contentType?: string;
   readonly conversationId?: string | null;
   readonly artifactIds?: string[];
@@ -130,7 +131,7 @@ interface ToolOutputRendererProps {
   readonly agentNameMap?: ReadonlyMap<string, string>;
 }
 
-export function ToolOutputRenderer({ output, toolName, contentType, conversationId, artifactIds, browserMetadata, computerUseMetadata, agentNameMap }: ToolOutputRendererProps) {
+export function ToolOutputRenderer({ output, toolName, success, contentType, conversationId, artifactIds, browserMetadata, computerUseMetadata, agentNameMap }: ToolOutputRendererProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
   const resolvedOutput = toolName === "task_complete" ? t("output.taskMarkedComplete") : output;
@@ -293,7 +294,7 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
                 ) : (
                   <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 )}
-                <span className="shrink-0 font-mono text-xs text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 12)}</span>
+                <span className="shrink-0 font-mono text-xs text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
                 <span className="min-w-0 break-words">{result.error ?? result.summary}</span>
               </div>
             ))}
@@ -427,6 +428,25 @@ export function ToolOutputRenderer({ output, toolName, contentType, conversation
     } catch {
       // Fall through to generic renderer
     }
+  }
+
+  // Failed tool call — show error output with distinct styling
+  if (success === false) {
+    return (
+      <div className="mt-2.5 rounded-md border-l-2 border-l-destructive bg-destructive/5 px-2.5 py-1.5">
+        <div className="mb-1.5 flex items-center gap-1 text-micro text-destructive">
+          <CircleX className="h-3 w-3" />
+          {t("output.toolFailed")}
+        </div>
+        <div className={PROSE_CLASSES}>
+          <MarkdownRenderer content={displayText} />
+          {isLong && !expanded && (
+            <span className="text-muted-foreground-dim">...</span>
+          )}
+        </div>
+        {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+      </div>
+    );
   }
 
   // Category-aware rendering for all other tools (markdown fallback)

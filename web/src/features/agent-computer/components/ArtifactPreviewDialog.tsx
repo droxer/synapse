@@ -44,8 +44,8 @@ export function ArtifactPreviewDialog({
   if (!artifact) return null;
 
   const ext = fileExtension(artifact.name);
-  const colors = fileCategoryColor(artifact.contentType);
-  const Icon = fileIcon(artifact.contentType);
+  const colors = fileCategoryColor(artifact.contentType, artifact.name);
+  const Icon = fileIcon(artifact.contentType, artifact.name);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

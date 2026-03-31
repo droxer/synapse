@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import asyncio
 import json
+import math
 import secrets
 import uuid
+from datetime import datetime, timezone
 from typing import Any
+
+from sqlalchemy.exc import IntegrityError
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
@@ -289,6 +293,7 @@ async def _handle_channel_message(
             session_factory=state.db_session_factory,
             channel_session_id=session_record.id,
             conversation_id=conv_uuid,
+            emitter=emitter,
             storage_backend=state.storage_backend,
             on_ask_user=channel_router.register_pending_prompt,
         )
@@ -315,19 +320,43 @@ async def _handle_channel_message(
             session_factory=state.db_session_factory,
             channel_session_id=session_record.id,
             conversation_id=conv_uuid,
+            emitter=entry.emitter,
             storage_backend=state.storage_backend,
             on_ask_user=channel_router.register_pending_prompt,
         )
         entry.emitter.subscribe(responder)
 
+    # Deduplicate: Telegram may retry webhooks — skip if already processed
     async with state.db_session_factory() as db:
-        await repo.log_message(
+        if await repo.is_message_seen(
             db,
             channel_session_id=session_record.id,
             direction="inbound",
             provider_message_id=message.provider_message_id,
-            content_preview=message.text,
+        ):
+            logger.info(
+                "channel_inbound_duplicate_skipped session={} msg_id={}",
+                session_record.id,
+                message.provider_message_id,
+            )
+            return
+
+    try:
+        async with state.db_session_factory() as db:
+            await repo.log_message(
+                db,
+                channel_session_id=session_record.id,
+                direction="inbound",
+                provider_message_id=message.provider_message_id,
+                content_preview=message.text,
+            )
+    except IntegrityError:
+        logger.info(
+            "channel_inbound_duplicate_race_skipped session={} msg_id={}",
+            session_record.id,
+            message.provider_message_id,
         )
+        return
 
     if channel_router.has_pending_prompt(conv_uuid):
         request_id, callback = channel_router._pending_prompts.pop(conv_uuid)  # noqa: SLF001
@@ -358,7 +387,12 @@ async def _handle_channel_message(
             logger.warning("channel_file_download_failed file_id={}", message.file_id)
 
     if entry.turn_task is not None and not entry.turn_task.done():
-        await entry.turn_task
+        try:
+            await asyncio.wait_for(asyncio.shield(entry.turn_task), timeout=30.0)
+        except asyncio.TimeoutError:
+            logger.warning(
+                "channel_turn_task_timeout conversation_id={}", conversation_id_str
+            )
 
     from api.routes.conversations import _run_turn
 
@@ -495,10 +529,18 @@ async def create_link_token(
             db, user_id=user_id, provider=body.provider
         )
 
+    expires_at = (
+        token_record.expires_at.replace(tzinfo=timezone.utc)
+        if token_record.expires_at.tzinfo is None
+        else token_record.expires_at
+    )
+    expires_in_minutes = max(
+        1, math.ceil((expires_at - datetime.now(timezone.utc)).total_seconds() / 60)
+    )
     return LinkTokenResponse(
         token=token_record.token,
         provider=token_record.provider,
-        expires_in_minutes=10,
+        expires_in_minutes=expires_in_minutes,
     )
 
 
@@ -543,7 +585,11 @@ async def unlink_channel_account(
         accounts = await repo.list_accounts_for_user(db, user_id)
         if account_id not in {str(a.id) for a in accounts}:
             raise HTTPException(status_code=404, detail="Channel account not found")
-        success = await repo.unlink_account(db, uuid.UUID(account_id))
+        try:
+            account_uuid = uuid.UUID(account_id)
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid account ID format")
+        success = await repo.unlink_account(db, account_uuid)
 
     if not success:
         raise HTTPException(status_code=404, detail="Channel account not found")

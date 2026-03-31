@@ -5,11 +5,16 @@ from __future__ import annotations
 import asyncio
 import json
 import types
+from contextlib import asynccontextmanager
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from api.auth import AuthUser
+from api.models import MCPServerCreateRequest, MCPState
+from api.routes import mcp as mcp_routes
 from agent.mcp.client import (
     MCPCallResult,
     MCPStdioClient,
@@ -123,6 +128,82 @@ class TestMCPBridgedTool:
         assert defn.execution_context == ExecutionContext.LOCAL
         assert "mcp" in defn.tags
         assert "test_server" in defn.tags
+
+    def test_definition_namespaces_same_server_name_per_user(self) -> None:
+        schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="shared",
+        )
+
+        tool_a = MCPBridgedTool(
+            schema,
+            client=None,  # type: ignore[arg-type]
+            server_key="user-a:shared",
+        )
+        tool_b = MCPBridgedTool(
+            schema,
+            client=None,  # type: ignore[arg-type]
+            server_key="user-b:shared",
+        )
+
+        defn_a = tool_a.definition()
+        defn_b = tool_b.definition()
+
+        assert defn_a.name != defn_b.name
+        assert "mcp_server:user-a:shared" in defn_a.tags
+        assert "mcp_server:user-b:shared" in defn_b.tags
+        assert "shared" in defn_a.tags
+        assert "shared" in defn_b.tags
+
+    def test_remove_by_tag_only_removes_matching_namespaced_server(self) -> None:
+        schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="shared",
+        )
+        registry = ToolRegistry()
+        registry = registry.register(
+            MCPBridgedTool(
+                schema,
+                client=None,  # type: ignore[arg-type]
+                server_key="user-a:shared",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                schema,
+                client=None,  # type: ignore[arg-type]
+                server_key="user-b:shared",
+            )
+        )
+
+        filtered = registry.remove_by_tag("mcp_server:user-a:shared")
+        names = {tool.name for tool in filtered.list_tools()}
+
+        assert len(names) == 1
+        assert all("user-a" not in name for name in names)
+
+    def test_definition_avoids_global_name_collisions_after_sanitizing(self) -> None:
+        schema_a = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="foo/bar",
+        )
+        schema_b = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="foo bar",
+        )
+
+        defn_a = MCPBridgedTool(schema_a, client=None).definition()  # type: ignore[arg-type]
+        defn_b = MCPBridgedTool(schema_b, client=None).definition()  # type: ignore[arg-type]
+
+        assert defn_a.name != defn_b.name
 
     @pytest.mark.asyncio
     async def test_execute_success(self) -> None:
@@ -347,3 +428,332 @@ class TestRegistryMerge:
         r2 = ToolRegistry().register(DbCreate())
         with pytest.raises(ValueError):
             r1.merge(r2)
+
+
+class _FakeRouteClient:
+    def __init__(
+        self,
+        *,
+        schemas: tuple[MCPToolSchema, ...] = (),
+        alive: bool = True,
+    ) -> None:
+        self._schemas = schemas
+        self._alive = alive
+        self.connected = False
+        self.closed = False
+
+    async def connect(self) -> None:
+        self.connected = True
+
+    async def list_tools(self) -> tuple[MCPToolSchema, ...]:
+        return self._schemas
+
+    async def close(self) -> None:
+        self.closed = True
+        self._alive = False
+
+    def is_alive(self) -> bool:
+        return self._alive
+
+
+def _schema(name: str, server_name: str = "shared") -> MCPToolSchema:
+    return MCPToolSchema(
+        name=name,
+        description=f"{name} tool",
+        input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+        server_name=server_name,
+    )
+
+
+def _auth_user() -> AuthUser:
+    return AuthUser(
+        google_id="google-user-1",
+        email="user@example.com",
+        name="User",
+        picture=None,
+    )
+
+
+def _app_state(mcp_state: MCPState) -> SimpleNamespace:
+    @asynccontextmanager
+    async def _session_factory():
+        yield object()
+
+    return SimpleNamespace(mcp_state=mcp_state, db_session_factory=_session_factory)
+
+
+class TestMCPRoutes:
+    @pytest.mark.asyncio
+    async def test_list_servers_only_counts_visible_namespaced_tools(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        registry = ToolRegistry()
+        registry = registry.register(
+            MCPBridgedTool(_schema("global_tool", "global"), client=None)  # type: ignore[arg-type]
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("mine"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-1:shared",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("peer"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-2:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={
+                "global": _FakeRouteClient(),
+                "user-1:shared": _FakeRouteClient(),
+                "user-2:shared": _FakeRouteClient(),
+            },
+            configs={
+                "global": MCPServerConfig(
+                    name="global", transport="stdio", command="npx"
+                ),
+                "user-1:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                ),
+                "user-2:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                ),
+            },
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(mcp_routes, "_restore_persisted_servers", AsyncMock())
+
+        result = await mcp_routes.list_servers(_app_state(mcp_state), _auth_user())
+
+        assert result["servers"] == [
+            {
+                "name": "global",
+                "transport": "stdio",
+                "command": "npx",
+                "url": "",
+                "status": "connected",
+                "tool_count": 1,
+                "enabled": True,
+            },
+            {
+                "name": "shared",
+                "transport": "stdio",
+                "command": "npx",
+                "url": "",
+                "status": "connected",
+                "tool_count": 1,
+                "enabled": True,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_add_server_counts_only_new_users_tools(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        registry = ToolRegistry().register(
+            MCPBridgedTool(
+                _schema("peer_tool"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-2:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={"user-2:shared": _FakeRouteClient()},
+            configs={
+                "user-2:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                )
+            },
+        )
+        new_client = _FakeRouteClient(schemas=(_schema("my_tool"),))
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes, "_create_client_for_config", lambda cfg: new_client
+        )
+        monkeypatch.setattr(mcp_routes, "db_save_mcp_server", AsyncMock())
+
+        response = await mcp_routes.add_server(
+            MCPServerCreateRequest(name="shared", transport="stdio", command="npx"),
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert response.name == "shared"
+        assert response.tool_count == 1
+        assert len(mcp_state.registry.list_tools()) == 2
+
+    @pytest.mark.asyncio
+    async def test_toggle_server_removes_only_target_users_tools(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        user_client = _FakeRouteClient()
+        peer_client = _FakeRouteClient()
+        registry = ToolRegistry()
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("mine"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-1:shared",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("peer"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-2:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={"user-1:shared": user_client, "user-2:shared": peer_client},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                ),
+                "user-2:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                ),
+            },
+        )
+        updated = MCPServerConfig(
+            name="shared", transport="stdio", command="npx", enabled=False
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_set_mcp_server_enabled",
+            AsyncMock(return_value=updated),
+        )
+
+        result = await mcp_routes.toggle_server(
+            mcp_routes.MCPServerToggleRequest(enabled=False),
+            "shared",
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert result == {"name": "shared", "enabled": False}
+        assert user_client.closed is True
+        assert "user-1:shared" not in mcp_state.clients
+        assert "user-2:shared" in mcp_state.clients
+        assert len(mcp_state.registry.list_tools()) == 1
+
+    @pytest.mark.asyncio
+    async def test_toggle_server_enable_replaces_existing_client_cleanly(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        old_client = _FakeRouteClient()
+        new_client = _FakeRouteClient(schemas=(_schema("mine"),))
+        mcp_state = MCPState(
+            registry=ToolRegistry(),
+            clients={"user-1:shared": old_client},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx", enabled=False
+                )
+            },
+        )
+        updated = MCPServerConfig(
+            name="shared", transport="stdio", command="npx", enabled=True
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_set_mcp_server_enabled",
+            AsyncMock(return_value=updated),
+        )
+        monkeypatch.setattr(
+            mcp_routes, "_create_client_for_config", lambda cfg: new_client
+        )
+
+        result = await mcp_routes.toggle_server(
+            mcp_routes.MCPServerToggleRequest(enabled=True),
+            "shared",
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert result == {"name": "shared", "enabled": True}
+        assert old_client.closed is True
+        assert mcp_state.clients["user-1:shared"] is new_client
+        assert len(mcp_state.registry.list_tools()) == 1
+
+    @pytest.mark.asyncio
+    async def test_remove_server_leaves_same_name_peer_server_untouched(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        user_client = _FakeRouteClient()
+        peer_client = _FakeRouteClient()
+        registry = ToolRegistry()
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("mine"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-1:shared",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("peer"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-2:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={"user-1:shared": user_client, "user-2:shared": peer_client},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                ),
+                "user-2:shared": MCPServerConfig(
+                    name="shared", transport="stdio", command="npx"
+                ),
+            },
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes, "db_delete_mcp_server", AsyncMock(return_value=True)
+        )
+
+        result = await mcp_routes.remove_server(
+            "shared",
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert result == {"detail": "Server 'shared' removed"}
+        assert user_client.closed is True
+        assert "user-1:shared" not in mcp_state.configs
+        assert "user-2:shared" in mcp_state.configs
+        assert len(mcp_state.registry.list_tools()) == 1

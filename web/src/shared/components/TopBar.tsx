@@ -39,7 +39,7 @@ export function TopBar({
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-background px-4">
       {/* Left: Breadcrumb */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Button
@@ -81,7 +81,17 @@ export function TopBar({
         )}
         {isConnected && (
           <span role="status" aria-live="polite" className="ml-1.5 flex items-center">
-            <span className="h-2 w-2 shrink-0 rounded-full bg-accent-emerald" aria-label={t("topbar.connected")} title={t("topbar.connected")} />
+            <span className="relative flex h-2 w-2 shrink-0">
+              <span
+                className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60"
+                aria-hidden="true"
+              />
+              <span
+                className="relative inline-flex h-2 w-2 rounded-full bg-accent-emerald"
+                aria-label={t("topbar.connected")}
+                title={t("topbar.connected")}
+              />
+            </span>
           </span>
         )}
       </div>
@@ -90,11 +100,11 @@ export function TopBar({
       <button
         type="button"
         onClick={handleOpenCommandPalette}
-        className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground transition-colors hover:bg-sidebar-active hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground shadow-[var(--shadow-card)] transition-all duration-150 hover:border-border-strong hover:bg-sidebar-active hover:text-foreground hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline">{t("topbar.search")}</span>
-        <kbd className="hidden sm:inline font-mono text-micro text-muted-foreground-dim">⌘K</kbd>
+        <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
       </button>
     </header>
   );

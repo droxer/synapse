@@ -377,6 +377,10 @@ class E2BProvider(SandboxProvider):
     async def destroy_session(self, session: SandboxSession) -> None:
         """Return the session to the pool if available, otherwise close it."""
         if self._pool is not None and isinstance(session, E2BSession):
+            logger.info("Releasing E2B sandbox to pool")
             await self._pool.release(session)
+        elif isinstance(session, E2BSession):
+            logger.info("Killing non-pooled E2B sandbox")
+            await session.kill()
         else:
             await session.close()

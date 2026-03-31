@@ -251,6 +251,30 @@ class TestShellWait:
         assert "exited with code 1" in result.output
         assert (result.metadata or {}).get("exit_code") == 1
 
+    @pytest.mark.asyncio
+    async def test_returns_artifact_paths_from_background_session_manifest(
+        self,
+    ) -> None:
+        session = MockSession(
+            {
+                "/pid": ExecResult(stdout="1234"),
+                "ELAPSED": ExecResult(stdout="EXITED"),
+                "tail -n 50": ExecResult(stdout="final output"),
+                "tail -n 20": ExecResult(stdout=""),
+                "/exit_code": ExecResult(stdout="0"),
+                "/artifact_paths": ExecResult(
+                    stdout="/tmp/final.pptx\n/tmp/report.txt\n"
+                ),
+            }
+        )
+        tool = ShellWait()
+        result = await tool.execute(session=session, id="server", timeout=5)
+        assert result.success
+        assert (result.metadata or {}).get("artifact_paths") == [
+            "/tmp/final.pptx",
+            "/tmp/report.txt",
+        ]
+
 
 # ------------------------------------------------------------------
 # ShellWrite
@@ -455,6 +479,24 @@ class TestShellExecBackground:
         assert "5678" in result.output
         assert "dev-server" in result.output
         assert (result.metadata or {}).get("session_id") == "dev-server"
+
+    @pytest.mark.asyncio
+    async def test_background_start_persists_output_files_manifest(self) -> None:
+        session = MockSession(
+            {
+                "nohup": ExecResult(stdout="5678", exit_code=0),
+            }
+        )
+        tool = ShellExec()
+        result = await tool.execute(
+            session=session,
+            command="python build_slides.py",
+            id="slides",
+            output_files=["/tmp/final-deck.pptx"],
+        )
+        assert result.success
+        assert "/artifact_paths" in session.exec_calls[0]["command"]
+        assert "/tmp/final-deck.pptx" in session.exec_calls[0]["command"]
 
     @pytest.mark.asyncio
     async def test_background_start_failure(self) -> None:

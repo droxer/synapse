@@ -15,11 +15,16 @@ from agent.runtime.helpers import (
     process_tool_calls,
 )
 from agent.runtime.observer import Observer
+from agent.runtime.skill_dependencies import (
+    build_install_command,
+    group_safe_dependencies,
+)
 from agent.sandbox.base import SANDBOX_HOME_DIR
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
+from config.settings import get_settings
 
 
 @dataclass(frozen=True)
@@ -75,6 +80,7 @@ class AgentOrchestrator:
     ) -> None:
         if not system_prompt:
             raise ValueError("system_prompt must not be empty")
+        settings = get_settings()
         self._client = claude_client
         self._base_registry = tool_registry
         self._executor = tool_executor
@@ -82,7 +88,10 @@ class AgentOrchestrator:
         self._system_prompt = system_prompt
         self._max_iterations = max_iterations
         self._observer = observer or Observer(
+            max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+            token_budget=settings.COMPACT_TOKEN_BUDGET,
             claude_client=claude_client,
+            summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
         )
         self._thinking_budget = thinking_budget
         self._task_complete_summary: str | None = None
@@ -391,7 +400,10 @@ class AgentOrchestrator:
             and matched.metadata.allowed_tools
         ):
             allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-            effective_registry = self._registry.filter_by_names(allowed)
+            effective_registry = self._registry.filter_by_names_or_tags(
+                allowed,
+                {"mcp"},
+            )
 
         tools = effective_registry.to_anthropic_tools()
 
@@ -447,17 +459,7 @@ class AgentOrchestrator:
         ``npm:pptxgenjs``, ``pip:pandas``).  If no manager prefix is
         given, ``pip`` is assumed.
         """
-        # Group packages by manager
-        by_manager: dict[str, list[str]] = {}
-        for dep in dependencies:
-            if ":" in dep:
-                manager, package = dep.split(":", 1)
-            else:
-                manager, package = "pip", dep
-            manager = manager.strip().lower()
-            package = package.strip()
-            if manager and package:
-                by_manager.setdefault(manager, []).append(package)
+        by_manager = group_safe_dependencies(dependencies)
 
         for manager, packages in by_manager.items():
             packages_str = " ".join(packages)
@@ -468,17 +470,9 @@ class AgentOrchestrator:
             )
             try:
                 session = await self._executor.get_sandbox_session()
-                if manager == "pip":
-                    result = await session.exec(
-                        f"pip install {packages_str}", timeout=120
-                    )
-                elif manager == "npm":
-                    result = await session.exec(
-                        f"npm install {packages_str}", timeout=120
-                    )
-                else:
-                    logger.warning("unknown_dependency_manager manager={}", manager)
-                    continue
+                result = await session.exec(
+                    build_install_command(manager, packages), timeout=120
+                )
 
                 if not result.success:
                     logger.error(
@@ -605,7 +599,10 @@ class AgentOrchestrator:
         # Filter tools by allowed_tools if specified
         if skill.metadata.allowed_tools:
             allowed = set(skill.metadata.allowed_tools) | {"activate_skill"}
-            updated_registry = updated_registry.filter_by_names(allowed)
+            updated_registry = updated_registry.filter_by_names_or_tags(
+                allowed,
+                {"mcp"},
+            )
 
         tools = updated_registry.to_anthropic_tools()
 
@@ -628,10 +625,12 @@ class AgentOrchestrator:
         system_prompt: str | None = None,
     ) -> AgentState:
         """Run a single iteration of the ReAct loop."""
+        effective_prompt = system_prompt or self._system_prompt
+
         # Compact message history before the LLM call if needed
-        if self._observer.should_compact(state.messages, self._system_prompt):
+        if self._observer.should_compact(state.messages, effective_prompt):
             logger.debug("compacting_message_history")
-            compacted = await self._observer.compact(state.messages)
+            compacted = await self._observer.compact(state.messages, effective_prompt)
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,
                 {
@@ -665,7 +664,6 @@ class AgentOrchestrator:
                     iteration=state.iteration,
                 )
 
-            effective_prompt = system_prompt or self._system_prompt
             response = await self._client.create_message_stream(
                 system=effective_prompt,
                 messages=list(state.messages),

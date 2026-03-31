@@ -56,6 +56,19 @@ class ToolRegistry:
         filtered = {name: tool for name, tool in self._tools.items() if name in names}
         return ToolRegistry(tools=filtered)
 
+    def filter_by_names_or_tags(
+        self,
+        names: set[str],
+        tags: set[str],
+    ) -> ToolRegistry:
+        """Return a registry keeping tools matched by name or tag."""
+        filtered = {
+            name: tool
+            for name, tool in self._tools.items()
+            if name in names or bool(tags & set(tool.definition().tags or ()))
+        }
+        return ToolRegistry(tools=filtered)
+
     def remove_by_tag(self, tag: str) -> ToolRegistry:
         """Return a new registry excluding tools that carry *tag*."""
         filtered = {

@@ -212,12 +212,13 @@ function getBrowserStatusText(tc: ToolCallInfo, t: TFn): string {
 
 /* ── status icon for terminal-style logs ── */
 function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
+  const { t } = useTranslation();
   if (tc.output !== undefined) {
     return tc.success === false
-      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
-      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />;
+      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" aria-label={t("a11y.toolFailed")} role="img" />
+      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" aria-label={t("a11y.toolSuccess")} role="img" />;
   }
-  return <PulsingDot size="sm" />;
+  return <PulsingDot size="sm" aria-label={t("a11y.toolRunning")} />;
 }
 
 type PanelTab = "activity" | "files";
@@ -541,13 +542,6 @@ export function AgentComputerPanel({
                           </span>
                           <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
-                      ) : AGENT_META_TOOLS.has(item.toolCall.name) ? (
-                        <>
-                          <span className="text-foreground">
-                            {normalizeToolNameI18n(item.toolCall.name, t)}
-                          </span>
-                          <RunningBadge toolCall={item.toolCall} t={t} />
-                        </>
                       ) : (
                         <>
                           <span className="text-foreground">
@@ -565,7 +559,7 @@ export function AgentComputerPanel({
 
                     {/* Args detail box — skip for browser_use, computer_use, and agent_spawn (have custom displays) */}
                     {Object.keys(item.toolCall.input).length > 0 && item.toolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(item.toolCall.name) && !AGENT_META_TOOLS.has(item.toolCall.name) && (
-                      <div className="ml-6 mb-1">
+                      <div className="ml-6 mb-2">
                         <ToolArgsDisplay input={item.toolCall.input} />
                       </div>
                     )}
@@ -576,6 +570,7 @@ export function AgentComputerPanel({
                         <ToolOutputRenderer
                           output={item.toolCall.output}
                           toolName={item.toolCall.name}
+                          success={item.toolCall.success}
                           contentType={item.toolCall.contentType}
                           conversationId={conversationId}
                           artifactIds={item.toolCall.artifactIds}

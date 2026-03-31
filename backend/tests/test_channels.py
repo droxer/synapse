@@ -11,11 +11,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.ext.asyncio import async_sessionmaker
 
 import api.channels.models  # noqa: F401  — register channel ORM models with Base
 from agent.state.models import ConversationModel, UserModel
 from api.channels.provider import TelegramProvider
 from api.channels.repository import ChannelRepository
+from api.channels.router import ChannelRouter
 from api.channels.schemas import InboundMessage
 
 
@@ -124,6 +126,48 @@ class TestChannelAccountCRUD:
         # find_account_by_provider filters on status == "active", so should be None
         found = await repo.find_account_by_provider(session, "telegram", "tg_333")
         assert found is None
+
+    @pytest.mark.asyncio
+    async def test_relink_unlinked_account_reuses_existing_row(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        user = await _make_user(session)
+        bot_config = await repo.upsert_telegram_bot_config(
+            session,
+            user_id=user.id,
+            bot_token="123456:ABC",
+            bot_username="relink_bot",
+            bot_user_id="700100",
+            webhook_secret="relink-secret",
+            webhook_status="active",
+        )
+
+        first = await repo.create_account(
+            session,
+            user_id=user.id,
+            provider="telegram",
+            provider_user_id="tg_relink_1",
+            provider_chat_id="chat_old",
+            display_name="Old Name",
+            bot_config_id=bot_config.id,
+        )
+
+        await repo.unlink_account(session, first.id)
+
+        relinked = await repo.create_account(
+            session,
+            user_id=user.id,
+            provider="telegram",
+            provider_user_id="tg_relink_1",
+            provider_chat_id="chat_new",
+            display_name="New Name",
+            bot_config_id=bot_config.id,
+        )
+
+        assert relinked.id == first.id
+        assert relinked.status == "active"
+        assert relinked.provider_chat_id == "chat_new"
+        assert relinked.display_name == "New Name"
 
 
 class TestChannelSession:
@@ -663,3 +707,63 @@ class TestInboundMessageDefaults:
         )
         with pytest.raises(AttributeError):
             msg.text = "changed"  # type: ignore[misc]
+
+
+class _StubProvider:
+    provider_name = "telegram"
+
+    def __init__(self) -> None:
+        self.messages: list[str] = []
+
+    async def send_text(
+        self, chat_id: str, text: str, reply_to: str | None = None
+    ) -> str:
+        self.messages.append(text)
+        return "stub-msg-id"
+
+
+class TestChannelRouterStartCommand:
+    @pytest.mark.asyncio
+    async def test_start_when_already_linked_reports_already_linked(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        user = await _make_user(session)
+        bot_config = await repo.upsert_telegram_bot_config(
+            session,
+            user_id=user.id,
+            bot_token="123456:ABC",
+            bot_username="router_bot",
+            bot_user_id="800001",
+            webhook_secret="router-secret",
+            webhook_status="active",
+        )
+        await repo.create_account(
+            session,
+            user_id=user.id,
+            provider="telegram",
+            provider_user_id="tg_router_1",
+            provider_chat_id="chat_router_1",
+            display_name="Router User",
+            bot_config_id=bot_config.id,
+        )
+
+        session_factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+        router = ChannelRouter(channel_repo=repo, session_factory=session_factory)
+        provider = _StubProvider()
+
+        msg = InboundMessage(
+            provider="telegram",
+            provider_user_id="tg_router_1",
+            provider_chat_id="chat_router_1",
+            provider_message_id="m_router_1",
+            text="/start definitely_invalid_token",
+            display_name="Router User",
+            is_command=True,
+            command="start",
+            command_args="definitely_invalid_token",
+        )
+
+        await router.handle_inbound(msg, provider, bot_config.id)
+
+        assert provider.messages
+        assert "already linked" in provider.messages[-1].lower()

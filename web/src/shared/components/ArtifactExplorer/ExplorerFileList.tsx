@@ -82,8 +82,8 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
       ? `/api/conversations/${item.conversationId}/artifacts/${item.id}`
       : null;
 
-  const { bg, icon: iconColor } = fileCategoryColor(item.contentType);
-  const Icon = fileIcon(item.contentType);
+  const { bg, icon: iconColor } = fileCategoryColor(item.contentType, item.name);
+  const Icon = fileIcon(item.contentType, item.name);
 
   // ── Small square for list layout ─────────────────────────────────────────
   if (layout === "list") {
@@ -282,8 +282,8 @@ function FileCard({
   const { relative: relativeDate, absolute: absoluteDate } = item.createdAt
     ? formatRelativeDate(item.createdAt, locale)
     : { relative: "", absolute: "" };
-  const accentBorderColor = fileCategoryBorderColor(item.contentType);
-  const { icon: iconColor } = fileCategoryColor(item.contentType);
+  const accentBorderColor = fileCategoryBorderColor(item.contentType, item.name);
+  const { icon: iconColor } = fileCategoryColor(item.contentType, item.name);
 
   // ── Grid card (vertical — thumbnail on top) ───────────────────────────────
   if (layout === "grid") {

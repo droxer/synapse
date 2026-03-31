@@ -125,6 +125,7 @@ export function AgentStatusRow({
                       <ToolOutputRenderer
                         output={tc.output}
                         toolName={tc.name}
+                        success={tc.success}
                         contentType={tc.contentType}
                         conversationId={conversationId ?? null}
                         artifactIds={tc.artifactIds}

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -13,7 +13,7 @@ from agent.sandbox.base import (
     ExecResult,
     ExtendedSandboxSession,
 )
-from agent.sandbox.e2b_provider import E2BSession, _infer_display_type
+from agent.sandbox.e2b_provider import E2BProvider, E2BSession, _infer_display_type
 
 
 @dataclass
@@ -156,6 +156,29 @@ class TestCloseAndKill:
         session = E2BSession(sandbox=sandbox)
         await session.kill()
         assert sandbox._killed
+
+
+class TestProviderDestroySession:
+    @pytest.mark.asyncio
+    async def test_destroy_session_releases_to_pool_when_configured(self) -> None:
+        pool = AsyncMock()
+        provider = E2BProvider(api_key="test-key", pool=pool)
+        session = E2BSession(sandbox=_FakeSandbox())
+
+        await provider.destroy_session(session)
+
+        pool.release.assert_awaited_once_with(session)
+
+    @pytest.mark.asyncio
+    async def test_destroy_session_kills_non_pooled_e2b_session(self) -> None:
+        provider = E2BProvider(api_key="test-key")
+        sandbox = _FakeSandbox()
+        session = E2BSession(sandbox=sandbox)
+
+        await provider.destroy_session(session)
+
+        assert sandbox._killed
+        assert not sandbox._paused
 
 
 class TestInferDisplayType:

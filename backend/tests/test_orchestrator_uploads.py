@@ -42,6 +42,20 @@ class _FakeClaudeClient:
         )
 
 
+class _RecordingObserver:
+    def __init__(self) -> None:
+        self.should_compact_calls: list[tuple[tuple[dict[str, Any], ...], str]] = []
+        self.compact_calls: list[tuple[tuple[dict[str, Any], ...], str]] = []
+
+    def should_compact(self, messages, system_prompt="") -> bool:
+        self.should_compact_calls.append((messages, system_prompt))
+        return True
+
+    async def compact(self, messages, system_prompt=""):
+        self.compact_calls.append((messages, system_prompt))
+        return messages
+
+
 class _FakeSession:
     def __init__(
         self, *, fail_upload: bool = False, verify_upload: bool = True
@@ -215,3 +229,28 @@ async def test_successful_upload_advertises_verified_paths_only() -> None:
     text_blocks = [block["text"] for block in content if block.get("type") == "text"]
     assert text_blocks
     assert "/home/user/uploads/report.csv" in text_blocks[0]
+
+
+@pytest.mark.asyncio
+async def test_run_iteration_uses_effective_prompt_for_compaction() -> None:
+    client = _FakeClaudeClient()
+    observer = _RecordingObserver()
+    orchestrator = AgentOrchestrator(
+        claude_client=client,
+        tool_registry=ToolRegistry(),
+        tool_executor=_FakeExecutor(session=_FakeSession()),  # type: ignore[arg-type]
+        event_emitter=EventEmitter(),
+        system_prompt="base prompt",
+        observer=observer,  # type: ignore[arg-type]
+    )
+    state = orchestrator._state.add_message({"role": "user", "content": "hello"})
+
+    result = await orchestrator._run_iteration(
+        state,
+        tools=[],
+        system_prompt="expanded prompt",
+    )
+
+    assert result.completed is True
+    assert observer.should_compact_calls == [(state.messages, "expanded prompt")]
+    assert observer.compact_calls == [(state.messages, "expanded prompt")]

@@ -1,6 +1,7 @@
 """Claude API client with tool support and streaming."""
 
 import asyncio
+import json
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
@@ -47,8 +48,32 @@ def _extract_text_blocks(content: list) -> str:
 
 def _extract_tool_calls(content: list) -> tuple[ToolCall, ...]:
     """Extract ToolCall objects from ToolUseBlock content items."""
+
+    def _tool_input(block: Any) -> dict[str, Any]:
+        raw_input = getattr(block, "input", None)
+        parsed_arguments: dict[str, Any] = {}
+
+        raw_arguments = getattr(block, "arguments", None)
+        if isinstance(raw_arguments, str):
+            try:
+                parsed = json.loads(raw_arguments)
+            except json.JSONDecodeError:
+                parsed = None
+            if isinstance(parsed, dict):
+                parsed_arguments = parsed
+
+        if isinstance(raw_input, dict) and raw_input:
+            if parsed_arguments:
+                return {**parsed_arguments, **raw_input}
+            return raw_input
+
+        if parsed_arguments:
+            return parsed_arguments
+
+        return raw_input if isinstance(raw_input, dict) else {}
+
     return tuple(
-        ToolCall(id=block.id, name=block.name, input=block.input)
+        ToolCall(id=block.id, name=block.name, input=_tool_input(block))
         for block in content
         if block.type == "tool_use"
     )

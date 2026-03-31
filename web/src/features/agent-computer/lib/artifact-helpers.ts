@@ -3,6 +3,11 @@ import {
   FileImage,
   FileCode,
   FileSpreadsheet,
+  FileJson,
+  FileArchive,
+  FileAudio,
+  FileVideo,
+  FileTerminal,
   File,
 } from "lucide-react";
 
@@ -22,7 +27,82 @@ export function formatFileSize(
   return t(units[i], { size: i === 0 ? size.toFixed(0) : size.toFixed(1) });
 }
 
-export function fileIcon(contentType: string) {
+export function fileExtension(name: string): string {
+  const dot = name.lastIndexOf(".");
+  if (dot === -1 || dot === name.length - 1) return "";
+  return name.slice(dot + 1).toLowerCase();
+}
+
+export function fileIcon(contentType: string, name?: string) {
+  if (name) {
+    const ext = fileExtension(name);
+    switch (ext) {
+      case "json":
+        return FileJson;
+      case "zip":
+      case "tar":
+      case "gz":
+      case "rar":
+      case "7z":
+        return FileArchive;
+      case "mp3":
+      case "wav":
+      case "ogg":
+      case "flac":
+        return FileAudio;
+      case "mp4":
+      case "mkv":
+      case "avi":
+      case "mov":
+        return FileVideo;
+      case "sh":
+      case "bash":
+      case "zsh":
+      case "bat":
+      case "cmd":
+        return FileTerminal;
+      case "csv":
+      case "xlsx":
+      case "xls":
+      case "ods":
+        return FileSpreadsheet;
+      case "js":
+      case "jsx":
+      case "ts":
+      case "tsx":
+      case "py":
+      case "go":
+      case "rs":
+      case "java":
+      case "c":
+      case "cpp":
+      case "h":
+      case "html":
+      case "css":
+      case "sql":
+      case "php":
+      case "rb":
+      case "swift":
+        return FileCode;
+      case "txt":
+      case "md":
+      case "log":
+      case "pdf":
+      case "doc":
+      case "docx":
+      case "rtf":
+        return FileText;
+      case "png":
+      case "jpg":
+      case "jpeg":
+      case "gif":
+      case "svg":
+      case "webp":
+      case "ico":
+        return FileImage;
+    }
+  }
+
   if (contentType.startsWith("image/")) return FileImage;
   if (contentType === "application/pdf") return FileText;
   if (contentType.includes("wordprocessingml")) return FileText;
@@ -55,18 +135,61 @@ export function fileCategory(contentType: string, t: TFn): string {
   return t("artifacts.categoryFile");
 }
 
-export function fileExtension(name: string): string {
-  const dot = name.lastIndexOf(".");
-  if (dot === -1 || dot === name.length - 1) return "";
-  return name.slice(dot + 1).toUpperCase();
-}
-
 interface FileCategoryColor {
   readonly icon: string;
   readonly bg: string;
 }
 
-export function fileCategoryColor(contentType: string): FileCategoryColor {
+export function fileCategoryColor(contentType: string, name?: string): FileCategoryColor {
+  if (name) {
+    const ext = fileExtension(name);
+    switch (ext) {
+      case "json":
+      case "js":
+      case "jsx":
+      case "ts":
+      case "tsx":
+      case "py":
+      case "go":
+      case "rs":
+      case "java":
+      case "c":
+      case "cpp":
+      case "h":
+      case "html":
+      case "css":
+      case "sql":
+      case "php":
+      case "rb":
+      case "swift":
+        return { icon: "text-accent-emerald", bg: "bg-accent-emerald/10" };
+      case "csv":
+      case "xlsx":
+      case "xls":
+      case "ods":
+        return { icon: "text-accent-amber", bg: "bg-accent-amber/10" };
+      case "pdf":
+      case "zip":
+      case "tar":
+      case "gz":
+      case "rar":
+      case "7z":
+        return { icon: "text-accent-rose", bg: "bg-accent-rose/10" };
+      case "png":
+      case "jpg":
+      case "jpeg":
+      case "gif":
+      case "svg":
+      case "webp":
+      case "ico":
+      case "mp3":
+      case "wav":
+      case "mp4":
+      case "mkv":
+        return { icon: "text-accent-purple", bg: "bg-accent-purple/10" };
+    }
+  }
+
   if (contentType.startsWith("image/"))
     return { icon: "text-accent-purple", bg: "bg-accent-purple/10" };
   if (contentType === "application/pdf")
@@ -100,8 +223,8 @@ const BORDER_COLOR_MAP: Record<string, string> = {
   "text-muted-foreground": "var(--color-muted-foreground)",
 };
 
-export function fileCategoryBorderColor(contentType: string): string {
-  const { icon } = fileCategoryColor(contentType);
+export function fileCategoryBorderColor(contentType: string, name?: string): string {
+  const { icon } = fileCategoryColor(contentType, name);
   return BORDER_COLOR_MAP[icon] ?? "var(--color-border)";
 }
 

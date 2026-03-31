@@ -348,6 +348,7 @@
   "output.category.mcp": "MCP",
   "output.category.agent": "智慧體",
   "output.category.database": "資料庫",
+  "output.toolFailed": "工具執行失敗",
   "output.agentResults": "智慧體結果",
   "output.agentMessages": "訊息（{count} 則）",
   "output.agentMessageFrom": "來自 {id}",
@@ -385,6 +386,9 @@
   "a11y.collapse": "收起",
   "a11y.expand": "展開",
   "a11y.truncatedChars": "...（還有 {count} 個字元）",
+  "a11y.toolSuccess": "工具執行成功",
+  "a11y.toolFailed": "工具執行失敗",
+  "a11y.toolRunning": "工具執行中",
 
   "skills.activity.showError": "顯示錯誤詳情",
   "skills.activity.hideError": "隱藏錯誤詳情",
@@ -589,5 +593,9 @@
   "channels.telegram.helpStep2": "傳送 /newbot，然後依提示為機器人命名。",
   "channels.telegram.helpStep3": "BotFather 將回覆類似 123456789:AAF... 的權杖。",
   "channels.telegram.helpStep4": "複製該權杖並貼上到上方輸入框。",
-  "channels.telegram.helpStep5": "HiAgent 將自動驗證權杖並設定 Webhook。"
+  "channels.telegram.helpStep5": "HiAgent 將自動驗證權杖並設定 Webhook。",
+  "channels.telegram.configure": "設定",
+  "channels.telegram.manage": "管理",
+  "channels.telegram.updateToken": "更新權杖",
+  "channels.telegram.cancel": "取消"
 }

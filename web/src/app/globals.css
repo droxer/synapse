@@ -20,11 +20,11 @@
   --color-card-foreground: #0F172A;
   --color-popover: #FFFFFF;
   --color-popover-foreground: #0F172A;
-  --radius-sm: 0.25rem;
-  --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
+  --radius-sm: 0.125rem;
+  --radius-md: 0.25rem;
+  --radius-lg: 0.375rem;
+  --radius-xl: 0.5rem;
+  --radius-2xl: 0.5rem;
 
   --color-border-strong: #CBD5E1;
   --color-border-active: #94A3B8;
@@ -34,18 +34,18 @@
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
-  --color-accent-purple: #8B5CF6;
+  --color-accent-purple: #1B7EF2;
   --color-accent-blue: #3B82F6;
-  --color-ai-glow: #8B5CF6;
+  --color-ai-glow: #1B7EF2;
 
   --color-accent: var(--color-secondary);
   --color-accent-foreground: var(--color-foreground);
 
   --color-user-accent: #3B82F6;
   --color-user-accent-dim: rgba(59, 130, 246, 0.06);
-  --color-ai-surface: rgba(139, 92, 246, 0.05);
-  --color-ai-border: rgba(139, 92, 246, 0.12);
-  --color-input-glow: rgba(139, 92, 246, 0.08);
+  --color-ai-surface: rgba(27, 126, 242, 0.05);
+  --color-ai-border: rgba(27, 126, 242, 0.12);
+  --color-input-glow: rgba(27, 126, 242, 0.08);
   --color-overlay: rgba(15, 23, 42, 0.5);
 
   --color-sidebar-bg: #F1F5F9;
@@ -53,8 +53,8 @@
   --color-sidebar-hover: #E2E8F0;
   --color-sidebar-foreground-muted: #475569;
 
-  --color-profile-ring: rgba(139, 92, 246, 0.2);
-  --color-profile-ring-hover: rgba(139, 92, 246, 0.35);
+  --color-profile-ring: rgba(27, 126, 242, 0.2);
+  --color-profile-ring-hover: rgba(27, 126, 242, 0.35);
 
   --color-terminal-bg: #F8FAFC;
   --color-terminal-surface: #F1F5F9;
@@ -92,7 +92,7 @@
 
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-card-hover: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 8px 24px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05);
 
   /* Animations — keep useful ones, remove glow/orbital */
   --animate-fade-in: fadeIn 0.3s ease-out;
@@ -152,27 +152,33 @@
   }
 
   --animate-modal-in: modalIn 0.15s ease-out;
+
+  @keyframes glowPulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(108, 58, 237, 0.18), 0 0 8px rgba(108, 58, 237, 0.10); }
+    50%       { box-shadow: 0 0 32px rgba(108, 58, 237, 0.34), 0 0 16px rgba(108, 58, 237, 0.18); }
+  }
 }
 
 /* ─── Light mode (default) ─── */
 
 :root {
-  --color-background: #F8FAFC;
-  --color-foreground: #0F172A;
-  --color-primary: #0F172A;
-  --color-primary-foreground: #F8FAFC;
-  --color-secondary: #F1F5F9;
-  --color-secondary-foreground: #0F172A;
-  --color-muted: #F1F5F9;
-  --color-muted-foreground: #475569;
+
+  --color-background: #FFFFFF;
+  --color-foreground: #09090B;
+  --color-primary: #18181B;
+  --color-primary-foreground: #FAFAFA;
+  --color-secondary: #F4F4F5;
+  --color-secondary-foreground: #18181B;
+  --color-muted: #F4F4F5;
+  --color-muted-foreground: #71717A;
   --color-destructive: #EF4444;
-  --color-border: #E2E8F0;
-  --color-input: #E2E8F0;
+  --color-border: #E4E4E7;
+  --color-input: #E4E4E7;
   --color-ring: #0F172A;
   --color-card: #FFFFFF;
-  --color-card-foreground: #0F172A;
+  --color-card-foreground: #09090B;
   --color-popover: #FFFFFF;
-  --color-popover-foreground: #0F172A;
+  --color-popover-foreground: #09090B;
   --color-border-strong: #CBD5E1;
   --color-border-active: #94A3B8;
   --color-placeholder: #94A3B8;
@@ -180,50 +186,51 @@
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
-  --color-accent-purple: #8B5CF6;
+  --color-accent-purple: #1B7EF2;
   --color-accent-blue: #3B82F6;
-  --color-ai-glow: #8B5CF6;
+  --color-ai-glow: #1B7EF2;
   --color-accent: var(--color-secondary);
   --color-accent-foreground: var(--color-foreground);
-  --color-user-accent: #3B82F6;
-  --color-user-accent-dim: rgba(59, 130, 246, 0.06);
-  --color-ai-surface: rgba(139, 92, 246, 0.05);
-  --color-ai-border: rgba(139, 92, 246, 0.12);
-  --color-input-glow: rgba(139, 92, 246, 0.08);
-  --color-sidebar-bg: #F1F5F9;
-  --color-sidebar-active: #E2E8F0;
-  --color-sidebar-hover: #E2E8F0;
+  --color-user-accent: #18181B;
+  --color-user-accent-dim: rgba(24, 24, 27, 0.04);
+  --color-ai-surface: rgba(27, 126, 242, 0.05);
+  --color-ai-border: rgba(27, 126, 242, 0.12);
+  --color-input-glow: rgba(27, 126, 242, 0.08);
+  --color-sidebar-bg: #FAFAFA;
+  --color-sidebar-active: #E4E4E7;
+  --color-sidebar-hover: #F4F4F5;
   --color-sidebar-foreground-muted: #475569;
-  --color-terminal-bg: #F8FAFC;
-  --color-terminal-surface: #F1F5F9;
-  --color-terminal-border: #E2E8F0;
+  --color-terminal-bg: #FFFFFF;
+  --color-terminal-surface: #F4F4F5;
+  --color-terminal-border: #E4E4E7;
   --color-terminal-text: #1E293B;
   --color-terminal-dim: #94A3B8;
   --color-overlay: rgba(15, 23, 42, 0.5);
   --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
   --shadow-card-hover: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 8px 24px rgba(15, 23, 42, 0.10), 0 2px 8px rgba(15, 23, 42, 0.05);
+  --shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05);
 }
 
 /* ─── Dark mode ─── */
 
 .dark {
-  --color-background: #0F1117;
-  --color-foreground: #E2E8F0;
-  --color-primary: #FFFFFF;
-  --color-primary-foreground: #0F172A;
-  --color-secondary: #1A1D27;
-  --color-secondary-foreground: #E2E8F0;
-  --color-muted: #1A1D27;
-  --color-muted-foreground: #94A3B8;
+
+  --color-background: #09090B;
+  --color-foreground: #FAFAFA;
+  --color-primary: #FAFAFA;
+  --color-primary-foreground: #18181B;
+  --color-secondary: #18181B;
+  --color-secondary-foreground: #FAFAFA;
+  --color-muted: #18181B;
+  --color-muted-foreground: #A1A1AA;
   --color-destructive: #F87171;
-  --color-border: #2A2D37;
-  --color-input: #2A2D37;
+  --color-border: #27272A;
+  --color-input: #27272A;
   --color-ring: #E2E8F0;
-  --color-card: #1A1D27;
-  --color-card-foreground: #E2E8F0;
-  --color-popover: #1A1D27;
-  --color-popover-foreground: #E2E8F0;
+  --color-card: #09090B;
+  --color-card-foreground: #FAFAFA;
+  --color-popover: #09090B;
+  --color-popover-foreground: #FAFAFA;
   --color-border-strong: #3A3D47;
   --color-border-active: #64748B;
   --color-placeholder: #64748B;
@@ -231,31 +238,31 @@
   --color-accent-emerald: #34D399;
   --color-accent-amber: #D97706;
   --color-accent-rose: #F87171;
-  --color-accent-purple: #8B5CF6;
+  --color-accent-purple: #3B8EF5;
   --color-accent-blue: #3B82F6;
-  --color-ai-glow: #8B5CF6;
+  --color-ai-glow: #3B8EF5;
   --color-accent: var(--color-secondary);
   --color-accent-foreground: var(--color-foreground);
-  --color-user-accent: #3B82F6;
-  --color-user-accent-dim: rgba(59, 130, 246, 0.08);
-  --color-ai-surface: rgba(139, 92, 246, 0.04);
-  --color-ai-border: rgba(139, 92, 246, 0.12);
-  --color-input-glow: rgba(139, 92, 246, 0.12);
-  --color-sidebar-bg: #0F1117;
-  --color-sidebar-active: #1A1D27;
-  --color-sidebar-hover: #1A1D27;
+  --color-user-accent: #FAFAFA;
+  --color-user-accent-dim: rgba(250, 250, 250, 0.06);
+  --color-ai-surface: rgba(59, 142, 245, 0.04);
+  --color-ai-border: rgba(59, 142, 245, 0.12);
+  --color-input-glow: rgba(59, 142, 245, 0.12);
+  --color-sidebar-bg: #09090B;
+  --color-sidebar-active: #27272A;
+  --color-sidebar-hover: #18181B;
   --color-sidebar-foreground-muted: #94A3B8;
-  --color-profile-ring: rgba(139, 92, 246, 0.25);
-  --color-profile-ring-hover: rgba(139, 92, 246, 0.45);
-  --color-terminal-bg: #0F1117;
-  --color-terminal-surface: #1A1D27;
-  --color-terminal-border: #2A2D37;
+  --color-profile-ring: rgba(59, 142, 245, 0.25);
+  --color-profile-ring-hover: rgba(59, 142, 245, 0.45);
+  --color-terminal-bg: #09090B;
+  --color-terminal-surface: #18181B;
+  --color-terminal-border: #27272A;
   --color-terminal-text: #CBD5E1;
   --color-terminal-dim: #64748B;
   --color-overlay: rgba(0, 0, 0, 0.6);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.12);
   --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.16);
-  --shadow-elevated: 0 8px 24px rgba(0, 0, 0, 0.25), 0 2px 8px rgba(0, 0, 0, 0.12);
+  --shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -439,8 +446,9 @@ pre, code {
 
 .markdown-body pre {
   margin: 0.5em 0;
-  background: var(--color-secondary);
-  border-radius: 0.375rem;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.25rem;
   padding: 0.75em 1em;
 }
 
@@ -552,9 +560,9 @@ pre, code {
 
 .markdown-prose pre {
   margin: 1em 0;
-  background: var(--color-secondary);
+  background: var(--color-background);
   border: 1px solid var(--color-border);
-  border-radius: 0.5rem;
+  border-radius: 0.375rem;
   padding: 1em 1.25em;
   overflow-x: auto;
   font-size: 0.875em;
@@ -691,7 +699,22 @@ pre, code {
 /* ─── Welcome screen radial background ─── */
 
 .welcome-radial-bg {
-  background: radial-gradient(ellipse 70% 50% at 50% 45%, var(--color-ai-surface) 0%, transparent 70%);
+  background:
+    radial-gradient(ellipse 55% 40% at 50% 40%, rgba(27, 126, 242, 0.10) 0%, transparent 65%),
+    radial-gradient(ellipse 80% 55% at 50% 60%, rgba(250, 245, 230, 0.06) 0%, transparent 70%);
+}
+
+.dark .welcome-radial-bg {
+  background:
+    radial-gradient(ellipse 55% 40% at 50% 40%, rgba(59, 142, 245, 0.13) 0%, transparent 65%),
+    radial-gradient(ellipse 80% 55% at 50% 60%, rgba(30, 27, 50, 0.18) 0%, transparent 70%);
+}
+
+/* ─── Dot-grid texture overlay ─── */
+
+@utility dot-grid-bg {
+  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
+  background-size: 20px 20px;
 }
 
 /* ─── Touch targets (WCAG 2.5.8 — 44px minimum on coarse pointers) ─── */

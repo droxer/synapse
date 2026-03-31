@@ -121,7 +121,10 @@ class TestComputeFullBoundary:
         assert _compute_full_boundary((1, 3, 5), max_full=3) == 0
 
     def test_exceeds_max(self) -> None:
-        assert _compute_full_boundary((1, 3, 5, 7, 9, 11), max_full=3) == 7
+        assert _compute_full_boundary((1, 3, 5, 7, 9, 11), max_full=3) == 6
+
+    def test_includes_preceding_tool_use_message(self) -> None:
+        assert _compute_full_boundary((1, 3), max_full=1) == 2
 
 
 class TestFlattenContent:
@@ -243,17 +246,19 @@ class TestCompact:
     @pytest.mark.asyncio
     async def test_hot_tier_kept_verbatim(self) -> None:
         obs = Observer(max_full_interactions=1)
+        last_use = _tool_use_msg("new_tool")
         last_result = _tool_result_msg("final result content")
         msgs = (
             _user_msg("task"),
             _tool_use_msg("old_tool"),
             _tool_result_msg("x" * 200),
-            _tool_use_msg("new_tool"),
+            last_use,
             last_result,
         )
         result = await obs.compact(msgs)
         # The last tool result should be in the hot tier, verbatim
         assert last_result in result
+        assert last_use in result
 
     @pytest.mark.asyncio
     async def test_all_fit_in_hot_tier(self) -> None:

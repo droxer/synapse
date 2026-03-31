@@ -59,6 +59,15 @@ async def _is_running(session: Any, pid: int) -> bool:
     return result.exit_code == 0
 
 
+async def _read_artifact_paths(session: Any, session_id: str) -> list[str]:
+    """Read artifact paths recorded for a named shell session."""
+    sdir = _session_dir(session_id)
+    result = await session.exec(f"cat {sdir}/artifact_paths 2>/dev/null", timeout=5)
+    if result.exit_code != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
 class ShellView(SandboxTool):
     """View output from a named shell session."""
 
@@ -247,9 +256,18 @@ class ShellWait(SandboxTool):
                 except ValueError:
                     pass
 
+            metadata: dict[str, Any] = {
+                "session_id": session_id,
+                "exit_code": exit_code,
+                "pid": pid,
+            }
+            artifact_paths = await _read_artifact_paths(session, session_id)
+            if artifact_paths:
+                metadata["artifact_paths"] = artifact_paths
+
             return ToolResult.ok(
                 f"[session '{session_id}' — exited with code {exit_code}]\n{combined}",
-                metadata={"session_id": session_id, "exit_code": exit_code, "pid": pid},
+                metadata=metadata,
             )
         except boxlite.BoxliteError as exc:
             if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():

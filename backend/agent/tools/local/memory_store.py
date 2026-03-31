@@ -68,7 +68,7 @@ class MemoryStore(LocalTool):
         if not value:
             return ToolResult.fail("Value must not be empty")
 
-        if self._persistent is not None:
+        if self._persistent is not None and self._persistent.is_available:
             try:
                 await self._persistent.store(key, value, namespace)
                 return ToolResult.ok(

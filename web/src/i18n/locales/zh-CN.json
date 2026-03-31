@@ -349,6 +349,7 @@
   "output.category.mcp": "MCP",
   "output.category.agent": "智能体",
   "output.category.database": "数据库",
+  "output.toolFailed": "工具执行失败",
   "output.agentResults": "智能体结果",
   "output.agentMessages": "消息（{count} 条）",
   "output.agentMessageFrom": "来自 {id}",
@@ -386,6 +387,9 @@
   "a11y.collapse": "收起",
   "a11y.expand": "展开",
   "a11y.truncatedChars": "...（还有 {count} 个字符）",
+  "a11y.toolSuccess": "工具执行成功",
+  "a11y.toolFailed": "工具执行失败",
+  "a11y.toolRunning": "工具执行中",
 
   "skills.activity.showError": "显示错误详情",
   "skills.activity.hideError": "隐藏错误详情",
@@ -590,5 +594,9 @@
   "channels.telegram.helpStep2": "发送 /newbot，然后按提示为机器人命名。",
   "channels.telegram.helpStep3": "BotFather 将回复类似 123456789:AAF... 的令牌。",
   "channels.telegram.helpStep4": "复制该令牌并粘贴到上方输入框。",
-  "channels.telegram.helpStep5": "HiAgent 将自动验证令牌并配置 Webhook。"
+  "channels.telegram.helpStep5": "HiAgent 将自动验证令牌并配置 Webhook。",
+  "channels.telegram.configure": "配置",
+  "channels.telegram.manage": "管理",
+  "channels.telegram.updateToken": "更新令牌",
+  "channels.telegram.cancel": "取消"
 }

@@ -151,11 +151,11 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "relative rounded-lg bg-card transition-all duration-200",
+            "relative rounded-md border border-border/50 bg-background/50 shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] transition-all duration-200",
             isFocused
-              ? "shadow-[0_0_0_3px_var(--color-input-glow),var(--shadow-card-hover)]"
-              : "shadow-[var(--shadow-card)]",
-            isDragOver && "border border-dashed border-border-active bg-secondary/30",
+              ? "border-accent-purple/50 ring-1 ring-accent-purple/20"
+              : "",
+            isDragOver && "border-dashed border-border-active bg-secondary/30",
           )}
         >
           {/* File & skill attachment shelf */}
@@ -207,13 +207,13 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             autoFocus={autoFocus || isWelcome}
             aria-label={t("chat.inputLabel")}
             className={cn(
-              "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-sm leading-relaxed text-foreground placeholder:text-placeholder outline-none",
+              "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none",
               disabled && "opacity-50 cursor-not-allowed",
             )}
           />
 
           {/* Toolbar divider + action bar */}
-          <div className="border-t border-border px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="px-3 py-2.5 flex items-center justify-between gap-2">
             {/* Left: tools + hints */}
             <div className="flex items-center gap-1.5">
               <Button
@@ -223,7 +223,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 aria-label={t("chat.attachFile")}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  "gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
                   isWelcome ? "h-8 px-3 bg-secondary/50" : "h-7 bg-secondary/40",
                 )}
               >
@@ -244,7 +244,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 aria-pressed={usePlanner}
                 onClick={() => setUsePlanner((v) => !v)}
                 className={cn(
-                  "gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors duration-150",
+                  "gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150",
                   isWelcome && "h-8 px-3",
                   !isWelcome && "h-7",
                   usePlanner

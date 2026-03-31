@@ -52,7 +52,7 @@ class MemoryList(LocalTool):
     async def execute(self, **kwargs: Any) -> ToolResult:
         namespace: str = kwargs.get("namespace", "default")
 
-        if self._persistent is not None:
+        if self._persistent is not None and self._persistent.is_available:
             try:
                 entries = await self._persistent.list_entries(namespace)
                 return ToolResult.ok(

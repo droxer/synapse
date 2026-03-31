@@ -241,7 +241,7 @@ def _compute_full_boundary(
     """
     if not interaction_indices or len(interaction_indices) <= max_full:
         return 0
-    return interaction_indices[-max_full]
+    return max(0, interaction_indices[-max_full] - 1)
 
 
 def _has_tool_results(message: dict[str, Any]) -> bool:

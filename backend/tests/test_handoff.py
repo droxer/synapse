@@ -1,5 +1,6 @@
 """Tests for agent handoff functionality."""
 
+import asyncio
 from unittest.mock import MagicMock
 
 import pytest
@@ -303,3 +304,60 @@ class TestFormatHandoffContext:
         messages = ({"role": "user", "content": "test"},)
         result = _format_handoff_context(messages, "", "coder")
         assert "test" in result
+
+
+class TestSubAgentSpawnLimits:
+    @pytest.mark.asyncio
+    async def test_max_total_is_enforced_during_concurrent_spawn_attempts(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+            max_total=1,
+        )
+
+        async def mock_run_agent(agent_id, config):
+            await asyncio.sleep(0)
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._run_agent = mock_run_agent
+
+        results = await asyncio.gather(
+            manager.spawn(TaskAgentConfig(task_description="first")),
+            manager.spawn(TaskAgentConfig(task_description="second")),
+            return_exceptions=True,
+        )
+
+        assert sum(isinstance(result, str) for result in results) == 1
+        assert sum(isinstance(result, RuntimeError) for result in results) == 1
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_cleanup_resets_spawn_capacity_for_reuse(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+            max_total=1,
+        )
+
+        async def mock_run_agent(agent_id, config):
+            await asyncio.sleep(0)
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._run_agent = mock_run_agent
+
+        first_agent = await manager.spawn(TaskAgentConfig(task_description="first"))
+        await manager.cleanup()
+
+        assert first_agent
+        assert manager.total_spawned == 0
+
+        second_agent = await manager.spawn(TaskAgentConfig(task_description="second"))
+
+        assert second_agent
+
+        await manager.cleanup()

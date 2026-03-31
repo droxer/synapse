@@ -18,14 +18,13 @@ export function useConversationHistory(
   const prevConversationId = useRef<string | null>(null);
   const resetConversation = useAppStore((state) => state.resetConversation);
 
-  // Clear history only when conversationId changes
+  // Clear history immediately when switching conversations so stale
+  // transcript/events do not flash while the next fetch is in flight.
   useEffect(() => {
     if (prevConversationId.current !== conversationId) {
       prevConversationId.current = conversationId;
-      if (!conversationId) {
-        setHistoryMessages([]);
-        setHistoryEvents([]);
-      }
+      setHistoryMessages([]);
+      setHistoryEvents([]);
     }
   }, [conversationId]);
 

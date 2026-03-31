@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import re
+import shlex
 from typing import Any
 
 import boxlite
@@ -17,6 +18,11 @@ from agent.tools.base import (
 )
 
 _VALID_SESSION_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
+
+
+def _shell_quote_lines(lines: list[str]) -> str:
+    """Return shell-safe single-quoted lines for printf."""
+    return " ".join(shlex.quote(line) for line in lines)
 
 
 def _make_stream_callbacks(
@@ -110,7 +116,7 @@ class ShellExec(SandboxTool):
                     "Invalid session id. Use 1-64 alphanumeric characters, hyphens, or underscores."
                 )
             return await self._start_background_session(
-                session, command, clean_id, workdir
+                session, command, clean_id, workdir, output_files
             )
 
         try:
@@ -157,11 +163,13 @@ class ShellExec(SandboxTool):
         command: str,
         session_id: str,
         workdir: str | None,
+        output_files: list[str],
     ) -> ToolResult:
         """Start a command as a named background session."""
         from agent.tools.sandbox.shell_tools import _SESSION_DIR
 
         sdir = f"{_SESSION_DIR}/{session_id}"
+        artifact_manifest = f"{sdir}/artifact_paths"
 
         # Build the startup script.
         # The wrapper records the exit code to a file so shell_wait can
@@ -169,8 +177,13 @@ class ShellExec(SandboxTool):
         # of the same shell).
         cd_prefix = f"cd {workdir} && " if workdir else ""
         escaped_cmd = command.replace("'", "'\\''")
+        manifest_init = f": > {artifact_manifest}; "
+        if output_files:
+            manifest_lines = _shell_quote_lines(output_files)
+            manifest_init = f"printf '%s\\n' {manifest_lines} > {artifact_manifest}; "
         start_script = (
             f"mkdir -p {sdir} && "
+            f"{manifest_init}"
             f"mkfifo {sdir}/stdin_pipe 2>/dev/null; "
             f"nohup sh -c '"
             f"exec 0< {sdir}/stdin_pipe; "

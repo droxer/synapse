@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from agent.artifacts.storage import StorageBackend
 from api.channels.provider import ChannelProvider
 from api.channels.repository import ChannelRepository
-from api.events import AgentEvent, EventType
+from api.events import AgentEvent, EventEmitter, EventType
 
 
 def _read_file_bytes(path: str) -> bytes:
@@ -53,6 +53,7 @@ class ChannelResponder:
         session_factory: async_sessionmaker[AsyncSession],
         channel_session_id: uuid.UUID,
         conversation_id: uuid.UUID,
+        emitter: EventEmitter,
         storage_backend: StorageBackend | None = None,
         on_ask_user: Callable[[uuid.UUID, str, Any], None] | None = None,
     ) -> None:
@@ -62,6 +63,7 @@ class ChannelResponder:
         self._session_factory = session_factory
         self._channel_session_id = channel_session_id
         self._conversation_id = conversation_id
+        self._emitter = emitter
         self._storage_backend = storage_backend
         self._on_ask_user = on_ask_user
 
@@ -89,6 +91,7 @@ class ChannelResponder:
             text_to_send = buffered or data.get("result", "")
             if text_to_send:
                 await self._send_and_log(str(text_to_send))
+            self._emitter.unsubscribe(self)
 
         elif etype == EventType.ASK_USER:
             self._cancel_flush_timer()
@@ -105,9 +108,9 @@ class ChannelResponder:
 
         elif etype == EventType.ARTIFACT_CREATED:
             content_type: str = data.get("content_type", "")
-            if content_type.startswith("image/") and self._storage_backend is not None:
+            if self._storage_backend is not None:
                 storage_key: str = data.get("storage_key", "")
-                name: str = data.get("name", "image")
+                name: str = data.get("name", "file")
                 if storage_key:
                     await self._send_artifact(storage_key, content_type, name)
 
@@ -116,6 +119,7 @@ class ChannelResponder:
             self._discard_buffer()
             error = data.get("error", "An error occurred.")
             await self._send_and_log(f"Error: {error}")
+            self._emitter.unsubscribe(self)
 
     # ------------------------------------------------------------------
     # Buffer management

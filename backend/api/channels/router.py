@@ -163,6 +163,22 @@ class ChannelRouter:
         bot_config_id: uuid.UUID,
     ) -> None:
         """Handle ``/start <token>`` for account linking."""
+        async with self._session_factory() as db:
+            existing = await self._repo.find_account_by_provider(
+                db,
+                message.provider,
+                message.provider_user_id,
+                bot_config_id=bot_config_id,
+            )
+
+        if existing is not None:
+            await provider.send_text(
+                message.provider_chat_id,
+                "This account is already linked. Use /unlink first if you "
+                "want to re-link to a different user.",
+            )
+            return
+
         token = (message.command_args or "").strip()
         if not token:
             await provider.send_text(
@@ -185,20 +201,6 @@ class ChannelRouter:
                 await provider.send_text(
                     message.provider_chat_id,
                     "Invalid or expired link token. Please generate a new one.",
-                )
-                return
-
-            existing = await self._repo.find_account_by_provider(
-                db,
-                message.provider,
-                message.provider_user_id,
-                bot_config_id=bot_config_id,
-            )
-            if existing is not None:
-                await provider.send_text(
-                    message.provider_chat_id,
-                    "This account is already linked. Use /unlink first if you "
-                    "want to re-link to a different user.",
                 )
                 return
 

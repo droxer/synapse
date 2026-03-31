@@ -44,7 +44,12 @@ export function useAgentState(events: AgentEvent[]) {
         }
       }
 
-      if (e.type === "text_delta") {
+      if (e.type === "turn_start") {
+        const userMsg = String(e.data.message ?? "");
+        if (userMsg) {
+          msgs.push({ role: "user", content: userMsg, timestamp: e.timestamp });
+        }
+      } else if (e.type === "text_delta") {
         // Accumulate streaming text from deltas
         streamingText += String(e.data.delta ?? "");
         if (streamingTimestamp === 0) {
@@ -220,11 +225,13 @@ export function useAgentState(events: AgentEvent[]) {
         if (existing) {
           const agentId = e.data.agent_id ? String(e.data.agent_id) : existing.agentId;
           const browserMeta: BrowserMetadata | undefined = existing.name === "browser_use" ? {
-            steps: typeof e.data.steps === "number" ? e.data.steps : undefined,
-            isDone: typeof e.data.is_done === "boolean" ? e.data.is_done : undefined,
-            maxSteps: typeof e.data.max_steps === "number" ? e.data.max_steps : undefined,
-            url: typeof e.data.url === "string" ? e.data.url : undefined,
-            task: typeof e.data.task === "string" ? e.data.task : undefined,
+            // Merge with existing metadata so streaming partial updates don't wipe previously set fields
+            ...existing.browserMetadata,
+            ...(typeof e.data.steps === "number" && { steps: e.data.steps }),
+            ...(typeof e.data.is_done === "boolean" && { isDone: e.data.is_done }),
+            ...(typeof e.data.max_steps === "number" && { maxSteps: e.data.max_steps }),
+            ...(typeof e.data.url === "string" && { url: e.data.url }),
+            ...(typeof e.data.task === "string" && { task: e.data.task }),
           } : undefined;
           const computerUseMeta: ComputerUseMetadata | undefined =
             (existing.name === "computer_action" || existing.name === "computer_screenshot")
@@ -255,15 +262,21 @@ export function useAgentState(events: AgentEvent[]) {
         }
       }
       if (e.type === "code_result") {
-        // Associate code_result with the most recent code tool call that has no output yet
         const codeToolNames = new Set(["code_run", "code_interpret", "shell_exec"]);
+        // Prefer direct tool_id match to avoid race conditions with concurrent code calls
+        const directId = e.data.tool_id ? String(e.data.tool_id) : undefined;
         let targetId: string | undefined;
-        for (let i = insertOrder.length - 1; i >= 0; i--) {
-          const id = insertOrder[i];
-          const call = callMap.get(id);
-          if (call && codeToolNames.has(call.name) && call.output === undefined) {
-            targetId = id;
-            break;
+        if (directId && callMap.has(directId)) {
+          targetId = directId;
+        } else {
+          // Fall back: most recent code tool call with no output yet
+          for (let i = insertOrder.length - 1; i >= 0; i--) {
+            const id = insertOrder[i];
+            const call = callMap.get(id);
+            if (call && codeToolNames.has(call.name) && call.output === undefined) {
+              targetId = id;
+              break;
+            }
           }
         }
         if (targetId) {

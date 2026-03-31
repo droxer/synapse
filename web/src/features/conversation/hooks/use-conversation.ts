@@ -70,6 +70,8 @@ export function useConversation(
     if (prev !== null && prev !== conversationId) {
       setUserMessages([]);
       setIsWaitingForAgent(false);
+      setUserCancelled(false);
+      setCreateError(null);
     }
   }, [conversationId]);
 
@@ -213,6 +215,9 @@ export function useConversation(
       if (id === conversationId) return;
       switchConversation(id);
       setUserMessages([]);
+      setIsWaitingForAgent(false);
+      setUserCancelled(false);
+      setCreateError(null);
     },
     [conversationId, switchConversation],
   );
@@ -220,6 +225,9 @@ export function useConversation(
   const handleNewConversation = useCallback(() => {
     resetConversation();
     setUserMessages([]);
+    setIsWaitingForAgent(false);
+    setUserCancelled(false);
+    setCreateError(null);
   }, [resetConversation]);
 
   const handleCancel = useCallback(() => {
@@ -229,6 +237,7 @@ export function useConversation(
     // Fire and forget — don't block the UI on the backend cancel
     cancelTurn(conversationId).catch((err) => {
       console.error("Failed to cancel turn:", err);
+      setUserCancelled(false);
     });
   }, [conversationId]);
 
@@ -239,6 +248,7 @@ export function useConversation(
       const result = await retryTurn(conversationId);
       if (result.status === "retrying") {
         eventCountAtSendRef.current = events.length;
+        setUserCancelled(false);
         setIsWaitingForAgent(true);
       }
     } catch (err) {

@@ -104,6 +104,7 @@ class TaskAgentRunner:
             raise ValueError("agent_id must not be empty")
         if not config.task_description.strip():
             raise ValueError("task_description must not be empty")
+        settings = get_settings()
 
         self._agent_id = agent_id
         self._config = config
@@ -113,7 +114,10 @@ class TaskAgentRunner:
         self._emitter = event_emitter
         self._max_iterations = max_iterations
         self._observer = observer or Observer(
+            max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+            token_budget=settings.COMPACT_TOKEN_BUDGET,
             claude_client=claude_client,
+            summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
         )
         self._system_prompt = _build_system_prompt(config)
         self._task_complete_summary: str | None = None

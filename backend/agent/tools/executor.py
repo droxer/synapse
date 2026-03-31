@@ -106,6 +106,32 @@ class ToolExecutor:
         """Expose the artifact manager for API endpoint access."""
         return self._artifact_manager
 
+    def _resolve_tool(
+        self, tool_name: str
+    ) -> tuple[str, LocalTool | SandboxTool | None]:
+        """Resolve a tool name, falling back from skill-name misuse to activate_skill."""
+        tool = self._registry.get(tool_name)
+        if tool is not None:
+            return tool_name, tool
+
+        activate_skill_tool = self._registry.get("activate_skill")
+        if activate_skill_tool is None:
+            return tool_name, None
+
+        from agent.tools.local.activate_skill import ActivateSkill
+
+        if not isinstance(activate_skill_tool, ActivateSkill):
+            return tool_name, None
+
+        if activate_skill_tool._registry.find_by_name(tool_name) is None:
+            return tool_name, None
+
+        logger.info(
+            "skill_name_called_as_tool requested_name={} fallback=activate_skill",
+            tool_name,
+        )
+        return "activate_skill", activate_skill_tool
+
     async def execute(
         self,
         tool_name: str,
@@ -118,7 +144,10 @@ class ToolExecutor:
         After sandbox tool execution, any file artifacts referenced in
         the result metadata are extracted and ARTIFACT_CREATED events emitted.
         """
-        tool = self._registry.get(tool_name)
+        resolved_name, tool = self._resolve_tool(tool_name)
+        resolved_input = tool_input
+        if resolved_name == "activate_skill" and tool_name != resolved_name:
+            resolved_input = {"name": tool_name}
 
         if tool is None:
             logger.warning("unknown_tool_requested name={}", tool_name)
@@ -126,19 +155,19 @@ class ToolExecutor:
 
         try:
             if isinstance(tool, LocalTool):
-                return await tool.execute(**tool_input)
+                return await tool.execute(**resolved_input)
 
             if isinstance(tool, SandboxTool):
                 session = await self._get_sandbox_session(tool.definition().tags)
                 logger.debug(
                     "sandbox_tool_input name={} keys={}",
-                    tool_name,
-                    list(tool_input.keys()),
+                    resolved_name,
+                    list(resolved_input.keys()),
                 )
                 result = await tool.execute(
                     session=session,
                     event_emitter=self._event_emitter,
-                    **tool_input,
+                    **resolved_input,
                 )
                 result = await self._extract_artifacts(result, session)
                 return result

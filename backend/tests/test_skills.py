@@ -587,6 +587,26 @@ class TestMatchDescription:
         assert result is not None
         assert result.metadata.name == "skill-a"
 
+    def test_exact_name_token_match_beats_generic_description_overlap(self) -> None:
+        named = _make_skill("data-analysis", "general helpers for tasks")
+        generic = _make_skill("generic-research", "analyze data charts and datasets")
+        registry = SkillRegistry((generic, named))
+
+        result = registry.match_description("please use data-analysis for this task")
+
+        assert result is not None
+        assert result.metadata.name == "data-analysis"
+
+    def test_weak_generic_overlap_does_not_auto_match(self) -> None:
+        registry = SkillRegistry(
+            (
+                _make_skill("skill-a", "help users with tasks"),
+                _make_skill("skill-b", "assist with user requests"),
+            )
+        )
+
+        assert registry.match_description("help with this task") is None
+
 
 # ---------------------------------------------------------------------------
 # ActivateSkill tool tests

@@ -26,8 +26,13 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 sm:px-6">
-      {/* Subtle warm radial background */}
+      {/* Radial background */}
       <div className="pointer-events-none absolute inset-0 welcome-radial-bg" />
+      {/* Dot-grid texture */}
+      <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-[0.35]" aria-hidden="true" />
+      {/* Ambient corner orbs */}
+      <div className="pointer-events-none absolute -right-32 -top-24 h-96 w-96 rounded-full bg-accent-purple/5 blur-3xl" aria-hidden="true" />
+      <div className="pointer-events-none absolute -bottom-32 -left-24 h-80 w-80 rounded-full bg-accent-blue/5 blur-3xl" aria-hidden="true" />
 
       <motion.div
         className="relative z-10 flex w-full max-w-3xl flex-col items-center"
@@ -37,7 +42,7 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
       >
         {/* Heading — single fade-in (Hero type scale per design guide) */}
         <motion.h1
-          className="mb-8 text-center font-sans text-2xl font-semibold leading-[1.1] tracking-tight text-foreground sm:text-4xl"
+          className="mb-8 text-center font-sans text-2xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.12, ease: "easeOut" }}

@@ -26,20 +26,20 @@
 
 ### 设计理念
 
-调色板基于**冷色 slate 中性色调**构建 — 带有微妙蓝灰底色的简洁背景，搭配紫罗兰强调色。这营造出一种精准、专业的感觉，与 VS Code、Vercel、Cursor 等现代开发者工具保持一致，传达技术能力和清晰感。
+调色板基于**深锌色中性色调**构建 — 高对比度的纯平白色与深邃暗色，搭配极简的紫罗兰强调色。这营造出一种精准、专业的感觉，与 VS Code、Vercel、Cursor 等现代开发者工具保持一致，传达技术能力和清晰感。
 
 ### 核心调色板（亮色模式 — 默认）
 
 | 令牌 | Hex | 用途 |
 |------|-----|------|
-| `background` | `#F8FAFC` | 页面画布 — 冷白色 (slate-50) |
-| `foreground` | `#0F172A` | 主文字 — 深墨色 (slate-900) |
-| `primary` | `#0F172A` | 操作按钮、交互填充 |
-| `primary-foreground` | `#F8FAFC` | 主色表面上的文字 |
-| `secondary` | `#F1F5F9` | 柔和背景、用户消息 (slate-100) |
-| `secondary-foreground` | `#0F172A` | 次色表面上的文字 |
-| `muted` | `#F1F5F9` | 非活跃/禁用背景 |
-| `muted-foreground` | `#64748B` | 次要文字、提示、时间戳 (slate-500) |
+| `background` | `#FFFFFF` | 页面画布 — 纯白色 |
+| `foreground` | `#09090B` | 主文字 — 深锌色 |
+| `primary` | `#18181b` | 操作按钮、交互填充 |
+| `primary-foreground` | `#FAFAFA` | 主色表面上的文字 |
+| `secondary` | `#F4F4F5` | 柔和背景、用户消息 |
+| `secondary-foreground` | `#18181B` | 次色表面上的文字 |
+| `muted` | `#F4F4F5` | 非活跃/禁用背景 |
+| `muted-foreground` | `#71717A` | 次要文字、提示、时间戳 |
 | `muted-foreground-dim` | `#94A3B8` | 三级文字，符合 WCAG AA 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
 | `card` | `#FFFFFF` | 卡片/抬升表面（冷色背景上的白色形成自然对比） |
 | `card-foreground` | `#0F172A` | 卡片上的文字 |
@@ -51,18 +51,18 @@
 
 | 令牌 | Hex | 用途 |
 |------|-----|------|
-| `background` | `#0F1117` | 页面画布 — 深墨色（蓝黑色调，适合开发者工具） |
-| `foreground` | `#E2E8F0` | 主文字 — 柔 slate 色 (slate-200) |
+| `background` | `#09090B` | 页面画布 — 深锌色（极致极简的开发者工具风格） |
+| `foreground` | `#FAFAFA` | 主文字 — 清晰纯白 |
 | `primary` | `#FFFFFF` | 操作按钮、交互填充 |
 | `primary-foreground` | `#0F172A` | 主色表面上的文字 |
-| `secondary` | `#1A1D27` | 柔和背景（带蓝色底调的冷深色） |
+| `secondary` | `#18181B` | 柔和背景（扁平深锌色） |
 | `secondary-foreground` | `#E2E8F0` | 次色表面上的文字 |
 | `muted` | `#1A1D27` | 非活跃/禁用背景 |
 | `muted-foreground` | `#94A3B8` | 次要文字 (slate-400) |
 | `muted-foreground-dim` | `#64748B` | 三级文字，符合 WCAG 3:1 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
-| `card` | `#1A1D27` | 卡片/抬升表面 |
+| `card` | `#09090B` | 卡片/抬升表面 |
 | `card-foreground` | `#E2E8F0` | 卡片上的文字 |
-| `popover` | `#1A1D27` | 下拉菜单/弹出框背景 |
+| `popover` | `#09090B` | 下拉菜单/弹出框背景 |
 | `popover-foreground` | `#E2E8F0` | 弹出框中的文字 |
 | `destructive` | `#F87171` | 错误状态、删除操作 |
 
@@ -70,7 +70,7 @@
 
 | 令牌 | 亮色 | 暗色 | 用途 |
 |------|------|------|------|
-| `border` | `#E2E8F0` | `#2A2D37` | 默认边框、分隔线（1px，冷色） |
+| `border` | `#E4E4E7` | `#27272A` | 默认边框、分隔线（1px，扁平纯色） |
 | `border-strong` | `#CBD5E1` | `#3A3D47` | 强调边框 |
 | `border-active` | `#94A3B8` | `#64748B` | 聚焦状态、活跃输入框边框 |
 | `input` | `#E2E8F0` | `#2A2D37` | 输入框边框 |
@@ -186,7 +186,7 @@ text-rendering: optimizeLegibility;
 
 ## 阴影
 
-亮色模式阴影采用 `rgba(15, 23, 42, ...)`（slate-900）实现冷色中性色调。暗色模式使用更高透明度的纯黑以增加深度感。
+阴影设计极其极简，优先使用清晰的 1px 边框（`0 0 0 1px`）而非大面积模糊的投影，以创造扁平、明确的视觉层级分离。暗色模式使用更高透明度的纯黑以增加深度感。
 
 ### 亮色模式
 
@@ -194,7 +194,7 @@ text-rendering: optimizeLegibility;
 |------|------|------|
 | `shadow-card` | `0 1px 2px rgba(15,23,42,0.04)` | 卡片静止状态 |
 | `shadow-card-hover` | `0 2px 8px rgba(15,23,42,0.06)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 8px 24px rgba(15,23,42,0.10), 0 2px 8px rgba(15,23,42,0.05)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
+| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
 
 ### 暗色模式
 
@@ -204,7 +204,7 @@ text-rendering: optimizeLegibility;
 |------|------|------|
 | `shadow-card` | `0 1px 2px rgba(0,0,0,0.12)` | 卡片静止状态 |
 | `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.16)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 8px 24px rgba(0,0,0,0.25), 0 2px 8px rgba(0,0,0,0.12)` | 浮动覆盖层 |
+| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.4)` | 浮动覆盖层 |
 
 ### 阴影使用方式
 
@@ -245,7 +245,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 
 ### 聊天消息
 
-**用户消息**：右对齐气泡卡片，带细微强调色调。使用 `bg-[var(--color-user-accent-dim)]` 样式，`border-[var(--color-user-accent)]/10` 的 1px 边框，非对称圆角（`rounded-2xl rounded-br-md`）。最大宽度 80%。
+**用户消息**：右对齐气泡卡片。使用扁平的 `bg-secondary/40`，清晰的 1px 边框 `border-border/50`，以及标准圆角 `rounded-md`。最大宽度 80%。
 
 **助手消息**：左对齐，纯文本配合 Markdown 渲染。无气泡、无边框 — `text-sm leading-[1.5] text-foreground`。最大宽度 85%。AI 标识："HIAGENT" 标签使用 `text-xs font-medium tracking-wide text-accent-purple/70 uppercase`。操作按钮（复制、重试）使用悬停显示模式：`opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150`。
 

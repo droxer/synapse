@@ -15,6 +15,10 @@ from agent.runtime.helpers import (
 )
 from agent.runtime.observer import Observer
 from agent.runtime.orchestrator import AgentState
+from agent.runtime.skill_dependencies import (
+    build_install_command,
+    group_safe_dependencies,
+)
 from agent.runtime.task_runner import TaskAgentConfig
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -84,13 +88,17 @@ class PlannerOrchestrator:
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations must be at least 1")
+        settings = get_settings()
 
         self._client = claude_client
         self._sub_agent_manager = sub_agent_manager
         self._emitter = event_emitter
         self._max_iterations = max_iterations
         self._observer = observer or Observer(
+            max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+            token_budget=settings.COMPACT_TOKEN_BUDGET,
             claude_client=claude_client,
+            summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
         )
         self._task_complete_summary: str | None = None
         self._system_prompt = system_prompt or PLANNER_SYSTEM_PROMPT
@@ -222,7 +230,10 @@ class PlannerOrchestrator:
                 # Filter tools by allowed_tools
                 if matched.metadata.allowed_tools:
                     allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-                    effective_registry = effective_registry.filter_by_names(allowed)
+                    effective_registry = effective_registry.filter_by_names_or_tags(
+                        allowed,
+                        {"mcp"},
+                    )
 
         tools = effective_registry.to_anthropic_tools()
         model = get_settings().PLANNING_MODEL
@@ -257,9 +268,11 @@ class PlannerOrchestrator:
         system_prompt: str | None = None,
     ) -> AgentState:
         """Run a single iteration of the planner ReAct loop."""
+        effective_prompt = system_prompt or self._system_prompt
+
         # Compact history before the LLM call if needed
-        if self._observer.should_compact(state.messages):
-            compacted = await self._observer.compact(state.messages)
+        if self._observer.should_compact(state.messages, effective_prompt):
+            compacted = await self._observer.compact(state.messages, effective_prompt)
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,
                 {
@@ -281,7 +294,7 @@ class PlannerOrchestrator:
                 f"Exceeded maximum iterations ({self._max_iterations})",
             )
 
-        response = await self._call_llm(state, tools, model, system_prompt)
+        response = await self._call_llm(state, tools, model, effective_prompt)
         if response is None:
             return state.mark_error("LLM call failed")
 
@@ -314,16 +327,7 @@ class PlannerOrchestrator:
         Format: ``manager:package`` (e.g. ``npm:pptxgenjs``).
         Defaults to ``pip`` if no manager prefix.
         """
-        by_manager: dict[str, list[str]] = {}
-        for dep in dependencies:
-            if ":" in dep:
-                manager, package = dep.split(":", 1)
-            else:
-                manager, package = "pip", dep
-            manager = manager.strip().lower()
-            package = package.strip()
-            if manager and package:
-                by_manager.setdefault(manager, []).append(package)
+        by_manager = group_safe_dependencies(dependencies)
 
         for manager, packages in by_manager.items():
             packages_str = " ".join(packages)
@@ -334,17 +338,9 @@ class PlannerOrchestrator:
             )
             try:
                 session = await self._executor.get_sandbox_session()
-                if manager == "pip":
-                    result = await session.exec(
-                        f"pip install {packages_str}", timeout=120
-                    )
-                elif manager == "npm":
-                    result = await session.exec(
-                        f"npm install {packages_str}", timeout=120
-                    )
-                else:
-                    logger.warning("unknown_dependency_manager manager={}", manager)
-                    continue
+                result = await session.exec(
+                    build_install_command(manager, packages), timeout=120
+                )
 
                 if not result.success:
                     logger.error(

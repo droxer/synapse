@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSSE } from "@/shared/hooks";
 import { useAgentState } from "@/features/agent-computer";
-import { ConversationWorkspace, usePendingAsk } from "@/features/conversation";
+import { ConversationWorkspace, usePendingAsk, mergeUniqueEvents } from "@/features/conversation";
 import {
   sendFollowUpMessage,
   cancelTurn,
@@ -16,9 +16,10 @@ import { getProviderLabel } from "./ChannelProviderIcon";
 
 interface ChannelChatViewProps {
   conversation: ChannelConversation;
+  hideTopBar?: boolean;
 }
 
-export function ChannelChatView({ conversation }: ChannelChatViewProps) {
+export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewProps) {
   const { conversation_id: conversationId } = conversation;
 
   // Always connect SSE for live updates
@@ -85,9 +86,10 @@ export function ChannelChatView({ conversation }: ChannelChatViewProps) {
     return () => { cancelled = true; };
   }, [conversationId]);
 
-  // Merge history + live events
+  // Merge history + live events, deduplicating by event key to avoid
+  // duplicate processing when SSE queue buffers events also present in DB history.
   const effectiveEvents = useMemo(
-    () => [...historyEvents, ...sseEvents],
+    () => mergeUniqueEvents(historyEvents, sseEvents),
     [historyEvents, sseEvents],
   );
 
@@ -198,6 +200,7 @@ export function ChannelChatView({ conversation }: ChannelChatViewProps) {
     <ConversationWorkspace
       conversationId={conversationId}
       conversationTitle={title}
+      hideTopBar={hideTopBar}
       events={effectiveEvents}
       messages={allMessages}
       toolCalls={toolCalls}

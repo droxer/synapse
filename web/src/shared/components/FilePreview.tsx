@@ -222,8 +222,8 @@ export function FilePreview({
   const inlineUrl = `${url}${url.includes("?") ? "&" : "?"}inline=1`;
 
   const ext = useMemo(() => fileExtension(fileName), [fileName]);
-  const colors = useMemo(() => fileCategoryColor(ct), [ct]);
-  const Icon = useMemo(() => fileIcon(ct), [ct]);
+  const colors = useMemo(() => fileCategoryColor(ct, fileName), [ct, fileName]);
+  const Icon = useMemo(() => fileIcon(ct, fileName), [ct, fileName]);
 
   /* Determine what kind of fetching we need */
   const fetchMode = useMemo((): "text" | "docx" | "xlsx" | "none" => {

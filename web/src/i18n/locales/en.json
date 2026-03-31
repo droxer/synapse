@@ -349,6 +349,7 @@
   "output.category.mcp": "MCP",
   "output.category.agent": "Agent",
   "output.category.database": "Database",
+  "output.toolFailed": "Tool failed",
   "output.agentResults": "Agent Results",
   "output.agentMessages": "Messages ({count})",
   "output.agentMessageFrom": "From {id}",
@@ -386,6 +387,9 @@
   "a11y.collapse": "Collapse",
   "a11y.expand": "Expand",
   "a11y.truncatedChars": "... ({count} more chars)",
+  "a11y.toolSuccess": "Tool succeeded",
+  "a11y.toolFailed": "Tool failed",
+  "a11y.toolRunning": "Tool running",
 
   "skills.activity.showError": "Show error details",
   "skills.activity.hideError": "Hide error details",
@@ -590,5 +594,9 @@
   "channels.telegram.helpStep2": "Send /newbot and follow the prompts to name your bot.",
   "channels.telegram.helpStep3": "BotFather will reply with a token like 123456789:AAF....",
   "channels.telegram.helpStep4": "Copy that token and paste it in the field above.",
-  "channels.telegram.helpStep5": "HiAgent will verify the token and configure the webhook automatically."
+  "channels.telegram.helpStep5": "HiAgent will verify the token and configure the webhook automatically.",
+  "channels.telegram.configure": "Configure",
+  "channels.telegram.manage": "Manage",
+  "channels.telegram.updateToken": "Update Token",
+  "channels.telegram.cancel": "Cancel"
 }

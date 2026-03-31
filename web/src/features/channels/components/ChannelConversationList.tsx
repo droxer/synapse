@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { RefreshCw } from "lucide-react";
+import { motion, type Variants } from "framer-motion";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { listChannelConversations, type ChannelConversation } from "../api/channel-api";
-import { ChannelProviderIcon, getProviderColor } from "./ChannelProviderIcon";
+import { deleteConversation } from "@/shared/api/conversation-list-api";
+import { getProviderColor } from "./ChannelProviderIcon";
 
 function formatRelativeTime(isoString: string | null): string {
   if (!isoString) return "";
@@ -22,42 +24,74 @@ function formatRelativeTime(isoString: string | null): string {
 interface ChannelConversationListProps {
   selectedConversationId: string | null;
   onSelect: (conversation: ChannelConversation) => void;
+  onDeleted?: (conversationId: string) => void;
+  onCountChange?: (count: number) => void;
 }
 
 export function ChannelConversationList({
   selectedConversationId,
   onSelect,
+  onDeleted,
+  onCountChange,
 }: ChannelConversationListProps) {
   const [conversations, setConversations] = useState<ChannelConversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchConversations = useCallback(async () => {
     try {
       setError(null);
       const data = await listChannelConversations();
       setConversations(data.conversations);
+      onCountChange?.(data.conversations.length);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load conversations");
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [onCountChange]);
 
   useEffect(() => {
     void fetchConversations();
   }, [fetchConversations]);
 
+  const handleDelete = async (e: React.MouseEvent, conversationId: string) => {
+    e.stopPropagation();
+    e.preventDefault();
+    if (deletingId) return;
+
+    if (!confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
+      return;
+    }
+
+    try {
+      setDeletingId(conversationId);
+      await deleteConversation(conversationId);
+      setConversations((prev) => {
+        const filtered = prev.filter((c) => c.conversation_id !== conversationId);
+        onCountChange?.(filtered.length);
+        return filtered;
+      });
+      onDeleted?.(conversationId);
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Failed to delete conversation");
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   if (loading) {
     return (
-      <div className="space-y-1 px-2 py-2">
+      <div className="space-y-0.5 px-2 py-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="flex items-center gap-3 rounded-lg px-3 py-2.5">
-            <div className="h-9 w-9 shrink-0 animate-pulse rounded-xl bg-muted" />
+          <div key={i} className="flex items-center gap-3 rounded-md px-2.5 py-2.5">
+            <div className="h-9 w-9 shrink-0 rounded-lg skeleton-shimmer" />
             <div className="flex-1 space-y-1.5">
-              <div className="h-3.5 w-24 animate-pulse rounded bg-muted" />
-              <div className="h-3 w-36 animate-pulse rounded bg-muted" />
+              <div className="h-3 w-20 skeleton-shimmer" />
+              <div className="h-2.5 w-28 skeleton-shimmer" />
             </div>
+            <div className="h-2 w-5 skeleton-shimmer" />
           </div>
         ))}
       </div>
@@ -66,12 +100,12 @@ export function ChannelConversationList({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+      <div className="flex flex-col items-center gap-3 px-4 py-8 text-center bg-destructive/5 border border-destructive/20 m-2 rounded-lg">
         <p className="text-xs text-destructive">{error}</p>
         <button
           type="button"
           onClick={() => { setLoading(true); void fetchConversations(); }}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <RefreshCw className="h-3 w-3" />
           Retry
@@ -82,26 +116,31 @@ export function ChannelConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="flex flex-col items-center gap-3 px-4 py-10 text-center">
-        {/* Empty state illustration */}
-        <div className="relative flex h-14 w-14 items-center justify-center">
-          <div className="absolute inset-0 rounded-2xl bg-muted opacity-60" />
-          <svg className="relative h-7 w-7 text-muted-foreground/40" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
-          </svg>
-        </div>
-        <div>
-          <p className="text-sm font-medium text-foreground">No conversations yet</p>
-          <p className="mt-0.5 text-xs leading-relaxed text-muted-foreground">
-            Link your account above and send<br />a message to get started
-          </p>
-        </div>
+      <div className="mx-2 mt-1 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-4 text-center">
+        <p className="text-xs font-medium text-muted-foreground">No conversations yet</p>
+        <p className="mt-0.5 text-micro text-muted-foreground-dim leading-normal">
+          Messages arrive automatically
+        </p>
       </div>
     );
   }
 
+  const container: Variants = {
+    hidden: {},
+    show: { transition: { staggerChildren: 0.04, delayChildren: 0.05 } },
+  };
+  const item: Variants = {
+    hidden: { opacity: 0, x: -6 },
+    show: { opacity: 1, x: 0, transition: { duration: 0.15, ease: "easeOut" } },
+  };
+
   return (
-    <div className="space-y-0.5 px-2 py-1.5">
+    <motion.div
+      variants={container}
+      initial="hidden"
+      animate="show"
+      className="space-y-0.5 px-2 py-1.5"
+    >
       {conversations.map((conv) => {
         const isSelected = conv.conversation_id === selectedConversationId;
         const name = conv.display_name ?? conv.provider_chat_id;
@@ -109,75 +148,91 @@ export function ChannelConversationList({
         const providerColor = getProviderColor(conv.provider);
 
         return (
-          <button
+          <motion.div
             key={conv.conversation_id}
-            type="button"
-            onClick={() => onSelect(conv)}
+            variants={item}
             className={cn(
-              "group flex w-full items-center gap-3 rounded-lg px-2.5 py-2.5 text-left transition-all duration-150",
+              "group relative flex w-full items-center rounded-md text-left transition-colors duration-150",
               isSelected
-                ? "bg-accent text-accent-foreground shadow-sm"
-                : "text-foreground hover:bg-muted/70",
+                ? "bg-accent-purple/8 text-foreground shadow-sm before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r-full before:bg-accent-purple before:content-['']"
+                : "text-foreground hover:bg-sidebar-hover",
+              deletingId === conv.conversation_id && "opacity-50 pointer-events-none"
             )}
           >
-            {/* Avatar with provider color accent */}
-            <div className="relative shrink-0">
-              <div
-                className="flex h-9 w-9 items-center justify-center rounded-xl text-sm font-semibold text-white shadow-sm"
-                style={{ background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})` }}
-              >
-                {initial}
+            <button
+              type="button"
+              onClick={() => onSelect(conv)}
+              className="flex flex-1 items-center gap-3 px-2.5 py-2.5 text-left w-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-md"
+            >
+              {/* Avatar */}
+              <div className="relative shrink-0">
+                <div
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold text-white shadow-card"
+                  style={{
+                    background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})`,
+                  }}
+                >
+                  {initial}
+                </div>
+                {/* Provider Badge */}
+                <div
+                  className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-sidebar-bg"
+                  style={{ background: providerColor }}
+                />
               </div>
-              {/* Provider icon badge */}
-              <div
-                className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full border-2 border-card"
-                style={{ background: providerColor }}
-              >
-                <ChannelProviderIcon provider={conv.provider} size="sm" className="scale-[0.55]" />
-              </div>
-            </div>
 
-            {/* Content */}
-            <div className="min-w-0 flex-1">
-              <div className="flex items-baseline justify-between gap-2">
-                <span className={cn(
-                  "truncate text-sm font-medium leading-tight",
-                  isSelected ? "text-accent-foreground" : "text-foreground",
-                )}>
-                  {name}
-                </span>
-                {conv.last_message_at && (
-                  <span className="shrink-0 text-[10px] font-medium tabular-nums text-muted-foreground">
-                    {formatRelativeTime(conv.last_message_at)}
+              {/* Content */}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-1.5">
+                  <span className="truncate text-sm font-medium leading-tight text-foreground pr-6">
+                    {name}
                   </span>
+                  {conv.last_message_at && (
+                    <span className="shrink-0 tabular-nums text-micro text-muted-foreground-dim font-medium transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+                      {formatRelativeTime(conv.last_message_at)}
+                    </span>
+                  )}
+                </div>
+                {conv.last_message ? (
+                  <p className="mt-0.5 truncate text-xs leading-tight text-muted-foreground">
+                    {conv.last_message}
+                  </p>
+                ) : (
+                  <p className="mt-0.5 text-xs text-muted-foreground-dim italic leading-tight">
+                    New conversation
+                  </p>
                 )}
               </div>
-              {conv.last_message ? (
-                <p className={cn(
-                  "mt-0.5 truncate text-xs leading-tight",
-                  isSelected ? "text-accent-foreground/70" : "text-muted-foreground",
-                )}>
-                  {conv.last_message}
-                </p>
-              ) : (
-                <p className="mt-0.5 text-xs italic text-muted-foreground/50">
-                  No messages yet
-                </p>
-              )}
-            </div>
 
-            {/* Active session dot */}
-            {conv.session_active && (
-              <div className="shrink-0">
-                <span className="relative flex h-2 w-2">
-                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-accent-emerald opacity-60" />
-                  <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-emerald" />
-                </span>
-              </div>
-            )}
-          </button>
+              {/* Active session dot */}
+              {conv.session_active && (
+                <div className="shrink-0 flex items-center justify-center transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-emerald" />
+                  </span>
+                </div>
+              )}
+            </button>
+
+            {/* Actions (hover) */}
+            <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+              <button
+                type="button"
+                onClick={(e) => handleDelete(e, conv.conversation_id)}
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-card border border-border text-muted-foreground shadow-sm hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 outline-none"
+                title="Delete conversation"
+              >
+                {deletingId === conv.conversation_id ? (
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+              </button>
+            </div>
+          </motion.div>
         );
       })}
-    </div>
+    </motion.div>
   );
 }

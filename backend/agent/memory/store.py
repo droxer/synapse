@@ -28,6 +28,17 @@ class PersistentMemoryStore:
         self._user_id = user_id
         self._conversation_id = conversation_id
 
+    def _require_user_id(self) -> uuid.UUID:
+        """Return the current user id or fail for anonymous sessions."""
+        if self._user_id is None:
+            raise ValueError("Persistent memory requires an authenticated user")
+        return self._user_id
+
+    @property
+    def is_available(self) -> bool:
+        """Whether this store can use persistent user-scoped storage."""
+        return self._user_id is not None
+
     async def store(self, key: str, value: str, namespace: str = "default") -> None:
         """Store or update a key-value pair scoped to the current user."""
         if not key.strip():
@@ -35,11 +46,13 @@ class PersistentMemoryStore:
         if not value:
             raise ValueError("Value must not be empty")
 
+        user_id = self._require_user_id()
+
         async with self._session_factory() as session:
             stmt = select(MemoryEntry).where(
                 MemoryEntry.namespace == namespace,
                 MemoryEntry.key == key,
-                MemoryEntry.user_id == self._user_id,
+                MemoryEntry.user_id == user_id,
             )
             result = await session.execute(stmt)
             existing = result.scalar_one_or_none()
@@ -48,7 +61,7 @@ class PersistentMemoryStore:
                 await session.execute(
                     update(MemoryEntry)
                     .where(
-                        MemoryEntry.user_id == self._user_id,
+                        MemoryEntry.user_id == user_id,
                         MemoryEntry.namespace == namespace,
                         MemoryEntry.key == key,
                     )
@@ -59,7 +72,7 @@ class PersistentMemoryStore:
                     namespace=namespace,
                     key=key,
                     value=value,
-                    user_id=self._user_id,
+                    user_id=user_id,
                     conversation_id=self._conversation_id,
                 )
                 session.add(entry)
@@ -75,6 +88,8 @@ class PersistentMemoryStore:
         conversations.
         """
         if not query.strip():
+            return []
+        if self._user_id is None:
             return []
 
         query_lower = f"%{query.lower()}%"
@@ -111,6 +126,9 @@ class PersistentMemoryStore:
         self, namespace: str = "default", limit: int = 50
     ) -> list[dict[str, str]]:
         """List all memory entries for the current user in a namespace."""
+        if self._user_id is None:
+            return []
+
         async with self._session_factory() as session:
             stmt = (
                 select(MemoryEntry)

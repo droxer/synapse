@@ -66,6 +66,12 @@ def _tokenize(text: str) -> set[str]:
     return {w for w in _WORD_RE.findall(text.lower()) if w not in _STOP_WORDS}
 
 
+def _contains_skill_name(text: str, skill_name: str) -> bool:
+    """Return True when the exact skill name appears in user text."""
+    pattern = re.compile(rf"(?<!\w){re.escape(skill_name.lower())}(?!\w)")
+    return pattern.search(text.lower()) is not None
+
+
 class SkillRegistry:
     """Immutable-style registry of loaded skills (SKILL.md format)."""
 
@@ -95,21 +101,38 @@ class SkillRegistry:
         if not text:
             return None
 
+        normalized_text = text.lower()
         user_words = _tokenize(text)
         if not user_words:
             return None
 
         best_skill: SkillContent | None = None
-        best_count = 0
+        best_score = (0, 0, 0)
 
         for skill in self._skills:
+            name_words = _tokenize(skill.metadata.name.replace("-", " "))
             desc_words = _tokenize(skill.metadata.description)
-            count = len(user_words & desc_words)
-            if count > best_count:
-                best_count = count
+            score = (
+                1 if _contains_skill_name(normalized_text, skill.metadata.name) else 0,
+                len(user_words & name_words),
+                len(user_words & desc_words),
+            )
+            if score > best_score:
+                best_score = score
                 best_skill = skill
 
-        if best_count < _MATCH_THRESHOLD:
+        if best_skill is None:
+            return None
+
+        exact_name_match, name_overlap, desc_overlap = best_score
+        if exact_name_match:
+            return best_skill
+        if (
+            len(_tokenize(best_skill.metadata.name.replace("-", " "))) > 1
+            and name_overlap >= 2
+        ):
+            return best_skill
+        if desc_overlap < _MATCH_THRESHOLD:
             return None
 
         return best_skill

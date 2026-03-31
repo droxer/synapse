@@ -127,19 +127,26 @@ function LoginForm() {
   };
 
   return (
-    <div className="welcome-radial-bg flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm">
+    <div className="welcome-radial-bg relative flex min-h-screen items-center justify-center px-4">
+      <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-40" aria-hidden="true" />
+      <div className="relative z-10 w-full max-w-sm">
         {/* Card */}
-        <div className="rounded-xl border border-border bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
-          <div className="flex flex-col items-center gap-6">
-            {/* Logo with purple glow */}
+        <div className="relative overflow-hidden rounded-xl border border-border bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
+          {/* Brand gradient top strip */}
+          <div
+            className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl"
+            style={{ background: "linear-gradient(90deg, #6C3AED, #4F46E5)" }}
+            aria-hidden="true"
+          />
+          {/* Faint inner dot-grid */}
+          <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-[0.18]" aria-hidden="true" />
+          <div className="relative z-10 flex flex-col items-center gap-6">
+            {/* Logo with animated glow */}
             <div
-              className="animate-[fadeIn_0.5s_ease-out]"
-              style={{ animationFillMode: "both" }}
+              className="rounded-xl"
+              style={{ animation: "fadeIn 0.5s ease-out both, glowPulse 3s ease-in-out 0.5s infinite" }}
             >
-              <div className="rounded-xl shadow-[0_0_24px_rgba(139,92,246,0.15)]">
-                <Logo size={56} className="rounded-xl" />
-              </div>
+              <Logo size={64} className="rounded-xl" />
             </div>
 
             {/* Title block */}
@@ -147,7 +154,7 @@ function LoginForm() {
               className="animate-[fadeIn_0.5s_ease-out_0.1s] text-center"
               style={{ animationFillMode: "both" }}
             >
-              <h1 className="text-2xl font-semibold tracking-[-0.03em] text-foreground">
+              <h1 className="text-3xl font-semibold tracking-[-0.04em] leading-tight text-foreground">
                 Welcome to HiAgent
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -181,7 +188,7 @@ function LoginForm() {
                   type="button"
                   onClick={handleSignIn}
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border bg-card px-4 py-3 text-sm font-medium text-foreground shadow-sm transition-all duration-200 hover:border-[var(--border-strong,var(--border))] hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-all duration-200 hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {isLoading ? (
                     <span role="status">
@@ -235,10 +242,14 @@ function LoginForm() {
 
         {/* Footer flourish */}
         <p
-          className="mt-6 text-center text-xs text-muted-foreground/50 animate-[fadeIn_0.5s_ease-out_0.4s]"
+          className="mt-6 text-center text-xs text-muted-foreground/70 animate-[fadeIn_0.5s_ease-out_0.4s]"
           style={{ animationFillMode: "both" }}
         >
-          Secure · Private · Powerful
+          <span>Secure</span>
+          <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
+          <span>Private</span>
+          <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
+          <span>Powerful</span>
         </p>
       </div>
     </div>
@@ -249,8 +260,9 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="welcome-radial-bg flex min-h-screen items-center justify-center" role="status">
-          <div className="h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
+        <div className="welcome-radial-bg relative flex min-h-screen items-center justify-center" role="status">
+          <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-40" aria-hidden="true" />
+          <div className="relative z-10 h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
           <span className="sr-only">Loading...</span>
         </div>
       }

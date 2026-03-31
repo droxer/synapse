@@ -50,6 +50,7 @@ interface ConversationWorkspaceProps {
   onCancel?: () => void;
   onRetry?: () => void;
   isLoadingHistory?: boolean;
+  hideTopBar?: boolean;
 }
 
 export function ConversationWorkspace({
@@ -73,6 +74,7 @@ export function ConversationWorkspace({
   onCancel,
   onRetry,
   isLoadingHistory = false,
+  hideTopBar = false,
 }: ConversationWorkspaceProps) {
   const { t } = useTranslation();
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -189,13 +191,15 @@ export function ConversationWorkspace({
       aria-label="Conversation"
       aria-busy={taskState === "executing" || taskState === "planning"}
     >
-      <TopBar
-        taskState={taskState}
-        isConnected={isConnected}
-        onNavigateHome={onNavigateHome}
-        conversationTitle={conversationTitle}
-        conversationId={conversationId}
-      />
+      {!hideTopBar && (
+        <TopBar
+          taskState={taskState}
+          isConnected={isConnected}
+          onNavigateHome={onNavigateHome}
+          conversationTitle={conversationTitle}
+          conversationId={conversationId}
+        />
+      )}
 
       <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Left pane: Conversation */}
@@ -229,7 +233,7 @@ export function ConversationWorkspace({
                       >
                         <div className="max-w-[90%] min-w-[120px] sm:max-w-[80%]">
                           {/* Frosted card surface */}
-                          <div className="rounded-lg bg-[var(--color-user-accent-dim)] px-4 py-3 border border-[var(--color-user-accent)]/10">
+                          <div className="rounded-md bg-secondary/40 px-4 py-3 border border-border/50">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
@@ -238,7 +242,7 @@ export function ConversationWorkspace({
                                 {msg.attachments.map((att, idx) => (
                                   <span
                                     key={idx}
-                                    className="inline-flex items-center gap-1 rounded-md bg-[var(--color-user-accent)]/10 px-2 py-0.5 text-xs text-muted-foreground"
+                                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs font-mono text-muted-foreground"
                                   >
                                     <Paperclip className="h-3 w-3" />
                                     {att.name}
@@ -250,7 +254,7 @@ export function ConversationWorkspace({
                           {/* Timestamp below, right-aligned */}
                           {msg.timestamp && (
                             <div className="mt-1.5 flex items-center justify-end gap-1.5 pr-1">
-                              <span className="text-xs text-muted-foreground-dim tabular-nums">
+                              <span className="text-xs font-mono text-muted-foreground-dim tabular-nums">
                                 {formatTime(msg.timestamp)}
                               </span>
                             </div>

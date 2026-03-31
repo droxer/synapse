@@ -18,6 +18,46 @@ import type {
   PlanStep,
 } from "@/shared/types";
 
+export function getStableDataKey(value: unknown): string {
+  if (value === null || value === undefined) return String(value);
+  if (typeof value !== "object") return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => getStableDataKey(item)).join(",")}]`;
+  }
+
+  const record = value as Record<string, unknown>;
+  const keys = Object.keys(record).sort();
+  return `{${keys
+    .map((key) => `${JSON.stringify(key)}:${getStableDataKey(record[key])}`)
+    .join(",")}}`;
+}
+
+export function getEventKey(event: AgentEvent): string {
+  return [
+    event.type,
+    String(event.timestamp),
+    String(event.iteration ?? ""),
+    getStableDataKey(event.data),
+  ].join("|");
+}
+
+export function mergeUniqueEvents(
+  historyEvents: readonly AgentEvent[],
+  liveEvents: readonly AgentEvent[],
+): AgentEvent[] {
+  const merged: AgentEvent[] = [];
+  const seen = new Set<string>();
+
+  for (const event of [...historyEvents, ...liveEvents]) {
+    const key = getEventKey(event);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    merged.push(event);
+  }
+
+  return merged;
+}
+
 export interface ConversationContextValue {
   readonly conversationId: string | null;
   readonly events: AgentEvent[];
@@ -65,7 +105,10 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
 
   // Merge history events with live SSE events so the progress card shows
   // persisted activity even after a page refresh (SSE stream starts empty).
-  const effectiveEvents = isLive ? [...historyEvents, ...events] : historyEvents;
+  const effectiveEvents = useMemo(
+    () => (isLive ? mergeUniqueEvents(historyEvents, events) : historyEvents),
+    [events, historyEvents, isLive],
+  );
 
   const {
     messages,
