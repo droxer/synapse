@@ -39,7 +39,7 @@ export function TopBar({
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border/50 bg-background px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       {/* Left: Breadcrumb */}
       <div className="flex items-center gap-1.5 min-w-0">
         <Button
@@ -49,7 +49,7 @@ export function TopBar({
           aria-label={t("a11y.home")}
           className="shrink-0 gap-2 text-muted-foreground hover:text-foreground"
         >
-          <LayoutGrid className="h-3.5 w-3.5" />
+          <LayoutGrid className="h-4 w-4" />
         </Button>
         {isActive && conversationTitle && (
           <>
@@ -102,7 +102,7 @@ export function TopBar({
         onClick={handleOpenCommandPalette}
         className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground shadow-[var(--shadow-card)] transition-all duration-150 hover:border-border-strong hover:bg-sidebar-active hover:text-foreground hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
-        <Search className="h-3.5 w-3.5" />
+        <Search className="h-4 w-4" />
         <span className="hidden sm:inline">{t("topbar.search")}</span>
         <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
       </button>

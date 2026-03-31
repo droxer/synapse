@@ -135,7 +135,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "relative flex h-screen shrink-0 flex-col overflow-hidden bg-sidebar-bg border-r border-border/50",
+        "relative flex h-screen shrink-0 flex-col overflow-hidden bg-sidebar-bg border-r border-border",
         collapsed ? "w-12" : "",
         !collapsed && !isDragging && "transition-[width] duration-200 ease-in-out",
       )}
@@ -143,7 +143,7 @@ export function Sidebar({
     >
       {/* Header: logo + collapse/expand toggle */}
       <div className={cn("relative flex items-center py-3", collapsed ? "flex-col gap-2 px-2" : "justify-between px-4")}>
-        <div className="flex items-center gap-2.5">
+        <div className="flex items-center gap-2">
           <Logo size={28} className="rounded-md" />
           {!collapsed && (
             <span className="text-sm font-medium text-foreground whitespace-nowrap">
@@ -155,14 +155,14 @@ export function Sidebar({
           collapsed ? (
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-expanded={false} aria-label={t("sidebar.expand")} className="text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-expanded={false} aria-label={t("sidebar.expand")} className="text-muted-foreground hover:text-foreground hover:bg-sidebar-hover">
                   <PanelLeftOpen className="h-4 w-4" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">{t("sidebar.expand")}</TooltipContent>
             </Tooltip>
           ) : (
-            <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-expanded={true} aria-label={t("sidebar.collapse")} className="text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+            <Button variant="ghost" size="icon-sm" onClick={onToggle} aria-expanded={true} aria-label={t("sidebar.collapse")} className="text-muted-foreground hover:text-foreground hover:bg-sidebar-hover">
               <PanelLeftClose className="h-4 w-4" />
             </Button>
           )
@@ -185,8 +185,8 @@ export function Sidebar({
                     "transition-all duration-200",
                     "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     activePath === "/" && !activeTaskId
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary hover:border-border",
+                      ? "bg-sidebar-active text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover hover:border-border",
                   )}
                 >
                   <Plus className="h-4 w-4 transition-transform duration-200 group-hover/new:rotate-90" />
@@ -203,8 +203,8 @@ export function Sidebar({
                     className={cn(
                       "w-full",
                       activePath === "/channels"
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                        ? "bg-sidebar-active text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
                     )}
                     asChild
                   >
@@ -225,8 +225,8 @@ export function Sidebar({
                     className={cn(
                       "w-full",
                       activePath === "/library"
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                        ? "bg-sidebar-active text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
                     )}
                     asChild
                   >
@@ -248,8 +248,8 @@ export function Sidebar({
                     className={cn(
                       "w-full",
                       activePath === "/skills"
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                        ? "bg-sidebar-active text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
                     )}
                     asChild
                   >
@@ -270,8 +270,8 @@ export function Sidebar({
                     className={cn(
                       "w-full",
                       activePath === "/mcp"
-                        ? "bg-secondary text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-secondary",
+                        ? "bg-sidebar-active text-foreground"
+                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
                     )}
                     asChild
                   >
@@ -290,23 +290,16 @@ export function Sidebar({
               type="button"
               onClick={onNewTask}
               className={cn(
-                "group/new flex w-full items-center gap-2.5 rounded-md px-3 py-2.5",
+                "group/new flex w-full items-center gap-2 rounded-md px-3 py-2.5",
                 "border border-transparent",
                 "transition-all duration-200",
                 "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/" && !activeTaskId
-                  ? "bg-secondary"
-                  : "hover:bg-secondary hover:border-border",
+                  ? "bg-sidebar-active"
+                  : "hover:bg-sidebar-hover hover:border-border",
               )}
             >
-              <div className={cn(
-                "flex h-6 w-6 shrink-0 items-center justify-center rounded-md",
-                "bg-accent-purple/10 text-accent-purple",
-                "transition-colors duration-200",
-                "group-hover/new:bg-accent-purple/15",
-              )}>
-                <Plus className="h-3.5 w-3.5 transition-transform duration-200 group-hover/new:rotate-90" />
-              </div>
+              <Plus className="h-4 w-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover/new:rotate-90 group-hover/new:text-foreground" />
               <span className="text-sm font-medium text-foreground">
                 {t("sidebar.newTask")}
               </span>
@@ -315,46 +308,38 @@ export function Sidebar({
               href="/channels"
               aria-label={t("sidebar.channels")}
               className={cn(
-                "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/channels"
-                  ? "bg-secondary text-foreground"
-                  : "text-sidebar-foreground-muted hover:bg-secondary hover:text-foreground",
+                  ? "bg-sidebar-active text-foreground"
+                  : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/channels" && (
                 <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-[#2AABEE]" aria-hidden="true" />
               )}
-              <span className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-200",
-                activePath === "/channels"
-                  ? "bg-[#2AABEE]/15 text-[#2AABEE]"
-                  : "bg-[#2AABEE]/10 text-[#2AABEE] group-hover:bg-[#2AABEE]/15",
-              )}>
-                <Radio className="h-3 w-3" />
-              </span>
+              <Radio className={cn(
+                "h-4 w-4 shrink-0 transition-colors duration-200",
+                activePath === "/channels" ? "text-[#2AABEE]" : "text-muted-foreground group-hover:text-foreground",
+              )} />
               {t("sidebar.channels")}
             </Link>
             <Link
               href="/library"
               aria-label={t("sidebar.library")}
               className={cn(
-                "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/library"
-                  ? "bg-secondary text-foreground"
-                  : "text-sidebar-foreground-muted hover:bg-secondary hover:text-foreground",
+                  ? "bg-sidebar-active text-foreground"
+                  : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/library" && (
                 <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-amber" aria-hidden="true" />
               )}
-              <span className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-200",
-                activePath === "/library"
-                  ? "bg-accent-amber/15 text-accent-amber"
-                  : "bg-accent-amber/10 text-accent-amber group-hover:bg-accent-amber/15",
-              )}>
-                <FolderOpen className="h-3 w-3" />
-              </span>
+              <FolderOpen className={cn(
+                "h-4 w-4 shrink-0 transition-colors duration-200",
+                activePath === "/library" ? "text-accent-amber" : "text-muted-foreground group-hover:text-foreground",
+              )} />
               {t("sidebar.library")}
             </Link>
             <div className="border-t border-border" />
@@ -362,46 +347,38 @@ export function Sidebar({
               href="/skills"
               aria-label={t("sidebar.skills")}
               className={cn(
-                "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/skills"
-                  ? "bg-secondary text-foreground"
-                  : "text-sidebar-foreground-muted hover:bg-secondary hover:text-foreground",
+                  ? "bg-sidebar-active text-foreground"
+                  : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/skills" && (
                 <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-emerald" aria-hidden="true" />
               )}
-              <span className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-200",
-                activePath === "/skills"
-                  ? "bg-accent-emerald/15 text-accent-emerald"
-                  : "bg-accent-emerald/10 text-accent-emerald group-hover:bg-accent-emerald/15",
-              )}>
-                <Lightbulb className="h-3 w-3" />
-              </span>
+              <Lightbulb className={cn(
+                "h-4 w-4 shrink-0 transition-colors duration-200",
+                activePath === "/skills" ? "text-accent-emerald" : "text-muted-foreground group-hover:text-foreground",
+              )} />
               {t("sidebar.skills")}
             </Link>
             <Link
               href="/mcp"
               aria-label={t("sidebar.mcp")}
               className={cn(
-                "group relative flex items-center gap-2.5 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/mcp"
-                  ? "bg-secondary text-foreground"
-                  : "text-sidebar-foreground-muted hover:bg-secondary hover:text-foreground",
+                  ? "bg-sidebar-active text-foreground"
+                  : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/mcp" && (
                 <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-purple" aria-hidden="true" />
               )}
-              <span className={cn(
-                "flex h-5 w-5 shrink-0 items-center justify-center rounded-md transition-colors duration-200",
-                activePath === "/mcp"
-                  ? "bg-accent-purple/15 text-accent-purple"
-                  : "bg-accent-purple/10 text-accent-purple group-hover:bg-accent-purple/15",
-              )}>
-                <Blocks className="h-3 w-3" />
-              </span>
+              <Blocks className={cn(
+                "h-4 w-4 shrink-0 transition-colors duration-200",
+                activePath === "/mcp" ? "text-accent-purple" : "text-muted-foreground group-hover:text-foreground",
+              )} />
               {t("sidebar.mcp")}
             </Link>
           </div>
@@ -438,9 +415,9 @@ export function Sidebar({
                       onClick={() => onSelectTask?.(task.id)}
                       className={cn(
                         "relative flex w-full cursor-pointer items-center justify-center rounded-md p-2 transition-colors duration-200",
-                        "hover:bg-secondary",
+                        "hover:bg-sidebar-hover",
                         "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                        isActive && "bg-secondary",
+                        isActive && "bg-sidebar-active",
                       )}
                     >
                       <div className={cn(
@@ -467,9 +444,9 @@ export function Sidebar({
                   className={cn(
                     "group relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 text-left",
                     "transition-colors duration-200 ease-out",
-                    "hover:bg-secondary",
+                    "hover:bg-sidebar-hover",
                     "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                    isActive && "bg-accent-purple/8",
+                    isActive && "bg-sidebar-active",
                   )}
                 >
                   {/* Active indicator bar */}

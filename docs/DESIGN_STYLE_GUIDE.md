@@ -79,22 +79,24 @@ The palette is built on **deep zinc neutrals** — high-contrast flats and deep 
 
 Used sparingly for status indicators and semantic meaning. Never as dominant surface colors.
 
-| Token | Hex | Semantic |
+| Token | Hex (light / dark) | Semantic |
 |-------|-----|----------|
-| `user-accent` | `#3B82F6` | Links, info, processing |
-| `accent-emerald` | `#34D399` / `#10B981` | Success, running, progress |
-| `accent-amber` | `#D97706` / `#B45309` | Warning, thinking |
-| `accent-rose` | `#F87171` / `#EF4444` | Error, failure |
-| `accent-purple` | `#8B5CF6` | AI accent, tool execution — warm violet |
-| `ai-glow` | `#8B5CF6` | AI active state — warm violet used when AI is typing, processing, or highlighting generated text |
+| `user-accent` | `#18181B` / `#FAFAFA` | User message accent |
+| `accent-emerald` | `#10B981` / `#34D399` | Success, running, progress |
+| `accent-amber` | `#B45309` / `#D97706` | Warning, thinking |
+| `accent-rose` | `#EF4444` / `#F87171` | Error, failure |
+| `accent-purple` | `#1B7EF2` / `#3B8EF5` | AI accent, tool execution, primary interactive accent — blue |
+| `ai-glow` | `#1B7EF2` / `#3B8EF5` | AI active state — used when AI is typing, processing, or highlighting generated text |
 
 ### Sidebar
 
-| Token | Dark | Light |
-|-------|------|-------|
-| `sidebar-bg` | `#0F1117` | `#F1F5F9` |
-| `sidebar-active` | `#1A1D27` | `#E2E8F0` |
-| `sidebar-hover` | `#1A1D27` | `#E2E8F0` |
+| Token | Light | Dark |
+|-------|-------|------|
+| `sidebar-bg` | `#F5F5F6` | `#0C0C0E` |
+| `sidebar-active` | `#E4E4E7` | `#27272A` |
+| `sidebar-hover` | `#EBEBEC` | `#18181B` |
+
+`sidebar-bg` is intentionally distinct from `background` (`#FFFFFF` / `#09090B`) to create visible depth separation between the sidebar and main content. Nav items must use `bg-sidebar-active` (not `bg-secondary`) for active state and `hover:bg-sidebar-hover` (not `hover:bg-secondary`) for hover — using the generic secondary token in the sidebar causes imperceptible contrast in light mode.
 
 ### Terminal (Dark Panel)
 
@@ -192,19 +194,19 @@ Shadows are highly minimal, preferring crisp 1px borders (`0 0 0 1px`) over larg
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `shadow-card` | `0 1px 2px rgba(15,23,42,0.04)` | Card resting state |
-| `shadow-card-hover` | `0 2px 8px rgba(15,23,42,0.06)` | Card hover lift |
-| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)` | Floating overlays: modals, command palette, dropdowns, popovers |
+| `shadow-card` | `0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.05)` | Card resting state |
+| `shadow-card-hover` | `0 4px 12px rgba(15,23,42,0.10), 0 2px 4px rgba(15,23,42,0.06)` | Card hover lift |
+| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)` | Floating overlays: modals, command palette, dropdowns, popovers |
 
 ### Dark Mode
 
-Shadows in dark mode rely more on border contrast (`#2A2D37` borders on `#0F1117` background) than heavy shadows.
+Shadows in dark mode rely more on border contrast (`#27272A` borders on `#09090B` background) than heavy shadows.
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `shadow-card` | `0 1px 2px rgba(0,0,0,0.12)` | Card resting state |
-| `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.16)` | Card hover lift |
-| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.4)` | Floating overlays |
+| `shadow-card` | `0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.20)` | Card resting state |
+| `shadow-card-hover` | `0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.20)` | Card hover lift |
+| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.30)` | Floating overlays |
 
 ### Shadow Usage
 
@@ -332,10 +334,14 @@ import { MotionConfig } from "framer-motion";
 
 - Expanded: `w-64` (256px) — default width must be 256px, not 280px
 - Collapsed: `w-12` (48px)
-- Background: `sidebar-bg` token (cool slate in light mode, deep ink in dark mode)
+- Background: `bg-sidebar-bg` token — distinct from `bg-background` to create depth separation
+- Right-edge border: `border-r border-border` (solid, no opacity modifier)
 - Internal padding: `px-4` expanded, `px-2` collapsed — consistent across all sections (header, search, task list)
-- Active indicator: solid `bg-accent-purple` bar (3px wide × 20px tall: `w-[3px] h-5`, no glow shadow)
-- Right-edge separator: use `border-r border-border` on the aside element (not an absolutely-positioned div)
+- Nav item gaps: `gap-2` (icon + label) — not `gap-2.5`
+- Active indicator: solid `bg-accent-*` bar (3px wide × 16px tall: `w-[3px] h-4`) positioned `absolute left-0`
+- Active item background: `bg-sidebar-active` — not `bg-secondary`
+- Hover item background: `hover:bg-sidebar-hover` — not `hover:bg-secondary`
+- Nav icons: plain `h-4 w-4` Lucide icons — no colored bubble containers (see Icons section)
 
 ### Task Input
 
@@ -410,10 +416,12 @@ Lucide React (`lucide-react`)
 
 | Class | Pixels | Context |
 |-------|--------|---------|
-| `h-3 w-3` | 12px | Tiny indicators |
-| `h-3.5 w-3.5` | 14px | Standard inline icons |
-| `h-4 w-4` | 16px | Menu items, toolbar |
-| `h-5 w-5` | 20px | Status indicators |
+| `h-3 w-3` | 12px | Tiny inline ornaments (inside badges, status pips) |
+| `h-3.5 w-3.5` | 14px | Compact toolbar chips, inline text icons |
+| `h-4 w-4` | 16px | **Standard** — sidebar nav, topbar, buttons, menus |
+| `h-5 w-5` | 20px | Status indicators, prominent standalone icons |
+
+`h-4 w-4` is the default. Use `h-3.5 w-3.5` only in compact chip/badge contexts. Do not use `h-3 w-3` in navigation or toolbars.
 
 ### Color States
 
@@ -421,10 +429,28 @@ Lucide React (`lucide-react`)
 |-------|-------|
 | Default | `text-muted-foreground` |
 | Hover | `hover:text-foreground` |
-| Active | `text-foreground` |
+| Active (accent) | `text-accent-purple`, `text-accent-emerald`, etc. — section-specific |
+| Active (neutral) | `text-foreground` |
 | Success | `text-accent-emerald` |
 | Error | `text-accent-rose` |
 | AI Active | `text-accent-purple` |
+
+### Sidebar Nav Icons
+
+Use plain Lucide icons at `h-4 w-4` directly in nav links — **no colored bubble containers**. The colored accent bar on the active item (`w-[3px] h-4 bg-[color]`) provides section identity without decorative icon backgrounds.
+
+```tsx
+// CORRECT
+<Radio className={cn(
+  "h-4 w-4 shrink-0 transition-colors duration-200",
+  isActive ? "text-[#2AABEE]" : "text-muted-foreground group-hover:text-foreground",
+)} />
+
+// WRONG — removes the plain icon, adds colored bubble
+<span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#2AABEE]/10 text-[#2AABEE]">
+  <Radio className="h-3 w-3" />
+</span>
+```
 
 ---
 
@@ -517,7 +543,13 @@ These patterns have been found in the codebase and must be avoided:
 | `rounded-full` on action buttons | Use `rounded-md` — circular buttons read as consumer-app |
 | `rounded-xl` on dialogs/cards | Use `rounded-lg` (6px) — `rounded-xl` is reserved |
 | `bg-background/80 backdrop-blur-sm` on TopBar | Use solid `bg-background` |
+| `backdrop-blur-sm` on page headers (ChannelPageHeader etc.) | Remove — all navigation bars use solid `bg-background` |
 | `staggerChildren: 0.06` or higher | Use `0.02` max — grid items should appear near-instantly |
 | `duration: 0.25` on content entry | Use `0.12` — content animations should be near-instant |
 | Spring physics on UI chrome | Use `duration + ease` — springs are for drag/physics interactions only |
 | Per-word staggered text reveal | Single fade on the entire heading — word-by-word is too consumer-like |
+| `hover:bg-secondary` in sidebar nav | Use `hover:bg-sidebar-hover` — `bg-secondary` is nearly invisible against `sidebar-bg` in light mode |
+| `bg-secondary` for sidebar active state | Use `bg-sidebar-active` — sidebar uses its own token hierarchy |
+| Colored icon bubble in sidebar nav (`<span className="bg-[color]/10">`) | Use plain `h-4 w-4` icon with `text-muted-foreground` → `text-[color]` on active |
+| `h-3 w-3` icons in sidebar nav or topbar | Use `h-4 w-4` — 12px icons are only for inline ornaments inside badges |
+| `border-border/50` on sidebar or topbar | Use `border-border` (solid) — opacity borders look washed out |

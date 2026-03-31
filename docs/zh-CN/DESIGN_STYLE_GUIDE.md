@@ -79,22 +79,24 @@
 
 仅少量用于状态指示器和语义表达，切勿作为主导表面颜色。
 
-| 令牌 | Hex | 语义 |
+| 令牌 | Hex（亮色 / 暗色） | 语义 |
 |------|-----|------|
-| `user-accent` | `#3B82F6` | 链接、信息、处理中 |
-| `accent-emerald` | `#34D399` / `#10B981` | 成功、运行中、进度 |
-| `accent-amber` | `#D97706` / `#B45309` | 警告、思考中 |
-| `accent-rose` | `#F87171` / `#EF4444` | 错误、失败 |
-| `accent-purple` | `#8B5CF6` | AI 强调色、工具执行 — 暖紫色 |
-| `ai-glow` | `#8B5CF6` | AI 活跃状态 — 暖紫色，用于 AI 正在输入、处理或高亮生成文本时 |
+| `user-accent` | `#18181B` / `#FAFAFA` | 用户消息强调色 |
+| `accent-emerald` | `#10B981` / `#34D399` | 成功、运行中、进度 |
+| `accent-amber` | `#B45309` / `#D97706` | 警告、思考中 |
+| `accent-rose` | `#EF4444` / `#F87171` | 错误、失败 |
+| `accent-purple` | `#1B7EF2` / `#3B8EF5` | AI 强调色、工具执行、主要交互强调色 — 蓝色 |
+| `ai-glow` | `#1B7EF2` / `#3B8EF5` | AI 活跃状态 — 用于 AI 正在输入、处理或高亮生成文本时 |
 
 ### 侧边栏
 
-| 令牌 | 暗色 | 亮色 |
+| 令牌 | 亮色 | 暗色 |
 |------|------|------|
-| `sidebar-bg` | `#0F1117` | `#F1F5F9` |
-| `sidebar-active` | `#1A1D27` | `#E2E8F0` |
-| `sidebar-hover` | `#1A1D27` | `#E2E8F0` |
+| `sidebar-bg` | `#F5F5F6` | `#0C0C0E` |
+| `sidebar-active` | `#E4E4E7` | `#27272A` |
+| `sidebar-hover` | `#EBEBEC` | `#18181B` |
+
+`sidebar-bg` 与 `background`（`#FFFFFF` / `#09090B`）刻意保持差异，以创造侧边栏与主内容区域之间可见的层次分离。导航项必须使用 `bg-sidebar-active`（而非 `bg-secondary`）表示活跃状态，使用 `hover:bg-sidebar-hover`（而非 `hover:bg-secondary`）表示悬停状态 — 在侧边栏中使用通用的 secondary 令牌会导致亮色模式下对比度几乎不可见。
 
 ### 终端面板（深色面板）
 
@@ -192,19 +194,19 @@ text-rendering: optimizeLegibility;
 
 | 名称 | 值 | 用途 |
 |------|------|------|
-| `shadow-card` | `0 1px 2px rgba(15,23,42,0.04)` | 卡片静止状态 |
-| `shadow-card-hover` | `0 2px 8px rgba(15,23,42,0.06)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.05), 0 4px 12px rgba(0,0,0,0.05)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
+| `shadow-card` | `0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.05)` | 卡片静止状态 |
+| `shadow-card-hover` | `0 4px 12px rgba(15,23,42,0.10), 0 2px 4px rgba(15,23,42,0.06)` | 卡片悬停抬升 |
+| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
 
 ### 暗色模式
 
-暗色模式下的阴影更多依赖边框对比度（通过 `#0F1117` 背景上的 `#2A2D37` 边框改善）而非重阴影。
+暗色模式下的阴影更多依赖边框对比度（通过 `#09090B` 背景上的 `#27272A` 边框改善）而非重阴影。
 
 | 名称 | 值 | 用途 |
 |------|------|------|
-| `shadow-card` | `0 1px 2px rgba(0,0,0,0.12)` | 卡片静止状态 |
-| `shadow-card-hover` | `0 2px 8px rgba(0,0,0,0.16)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.4)` | 浮动覆盖层 |
+| `shadow-card` | `0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.20)` | 卡片静止状态 |
+| `shadow-card-hover` | `0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.20)` | 卡片悬停抬升 |
+| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.30)` | 浮动覆盖层 |
 
 ### 阴影使用方式
 
@@ -332,10 +334,14 @@ import { MotionConfig } from "framer-motion";
 
 - 展开：`w-64`（256px）— 默认宽度必须为 256px，而非 280px
 - 折叠：`w-12`（48px）
-- 背景：`sidebar-bg` 令牌（亮色模式为冷 slate 色，暗色模式为深墨色）
+- 背景：`bg-sidebar-bg` 令牌 — 与 `bg-background` 刻意保持差异以创造层次分离
+- 右侧边框：`border-r border-border`（纯色，无透明度修饰符）
 - 内部间距：展开时 `px-4`，折叠时 `px-2` — 所有区域（头部、搜索、任务列表）保持一致
-- 活跃指示器：纯色 `bg-accent-purple` 条（3px 宽 × 20px 高：`w-[3px] h-5`，无发光阴影）
-- 右侧分隔线：在 aside 元素上使用 `border-r border-border`（而非绝对定位的 div）
+- 导航项间距：`gap-2`（图标 + 标签）— 而非 `gap-2.5`
+- 活跃指示器：纯色强调色条（3px 宽 × 16px 高：`w-[3px] h-4`），绝对定位于 `left-0`
+- 活跃项背景：`bg-sidebar-active` — 而非 `bg-secondary`
+- 悬停项背景：`hover:bg-sidebar-hover` — 而非 `hover:bg-secondary`
+- 导航图标：纯色 `h-4 w-4` Lucide 图标 — 不使用彩色气泡容器（详见图标章节）
 
 ### 任务输入
 
@@ -410,10 +416,12 @@ Lucide React (`lucide-react`)
 
 | 类名 | 像素 | 场景 |
 |------|------|------|
-| `h-3 w-3` | 12px | 微型指示器 |
-| `h-3.5 w-3.5` | 14px | 标准行内图标 |
-| `h-4 w-4` | 16px | 菜单项、工具栏 |
-| `h-5 w-5` | 20px | 状态指示器 |
+| `h-3 w-3` | 12px | 微型行内装饰（徽章内部、状态圆点） |
+| `h-3.5 w-3.5` | 14px | 紧凑工具栏 chip、行内文字图标 |
+| `h-4 w-4` | 16px | **标准** — 侧边栏导航、顶栏、按钮、菜单 |
+| `h-5 w-5` | 20px | 状态指示器、突出独立图标 |
+
+`h-4 w-4` 为默认尺寸。仅在紧凑 chip/badge 场景中使用 `h-3.5 w-3.5`。导航栏和工具栏中禁止使用 `h-3 w-3`。
 
 ### 颜色状态
 
@@ -421,10 +429,28 @@ Lucide React (`lucide-react`)
 |------|------|
 | 默认 | `text-muted-foreground` |
 | 悬停 | `hover:text-foreground` |
-| 活跃 | `text-foreground` |
+| 活跃（强调色） | `text-accent-purple`、`text-accent-emerald` 等 — 按区域使用 |
+| 活跃（中性） | `text-foreground` |
 | 成功 | `text-accent-emerald` |
 | 错误 | `text-accent-rose` |
 | AI 活跃 | `text-accent-purple` |
+
+### 侧边栏导航图标
+
+在导航链接中直接使用 `h-4 w-4` 的纯色 Lucide 图标 — **不使用彩色气泡容器**。活跃项上的彩色强调条（`w-[3px] h-4 bg-[color]`，绝对定位于 `left-0`）提供区域标识，无需装饰性图标背景。
+
+```tsx
+// 正确
+<Radio className={cn(
+  "h-4 w-4 shrink-0 transition-colors duration-200",
+  isActive ? "text-[#2AABEE]" : "text-muted-foreground group-hover:text-foreground",
+)} />
+
+// 错误 — 删除纯图标，添加彩色气泡
+<span className="flex h-5 w-5 items-center justify-center rounded-md bg-[#2AABEE]/10 text-[#2AABEE]">
+  <Radio className="h-3 w-3" />
+</span>
+```
 
 ---
 
@@ -495,7 +521,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 | `backdrop-blur-sm bg-card/80` 用于输入框 | 使用纯色 `bg-card` |
 | `box-shadow: 0 0 20px var(--color-input-glow)` | 聚焦时使用 `shadow-md` |
 | `background: #FFFFFF` / `#0A0A0A` | 使用 `#F8FAFC`（冷白色）/ `#0F1117`（深墨色） |
-| `#818CF8`（冷靛蓝色） | 通过 `accent-purple` / `ai-glow` 使用 `#8B5CF6`（暖紫色） |
+| `#8B5CF6`（紫色/靛蓝色） | 通过 `accent-purple` / `ai-glow` 使用 `#1B7EF2`（蓝色） |
 | `border-radius: 0–2px`（锐利） | 卡片使用 `rounded-lg` (6px)，项目使用 `rounded-md` (4px) |
 | `animation: conicSpin`、`aiGlow`、`orbitalPulse` | 已移除 — 使用 CSS `@keyframes` 透明度脉冲 |
 | `animation: meshDrift` 用于背景 | 已移除 — 使用静态径向渐变 |
@@ -517,7 +543,13 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 | `rounded-full` 用于操作按钮 | 使用 `rounded-md` — 圆形按钮偏消费类应用风格 |
 | `rounded-xl` 用于对话框/卡片 | 使用 `rounded-lg` (6px) — `rounded-xl` 为保留值 |
 | `bg-background/80 backdrop-blur-sm` 用于顶栏 | 使用纯色 `bg-background` |
+| `backdrop-blur-sm` 用于页面头部（ChannelPageHeader 等） | 移除 — 所有导航栏使用纯色 `bg-background` |
 | `staggerChildren: 0.06` 或更高 | 使用最大 `0.02` — 网格项应近乎即时出现 |
 | `duration: 0.25` 用于内容进入 | 使用 `0.12` — 内容动画应近乎即时 |
 | Spring 物理用于 UI 装饰 | 使用 `duration + ease` — 弹簧仅用于拖拽/物理交互 |
 | 逐词交错文字展示 | 整体标题单次淡入 — 逐词效果过于消费类应用风格 |
+| 侧边栏导航中使用 `hover:bg-secondary` | 使用 `hover:bg-sidebar-hover` — 亮色模式下 `bg-secondary` 与 `sidebar-bg` 几乎不可见 |
+| 侧边栏活跃状态使用 `bg-secondary` | 使用 `bg-sidebar-active` — 侧边栏有独立的令牌层级 |
+| 侧边栏导航彩色图标气泡（`<span className="bg-[color]/10">`） | 使用纯色 `h-4 w-4` 图标，配合 `text-muted-foreground` → 活跃时 `text-[color]` |
+| 侧边栏导航或顶栏中使用 `h-3 w-3` 图标 | 使用 `h-4 w-4` — 12px 图标仅用于徽章内部的行内装饰 |
+| 侧边栏或顶栏中使用 `border-border/50` | 使用 `border-border`（纯色）— 透明度边框显得模糊 |

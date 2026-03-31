@@ -18,12 +18,10 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
   }, []);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background/95 backdrop-blur-sm px-4">
+    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
       {/* Left: title + live badge */}
-      <div className="flex items-center gap-2.5">
-        <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#2AABEE]/15 text-[#2AABEE] shadow-sm">
-          <Radio className="h-3.5 w-3.5" />
-        </div>
+      <div className="flex items-center gap-2">
+        <Radio className="h-4 w-4 text-[#2AABEE]" />
         <h1 className="text-sm font-semibold tracking-tight text-foreground">Channels</h1>
         {telegramConfigured && (
           <span className="flex items-center gap-1 rounded-full bg-accent-emerald/10 px-1.5 py-0.5 text-micro font-medium text-accent-emerald ring-1 ring-accent-emerald/20">
@@ -60,7 +58,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
           onClick={handleOpenCommandPalette}
           className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground shadow-[var(--shadow-card)] transition-all duration-150 hover:border-border-strong hover:bg-sidebar-active hover:text-foreground hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
-          <Search className="h-3.5 w-3.5" />
+          <Search className="h-4 w-4" />
           <span className="hidden sm:inline">Search</span>
           <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
         </button>

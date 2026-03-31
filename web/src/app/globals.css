@@ -196,9 +196,9 @@
   --color-ai-surface: rgba(27, 126, 242, 0.05);
   --color-ai-border: rgba(27, 126, 242, 0.12);
   --color-input-glow: rgba(27, 126, 242, 0.08);
-  --color-sidebar-bg: #FAFAFA;
+  --color-sidebar-bg: #F5F5F6;
   --color-sidebar-active: #E4E4E7;
-  --color-sidebar-hover: #F4F4F5;
+  --color-sidebar-hover: #EBEBEC;
   --color-sidebar-foreground-muted: #475569;
   --color-terminal-bg: #FFFFFF;
   --color-terminal-surface: #F4F4F5;
@@ -206,9 +206,9 @@
   --color-terminal-text: #1E293B;
   --color-terminal-dim: #94A3B8;
   --color-overlay: rgba(15, 23, 42, 0.5);
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-card-hover: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
+  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.10), 0 2px 4px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
 }
 
 /* ─── Dark mode ─── */
@@ -248,7 +248,7 @@
   --color-ai-surface: rgba(59, 142, 245, 0.04);
   --color-ai-border: rgba(59, 142, 245, 0.12);
   --color-input-glow: rgba(59, 142, 245, 0.12);
-  --color-sidebar-bg: #09090B;
+  --color-sidebar-bg: #0C0C0E;
   --color-sidebar-active: #27272A;
   --color-sidebar-hover: #18181B;
   --color-sidebar-foreground-muted: #94A3B8;
@@ -260,9 +260,9 @@
   --color-terminal-text: #CBD5E1;
   --color-terminal-dim: #64748B;
   --color-overlay: rgba(0, 0, 0, 0.6);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.12);
-  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.16);
-  --shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.4);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.20);
+  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.20);
+  --shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.30);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
