@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock
 
@@ -71,6 +72,18 @@ def _image_block() -> dict[str, Any]:
     return {"type": "image", "source": {"type": "base64", "data": "abc123"}}
 
 
+@pytest.fixture(autouse=True)
+def _default_weighted_token_strategy(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "config.settings.get_settings",
+        lambda: SimpleNamespace(
+            COMPACT_TOKEN_COUNTER="weighted",
+            COMPACT_FALLBACK_PREVIEW_CHARS=500,
+            COMPACT_FALLBACK_RESULT_CHARS=1000,
+        ),
+    )
+
+
 # ------------------------------------------------------------------
 # Token estimation
 # ------------------------------------------------------------------
@@ -88,6 +101,43 @@ class TestEstimateTokens:
         small = (_user_msg("hi"),)
         large = (_user_msg("x" * 4000),)
         assert _estimate_tokens(large) > _estimate_tokens(small)
+
+    def test_non_ascii_system_prompt_counts_more_than_ascii(self) -> None:
+        ascii_prompt = "a" * 40
+        cjk_prompt = "你" * 40
+
+        assert _estimate_tokens((), system_prompt=cjk_prompt) > _estimate_tokens(
+            (), system_prompt=ascii_prompt
+        )
+
+    def test_non_ascii_message_uses_weighted_estimate(self) -> None:
+        tokens = _estimate_tokens((_user_msg("你" * 40),))
+
+        assert tokens == 48
+
+    def test_legacy_strategy_uses_less_unicode_weighting(self, monkeypatch) -> None:
+        monkeypatch.setattr(
+            "config.settings.get_settings",
+            lambda: SimpleNamespace(COMPACT_TOKEN_COUNTER="legacy"),
+        )
+        legacy_tokens = _estimate_tokens((_user_msg("你" * 40),))
+
+        monkeypatch.setattr(
+            "config.settings.get_settings",
+            lambda: SimpleNamespace(COMPACT_TOKEN_COUNTER="weighted"),
+        )
+        weighted_tokens = _estimate_tokens((_user_msg("你" * 40),))
+
+        assert legacy_tokens < weighted_tokens
+
+    def test_get_settings_errors_are_not_silenced(self, monkeypatch) -> None:
+        def _raise() -> None:
+            raise RuntimeError("settings broken")
+
+        monkeypatch.setattr("config.settings.get_settings", _raise)
+
+        with pytest.raises(RuntimeError, match="settings broken"):
+            _estimate_tokens((_user_msg("hi"),))
 
 
 # ------------------------------------------------------------------
@@ -147,20 +197,115 @@ class TestTruncateToolResult:
         block = {"type": "tool_result", "content": "short"}
         assert _truncate_tool_result(block) is block
 
+    def test_truncate_tool_result_uses_configured_preview_chars_with_tool_context(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "config.settings.get_settings",
+            lambda: SimpleNamespace(
+                COMPACT_TOKEN_COUNTER="weighted",
+                COMPACT_FALLBACK_PREVIEW_CHARS=12,
+                COMPACT_FALLBACK_RESULT_CHARS=34,
+            ),
+        )
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": "x" * 200,
+        }
+        tool_use_map = {
+            "call_1": {"name": "web_search", "input": {"query": "short query"}},
+        }
+
+        result = _truncate_tool_result(block, tool_use_map=tool_use_map)
+
+        assert result["content"].split("] ", 1)[1] == "x" * 12
+
+    def test_truncate_tool_result_uses_configured_result_chars_without_tool_context(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(
+            "config.settings.get_settings",
+            lambda: SimpleNamespace(
+                COMPACT_TOKEN_COUNTER="weighted",
+                COMPACT_FALLBACK_PREVIEW_CHARS=12,
+                COMPACT_FALLBACK_RESULT_CHARS=120,
+            ),
+        )
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_missing",
+            "content": "x" * 500,
+        }
+
+        result = _truncate_tool_result(block, tool_use_map={})
+
+        assert result["content"] == "x" * 120 + "...[HISTORY_TRUNCATED]"
+
+    def test_truncate_tool_result_uses_history_marker_for_large_preview(self) -> None:
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_x",
+            "content": "结果" * 800,
+        }
+
+        result = _truncate_tool_result(block, tool_use_map={})
+
+        assert "[HISTORY_TRUNCATED]" in str(result["content"])
+
+    def test_truncate_tool_result_keeps_larger_preview_without_tool_context(
+        self,
+    ) -> None:
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_x",
+            "content": "x" * 1500,
+        }
+
+        result = _truncate_tool_result(block, tool_use_map={})
+
+        assert result["content"].startswith("x" * 1000)
+        assert result["content"].endswith("...[HISTORY_TRUNCATED]")
+
+    def test_truncate_tool_result_does_not_grow_without_tool_context(self) -> None:
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_x",
+            "content": "x" * 101,
+        }
+
+        result = _truncate_tool_result(block, tool_use_map={})
+
+        assert result["content"] == "x" * 101
+
+    def test_truncate_tool_result_does_not_grow_with_tool_summary(self) -> None:
+        block = {
+            "type": "tool_result",
+            "tool_use_id": "call_1",
+            "content": "x" * 101,
+        }
+        tool_use_map = {
+            "call_1": {"name": "web_search", "input": {"query": "short query"}},
+        }
+
+        result = _truncate_tool_result(block, tool_use_map=tool_use_map)
+
+        assert result["content"] == "x" * 101
+
     def test_long_string_truncated(self) -> None:
-        block = {"type": "tool_result", "content": "x" * 200}
+        block = {"type": "tool_result", "content": "x" * 1500}
         result = _truncate_tool_result(block)
-        assert "truncated" in result["content"]
-        assert len(result["content"]) < 200
+        assert "[HISTORY_TRUNCATED]" in result["content"]
+        assert len(result["content"]) < 1500
 
     def test_list_content_short_untouched(self) -> None:
         block = {"type": "tool_result", "content": [{"text": "short"}]}
         assert _truncate_tool_result(block) is block
 
     def test_list_content_long_truncated(self) -> None:
-        block = {"type": "tool_result", "content": [{"text": "y" * 200}]}
+        block = {"type": "tool_result", "content": [{"text": "y" * 1500}]}
         result = _truncate_tool_result(block)
-        assert "truncated" in result["content"]
+        assert "[HISTORY_TRUNCATED]" in result["content"]
 
     def test_non_string_non_list_untouched(self) -> None:
         block = {"type": "tool_result", "content": 42}
@@ -320,6 +465,50 @@ class TestCompact:
         assert result[0] == _user_msg("task")
 
     @pytest.mark.asyncio
+    async def test_compact_falls_back_to_structured_tool_summary_when_summariser_fails(
+        self,
+    ) -> None:
+        client = AsyncMock()
+        client.create_message.side_effect = RuntimeError("haiku unavailable")
+        obs = Observer(
+            max_full_interactions=1,
+            claude_client=client,
+            summary_model="haiku",
+        )
+        msgs = (
+            _user_msg("task"),
+            _tool_use_msg("web_search", {"query": "上海天气"}),
+            _tool_result_msg("晴天" * 100, tool_use_id="call_web_search"),
+            _tool_use_msg("final"),
+            _tool_result_msg("done", tool_use_id="call_final"),
+        )
+
+        compacted = await obs.compact(msgs)
+
+        warm_block = compacted[1]["content"][0]
+        client.create_message.assert_called_once()
+        assert "web_search" in str(warm_block)
+        assert "HISTORY_TRUNCATED" not in str(warm_block)
+
+    @pytest.mark.asyncio
+    async def test_compact_falls_back_to_larger_preview_without_tool_context(
+        self,
+    ) -> None:
+        obs = Observer(max_full_interactions=1)
+        msgs = (
+            _user_msg("task"),
+            _tool_result_msg("x" * 1500, tool_use_id="call_missing"),
+            _tool_use_msg("final"),
+            _tool_result_msg("done", tool_use_id="call_final"),
+        )
+
+        compacted = await obs.compact(msgs)
+
+        warm_block = compacted[1]["content"][0]
+        assert warm_block["content"].startswith("x" * 1000)
+        assert warm_block["content"].endswith("...[HISTORY_TRUNCATED]")
+
+    @pytest.mark.asyncio
     async def test_fallback_without_client(self) -> None:
         obs = Observer(max_full_interactions=1)
         msgs = (
@@ -405,11 +594,11 @@ class TestErrorPreservation:
         block = {
             "type": "tool_result",
             "tool_use_id": "call_1",
-            "content": "z" * 500,
+            "content": "z" * 1500,
         }
         result = _truncate_tool_result(block)
         assert result is not block
-        assert len(result["content"]) < 500
+        assert len(result["content"]) < 1500
 
     @pytest.mark.asyncio
     async def test_compact_preserves_errors_in_warm_tier(self) -> None:
@@ -559,7 +748,7 @@ class TestSummarizeToolCall:
         block = {
             "type": "tool_result",
             "tool_use_id": "call_1",
-            "content": "x" * 500,
+            "content": "x" * 1500,
         }
         result = _truncate_tool_result(block, tool_use_map=tool_use_map)
         # Should contain the semantic summary, not raw truncation
@@ -571,7 +760,7 @@ class TestSummarizeToolCall:
         block = {
             "type": "tool_result",
             "tool_use_id": "call_1",
-            "content": "x" * 500,
+            "content": "x" * 1500,
         }
         result = _truncate_tool_result(block)
-        assert "truncated" in result["content"]
+        assert "[HISTORY_TRUNCATED]" in result["content"]

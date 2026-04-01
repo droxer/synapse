@@ -17,8 +17,10 @@ from starlette.requests import Request
 from agent.llm.client import AnthropicClient
 from agent.memory.store import PersistentMemoryStore
 from api.dependencies import AppState, get_app_state, get_db_session
+from agent.state.schemas import EventRecord
 from api.models import (
     ConversationEntry,
+    ConversationMetricsResponse,
     ConversationResponse,
     FileAttachment,
     MAX_FILE_SIZE_MB,
@@ -435,6 +437,61 @@ async def _generate_title(
 
 
 # ---------------------------------------------------------------------------
+# Metrics aggregation
+# ---------------------------------------------------------------------------
+
+
+def _build_conversation_metrics_response(
+    conversation_id: str,
+    events: list[EventRecord],
+) -> ConversationMetricsResponse:
+    """Aggregate event records into a conversation metrics summary.
+
+    Processes persisted ``EventRecord`` objects and extracts:
+    - Token usage from ``llm_response`` events (``usage.input_tokens`` / ``output_tokens``)
+    - Context compaction count from ``context_compacted`` events
+    - Per-tool call counts from ``tool_call`` events (``tool_name``)
+    - Per-agent metrics from ``agent_complete`` events (``metrics`` dict)
+    """
+    total_input_tokens = 0
+    total_output_tokens = 0
+    context_compaction_count = 0
+    tool_call_counts: dict[str, int] = {}
+    per_agent_metrics: dict[str, dict[str, Any]] = {}
+
+    for event in events:
+        etype = event.event_type
+        data = event.data
+
+        if etype == "llm_response":
+            usage = data.get("usage", {})
+            total_input_tokens += usage.get("input_tokens", 0)
+            total_output_tokens += usage.get("output_tokens", 0)
+
+        elif etype == "context_compacted":
+            context_compaction_count += 1
+
+        elif etype == "tool_call":
+            tool_name = data.get("tool_name")
+            if tool_name:
+                tool_call_counts[tool_name] = tool_call_counts.get(tool_name, 0) + 1
+
+        elif etype == "agent_complete":
+            agent_name = data.get("agent_name", "")
+            if agent_name:
+                per_agent_metrics[agent_name] = data.get("metrics", {})
+
+    return ConversationMetricsResponse(
+        conversation_id=conversation_id,
+        total_input_tokens=total_input_tokens,
+        total_output_tokens=total_output_tokens,
+        context_compaction_count=context_compaction_count,
+        tool_call_counts=tool_call_counts,
+        per_agent_metrics=per_agent_metrics,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Route handlers
 # ---------------------------------------------------------------------------
 
@@ -787,6 +844,23 @@ async def get_conversation_events(
             for event in events
         ],
     }
+
+
+@router.get(
+    "/conversations/{conversation_id}/metrics",
+    response_model=ConversationMetricsResponse,
+)
+async def get_conversation_metrics(
+    conversation_id: str = Path(..., pattern=_UUID_PATTERN),
+    session: Any = Depends(get_db_session),
+    state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
+) -> ConversationMetricsResponse:
+    """Return aggregated metrics for a conversation."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
+    conv_uuid = uuid.UUID(conversation_id)
+    events = await state.db_repo.get_events(session, conv_uuid)
+    return _build_conversation_metrics_response(str(conversation_id), events)
 
 
 @router.post("/conversations/{conversation_id}/respond")

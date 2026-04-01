@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 
 from api.events import AgentEvent, EventType
 
@@ -38,6 +39,10 @@ class EvalCollector:
         self._skill_activations: list[SkillActivationRecord] = []
         self._agent_spawns: list[AgentSpawnRecord] = []
         self._agent_handoffs: list[AgentHandoffRecord] = []
+
+        # Context compaction and per-agent metrics
+        self._context_compaction_count: int = 0
+        self._per_agent_metrics: dict[str, dict[str, Any]] = {}
 
     async def on_event(self, event: AgentEvent) -> None:
         """Async event handler — pass to ``EventEmitter.subscribe()``."""
@@ -108,6 +113,14 @@ class EvalCollector:
                     )
                 )
 
+            case EventType.CONTEXT_COMPACTED:
+                self._context_compaction_count += 1
+
+            case EventType.AGENT_COMPLETE:
+                agent_id = str(event.data.get("agent_id", ""))
+                if agent_id:
+                    self._per_agent_metrics[agent_id] = event.data.get("metrics") or {}
+
     def to_metrics(self) -> EvalMetrics:
         """Freeze collected data into an immutable EvalMetrics."""
         elapsed = time.monotonic() - self._start_time
@@ -122,4 +135,6 @@ class EvalCollector:
             skill_activations=tuple(self._skill_activations),
             agent_spawns=tuple(self._agent_spawns),
             agent_handoffs=tuple(self._agent_handoffs),
+            context_compaction_count=self._context_compaction_count,
+            per_agent_metrics=dict(self._per_agent_metrics),
         )

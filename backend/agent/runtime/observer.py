@@ -3,8 +3,8 @@
 Manages message history size using token-aware tiered compaction:
 - **Hot tier**: Recent interactions kept verbatim.
 - **Warm tier**: Older interactions summarised via a lightweight LLM call.
-- **Fallback**: If summarisation fails, older results are truncated to a
-  short preview (same behaviour as the legacy approach).
+- **Fallback**: If summarisation fails, older results fall back to semantic
+  tool summaries when possible, otherwise a truncated preview marker.
 
 All pure helpers return new objects — input messages are never mutated.
 """
@@ -12,17 +12,16 @@ All pure helpers return new objects — input messages are never mutated.
 from __future__ import annotations
 
 import json
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from loguru import logger
 
 if TYPE_CHECKING:
     from agent.llm.client import AnthropicClient
 
-_TRUNCATED_TEMPLATE = "[{tool_summary}]"
-_TRUNCATED_FALLBACK_TEMPLATE = "[tool_result truncated: {preview}...]"
 _SCREENSHOT_PLACEHOLDER = "[screenshot captured]"
-_PREVIEW_LENGTH = 100
+_DEFAULT_PREVIEW_LENGTH = 500
+_DEFAULT_RESULT_LENGTH = 1000
 
 _SUMMARISE_SYSTEM = (
     "Summarize the following agent-tool interactions into a concise bullet list. "
@@ -37,18 +36,60 @@ _SUMMARISE_SYSTEM = (
 # ------------------------------------------------------------------
 
 
+def _estimate_text_tokens(text: str) -> int:
+    ascii_chars = sum(1 for char in text if ord(char) < 128)
+    non_ascii_chars = len(text) - ascii_chars
+    return max(1, (ascii_chars + 3) // 4 + non_ascii_chars)
+
+
+def _estimate_text_tokens_legacy(text: str) -> int:
+    return max(1, len(text) // 4)
+
+
+def _get_text_token_estimator() -> Callable[[str], int]:
+    """Return the configured text token estimator."""
+    from config.settings import get_settings
+
+    strategy = get_settings().COMPACT_TOKEN_COUNTER
+    if strategy == "legacy":
+        return _estimate_text_tokens_legacy
+    if strategy == "weighted":
+        return _estimate_text_tokens
+    raise ValueError(f"unknown token estimation strategy: {strategy}")
+
+
+def _get_fallback_truncation_limits() -> tuple[int, int]:
+    """Return preview/result limits for fallback truncation."""
+    from config.settings import get_settings
+
+    settings = get_settings()
+    return (
+        getattr(
+            settings,
+            "COMPACT_FALLBACK_PREVIEW_CHARS",
+            _DEFAULT_PREVIEW_LENGTH,
+        ),
+        getattr(
+            settings,
+            "COMPACT_FALLBACK_RESULT_CHARS",
+            _DEFAULT_RESULT_LENGTH,
+        ),
+    )
+
+
 def _estimate_tokens(
     messages: tuple[dict[str, Any], ...],
     system_prompt: str = "",
 ) -> int:
-    """Fast heuristic: ~4 characters per token.
+    """Fast heuristic for compaction-only token estimation.
 
     Accurate enough for deciding *when* to compact — not for billing.
     """
-    total = len(system_prompt)
+    estimate_text_tokens = _get_text_token_estimator()
+    total = estimate_text_tokens(system_prompt) if system_prompt else 0
     for msg in messages:
-        total += len(json.dumps(msg, default=str))
-    return total // 4
+        total += estimate_text_tokens(json.dumps(msg, default=str, ensure_ascii=False))
+    return total
 
 
 # ------------------------------------------------------------------
@@ -105,8 +146,8 @@ class Observer:
         2. The last ``max_full_interactions`` tool interaction pairs
            are kept in full (**hot tier**).
         3. Older interactions are summarised into a single assistant
-           message via a lightweight LLM call (**warm tier**).  If the
-           LLM call fails, older results fall back to truncation.
+           message via a lightweight LLM call (**warm tier**). If the
+           LLM call fails, older results fall back to structured compaction.
         """
         if len(messages) <= 1:
             return messages
@@ -364,6 +405,33 @@ def _summarize_tool_call(
     return f"{call_repr} → {status}{hint}"
 
 
+def _structured_tool_result(
+    block: dict[str, Any],
+    tool_use_map: dict[str, dict[str, Any]] | None,
+    preview_chars: int,
+    result_chars: int,
+) -> dict[str, Any]:
+    text = _flatten_content(block.get("content", ""))
+    tool_use_id = block.get("tool_use_id", "")
+    compacted = text
+
+    if tool_use_map and tool_use_id in tool_use_map:
+        info = tool_use_map[tool_use_id]
+        summary = _summarize_tool_call(
+            info["name"],
+            info.get("input", {}),
+            text,
+            is_error=bool(block.get("is_error")),
+        )
+        preview = text[:preview_chars]
+        compacted = f"[{summary}] {preview}"
+    else:
+        expanded = text[:result_chars]
+        compacted = f"{expanded}...[HISTORY_TRUNCATED]"
+
+    return {**block, "content": compacted if len(compacted) <= len(text) else text}
+
+
 def _truncate_tool_result(
     block: dict[str, Any],
     tool_use_map: dict[str, dict[str, Any]] | None = None,
@@ -386,25 +454,14 @@ def _truncate_tool_result(
 
     text = _flatten_content(content) if isinstance(content, list) else content
 
-    if isinstance(text, str) and len(text) <= _PREVIEW_LENGTH:
+    preview_chars, result_chars = _get_fallback_truncation_limits()
+
+    if isinstance(text, str) and len(text) <= preview_chars:
         return block
 
-    # Try to produce a semantic summary using tool_use context
-    tool_use_id = block.get("tool_use_id", "")
-    if tool_use_map and tool_use_id in tool_use_map:
-        info = tool_use_map[tool_use_id]
-        summary = _summarize_tool_call(
-            info["name"],
-            info.get("input", {}),
-            text if isinstance(text, str) else "",
-            is_error=bool(block.get("is_error")),
-        )
-        return {**block, "content": _TRUNCATED_TEMPLATE.format(tool_summary=summary)}
-
-    # Fallback: raw preview
-    preview = (
-        text[:_PREVIEW_LENGTH]
-        if isinstance(text, str)
-        else str(content)[:_PREVIEW_LENGTH]
+    return _structured_tool_result(
+        block,
+        tool_use_map=tool_use_map,
+        preview_chars=preview_chars,
+        result_chars=result_chars,
     )
-    return {**block, "content": _TRUNCATED_FALLBACK_TEMPLATE.format(preview=preview)}

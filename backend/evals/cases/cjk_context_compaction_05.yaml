@@ -1,0 +1,50 @@
+id: cjk_context_compaction_05
+name: CJK Long Conversation Continuation
+description: >
+  Agent handles an extra-long CJK conversation and picks up the last
+  incomplete step after context compaction triggers.
+user_message: "处理超长中文对话，继续执行最后一个未完成步骤。"
+grading_mode: programmatic
+tags:
+  - cjk
+  - compaction
+  - regression
+max_iterations: 15
+
+criteria:
+  - name: context_was_compacted
+    type: context_compacted
+    weight: 3.0
+  - name: output_mentions_step
+    type: output_contains
+    value: "步骤"
+    weight: 1.0
+  - name: output_mentions_completion
+    type: output_contains
+    value: "完成"
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+
+mock_responses:
+  - text: "检测到超长对话历史。正在压缩上下文并定位最后一个未完成步骤。"
+    tool_calls:
+      - id: tc_shell_cjk_long_1
+        name: shell_exec
+        input:
+          command: "echo '执行最后步骤：生成报告'"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 400
+      output_tokens: 100
+  - text: "最后一个未完成步骤已执行完成：报告生成成功。之前的所有步骤（数据收集、清洗、分析）均已在历史记录中确认完成。"
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 550
+      output_tokens: 130

@@ -185,6 +185,18 @@ class MCPServerResponse(BaseModel):
     enabled: bool = True
 
 
+class ConversationMetricsResponse(BaseModel):
+    """Aggregated metrics for a single conversation."""
+
+    conversation_id: str
+    total_input_tokens: int
+    total_output_tokens: int
+    context_compaction_count: int
+    tool_call_counts: dict[str, int] = Field(default_factory=dict)
+    per_agent_metrics: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    sandbox_execution_time: float = 0.0
+
+
 class MCPServerCreateRequest(BaseModel):
     """Request body for adding a new MCP server."""
 

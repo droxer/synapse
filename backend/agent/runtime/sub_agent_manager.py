@@ -75,11 +75,14 @@ class SubAgentManager:
         event_emitter: EventEmitter,
         max_concurrent: int = 5,
         max_total: int = 20,
+        max_iterations: int = 50,
     ) -> None:
         if max_concurrent < 1:
             raise ValueError("max_concurrent must be at least 1")
         if max_total < 1:
             raise ValueError("max_total must be at least 1")
+        if max_iterations < 1:
+            raise ValueError("max_iterations must be at least 1")
 
         self._client = claude_client
         self._registry_factory = tool_registry_factory
@@ -87,6 +90,7 @@ class SubAgentManager:
         self._emitter = event_emitter
         self._max_concurrent = max_concurrent
         self._max_total = max_total
+        self._max_iterations = max_iterations
 
         self._message_bus = AgentMessageBus()
         self._agents: dict[str, asyncio.Task[AgentResult]] = {}
@@ -190,9 +194,14 @@ class SubAgentManager:
         config: TaskAgentConfig,
     ) -> AgentResult:
         """Run a task agent with dependency, concurrency, and handoff handling."""
-        config = await self._wait_for_dependencies(agent_id, config)
+        dep_outcome = await self._wait_for_dependencies(agent_id, config)
 
-        current_config = config
+        if isinstance(dep_outcome, AgentResult):
+            # Dependency policy says skip or replan — store and return early
+            self._results[agent_id] = dep_outcome
+            return dep_outcome
+
+        current_config = dep_outcome
         handoff_depth = 0
 
         while True:
@@ -248,11 +257,12 @@ class SubAgentManager:
         self,
         agent_id: str,
         config: TaskAgentConfig,
-    ) -> TaskAgentConfig:
+    ) -> TaskAgentConfig | AgentResult:
         """Block until all dependency agents have completed.
 
         Returns an updated config with dependency results prepended
-        to the context field.
+        to the context field, or an AgentResult if the agent should
+        be skipped / flagged for replan based on dependency_failure_mode.
         """
         if not config.depends_on:
             return config
@@ -269,6 +279,42 @@ class SubAgentManager:
             if not dep_task.done():
                 await dep_task
 
+        # Check for dependency failures and apply failure mode policy
+        failed_deps: list[tuple[str, AgentResult]] = []
+        for dep_id in config.depends_on:
+            dep_result = self._results.get(dep_id)
+            if dep_result is not None and not dep_result.success:
+                failed_deps.append((dep_id, dep_result))
+
+        if failed_deps:
+            mode = config.dependency_failure_mode
+
+            if mode == "cancel_downstream":
+                dep_errors = "; ".join(
+                    f"{did[:8]}: {dr.error or '(no detail)'}" for did, dr in failed_deps
+                )
+                return AgentResult(
+                    agent_id=agent_id,
+                    success=False,
+                    summary="",
+                    error=f"Skipped: dependency failed ({dep_errors})",
+                    skip_execution=True,
+                )
+
+            if mode == "replan":
+                dep_errors = "; ".join(
+                    f"{did[:8]}: {dr.error or '(no detail)'}" for did, dr in failed_deps
+                )
+                return AgentResult(
+                    agent_id=agent_id,
+                    success=False,
+                    summary="",
+                    error=f"Replan required: dependency failed ({dep_errors})",
+                    replan_required=True,
+                )
+
+            # mode == "degrade": fall through and inject failure context
+
         # Collect dependency results and add them as context
         dep_summaries: list[str] = []
         for dep_id in config.depends_on:
@@ -278,6 +324,15 @@ class SubAgentManager:
             status = "succeeded" if dep_result.success else "failed"
             summary = dep_result.summary or dep_result.error or "(no output)"
             dep_summaries.append(f"- Dependency {dep_id[:8]} ({status}): {summary}")
+
+        # Add degraded dependency warning for degrade mode
+        if failed_deps:
+            for dep_id, dep_result in failed_deps:
+                dep_summaries.append(
+                    f"- [DEGRADED] Dependency {dep_id[:8]} failed: "
+                    f"{dep_result.error or '(no detail)'}. "
+                    f"Proceeding in degraded mode."
+                )
 
         if not dep_summaries:
             return config
@@ -297,6 +352,7 @@ class SubAgentManager:
             model=config.model,
             role=config.role,
             max_handoffs=config.max_handoffs,
+            dependency_failure_mode=config.dependency_failure_mode,
         )
 
     async def _execute_agent(
@@ -350,6 +406,7 @@ class SubAgentManager:
                 tool_registry=registry,
                 tool_executor=executor,
                 event_emitter=self._emitter,
+                max_iterations=self._max_iterations,
             )
             callback_target[0] = runner
             handoff_target[0] = runner

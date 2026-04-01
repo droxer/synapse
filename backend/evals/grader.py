@@ -167,6 +167,44 @@ def _grade_tool_call_count(
     )
 
 
+def _grade_context_compacted(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    """Check that context compaction occurred at least once.
+
+    If value is an int, checks that compaction happened at least that many times.
+    """
+    required = int(criteria.value) if criteria.value is not None else 1
+    count = metrics.context_compaction_count
+    passed = count >= required
+    return CriterionResult(
+        criterion_name=criteria.name,
+        passed=passed,
+        detail=f"Context compactions: {count} (required: >= {required})",
+    )
+
+
+def _grade_tool_not_repeated(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    """Check that a specific tool was not called more than once.
+
+    Useful for verifying that compaction prevented redundant tool re-invocations.
+    """
+    tool_name = str(criteria.value or "")
+    calls = [tc for tc in metrics.tool_calls if tc.name == tool_name]
+    count = len(calls)
+    passed = count <= 1
+    return CriterionResult(
+        criterion_name=criteria.name,
+        passed=passed,
+        detail=(
+            f"Tool '{tool_name}' called {count} time(s) "
+            f"({'OK — not repeated' if passed else 'REPEATED'})"
+        ),
+    )
+
+
 _GRADERS = {
     "tool_used": _grade_tool_used,
     "tool_not_used": _grade_tool_not_used,
@@ -178,6 +216,8 @@ _GRADERS = {
     "agent_spawned": _grade_agent_spawned,
     "agent_handoff": _grade_agent_handoff,
     "tool_call_count": _grade_tool_call_count,
+    "context_compacted": _grade_context_compacted,
+    "tool_not_repeated": _grade_tool_not_repeated,
 }
 
 

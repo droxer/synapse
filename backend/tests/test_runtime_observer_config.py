@@ -5,6 +5,10 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+import pytest
+from pydantic import ValidationError
+
+from config.settings import Settings
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.runtime.planner import PlannerOrchestrator
 from agent.runtime.task_runner import TaskAgentConfig, TaskAgentRunner
@@ -17,9 +21,25 @@ def _settings(summary_model: str = "") -> SimpleNamespace:
     return SimpleNamespace(
         COMPACT_FULL_INTERACTIONS=7,
         COMPACT_TOKEN_BUDGET=4321,
+        COMPACT_TOKEN_COUNTER="weighted",
         COMPACT_SUMMARY_MODEL=summary_model,
         LITE_MODEL="claude-lite-test",
     )
+
+
+def test_settings_define_token_counter() -> None:
+    settings = Settings(ANTHROPIC_API_KEY="test-key", TAVILY_API_KEY="test-key")
+
+    assert settings.COMPACT_TOKEN_COUNTER == "weighted"
+
+
+def test_settings_reject_invalid_token_counter() -> None:
+    with pytest.raises(ValidationError, match="COMPACT_TOKEN_COUNTER"):
+        Settings(
+            ANTHROPIC_API_KEY="test-key",
+            TAVILY_API_KEY="test-key",
+            COMPACT_TOKEN_COUNTER="invalid",
+        )
 
 
 def test_orchestrator_uses_compaction_settings(monkeypatch) -> None:

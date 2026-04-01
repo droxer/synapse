@@ -21,6 +21,8 @@ def _make_metrics(
     skill_activations: tuple[SkillActivationRecord, ...] = (),
     agent_spawns: tuple[AgentSpawnRecord, ...] = (),
     agent_handoffs: tuple[AgentHandoffRecord, ...] = (),
+    context_compaction_count: int = 0,
+    per_agent_metrics: dict | None = None,
 ) -> EvalMetrics:
     return EvalMetrics(
         total_iterations=total_iterations,
@@ -33,6 +35,8 @@ def _make_metrics(
         skill_activations=skill_activations,
         agent_spawns=agent_spawns,
         agent_handoffs=agent_handoffs,
+        context_compaction_count=context_compaction_count,
+        per_agent_metrics=per_agent_metrics or {},
     )
 
 
@@ -350,3 +354,91 @@ class TestToolCallCountCriterion:
         metrics = _make_metrics(tool_calls=(_make_tool_call("a"), _make_tool_call("b")))
         results, _ = grade_criteria(criteria, metrics)
         assert results[0].passed is False
+
+
+class TestContextCompactedCriterion:
+    def test_compacted_at_least_once(self) -> None:
+        criteria = (GradingCriteria(name="compacted", type="context_compacted"),)
+        metrics = _make_metrics(context_compaction_count=1)
+        results, score = grade_criteria(criteria, metrics)
+        assert results[0].passed is True
+        assert score == 1.0
+
+    def test_no_compaction(self) -> None:
+        criteria = (GradingCriteria(name="compacted", type="context_compacted"),)
+        metrics = _make_metrics(context_compaction_count=0)
+        results, score = grade_criteria(criteria, metrics)
+        assert results[0].passed is False
+        assert score == 0.0
+
+    def test_compacted_minimum_count(self) -> None:
+        criteria = (
+            GradingCriteria(name="compacted_2", type="context_compacted", value=2),
+        )
+        metrics = _make_metrics(context_compaction_count=3)
+        results, _ = grade_criteria(criteria, metrics)
+        assert results[0].passed is True
+
+    def test_compacted_insufficient_count(self) -> None:
+        criteria = (
+            GradingCriteria(name="compacted_2", type="context_compacted", value=2),
+        )
+        metrics = _make_metrics(context_compaction_count=1)
+        results, _ = grade_criteria(criteria, metrics)
+        assert results[0].passed is False
+
+
+class TestToolNotRepeatedCriterion:
+    def test_tool_called_once(self) -> None:
+        criteria = (
+            GradingCriteria(
+                name="no_repeat_shell", type="tool_not_repeated", value="shell_exec"
+            ),
+        )
+        metrics = _make_metrics(tool_calls=(_make_tool_call("shell_exec"),))
+        results, score = grade_criteria(criteria, metrics)
+        assert results[0].passed is True
+        assert score == 1.0
+
+    def test_tool_not_called_at_all(self) -> None:
+        criteria = (
+            GradingCriteria(
+                name="no_repeat_shell", type="tool_not_repeated", value="shell_exec"
+            ),
+        )
+        metrics = _make_metrics(tool_calls=())
+        results, _ = grade_criteria(criteria, metrics)
+        assert results[0].passed is True
+
+    def test_tool_repeated(self) -> None:
+        criteria = (
+            GradingCriteria(
+                name="no_repeat_shell", type="tool_not_repeated", value="shell_exec"
+            ),
+        )
+        metrics = _make_metrics(
+            tool_calls=(
+                _make_tool_call("shell_exec"),
+                _make_tool_call("web_search"),
+                _make_tool_call("shell_exec"),
+            )
+        )
+        results, score = grade_criteria(criteria, metrics)
+        assert results[0].passed is False
+        assert score == 0.0
+
+    def test_other_tools_can_repeat(self) -> None:
+        criteria = (
+            GradingCriteria(
+                name="no_repeat_shell", type="tool_not_repeated", value="shell_exec"
+            ),
+        )
+        metrics = _make_metrics(
+            tool_calls=(
+                _make_tool_call("shell_exec"),
+                _make_tool_call("web_search"),
+                _make_tool_call("web_search"),
+            )
+        )
+        results, _ = grade_criteria(criteria, metrics)
+        assert results[0].passed is True

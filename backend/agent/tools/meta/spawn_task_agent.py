@@ -78,6 +78,17 @@ class SpawnTaskAgent(LocalTool):
                         ),
                         "default": "",
                     },
+                    "dependency_failure_mode": {
+                        "type": "string",
+                        "enum": ["cancel_downstream", "degrade", "replan"],
+                        "description": (
+                            "How to handle failure of dependency agents: "
+                            "'cancel_downstream' skips this agent, "
+                            "'degrade' continues with failure context, "
+                            "'replan' flags for replanning."
+                        ),
+                        "default": "cancel_downstream",
+                    },
                 },
                 "required": ["task_description", "name"],
             },
@@ -93,6 +104,9 @@ class SpawnTaskAgent(LocalTool):
         depends_on: list[str] = kwargs.get("depends_on", [])
         use_lite_model: bool = kwargs.get("use_lite_model", False)
         role: str = kwargs.get("role", "")
+        dependency_failure_mode: str = kwargs.get(
+            "dependency_failure_mode", "cancel_downstream"
+        )
 
         if not task_description.strip():
             return ToolResult.fail("task_description must not be empty")
@@ -111,6 +125,7 @@ class SpawnTaskAgent(LocalTool):
                 depends_on=tuple(depends_on),
                 model=model,
                 role=role,
+                dependency_failure_mode=dependency_failure_mode,
             )
             agent_id = await self._manager.spawn(config)
         except Exception as exc:

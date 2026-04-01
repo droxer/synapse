@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
-from typing import Any
+import asyncio
+import time
+from dataclasses import asdict, dataclass, replace
+from typing import Any, Literal
 
 from agent.llm.client import AnthropicClient
 from agent.runtime.helpers import (
@@ -33,6 +35,7 @@ class TaskAgentConfig:
     model: str | None = None
     role: str = ""
     max_handoffs: int = 3
+    dependency_failure_mode: FailureMode = "cancel_downstream"
 
 
 @dataclass(frozen=True)
@@ -46,6 +49,21 @@ class HandoffRequest:
     remaining_handoffs: int
 
 
+FailureMode = Literal["cancel_downstream", "degrade", "replan"]
+
+
+@dataclass(frozen=True)
+class AgentRunMetrics:
+    """Immutable metrics captured for a task agent run."""
+
+    duration_seconds: float
+    iterations: int
+    tool_call_count: int
+    context_compaction_count: int
+    input_tokens: int
+    output_tokens: int
+
+
 @dataclass(frozen=True)
 class AgentResult:
     """Immutable result of a task agent execution."""
@@ -56,6 +74,10 @@ class AgentResult:
     artifacts: tuple[str, ...] = ()
     error: str | None = None
     handoff: HandoffRequest | None = None
+    failure_mode: FailureMode = "cancel_downstream"
+    metrics: AgentRunMetrics | None = None
+    skip_execution: bool = False
+    replan_required: bool = False
 
 
 TASK_AGENT_SYSTEM_PROMPT = """You are a task agent focused on completing a specific objective.
@@ -122,6 +144,12 @@ class TaskAgentRunner:
         self._system_prompt = _build_system_prompt(config)
         self._task_complete_summary: str | None = None
         self._handoff_request: HandoffRequest | None = None
+        self._artifact_ids: list[str] = []
+        self._iterations = 0
+        self._tool_call_count = 0
+        self._context_compaction_count = 0
+        self._input_tokens = 0
+        self._output_tokens = 0
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -137,24 +165,84 @@ class TaskAgentRunner:
         # frontend plan checklist updates immediately without waiting for
         # semaphore acquisition.
 
+        self._reset_run_state()
+        started_at = time.perf_counter()
+        timeout_seconds = get_settings().AGENT_TIMEOUT_SECONDS
+
         try:
-            final_text = await self._execute_loop()
-        except Exception as exc:
-            logger.exception("Task agent {} failed: {}", self._agent_id, exc)
-            await self._emit_complete(success=False, error=str(exc))
+            final_text = await asyncio.wait_for(
+                self._execute_loop(),
+                timeout=timeout_seconds,
+            )
+        except asyncio.TimeoutError:
+            error = f"Task agent timed out after {timeout_seconds}s"
+            metrics = self._build_metrics(started_at)
+            await self._emit_complete(
+                success=False,
+                error=error,
+                failure_mode="degrade",
+                metrics=metrics,
+            )
             return AgentResult(
                 agent_id=self._agent_id,
                 success=False,
                 summary="",
+                artifacts=tuple(self._artifact_ids),
+                error=error,
+                failure_mode="degrade",
+                metrics=metrics,
+            )
+        except Exception as exc:
+            logger.exception("Task agent {} failed: {}", self._agent_id, exc)
+            metrics = self._build_metrics(started_at)
+            await self._emit_complete(
+                success=False,
                 error=str(exc),
+                failure_mode="cancel_downstream",
+                metrics=metrics,
+            )
+            return AgentResult(
+                agent_id=self._agent_id,
+                success=False,
+                summary="",
+                artifacts=tuple(self._artifact_ids),
+                error=str(exc),
+                metrics=metrics,
             )
 
-        await self._emit_complete(success=True)
+        metrics = self._build_metrics(started_at)
+        await self._emit_complete(
+            success=True,
+            failure_mode="cancel_downstream",
+            metrics=metrics,
+        )
         return AgentResult(
             agent_id=self._agent_id,
             success=True,
             summary=final_text,
+            artifacts=tuple(self._artifact_ids),
             handoff=self._handoff_request,
+            metrics=metrics,
+        )
+
+    def _reset_run_state(self) -> None:
+        """Reset per-run counters before starting execution."""
+        self._artifact_ids = []
+        self._iterations = 0
+        self._tool_call_count = 0
+        self._context_compaction_count = 0
+        self._input_tokens = 0
+        self._output_tokens = 0
+
+    def _build_metrics(self, started_at: float) -> AgentRunMetrics:
+        """Build a metrics snapshot for the current run."""
+        return AgentRunMetrics(
+            duration_seconds=time.perf_counter() - started_at,
+            iterations=self._iterations,
+            tool_call_count=self._tool_call_count,
+            context_compaction_count=self._context_compaction_count,
+            input_tokens=self._input_tokens,
+            output_tokens=self._output_tokens,
         )
 
     async def _emit_complete(
@@ -162,6 +250,8 @@ class TaskAgentRunner:
         *,
         success: bool,
         error: str | None = None,
+        failure_mode: FailureMode = "cancel_downstream",
+        metrics: AgentRunMetrics | None = None,
     ) -> None:
         """Emit the AGENT_COMPLETE event."""
         await self._emitter.emit(
@@ -170,6 +260,8 @@ class TaskAgentRunner:
                 "agent_id": self._agent_id,
                 "success": success,
                 "error": error,
+                "failure_mode": failure_mode,
+                "metrics": asdict(metrics) if metrics is not None else None,
             },
         )
 
@@ -183,6 +275,7 @@ class TaskAgentRunner:
 
         while not state.completed and state.error is None:
             state = state.increment_iteration()
+            self._iterations = state.iteration
             state = await self._run_iteration(state, tools, settings)
 
         if state.error:
@@ -200,6 +293,7 @@ class TaskAgentRunner:
         # Compact history before the LLM call if needed
         if self._observer.should_compact(state.messages):
             compacted = await self._observer.compact(state.messages)
+            self._context_compaction_count += 1
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,
                 {
@@ -233,11 +327,13 @@ class TaskAgentRunner:
             return state.mark_error(f"LLM call failed: {exc}")
 
         state = apply_response_to_state(state, response)
+        self._input_tokens += response.usage.input_tokens
+        self._output_tokens += response.usage.output_tokens
 
         if not response.tool_calls:
             return state.mark_completed(response.text)
 
-        state = await process_tool_calls(
+        tool_result = await process_tool_calls(
             state=state,
             tool_calls=response.tool_calls,
             executor=self._executor,
@@ -248,6 +344,11 @@ class TaskAgentRunner:
                 or self._handoff_request is not None
             ),
         )
+        state = tool_result.state
+        self._tool_call_count += tool_result.processed_count
+        for artifact_id in tool_result.artifact_ids:
+            if artifact_id not in self._artifact_ids:
+                self._artifact_ids.append(artifact_id)
 
         if self._task_complete_summary is not None:
             return state.mark_completed(self._task_complete_summary)

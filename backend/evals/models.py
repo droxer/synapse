@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -11,7 +11,7 @@ class GradingCriteria:
     """A single grading criterion for an eval case."""
 
     name: str
-    type: str  # tool_used | tool_not_used | output_regex | output_contains | max_iterations | no_errors | skill_activated | agent_spawned | agent_handoff | tool_call_count
+    type: str  # tool_used | tool_not_used | output_regex | output_contains | max_iterations | no_errors | skill_activated | agent_spawned | agent_handoff | tool_call_count | context_compacted | tool_not_repeated
     value: str | int | None = None
     weight: float = 1.0
 
@@ -84,6 +84,8 @@ class EvalMetrics:
     skill_activations: tuple[SkillActivationRecord, ...] = ()
     agent_spawns: tuple[AgentSpawnRecord, ...] = ()
     agent_handoffs: tuple[AgentHandoffRecord, ...] = ()
+    context_compaction_count: int = 0
+    per_agent_metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)

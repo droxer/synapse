@@ -1,0 +1,56 @@
+id: cjk_context_compaction_01
+name: CJK Multi-Step Analysis with Context Retention
+description: >
+  Agent receives a multi-step CJK prompt requiring analysis across multiple
+  rounds. Context compaction should fire without losing prior conclusions.
+user_message: "请连续分析这五段中文需求，并在每一步说明已经完成了什么，不要丢失前文结论。"
+grading_mode: programmatic
+tags:
+  - cjk
+  - compaction
+  - regression
+max_iterations: 15
+
+criteria:
+  - name: context_was_compacted
+    type: context_compacted
+    weight: 3.0
+  - name: output_preserves_prior_conclusions
+    type: output_contains
+    value: "完成"
+    weight: 2.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+
+mock_responses:
+  - text: "我将逐步分析这五段中文需求。第一段需求已完成分析：用户需要数据聚合功能。"
+    tool_calls:
+      - id: tc_search_cjk_1
+        name: web_search
+        input:
+          query: "数据聚合 最佳实践"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 300
+      output_tokens: 150
+  - text: "第二段和第三段需求分析完成。结合前文结论，用户还需要实时监控和告警系统。现在继续分析第四段和第五段。"
+    tool_calls:
+      - id: tc_search_cjk_2
+        name: web_search
+        input:
+          query: "实时监控 告警系统 架构"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 500
+      output_tokens: 200
+  - text: "全部五段中文需求分析完成。总结：1）数据聚合功能 2）实时监控 3）告警系统 4）用户权限管理 5）报表导出。所有前文结论已保留。"
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 700
+      output_tokens: 180

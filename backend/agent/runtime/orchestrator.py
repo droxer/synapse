@@ -19,6 +19,7 @@ from agent.runtime.skill_dependencies import (
     build_install_command,
     group_safe_dependencies,
 )
+from agent.runtime.skill_selector import select_skill_for_message
 from agent.sandbox.base import SANDBOX_HOME_DIR
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -295,54 +296,45 @@ class AgentOrchestrator:
         # Append user message to existing state (preserves conversation history)
         self._task_complete_summary = None
 
-        # Auto-match skill for this turn
+        # Auto-match skill for this turn via shared selector
         effective_prompt = self._system_prompt
         self._auto_injected_skill = None
-        matched = None
-        if self._skill_registry is not None:
-            explicit_skill_name = next(
-                (skill for skill in selected_skills if skill.strip()),
-                None,
+        settings = get_settings()
+        matched = await select_skill_for_message(
+            user_message=user_message,
+            selected_skills=selected_skills,
+            skill_registry=self._skill_registry,
+            client=self._client,
+            model=settings.SKILL_SELECTOR_MODEL or settings.LITE_MODEL,
+        )
+        if matched is not None:
+            self._auto_injected_skill = matched.metadata.name
+            effective_prompt = (
+                self._system_prompt
+                + f'\n\n<skill_content name="{matched.metadata.name}">\n'
+                + matched.instructions
+                + "\n</skill_content>"
             )
-            if explicit_skill_name is not None:
-                matched = self._skill_registry.find_by_name(explicit_skill_name)
-                if matched is None:
-                    error = f"Selected skill '{explicit_skill_name}' is not available."
-                    await self._emitter.emit(
-                        EventType.TASK_ERROR,
-                        {"error": error},
-                    )
-                    return f"Error: {error}"
-                logger.info("explicit_skill_selected name={}", explicit_skill_name)
-            else:
-                matched = self._skill_registry.match_description(user_message)
-            if matched is not None:
-                self._auto_injected_skill = matched.metadata.name
-                effective_prompt = (
-                    self._system_prompt
-                    + f'\n\n<skill_content name="{matched.metadata.name}">\n'
-                    + matched.instructions
-                    + "\n</skill_content>"
-                )
-                source = "explicit" if explicit_skill_name is not None else "auto"
-                logger.info(
-                    "skill_activated name={} source={}",
-                    matched.metadata.name,
-                    source,
-                )
-                await self._emitter.emit(
-                    EventType.SKILL_ACTIVATED,
-                    {"name": matched.metadata.name, "source": source},
-                )
-                # Replace ActivateSkill tool with active skill name (copy-on-write)
-                from agent.tools.local.activate_skill import ActivateSkill
+            explicit_skill_name = next((s for s in selected_skills if s.strip()), None)
+            source = "explicit" if explicit_skill_name is not None else "auto"
+            logger.info(
+                "skill_activated name={} source={}",
+                matched.metadata.name,
+                source,
+            )
+            await self._emitter.emit(
+                EventType.SKILL_ACTIVATED,
+                {"name": matched.metadata.name, "source": source},
+            )
+            # Replace ActivateSkill tool with active skill name (copy-on-write)
+            from agent.tools.local.activate_skill import ActivateSkill
 
-                self._registry = self._registry.replace_tool(
-                    ActivateSkill(
-                        skill_registry=self._skill_registry,
-                        active_skill_name=matched.metadata.name,
-                    )
+            self._registry = self._registry.replace_tool(
+                ActivateSkill(
+                    skill_registry=self._skill_registry,
+                    active_skill_name=matched.metadata.name,
                 )
+            )
 
         # Apply skill's sandbox template (e.g. data_science) so that
         # both file uploads and tool execution target the correct image.
@@ -706,7 +698,7 @@ class AgentOrchestrator:
         if not response.tool_calls:
             return state.mark_completed(response.text)
 
-        state = await process_tool_calls(
+        tool_result = await process_tool_calls(
             state=state,
             tool_calls=response.tool_calls,
             executor=self._executor,
@@ -714,6 +706,7 @@ class AgentOrchestrator:
             stop_check=lambda: self._task_complete_summary is not None,
             cancel_check=lambda: self._cancel_event.is_set(),
         )
+        state = tool_result.state
 
         # Check if task_complete tool was invoked during tool processing
         if self._task_complete_summary is not None:

@@ -19,6 +19,7 @@ from agent.runtime.skill_dependencies import (
     build_install_command,
     group_safe_dependencies,
 )
+from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.task_runner import TaskAgentConfig
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -160,80 +161,66 @@ class PlannerOrchestrator:
         self._task_complete_summary = None
         self._state = replace(self._state, completed=False, error=None, iteration=0)
 
-        # Skill matching — mirrors AgentOrchestrator.run() logic
+        # Skill matching via shared selector
         effective_prompt = self._system_prompt
         effective_registry = self._registry
-        matched = None
-        if self._skill_registry is not None:
-            explicit_skill_name = next(
-                (skill for skill in selected_skills if skill.strip()),
-                None,
+        settings = get_settings()
+        matched = await select_skill_for_message(
+            user_message=user_message,
+            selected_skills=selected_skills,
+            skill_registry=self._skill_registry,
+            client=self._client,
+            model=settings.SKILL_SELECTOR_MODEL or settings.LITE_MODEL,
+        )
+        if matched is not None:
+            effective_prompt = (
+                self._system_prompt
+                + f'\n\n<skill_content name="{matched.metadata.name}">\n'
+                + matched.instructions
+                + "\n</skill_content>"
             )
-            if explicit_skill_name is not None:
-                matched = self._skill_registry.find_by_name(explicit_skill_name)
-                if matched is None:
-                    error = f"Selected skill '{explicit_skill_name}' is not available."
-                    await self._emitter.emit(
-                        EventType.TASK_ERROR,
-                        {"error": error},
-                    )
-                    return f"Error: {error}"
-                logger.info("explicit_skill_selected name={}", explicit_skill_name)
-            else:
-                matched = self._skill_registry.match_description(user_message)
+            explicit_skill_name = next((s for s in selected_skills if s.strip()), None)
+            source = "explicit" if explicit_skill_name is not None else "auto"
+            logger.info(
+                "planner_skill_activated name={} source={}",
+                matched.metadata.name,
+                source,
+            )
+            await self._emitter.emit(
+                EventType.SKILL_ACTIVATED,
+                {"name": matched.metadata.name, "source": source},
+            )
 
-            if matched is not None:
-                effective_prompt = (
-                    self._system_prompt
-                    + f'\n\n<skill_content name="{matched.metadata.name}">\n'
-                    + matched.instructions
-                    + "\n</skill_content>"
+            # Replace ActivateSkill tool with active skill name
+            from agent.tools.local.activate_skill import ActivateSkill
+
+            effective_registry = effective_registry.replace_tool(
+                ActivateSkill(
+                    skill_registry=self._skill_registry,
+                    active_skill_name=matched.metadata.name,
                 )
-                source = "explicit" if explicit_skill_name is not None else "auto"
+            )
+
+            # Apply sandbox template
+            if matched.metadata.sandbox_template:
+                self._executor.set_sandbox_template(matched.metadata.sandbox_template)
                 logger.info(
-                    "planner_skill_activated name={} source={}",
+                    "planner_skill_sandbox_template name={} template={}",
                     matched.metadata.name,
-                    source,
-                )
-                await self._emitter.emit(
-                    EventType.SKILL_ACTIVATED,
-                    {"name": matched.metadata.name, "source": source},
+                    matched.metadata.sandbox_template,
                 )
 
-                # Replace ActivateSkill tool with active skill name
-                from agent.tools.local.activate_skill import ActivateSkill
+            # Auto-install dependencies
+            if matched.metadata.dependencies:
+                await self._install_skill_dependencies(matched.metadata.dependencies)
 
-                effective_registry = effective_registry.replace_tool(
-                    ActivateSkill(
-                        skill_registry=self._skill_registry,
-                        active_skill_name=matched.metadata.name,
-                    )
+            # Filter tools by allowed_tools
+            if matched.metadata.allowed_tools:
+                allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
+                effective_registry = effective_registry.filter_by_names_or_tags(
+                    allowed,
+                    {"mcp"},
                 )
-
-                # Apply sandbox template
-                if matched.metadata.sandbox_template:
-                    self._executor.set_sandbox_template(
-                        matched.metadata.sandbox_template
-                    )
-                    logger.info(
-                        "planner_skill_sandbox_template name={} template={}",
-                        matched.metadata.name,
-                        matched.metadata.sandbox_template,
-                    )
-
-                # Auto-install dependencies
-                if matched.metadata.dependencies:
-                    await self._install_skill_dependencies(
-                        matched.metadata.dependencies
-                    )
-
-                # Filter tools by allowed_tools
-                if matched.metadata.allowed_tools:
-                    allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-                    effective_registry = effective_registry.filter_by_names_or_tags(
-                        allowed,
-                        {"mcp"},
-                    )
 
         tools = effective_registry.to_anthropic_tools()
         model = get_settings().PLANNING_MODEL
@@ -305,13 +292,14 @@ class PlannerOrchestrator:
         if not response.tool_calls:
             return state.mark_completed(response.text)
 
-        state = await process_tool_calls(
+        tool_result = await process_tool_calls(
             state=state,
             tool_calls=response.tool_calls,
             executor=self._executor,
             emitter=self._emitter,
             stop_check=lambda: self._task_complete_summary is not None,
         )
+        state = tool_result.state
 
         if self._task_complete_summary is not None:
             return state.mark_completed(self._task_complete_summary)

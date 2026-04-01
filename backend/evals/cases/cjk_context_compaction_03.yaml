@@ -1,0 +1,50 @@
+id: cjk_context_compaction_03
+name: CJK Tool Result Continuation Without Re-download
+description: >
+  Agent should use prior tool results to draw conclusions without
+  redundantly downloading files that were already fetched.
+user_message: "请根据前面已经执行过的工具结果继续整理结论，避免重复下载文件。"
+grading_mode: programmatic
+tags:
+  - cjk
+  - compaction
+  - regression
+max_iterations: 15
+
+criteria:
+  - name: context_was_compacted
+    type: context_compacted
+    weight: 3.0
+  - name: web_fetch_not_repeated
+    type: tool_not_repeated
+    value: web_fetch
+    weight: 2.0
+  - name: output_mentions_conclusion
+    type: output_contains
+    value: "结论"
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+
+mock_responses:
+  - text: "根据前面的工具结果，我来整理结论。已有的下载内容显示三个关键数据点。"
+    tool_calls:
+      - id: tc_fetch_cjk_1
+        name: web_fetch
+        input:
+          url: "https://example.com/report.json"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 350
+      output_tokens: 130
+  - text: "结论整理完成：1）性能指标达标 2）内存使用正常 3）错误率低于阈值。未重复下载已有文件。"
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 500
+      output_tokens: 120

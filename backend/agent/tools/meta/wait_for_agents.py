@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import asdict
 from typing import Any
 
 from loguru import logger
@@ -62,6 +63,10 @@ class WaitForAgents(LocalTool):
                 "summary": result.summary,
                 "error": result.error,
                 "artifacts": list(result.artifacts),
+                "failure_mode": result.failure_mode,
+                "metrics": (
+                    asdict(result.metrics) if result.metrics is not None else None
+                ),
             }
             for aid, result in results.items()
         }

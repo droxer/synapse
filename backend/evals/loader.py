@@ -23,6 +23,8 @@ _VALID_CRITERIA_TYPES = frozenset(
         "agent_spawned",
         "agent_handoff",
         "tool_call_count",
+        "context_compacted",
+        "tool_not_repeated",
     }
 )
 

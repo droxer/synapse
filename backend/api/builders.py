@@ -409,6 +409,9 @@ def _build_planner_orchestrator(
             event_emitter=event_emitter,
         ),
         event_emitter=event_emitter,
+        max_concurrent=settings.MAX_CONCURRENT_AGENTS,
+        max_total=settings.MAX_TOTAL_AGENTS,
+        max_iterations=settings.MAX_AGENT_ITERATIONS,
     )
 
     artifact_manager = ArtifactManager(storage_backend=storage_backend)
@@ -429,13 +432,13 @@ def _build_planner_orchestrator(
         artifact_manager=artifact_manager,
     )
 
+    from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
+
     # Append skill catalog to planner system prompt if available
-    planner_prompt = ""
+    planner_prompt = PLANNER_SYSTEM_PROMPT
     if skill_registry is not None and settings.SKILLS_ENABLED:
         catalog_section = skill_registry.catalog_prompt_section()
         if catalog_section:
-            from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
-
             planner_prompt = PLANNER_SYSTEM_PROMPT + "\n" + catalog_section
 
     # Append personal memory to planner system prompt

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
 from loguru import logger
@@ -12,6 +13,15 @@ from api.events import EventEmitter, EventType
 
 if TYPE_CHECKING:
     from agent.runtime.orchestrator import AgentState
+
+
+@dataclass(frozen=True)
+class ToolCallProcessingResult:
+    """Immutable result of processing a batch of tool calls."""
+
+    state: AgentState
+    processed_count: int
+    artifact_ids: tuple[str, ...] = ()
 
 
 def apply_response_to_state(state: AgentState, response: LLMResponse) -> AgentState:
@@ -92,7 +102,7 @@ async def process_tool_calls(
     agent_id: str | None = None,
     stop_check: Callable[[], bool] | None = None,
     cancel_check: Callable[[], bool] | None = None,
-) -> AgentState:
+) -> ToolCallProcessingResult:
     """Execute each tool call and add results to state.
 
     Args:
@@ -111,6 +121,8 @@ async def process_tool_calls(
         collected up to the stop point.
     """
     tool_results: list[dict[str, Any]] = []
+    artifact_ids: list[str] = []
+    processed_count = 0
 
     for tc in tool_calls:
         logger.info("executing_tool name={}", tc.name)
@@ -130,6 +142,7 @@ async def process_tool_calls(
         )
 
         result = await executor.execute(tc.name, tc.input)
+        processed_count += 1
         output = result.output if result.success else (result.error or "Unknown error")
 
         logger.info("tool_result name={} success={}", tc.name, result.success)
@@ -142,7 +155,9 @@ async def process_tool_calls(
         # Forward artifact_ids and content_type from tool metadata
         if result.metadata:
             if "artifact_ids" in result.metadata:
-                result_data["artifact_ids"] = list(result.metadata["artifact_ids"])
+                new_artifact_ids = list(result.metadata["artifact_ids"])
+                result_data["artifact_ids"] = new_artifact_ids
+                artifact_ids.extend(new_artifact_ids)
             if "content_type" in result.metadata:
                 result_data["content_type"] = result.metadata["content_type"]
             # Forward browser-specific metadata fields
@@ -180,4 +195,8 @@ async def process_tool_calls(
         if cancel_check is not None and cancel_check():
             break
 
-    return state.add_message({"role": "user", "content": tool_results})
+    return ToolCallProcessingResult(
+        state=state.add_message({"role": "user", "content": tool_results}),
+        processed_count=processed_count,
+        artifact_ids=tuple(artifact_ids),
+    )

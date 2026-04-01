@@ -1,0 +1,51 @@
+id: cjk_context_compaction_04
+name: CJK Debug History Summarization
+description: >
+  Agent summarizes a long CJK debugging session, preserving failure
+  reasons and successful fixes after context compaction.
+user_message: "总结这段中文调试历史，保留失败原因和成功修复。"
+grading_mode: programmatic
+tags:
+  - cjk
+  - compaction
+  - regression
+max_iterations: 15
+
+criteria:
+  - name: context_was_compacted
+    type: context_compacted
+    weight: 3.0
+  - name: output_mentions_fix
+    type: output_contains
+    value: "修复"
+    weight: 2.0
+  - name: output_mentions_failure
+    type: output_contains
+    value: "失败"
+    weight: 1.0
+  - name: no_errors_occurred
+    type: no_errors
+    weight: 1.0
+  - name: completed_within_limit
+    type: max_iterations
+    value: 10
+    weight: 1.0
+
+mock_responses:
+  - text: "正在分析调试历史记录。第一轮调试中发现类型错误导致失败。"
+    tool_calls:
+      - id: tc_code_cjk_1
+        name: code_run
+        input:
+          language: python
+          code: "print('分析调试日志')"
+    stop_reason: tool_use
+    usage:
+      input_tokens: 350
+      output_tokens: 100
+  - text: "调试历史总结：1）第一次失败原因：类型不匹配 2）第二次失败原因：空指针异常 3）成功修复方案：添加类型守卫和空值检查。所有失败原因和修复方案已保留。"
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 500
+      output_tokens: 150

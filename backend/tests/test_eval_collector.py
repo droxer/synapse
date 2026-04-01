@@ -150,3 +150,81 @@ class TestEvalCollector:
         assert metrics.skill_activations == ()
         assert metrics.agent_spawns == ()
         assert metrics.agent_handoffs == ()
+
+    async def test_tracks_context_compaction(self, collector: EvalCollector) -> None:
+        await collector.on_event(
+            _event(
+                EventType.CONTEXT_COMPACTED,
+                {"original_messages": 20, "compacted_messages": 8},
+                iteration=3,
+            )
+        )
+        await collector.on_event(
+            _event(
+                EventType.CONTEXT_COMPACTED,
+                {"original_messages": 15, "compacted_messages": 6},
+                iteration=6,
+            )
+        )
+        metrics = collector.to_metrics()
+        assert metrics.context_compaction_count == 2
+
+    async def test_tracks_per_agent_metrics(self, collector: EvalCollector) -> None:
+        await collector.on_event(
+            _event(
+                EventType.AGENT_COMPLETE,
+                {
+                    "agent_id": "task-agent-1",
+                    "metrics": {"iterations": 4, "tokens": 1200},
+                },
+            )
+        )
+        await collector.on_event(
+            _event(
+                EventType.AGENT_COMPLETE,
+                {
+                    "agent_id": "task-agent-2",
+                    "metrics": {"iterations": 7},
+                },
+            )
+        )
+        metrics = collector.to_metrics()
+        assert "task-agent-1" in metrics.per_agent_metrics
+        assert metrics.per_agent_metrics["task-agent-1"] == {
+            "iterations": 4,
+            "tokens": 1200,
+        }
+        assert "task-agent-2" in metrics.per_agent_metrics
+        assert metrics.per_agent_metrics["task-agent-2"] == {"iterations": 7}
+
+    async def test_agent_complete_without_metrics(
+        self, collector: EvalCollector
+    ) -> None:
+        await collector.on_event(
+            _event(
+                EventType.AGENT_COMPLETE,
+                {"agent_id": "agent-x"},
+            )
+        )
+        metrics = collector.to_metrics()
+        assert "agent-x" in metrics.per_agent_metrics
+        assert metrics.per_agent_metrics["agent-x"] == {}
+
+    async def test_agent_complete_without_id_ignored(
+        self, collector: EvalCollector
+    ) -> None:
+        await collector.on_event(
+            _event(
+                EventType.AGENT_COMPLETE,
+                {"metrics": {"iterations": 1}},
+            )
+        )
+        metrics = collector.to_metrics()
+        assert metrics.per_agent_metrics == {}
+
+    async def test_empty_compaction_and_agent_defaults(
+        self, collector: EvalCollector
+    ) -> None:
+        metrics = collector.to_metrics()
+        assert metrics.context_compaction_count == 0
+        assert metrics.per_agent_metrics == {}

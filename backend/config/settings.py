@@ -1,6 +1,9 @@
 from functools import lru_cache
+from typing import Literal
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+TokenCounterStrategy = Literal["weighted", "legacy"]
 
 
 class Settings(BaseSettings):
@@ -24,6 +27,10 @@ class Settings(BaseSettings):
     TASK_MODEL: str = "claude-sonnet-4-20250514"
     LITE_MODEL: str = "claude-haiku-4-5-20251001"
     MAX_ITERATIONS: int = 50
+    MAX_CONCURRENT_AGENTS: int = 5
+    MAX_TOTAL_AGENTS: int = 20
+    MAX_AGENT_ITERATIONS: int = 50
+    AGENT_TIMEOUT_SECONDS: int = 300
     THINKING_BUDGET: int = 10000  # Budget tokens for extended thinking (0 = disabled)
     LOG_LEVEL: str = "INFO"
     HOST: str = "0.0.0.0"
@@ -54,10 +61,14 @@ class Settings(BaseSettings):
     COMPACT_TOKEN_BUDGET: int = (
         150_000  # Trigger compaction at this estimated token count
     )
+    COMPACT_TOKEN_COUNTER: TokenCounterStrategy = "weighted"
     COMPACT_FULL_INTERACTIONS: int = 5  # Hot tier: recent interactions kept verbatim
+    COMPACT_FALLBACK_PREVIEW_CHARS: int = 500
+    COMPACT_FALLBACK_RESULT_CHARS: int = 1000
     COMPACT_SUMMARY_MODEL: str = (
         ""  # Model for warm-tier summarization (default: LITE_MODEL)
     )
+    SKILL_SELECTOR_MODEL: str = ""
 
     # Auth (user identity comes from NextAuth via proxy headers)
     AUTH_REQUIRED: bool = False  # When False, unauthenticated requests are allowed
