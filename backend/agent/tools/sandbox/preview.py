@@ -57,6 +57,7 @@ class PreviewStart(SandboxTool):
         directory: str = kwargs.get("directory", "/workspace")
         command: str = kwargs.get("command", "")
         event_emitter: Any | None = kwargs.get("event_emitter")
+        conversation_id: str | None = kwargs.get("conversation_id")
 
         if port < 1024 or port > 65535:
             return ToolResult.fail("Port must be between 1024 and 65535")
@@ -95,22 +96,32 @@ class PreviewStart(SandboxTool):
                 f"Log: {log.stdout or log.stderr}"
             )
 
+        # Build the proxy URL so the agent can share it with the user
+        preview_url: str | None = None
+        if conversation_id:
+            preview_url = f"/api/conversations/{conversation_id}/preview/"
+
         # Emit preview available event
         if event_emitter is not None:
             from api.events import EventType
 
             await event_emitter.emit(
                 EventType.PREVIEW_AVAILABLE,
-                {"port": port, "directory": directory},
+                {"port": port, "directory": directory, "url": preview_url},
             )
 
+        url_note = (
+            f" Access it at: {preview_url}"
+            if preview_url
+            else " Access it via the sandbox proxy."
+        )
         return ToolResult.ok(
-            f"Preview server started on port {port} serving {directory}. "
-            f"The preview is accessible via the sandbox proxy.",
+            f"Preview server started on port {port} serving {directory}.{url_note}",
             metadata={
                 "port": port,
                 "directory": directory,
                 "preview_active": True,
+                "preview_url": preview_url,
             },
         )
 

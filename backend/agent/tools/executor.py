@@ -25,6 +25,7 @@ class ToolExecutor:
         sandbox_config: Any | None = None,
         event_emitter: Any | None = None,
         artifact_manager: ArtifactManager | None = None,
+        conversation_id: str | None = None,
     ) -> None:
         self._registry = registry
         self._sandbox_provider = sandbox_provider
@@ -32,6 +33,7 @@ class ToolExecutor:
         self._sandbox_sessions: dict[str, Any] = {}
         self._event_emitter = event_emitter
         self._artifact_manager = artifact_manager or ArtifactManager()
+        self._conversation_id = conversation_id
 
     def set_sandbox_template(self, template: str) -> None:
         """Override the default sandbox template.
@@ -167,6 +169,7 @@ class ToolExecutor:
                 result = await tool.execute(
                     session=session,
                     event_emitter=self._event_emitter,
+                    conversation_id=self._conversation_id,
                     **resolved_input,
                 )
                 result = await self._extract_artifacts(result, session)

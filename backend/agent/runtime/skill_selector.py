@@ -65,6 +65,11 @@ async def select_skill_for_message(
             model=model,
             max_tokens=128,
         )
+        if not response.text.strip():
+            logger.warning(
+                "skill_selector_model_empty_response, falling back to keyword"
+            )
+            raise ValueError("empty response text")
         parsed = json.loads(response.text)
         chosen_name = parsed.get("skill")
         if chosen_name is not None:

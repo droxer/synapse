@@ -329,6 +329,7 @@ def _build_orchestrator(
     mcp_state: MCPState | None = None,
     skill_registry: SkillRegistry | None = None,
     memory_entries: list[dict[str, str]] | None = None,
+    conversation_id: str | None = None,
 ) -> tuple[AgentOrchestrator, ToolExecutor]:
     """Build an AgentOrchestrator using a callback holder to avoid two-phase construction."""
     settings = get_settings()
@@ -352,6 +353,7 @@ def _build_orchestrator(
         sandbox_provider=sandbox_provider,
         event_emitter=event_emitter,
         artifact_manager=artifact_manager,
+        conversation_id=conversation_id,
     )
 
     # Append skill catalog to system prompt if available
@@ -391,6 +393,7 @@ def _build_planner_orchestrator(
     mcp_state: MCPState | None = None,
     skill_registry: SkillRegistry | None = None,
     memory_entries: list[dict[str, str]] | None = None,
+    conversation_id: str | None = None,
 ) -> tuple[PlannerOrchestrator, ToolExecutor]:
     """Build a PlannerOrchestrator with properly wired sub-agent registries."""
     settings = get_settings()
@@ -430,6 +433,7 @@ def _build_planner_orchestrator(
         sandbox_provider=sandbox_provider,
         event_emitter=event_emitter,
         artifact_manager=artifact_manager,
+        conversation_id=conversation_id,
     )
 
     from agent.runtime.planner import PLANNER_SYSTEM_PROMPT

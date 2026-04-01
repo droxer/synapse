@@ -110,8 +110,9 @@ async def proxy_preview(
     if entry is None:
         raise HTTPException(status_code=404, detail="Unknown conversation")
 
-    # Get the sandbox session from the executor
-    sandbox_session = entry.executor._sandbox_sessions.get("default")
+    # Get the sandbox session from the executor (try "default" first, then any active session)
+    sessions = entry.executor._sandbox_sessions
+    sandbox_session = sessions.get("default") or next(iter(sessions.values()), None)
     if sandbox_session is None:
         raise HTTPException(status_code=503, detail="No sandbox session active")
 

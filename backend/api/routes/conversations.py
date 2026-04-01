@@ -575,6 +575,7 @@ async def create_conversation(
             mcp_state=state.mcp_state,
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
+            conversation_id=conversation_id,
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -586,6 +587,7 @@ async def create_conversation(
             mcp_state=state.mcp_state,
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
+            conversation_id=conversation_id,
         )
 
     entry = ConversationEntry(
