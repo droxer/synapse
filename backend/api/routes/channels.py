@@ -201,7 +201,9 @@ async def _handle_channel_message(
     async with state.db_session_factory() as db:
         session_record = await repo.find_active_session(db, account.id)
 
+    is_first_turn = False
     if session_record is None:
+        is_first_turn = True
         conv_uuid = uuid.uuid4()
         emitter = EventEmitter()
         event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
@@ -394,7 +396,7 @@ async def _handle_channel_message(
                 "channel_turn_task_timeout conversation_id={}", conversation_id_str
             )
 
-    from api.routes.conversations import _run_turn
+    from api.routes.conversations import _generate_title, _run_turn
 
     entry.turn_task = asyncio.create_task(
         _run_turn(
@@ -405,6 +407,16 @@ async def _handle_channel_message(
             attachments=attachments,
         )
     )
+
+    if is_first_turn and message.text:
+        asyncio.create_task(
+            _generate_title(
+                state.claude_client,
+                conversation_id_str,
+                message.text,
+                entry.emitter,
+            )
+        )
 
 
 @router.post("/telegram/config", dependencies=common_dependencies)

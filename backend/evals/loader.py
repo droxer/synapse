@@ -108,6 +108,7 @@ def load_case(path: Path) -> EvalCase:
         expected_output_hint=data.get("expected_output_hint"),
         tags=tuple(str(t) for t in tags_raw),
         max_iterations=int(data.get("max_iterations", 50)),
+        token_budget=int(data.get("token_budget", 0)),
         mock_responses=_parse_mock_responses(data.get("mock_responses")),
     )
 

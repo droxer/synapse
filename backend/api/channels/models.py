@@ -39,6 +39,7 @@ class TelegramBotConfigModel(Base):
         UniqueConstraint("webhook_secret", name="uq_telegram_bot_configs_secret"),
         Index("ix_telegram_bot_configs_user_id", "user_id"),
         Index("ix_telegram_bot_configs_secret", "webhook_secret"),
+        Index("ix_telegram_bot_configs_secret_hash", "webhook_secret_hash"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
@@ -49,6 +50,7 @@ class TelegramBotConfigModel(Base):
     bot_username: Mapped[str] = mapped_column(String(200), nullable=False)
     bot_user_id: Mapped[str] = mapped_column(String(100), nullable=False)
     webhook_secret: Mapped[str] = mapped_column(String(128), nullable=False)
+    webhook_secret_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
     webhook_status: Mapped[str] = mapped_column(
         String(20), nullable=False, default="pending"
     )

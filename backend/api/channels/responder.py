@@ -24,6 +24,7 @@ def _read_file_bytes(path: str) -> bytes:
 FLUSH_INTERVAL_SECONDS = 2.0
 FLUSH_BUFFER_THRESHOLD = 500
 _MAX_MESSAGE_LENGTH = 4096
+ASK_USER_TIMEOUT_SECONDS = 300
 
 
 def _split_text(text: str, limit: int = _MAX_MESSAGE_LENGTH) -> list[str]:
@@ -71,6 +72,7 @@ class ChannelResponder:
         self._buffer: list[str] = []
         self._buffer_len = 0
         self._flush_timer: asyncio.TimerHandle | None = None
+        self._ask_user_timeout_task: asyncio.Task[None] | None = None
 
     # ------------------------------------------------------------------
     # EventEmitter callback
@@ -86,6 +88,7 @@ class ChannelResponder:
 
         elif etype in (EventType.TURN_COMPLETE, EventType.TASK_COMPLETE):
             self._cancel_flush_timer()
+            self._cancel_ask_user_timeout()
             buffered = "".join(self._buffer)
             self._discard_buffer()
             text_to_send = buffered or data.get("result", "")
@@ -105,6 +108,7 @@ class ChannelResponder:
                 self._on_ask_user(
                     self._conversation_id, str(request_id), response_callback
                 )
+            self._ask_user_timeout_task = asyncio.create_task(self._ask_user_timeout())
 
         elif etype == EventType.ARTIFACT_CREATED:
             content_type: str = data.get("content_type", "")
@@ -116,6 +120,7 @@ class ChannelResponder:
 
         elif etype == EventType.TASK_ERROR:
             self._cancel_flush_timer()
+            self._cancel_ask_user_timeout()
             self._discard_buffer()
             error = data.get("error", "An error occurred.")
             await self._send_and_log(f"Error: {error}")
@@ -147,6 +152,25 @@ class ChannelResponder:
         if self._flush_timer is not None:
             self._flush_timer.cancel()
             self._flush_timer = None
+
+    def _cancel_ask_user_timeout(self) -> None:
+        if self._ask_user_timeout_task is not None:
+            self._ask_user_timeout_task.cancel()
+            self._ask_user_timeout_task = None
+
+    async def _ask_user_timeout(self) -> None:
+        """Unsubscribe and notify user if ask_user goes unanswered for too long."""
+        await asyncio.sleep(ASK_USER_TIMEOUT_SECONDS)
+        logger.warning(
+            "channel_ask_user_timeout conversation_id={} chat_id={}",
+            self._conversation_id,
+            self._chat_id,
+        )
+        await self._send_and_log(
+            "No response received. The conversation has timed out. "
+            "Send a new message to continue."
+        )
+        self._emitter.unsubscribe(self)
 
     def _discard_buffer(self) -> None:
         self._buffer.clear()

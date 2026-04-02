@@ -8,6 +8,7 @@ from typing import Any
 from loguru import logger
 
 from agent.llm.client import AnthropicClient
+from agent.runtime.observer import Observer
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.tools.base import ToolResult
 from agent.tools.registry import ToolRegistry
@@ -127,6 +128,11 @@ async def run_case(
 
         on_complete = _NoOpTaskComplete()
 
+        # Use custom token budget if specified in the eval case
+        observer = None
+        if case.token_budget > 0:
+            observer = Observer(token_budget=case.token_budget)
+
         orchestrator = AgentOrchestrator(
             claude_client=client,
             tool_registry=registry,
@@ -134,6 +140,7 @@ async def run_case(
             event_emitter=emitter,
             system_prompt="You are a helpful assistant being evaluated. Use the available tools to complete the task.",
             max_iterations=case.max_iterations,
+            observer=observer,
         )
         on_complete.set(orchestrator.on_task_complete)
 

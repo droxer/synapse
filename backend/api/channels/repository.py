@@ -6,6 +6,7 @@ All returned records are frozen dataclasses from ``schemas.py``.
 
 from __future__ import annotations
 
+import hashlib
 import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -32,6 +33,10 @@ from api.channels.schemas import (
 
 def _utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _hash_webhook_secret(secret: str) -> str:
+    return hashlib.sha256(secret.encode()).hexdigest()
 
 
 # ---------------------------------------------------------------------------
@@ -140,6 +145,7 @@ class ChannelRepository:
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()
 
+        secret_hash = _hash_webhook_secret(webhook_secret)
         if model is None:
             model = TelegramBotConfigModel(
                 id=uuid.uuid4(),
@@ -148,6 +154,7 @@ class ChannelRepository:
                 bot_username=bot_username,
                 bot_user_id=bot_user_id,
                 webhook_secret=webhook_secret,
+                webhook_secret_hash=secret_hash,
                 webhook_status=webhook_status,
                 last_error=last_error,
                 last_verified_at=_utcnow(),
@@ -159,6 +166,7 @@ class ChannelRepository:
             model.bot_username = bot_username
             model.bot_user_id = bot_user_id
             model.webhook_secret = webhook_secret
+            model.webhook_secret_hash = secret_hash
             model.webhook_status = webhook_status
             model.last_error = last_error
             model.last_verified_at = _utcnow()
@@ -183,12 +191,22 @@ class ChannelRepository:
     async def get_telegram_bot_config_by_webhook_secret(
         self, session: AsyncSession, webhook_secret: str
     ) -> TelegramBotConfigRecord | None:
+        # Prefer hash-based lookup; fall back to plaintext for rows without hash
+        secret_hash = _hash_webhook_secret(webhook_secret)
         stmt = select(TelegramBotConfigModel).where(
-            TelegramBotConfigModel.webhook_secret == webhook_secret,
+            TelegramBotConfigModel.webhook_secret_hash == secret_hash,
             TelegramBotConfigModel.enabled.is_(True),
         )
         result = await session.execute(stmt)
         model = result.scalar_one_or_none()
+        if model is None:
+            stmt = select(TelegramBotConfigModel).where(
+                TelegramBotConfigModel.webhook_secret == webhook_secret,
+                TelegramBotConfigModel.webhook_secret_hash.is_(None),
+                TelegramBotConfigModel.enabled.is_(True),
+            )
+            result = await session.execute(stmt)
+            model = result.scalar_one_or_none()
         return _to_bot_config(model) if model else None
 
     async def update_telegram_bot_config_status(

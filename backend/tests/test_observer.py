@@ -113,7 +113,20 @@ class TestEstimateTokens:
     def test_non_ascii_message_uses_weighted_estimate(self) -> None:
         tokens = _estimate_tokens((_user_msg("你" * 40),))
 
-        assert tokens == 48
+        # With 1.5x CJK weighting: 40 CJK chars * 1.5 = 60 + JSON overhead
+        assert tokens == 68
+
+    def test_cjk_weighting_applies_to_cjk_chars_only(self) -> None:
+        """CJK chars use 1.5x weighting, other non-ASCII use 1.0x."""
+        # CJK characters (Chinese)
+        cjk_tokens = _estimate_tokens((_user_msg("你" * 40),))
+        # Latin-1 supplement (non-CJK non-ASCII)
+        latin_tokens = _estimate_tokens((_user_msg("é" * 40),))
+
+        # CJK should have higher token count due to 1.5x weighting
+        assert cjk_tokens > latin_tokens
+        # Latin-1 should be: 40 chars * 1.0 + JSON overhead
+        assert latin_tokens == 48
 
     def test_legacy_strategy_uses_less_unicode_weighting(self, monkeypatch) -> None:
         monkeypatch.setattr(

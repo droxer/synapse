@@ -37,9 +37,35 @@ _SUMMARISE_SYSTEM = (
 
 
 def _estimate_text_tokens(text: str) -> int:
+    """Estimate token count with CJK-aware weighting.
+
+    ASCII chars: ~4 chars per token (standard English ratio)
+    CJK chars: ~1.5 tokens per char (CJK characters are denser)
+    Other non-ASCII: ~1 token per char
+    """
     ascii_chars = sum(1 for char in text if ord(char) < 128)
     non_ascii_chars = len(text) - ascii_chars
-    return max(1, (ascii_chars + 3) // 4 + non_ascii_chars)
+
+    # Estimate CJK characters (CJK Unified Ideographs, Hiragana, Katakana, Hangul)
+    cjk_chars = sum(
+        1
+        for char in text
+        if (
+            (0x4E00 <= ord(char) <= 0x9FFF)  # CJK Unified Ideographs
+            or (0x3040 <= ord(char) <= 0x309F)  # Hiragana
+            or (0x30A0 <= ord(char) <= 0x30FF)  # Katakana
+            or (0xAC00 <= ord(char) <= 0xD7AF)  # Hangul Syllables
+            or (0x3400 <= ord(char) <= 0x4DBF)  # CJK Extension A
+            or (0x20000 <= ord(char) <= 0x2A6DF)  # CJK Extension B
+        )
+    )
+    other_non_ascii = non_ascii_chars - cjk_chars
+
+    # Weighted calculation: ASCII/4 + CJK*1.5 + other_non_ascii*1.0
+    return max(
+        1,
+        (ascii_chars + 3) // 4 + int(cjk_chars * 1.5) + other_non_ascii,
+    )
 
 
 def _estimate_text_tokens_legacy(text: str) -> int:

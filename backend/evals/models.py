@@ -30,6 +30,7 @@ class EvalCase:
     expected_output_hint: str | None = None
     tags: tuple[str, ...] = ()
     max_iterations: int = 50
+    token_budget: int = 0  # 0 = use default (150K)
     mock_responses: tuple[dict[str, Any], ...] | None = None
 
 

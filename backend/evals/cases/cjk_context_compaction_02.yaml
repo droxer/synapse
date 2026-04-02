@@ -10,6 +10,7 @@ tags:
   - compaction
   - regression
 max_iterations: 15
+token_budget: 100  # Low budget to ensure compaction triggers
 
 criteria:
   - name: shell_not_repeated
