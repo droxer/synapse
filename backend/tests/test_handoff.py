@@ -160,7 +160,7 @@ class TestAgentHandoffTool:
             target_role="reviewer", task_description="Review code"
         )
         assert not result.success
-        assert "task_complete" in result.error.lower()
+        assert "task_complete" in (result.error or "").lower()
 
 
 class TestSubAgentManagerHandoff:
@@ -243,6 +243,53 @@ class TestSubAgentManagerHandoff:
         assert result.summary == "review complete"
         assert result.handoff is None
         assert call_count == 2
+
+    @pytest.mark.asyncio
+    async def test_handoff_preserves_timeout_seconds(self):
+        """Handoff should preserve timeout_seconds in new config."""
+        call_count = 0
+        captured_configs: list[TaskAgentConfig] = []
+
+        async def mock_execute(agent_id, config):
+            nonlocal call_count
+            call_count += 1
+            captured_configs.append(config)
+            if call_count == 1:
+                return AgentResult(
+                    agent_id=agent_id,
+                    success=True,
+                    summary="handing off",
+                    handoff=HandoffRequest(
+                        target_role="reviewer",
+                        task_description="review",
+                        context="ready",
+                        source_messages=(),
+                        remaining_handoffs=1,
+                    ),
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+        manager._execute_agent = mock_execute
+
+        await manager._run_agent(
+            "test-agent",
+            TaskAgentConfig(
+                task_description="code it",
+                role="coder",
+                max_handoffs=2,
+                timeout_seconds=42.0,
+            ),
+        )
+
+        assert call_count == 2
+        assert captured_configs[0].timeout_seconds == 42.0
+        assert captured_configs[1].timeout_seconds == 42.0
 
     @pytest.mark.asyncio
     async def test_multi_step_handoff_chain(self):
@@ -587,7 +634,8 @@ class TestDependencyFailurePolicy:
         # The child should have been skipped (not executed)
         assert results[child_id].success is False
         assert results[child_id].skip_execution is True
-        assert "skipped" in results[child_id].error.lower()
+        assert results[child_id].failure_mode == "cancel_downstream"
+        assert "skipped" in (results[child_id].error or "").lower()
 
         await manager.cleanup()
 
@@ -637,6 +685,46 @@ class TestDependencyFailurePolicy:
         await manager.cleanup()
 
     @pytest.mark.asyncio
+    async def test_dependency_context_merge_preserves_timeout_seconds(self):
+        """Dependency context merge should keep timeout_seconds on child config."""
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        captured_configs: dict[str, TaskAgentConfig] = {}
+
+        async def mock_execute(agent_id, config):
+            captured_configs[agent_id] = config
+            if agent_id == dep_id:
+                return AgentResult(
+                    agent_id=dep_id, success=True, summary="dep finished"
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._execute_agent = mock_execute
+
+        dep_id = await manager.spawn(TaskAgentConfig(task_description="dep task"))
+        child_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="child task",
+                depends_on=(dep_id,),
+                timeout_seconds=21.0,
+            )
+        )
+
+        results = await manager.wait()
+
+        assert results[child_id].success is True
+        assert child_id in captured_configs
+        assert "dep finished" in captured_configs[child_id].context
+        assert captured_configs[child_id].timeout_seconds == 21.0
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
     async def test_replan_marks_replan_required(self):
         """When dep fails with replan mode, child is marked replan_required."""
         manager = SubAgentManager(
@@ -673,7 +761,234 @@ class TestDependencyFailurePolicy:
         # The child should be marked as needing replan, not executed
         assert results[child_id].success is False
         assert results[child_id].replan_required is True
-        assert "replan" in results[child_id].error.lower()
+        assert results[child_id].failure_mode == "replan"
+        assert "replan" in (results[child_id].error or "").lower()
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_default_mode_inherits_dependency_failure_mode(self):
+        """Default child mode should inherit failed dependency failure_mode."""
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        async def mock_execute(agent_id, config):
+            if agent_id == dep_id:
+                return AgentResult(
+                    agent_id=dep_id,
+                    success=False,
+                    summary="",
+                    error="upstream requested replan",
+                    failure_mode="replan",
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._execute_agent = mock_execute
+
+        dep_id = await manager.spawn(TaskAgentConfig(task_description="dep task"))
+        child_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="child task",
+                depends_on=(dep_id,),
+            )
+        )
+
+        results = await manager.wait()
+
+        assert results[child_id].success is False
+        assert results[child_id].replan_required is True
+        assert results[child_id].failure_mode == "replan"
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_default_mode_uses_highest_priority_failed_dependency_mode(self):
+        """With default child mode, failure mode priority picks replan."""
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        async def mock_execute(agent_id, config):
+            if agent_id == dep_degrade_id:
+                return AgentResult(
+                    agent_id=dep_degrade_id,
+                    success=False,
+                    summary="",
+                    error="degraded upstream",
+                    failure_mode="degrade",
+                )
+            if agent_id == dep_replan_id:
+                return AgentResult(
+                    agent_id=dep_replan_id,
+                    success=False,
+                    summary="",
+                    error="replan upstream",
+                    failure_mode="replan",
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._execute_agent = mock_execute
+
+        dep_degrade_id = await manager.spawn(TaskAgentConfig(task_description="dep 1"))
+        dep_replan_id = await manager.spawn(TaskAgentConfig(task_description="dep 2"))
+        child_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="child task",
+                depends_on=(dep_degrade_id, dep_replan_id),
+            )
+        )
+
+        results = await manager.wait()
+
+        assert results[child_id].success is False
+        assert results[child_id].replan_required is True
+        assert results[child_id].failure_mode == "replan"
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_child_override_uses_explicit_mode_over_inherited_failure_mode(self):
+        """Explicit child mode should override inherited failed dependency mode."""
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        captured_configs: dict[str, TaskAgentConfig] = {}
+
+        async def mock_execute(agent_id, config):
+            captured_configs[agent_id] = config
+            if agent_id == dep_id:
+                return AgentResult(
+                    agent_id=dep_id,
+                    success=False,
+                    summary="",
+                    error="upstream requested replan",
+                    failure_mode="replan",
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done anyway")
+
+        manager._execute_agent = mock_execute
+
+        dep_id = await manager.spawn(TaskAgentConfig(task_description="dep task"))
+        child_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="child task",
+                depends_on=(dep_id,),
+                dependency_failure_mode="degrade",
+            )
+        )
+
+        results = await manager.wait()
+
+        assert results[child_id].success is True
+        assert results[child_id].replan_required is False
+        assert child_id in captured_configs
+        assert "upstream requested replan" in captured_configs[child_id].context
+        assert "degraded" in captured_configs[child_id].context.lower()
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_explicit_cancel_downstream_overrides_inherited_replan(self):
+        """Explicit cancel_downstream should skip child despite inherited replan."""
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        call_count = 0
+
+        async def mock_execute(agent_id, config):
+            nonlocal call_count
+            call_count += 1
+            if agent_id == dep_id:
+                return AgentResult(
+                    agent_id=dep_id,
+                    success=False,
+                    summary="",
+                    error="upstream requested replan",
+                    failure_mode="replan",
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._execute_agent = mock_execute
+
+        dep_id = await manager.spawn(TaskAgentConfig(task_description="dep task"))
+        child_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="child task",
+                depends_on=(dep_id,),
+                dependency_failure_mode="cancel_downstream",
+            )
+        )
+
+        results = await manager.wait()
+
+        assert call_count == 1
+        assert results[child_id].success is False
+        assert results[child_id].skip_execution is True
+        assert results[child_id].replan_required is False
+        assert results[child_id].failure_mode == "cancel_downstream"
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_default_mode_prioritizes_cancel_downstream_over_degrade(self):
+        """With default child mode, priority picks cancel_downstream over degrade."""
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        async def mock_execute(agent_id, config):
+            if agent_id == dep_degrade_id:
+                return AgentResult(
+                    agent_id=dep_degrade_id,
+                    success=False,
+                    summary="",
+                    error="degraded upstream",
+                    failure_mode="degrade",
+                )
+            if agent_id == dep_cancel_id:
+                return AgentResult(
+                    agent_id=dep_cancel_id,
+                    success=False,
+                    summary="",
+                    error="cancel downstream upstream",
+                    failure_mode="cancel_downstream",
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._execute_agent = mock_execute
+
+        dep_degrade_id = await manager.spawn(TaskAgentConfig(task_description="dep 1"))
+        dep_cancel_id = await manager.spawn(TaskAgentConfig(task_description="dep 2"))
+        child_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="child task",
+                depends_on=(dep_degrade_id, dep_cancel_id),
+            )
+        )
+
+        results = await manager.wait()
+
+        assert results[child_id].success is False
+        assert results[child_id].skip_execution is True
+        assert results[child_id].failure_mode == "cancel_downstream"
 
         await manager.cleanup()
 
@@ -686,9 +1001,9 @@ class TestDependencyFailurePolicy:
         assert cfg.dependency_failure_mode == "degrade"
 
     def test_task_agent_config_dependency_failure_mode_default(self):
-        """TaskAgentConfig default dependency_failure_mode is cancel_downstream."""
+        """TaskAgentConfig default dependency_failure_mode is inherit."""
         cfg = TaskAgentConfig(task_description="test")
-        assert cfg.dependency_failure_mode == "cancel_downstream"
+        assert cfg.dependency_failure_mode == "inherit"
 
     def test_agent_result_skip_execution_field(self):
         """AgentResult should have skip_execution field defaulting to False."""
@@ -699,6 +1014,48 @@ class TestDependencyFailurePolicy:
         """AgentResult should have replan_required field defaulting to False."""
         result = AgentResult(agent_id="x", success=True, summary="ok")
         assert result.replan_required is False
+
+
+@pytest.mark.asyncio
+async def test_dependency_without_result_is_synthesized_as_failure():
+    """A completed dependency without stored result is treated as failure."""
+    manager = SubAgentManager(
+        claude_client=MagicMock(),
+        tool_registry_factory=lambda: ToolRegistry(),
+        tool_executor_factory=lambda reg: MagicMock(),
+        event_emitter=EventEmitter(),
+    )
+
+    async def _finished_without_storage() -> AgentResult:
+        return AgentResult(
+            agent_id="dep-missing-result",
+            success=True,
+            summary="done",
+        )
+
+    dep_id = "dep-missing-result"
+    dep_task = asyncio.create_task(
+        _finished_without_storage(),
+        name="dep-missing-result",
+    )
+    await dep_task
+    manager._agents[dep_id] = dep_task
+
+    outcome = await manager._wait_for_dependencies(
+        "child",
+        TaskAgentConfig(task_description="child", depends_on=(dep_id,)),
+    )
+
+    assert isinstance(outcome, AgentResult)
+    assert outcome.success is False
+    assert outcome.skip_execution is True
+    assert outcome.failure_mode == "cancel_downstream"
+    assert "dependency terminated unexpectedly" in (outcome.error or "")
+
+    synthesized_dep_result = manager._results[dep_id]
+    assert synthesized_dep_result.success is False
+    assert synthesized_dep_result.error == "dependency terminated unexpectedly"
+    assert synthesized_dep_result.failure_mode == "cancel_downstream"
 
 
 class TestSpawnTaskAgentDependencyFailureMode:
@@ -728,7 +1085,7 @@ class TestSpawnTaskAgentDependencyFailureMode:
 
     @pytest.mark.asyncio
     async def test_spawn_default_dependency_failure_mode(self):
-        """SpawnTaskAgent should default dependency_failure_mode to cancel_downstream."""
+        """SpawnTaskAgent should default dependency_failure_mode to inherit."""
         captured_configs: list[TaskAgentConfig] = []
 
         class FakeManager:
@@ -745,7 +1102,29 @@ class TestSpawnTaskAgentDependencyFailureMode:
         )
         assert result.success
         assert len(captured_configs) == 1
-        assert captured_configs[0].dependency_failure_mode == "cancel_downstream"
+        assert captured_configs[0].dependency_failure_mode == "inherit"
+
+    @pytest.mark.asyncio
+    async def test_spawn_forwards_timeout_seconds(self):
+        """SpawnTaskAgent should forward timeout_seconds to config."""
+        captured_configs: list[TaskAgentConfig] = []
+
+        class FakeManager:
+            async def spawn(self, config):
+                captured_configs.append(config)
+                return "fake-agent-id"
+
+        from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
+
+        tool = SpawnTaskAgent(sub_agent_manager=FakeManager())
+        result = await tool.execute(
+            task_description="my task",
+            name="test task",
+            timeout_seconds=12.5,
+        )
+        assert result.success
+        assert len(captured_configs) == 1
+        assert captured_configs[0].timeout_seconds == 12.5
 
 
 class TestWaitForAgentsOutputEnhanced:
@@ -833,3 +1212,32 @@ class TestWaitForAgentsOutputEnhanced:
 
         data = json.loads(result.output)
         assert data["agent-1"]["metrics"] is None
+
+    @pytest.mark.asyncio
+    async def test_wait_output_includes_skip_execution_and_replan_required(self):
+        """WaitForAgents output should include execution-state flags."""
+        from agent.tools.meta.wait_for_agents import WaitForAgents
+
+        class FakeManager:
+            async def wait(self, agent_ids=None):
+                return {
+                    "agent-1": AgentResult(
+                        agent_id="agent-1",
+                        success=False,
+                        summary="",
+                        error="dependency failed",
+                        failure_mode="replan",
+                        skip_execution=True,
+                        replan_required=True,
+                    ),
+                }
+
+        tool = WaitForAgents(sub_agent_manager=FakeManager())
+        result = await tool.execute(agent_ids=["agent-1"])
+        assert result.success
+
+        import json
+
+        data = json.loads(result.output)
+        assert data["agent-1"]["skip_execution"] is True
+        assert data["agent-1"]["replan_required"] is True

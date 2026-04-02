@@ -29,6 +29,12 @@ from loguru import logger
 ToolRegistryFactory = Callable[[], ToolRegistry]
 ToolExecutorFactory = Callable[[ToolRegistry], ToolExecutor]
 
+_FAILURE_MODE_PRIORITY: dict[str, int] = {
+    "degrade": 0,
+    "cancel_downstream": 1,
+    "replan": 2,
+}
+
 
 def _format_handoff_context(
     source_messages: tuple[dict, ...],
@@ -241,8 +247,10 @@ class SubAgentManager:
                 priority=current_config.priority,
                 depends_on=(),
                 model=current_config.model,
+                timeout_seconds=current_config.timeout_seconds,
                 role=handoff.target_role,
                 max_handoffs=handoff.remaining_handoffs,
+                dependency_failure_mode=current_config.dependency_failure_mode,
             )
 
             logger.info(
@@ -277,7 +285,21 @@ class SubAgentManager:
                 )
                 continue
             if not dep_task.done():
-                await dep_task
+                await asyncio.gather(dep_task, return_exceptions=True)
+
+            if dep_id not in self._results and dep_task.done():
+                logger.warning(
+                    "Dependency agent {} finished without stored result; "
+                    "synthesizing failure",
+                    dep_id[:8],
+                )
+                self._results[dep_id] = AgentResult(
+                    agent_id=dep_id,
+                    success=False,
+                    summary="",
+                    error="dependency terminated unexpectedly",
+                    failure_mode="cancel_downstream",
+                )
 
         # Check for dependency failures and apply failure mode policy
         failed_deps: list[tuple[str, AgentResult]] = []
@@ -286,10 +308,18 @@ class SubAgentManager:
             if dep_result is not None and not dep_result.success:
                 failed_deps.append((dep_id, dep_result))
 
+        effective_mode: str | None = None
         if failed_deps:
-            mode = config.dependency_failure_mode
+            configured_mode = config.dependency_failure_mode
+            inherited_mode = max(
+                (dep_result.failure_mode for _, dep_result in failed_deps),
+                key=lambda mode: _FAILURE_MODE_PRIORITY[mode],
+            )
+            effective_mode = (
+                inherited_mode if configured_mode == "inherit" else configured_mode
+            )
 
-            if mode == "cancel_downstream":
+            if effective_mode == "cancel_downstream":
                 dep_errors = "; ".join(
                     f"{did[:8]}: {dr.error or '(no detail)'}" for did, dr in failed_deps
                 )
@@ -298,10 +328,11 @@ class SubAgentManager:
                     success=False,
                     summary="",
                     error=f"Skipped: dependency failed ({dep_errors})",
+                    failure_mode="cancel_downstream",
                     skip_execution=True,
                 )
 
-            if mode == "replan":
+            if effective_mode == "replan":
                 dep_errors = "; ".join(
                     f"{did[:8]}: {dr.error or '(no detail)'}" for did, dr in failed_deps
                 )
@@ -310,10 +341,11 @@ class SubAgentManager:
                     success=False,
                     summary="",
                     error=f"Replan required: dependency failed ({dep_errors})",
+                    failure_mode="replan",
                     replan_required=True,
                 )
 
-            # mode == "degrade": fall through and inject failure context
+            # effective_mode == "degrade": fall through and inject failure context
 
         # Collect dependency results and add them as context
         dep_summaries: list[str] = []
@@ -326,7 +358,7 @@ class SubAgentManager:
             dep_summaries.append(f"- Dependency {dep_id[:8]} ({status}): {summary}")
 
         # Add degraded dependency warning for degrade mode
-        if failed_deps:
+        if failed_deps and effective_mode == "degrade":
             for dep_id, dep_result in failed_deps:
                 dep_summaries.append(
                     f"- [DEGRADED] Dependency {dep_id[:8]} failed: "
@@ -350,6 +382,7 @@ class SubAgentManager:
             priority=config.priority,
             depends_on=config.depends_on,
             model=config.model,
+            timeout_seconds=config.timeout_seconds,
             role=config.role,
             max_handoffs=config.max_handoffs,
             dependency_failure_mode=config.dependency_failure_mode,

@@ -64,6 +64,8 @@ class WaitForAgents(LocalTool):
                 "error": result.error,
                 "artifacts": list(result.artifacts),
                 "failure_mode": result.failure_mode,
+                "skip_execution": result.skip_execution,
+                "replan_required": result.replan_required,
                 "metrics": (
                     asdict(result.metrics) if result.metrics is not None else None
                 ),

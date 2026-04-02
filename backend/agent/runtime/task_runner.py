@@ -22,6 +22,10 @@ from config.settings import Settings, get_settings
 from loguru import logger
 
 
+FailureMode = Literal["cancel_downstream", "degrade", "replan"]
+DependencyFailureMode = Literal["inherit", "cancel_downstream", "degrade", "replan"]
+
+
 @dataclass(frozen=True)
 class TaskAgentConfig:
     """Immutable configuration for a task agent."""
@@ -33,9 +37,10 @@ class TaskAgentConfig:
     priority: int = 0
     depends_on: tuple[str, ...] = ()
     model: str | None = None
+    timeout_seconds: float | None = None
     role: str = ""
     max_handoffs: int = 3
-    dependency_failure_mode: FailureMode = "cancel_downstream"
+    dependency_failure_mode: DependencyFailureMode = "inherit"
 
 
 @dataclass(frozen=True)
@@ -47,9 +52,6 @@ class HandoffRequest:
     context: str
     source_messages: tuple[dict, ...]
     remaining_handoffs: int
-
-
-FailureMode = Literal["cancel_downstream", "degrade", "replan"]
 
 
 @dataclass(frozen=True)
@@ -167,7 +169,12 @@ class TaskAgentRunner:
 
         self._reset_run_state()
         started_at = time.perf_counter()
-        timeout_seconds = get_settings().AGENT_TIMEOUT_SECONDS
+        settings = get_settings()
+        timeout_seconds = (
+            self._config.timeout_seconds
+            if self._config.timeout_seconds is not None
+            else settings.AGENT_TIMEOUT_SECONDS
+        )
 
         try:
             final_text = await asyncio.wait_for(
@@ -180,7 +187,9 @@ class TaskAgentRunner:
             await self._emit_complete(
                 success=False,
                 error=error,
-                failure_mode="degrade",
+                failure_mode="cancel_downstream",
+                timed_out=True,
+                timeout_seconds=timeout_seconds,
                 metrics=metrics,
             )
             return AgentResult(
@@ -189,7 +198,7 @@ class TaskAgentRunner:
                 summary="",
                 artifacts=tuple(self._artifact_ids),
                 error=error,
-                failure_mode="degrade",
+                failure_mode="cancel_downstream",
                 metrics=metrics,
             )
         except Exception as exc:
@@ -199,6 +208,8 @@ class TaskAgentRunner:
                 success=False,
                 error=str(exc),
                 failure_mode="cancel_downstream",
+                timed_out=False,
+                timeout_seconds=timeout_seconds,
                 metrics=metrics,
             )
             return AgentResult(
@@ -214,6 +225,8 @@ class TaskAgentRunner:
         await self._emit_complete(
             success=True,
             failure_mode="cancel_downstream",
+            timed_out=False,
+            timeout_seconds=timeout_seconds,
             metrics=metrics,
         )
         return AgentResult(
@@ -251,6 +264,8 @@ class TaskAgentRunner:
         success: bool,
         error: str | None = None,
         failure_mode: FailureMode = "cancel_downstream",
+        timed_out: bool,
+        timeout_seconds: float | None,
         metrics: AgentRunMetrics | None = None,
     ) -> None:
         """Emit the AGENT_COMPLETE event."""
@@ -261,6 +276,8 @@ class TaskAgentRunner:
                 "success": success,
                 "error": error,
                 "failure_mode": failure_mode,
+                "timed_out": timed_out,
+                "timeout_seconds": timeout_seconds,
                 "metrics": asdict(metrics) if metrics is not None else None,
             },
         )

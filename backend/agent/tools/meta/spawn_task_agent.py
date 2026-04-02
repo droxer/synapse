@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, cast
 
 from loguru import logger
 
@@ -68,6 +68,10 @@ class SpawnTaskAgent(LocalTool):
                         "description": "Use the lite (faster/cheaper) model for this task. Good for simple, focused tasks.",
                         "default": False,
                     },
+                    "timeout_seconds": {
+                        "type": "number",
+                        "description": "Optional per-agent timeout in seconds. Overrides global task agent timeout for this spawned agent.",
+                    },
                     "role": {
                         "type": "string",
                         "description": (
@@ -80,14 +84,20 @@ class SpawnTaskAgent(LocalTool):
                     },
                     "dependency_failure_mode": {
                         "type": "string",
-                        "enum": ["cancel_downstream", "degrade", "replan"],
+                        "enum": [
+                            "inherit",
+                            "cancel_downstream",
+                            "degrade",
+                            "replan",
+                        ],
                         "description": (
                             "How to handle failure of dependency agents: "
+                            "omit or use 'inherit' to use failed dependency mode, "
                             "'cancel_downstream' skips this agent, "
                             "'degrade' continues with failure context, "
                             "'replan' flags for replanning."
                         ),
-                        "default": "cancel_downstream",
+                        "default": "inherit",
                     },
                 },
                 "required": ["task_description", "name"],
@@ -103,16 +113,18 @@ class SpawnTaskAgent(LocalTool):
         sandbox_template: str = kwargs.get("sandbox_template", "default")
         depends_on: list[str] = kwargs.get("depends_on", [])
         use_lite_model: bool = kwargs.get("use_lite_model", False)
+        timeout_seconds: float | None = kwargs.get("timeout_seconds")
         role: str = kwargs.get("role", "")
-        dependency_failure_mode: str = kwargs.get(
-            "dependency_failure_mode", "cancel_downstream"
+        dependency_failure_mode = cast(
+            "DependencyFailureMode",
+            kwargs.get("dependency_failure_mode", "inherit"),
         )
 
         if not task_description.strip():
             return ToolResult.fail("task_description must not be empty")
 
         try:
-            from agent.runtime.task_runner import TaskAgentConfig
+            from agent.runtime.task_runner import DependencyFailureMode, TaskAgentConfig
             from config.settings import get_settings
 
             model = get_settings().LITE_MODEL if use_lite_model else None
@@ -124,6 +136,7 @@ class SpawnTaskAgent(LocalTool):
                 sandbox_template=sandbox_template,
                 depends_on=tuple(depends_on),
                 model=model,
+                timeout_seconds=timeout_seconds,
                 role=role,
                 dependency_failure_mode=dependency_failure_mode,
             )
