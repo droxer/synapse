@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 import api.channels.models  # noqa: F401  — register channel ORM models with Base
+from agent.memory.store import PersistentMemoryStore
 from agent.state.models import ConversationModel, UserModel
 from api.channels.provider import TelegramProvider
 from api.channels.repository import ChannelRepository
@@ -767,3 +768,109 @@ class TestChannelRouterStartCommand:
 
         assert provider.messages
         assert "already linked" in provider.messages[-1].lower()
+
+
+class TestChannelRouterMemoryCommands:
+    @pytest.mark.asyncio
+    async def test_memory_command_lists_saved_facts(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        user = await _make_user(session)
+        bot_config = await repo.upsert_telegram_bot_config(
+            session,
+            user_id=user.id,
+            bot_token="123456:ABC",
+            bot_username="memory_bot",
+            bot_user_id="810001",
+            webhook_secret="memory-secret",
+            webhook_status="active",
+        )
+        await repo.create_account(
+            session,
+            user_id=user.id,
+            provider="telegram",
+            provider_user_id="tg_memory_1",
+            provider_chat_id="chat_memory_1",
+            display_name="Memory User",
+            bot_config_id=bot_config.id,
+        )
+
+        session_factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+        store = PersistentMemoryStore(session_factory=session_factory, user_id=user.id)
+        await store.upsert_fact(
+            namespace="preferences",
+            key="preferences.language",
+            value="zh-CN",
+            confidence=0.95,
+        )
+
+        router = ChannelRouter(channel_repo=repo, session_factory=session_factory)
+        provider = _StubProvider()
+        msg = InboundMessage(
+            provider="telegram",
+            provider_user_id="tg_memory_1",
+            provider_chat_id="chat_memory_1",
+            provider_message_id="m_memory_1",
+            text="/memory",
+            display_name="Memory User",
+            is_command=True,
+            command="memory",
+        )
+
+        await router.handle_inbound(msg, provider, bot_config.id)
+
+        assert provider.messages
+        assert "known user facts" in provider.messages[-1].lower()
+        assert "preferences.language" in provider.messages[-1]
+
+    @pytest.mark.asyncio
+    async def test_forget_command_marks_fact_stale(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        user = await _make_user(session)
+        bot_config = await repo.upsert_telegram_bot_config(
+            session,
+            user_id=user.id,
+            bot_token="123456:ABC",
+            bot_username="memory_bot",
+            bot_user_id="810002",
+            webhook_secret="memory-secret-2",
+            webhook_status="active",
+        )
+        await repo.create_account(
+            session,
+            user_id=user.id,
+            provider="telegram",
+            provider_user_id="tg_memory_2",
+            provider_chat_id="chat_memory_2",
+            display_name="Memory User 2",
+            bot_config_id=bot_config.id,
+        )
+
+        session_factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+        store = PersistentMemoryStore(session_factory=session_factory, user_id=user.id)
+        await store.upsert_fact(
+            namespace="preferences",
+            key="preferences.language",
+            value="en",
+            confidence=0.95,
+        )
+
+        router = ChannelRouter(channel_repo=repo, session_factory=session_factory)
+        provider = _StubProvider()
+        msg = InboundMessage(
+            provider="telegram",
+            provider_user_id="tg_memory_2",
+            provider_chat_id="chat_memory_2",
+            provider_message_id="m_memory_2",
+            text="/forget preferences.language",
+            display_name="Memory User 2",
+            is_command=True,
+            command="forget",
+            command_args="preferences.language",
+        )
+
+        await router.handle_inbound(msg, provider, bot_config.id)
+
+        remaining = await store.list_active_facts(limit=10)
+        assert remaining == []

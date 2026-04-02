@@ -16,8 +16,10 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from agent.memory.facts import FactCandidate, validate_fact_candidate
 from agent.memory.store import PersistentMemoryStore
 from api.auth.middleware import AuthUser, common_dependencies, get_current_user
+from api.builders import format_verified_facts_prompt_section
 from api.builders import _build_orchestrator
 from api.channels.provider import ChannelProvider, TelegramProvider
 from api.channels.repository import ChannelRepository
@@ -50,6 +52,108 @@ class LinkTokenResponse(BaseModel):
 
 class TelegramBotConfigRequest(BaseModel):
     bot_token: str = Field(min_length=10, max_length=512)
+
+
+def _extract_fact_candidates(text: str) -> tuple[FactCandidate, ...]:
+    """Extract strict memory fact candidates from a user message."""
+    normalized = text.strip()
+    if not normalized:
+        return ()
+
+    lower = normalized.lower()
+    candidates: list[FactCandidate] = []
+
+    if "timezone" in lower and " is " in lower:
+        value = normalized.split(" is ", 1)[-1].strip()
+        if value:
+            candidates.append(
+                FactCandidate(
+                    namespace="profile",
+                    key="profile.timezone",
+                    value=value,
+                    confidence=0.9,
+                    evidence_snippet=normalized[:500],
+                )
+            )
+
+    if "i prefer" in lower:
+        value = normalized[lower.find("i prefer") + len("i prefer") :].strip()
+        if value:
+            candidates.append(
+                FactCandidate(
+                    namespace="preferences",
+                    key="preferences.general",
+                    value=value,
+                    confidence=0.88,
+                    evidence_snippet=normalized[:500],
+                )
+            )
+
+    if "my language is" in lower:
+        value = normalized[
+            lower.find("my language is") + len("my language is") :
+        ].strip()
+        if value:
+            candidates.append(
+                FactCandidate(
+                    namespace="preferences",
+                    key="preferences.language",
+                    value=value,
+                    confidence=0.92,
+                    evidence_snippet=normalized[:500],
+                )
+            )
+
+    return tuple(candidates)
+
+
+async def _extract_and_upsert_facts_for_turn(
+    *,
+    store: PersistentMemoryStore,
+    conversation_id: uuid.UUID,
+    turn_id: str,
+    message_text: str,
+    source_chat_id: str,
+) -> None:
+    """Persist high-confidence strict facts from a completed Telegram turn."""
+    seen = await store.mark_fact_ingestion_seen(
+        conversation_id=conversation_id,
+        turn_id=turn_id,
+    )
+    if not seen:
+        return
+
+    settings = get_settings()
+    candidates = _extract_fact_candidates(message_text)
+    saved = 0
+    rejected = 0
+    for candidate in candidates:
+        verdict = validate_fact_candidate(
+            candidate,
+            threshold=settings.MEMORY_FACT_CONFIDENCE_THRESHOLD,
+        )
+        if not verdict.accepted:
+            rejected += 1
+            continue
+
+        await store.upsert_fact(
+            namespace=candidate.namespace,
+            key=candidate.key,
+            value=candidate.value,
+            confidence=candidate.confidence,
+            source="telegram",
+            source_chat_id=source_chat_id,
+            evidence_snippet=candidate.evidence_snippet,
+        )
+        saved += 1
+
+    logger.info(
+        "memory_fact_extraction_complete conversation_id={} extracted={} saved={} rejected={}",
+        conversation_id,
+        len(candidates),
+        saved,
+        rejected,
+    )
 
 
 def _require_channels_enabled() -> None:
@@ -328,6 +432,12 @@ async def _handle_channel_message(
         )
         entry.emitter.subscribe(responder)
 
+    persistent_store = PersistentMemoryStore(
+        session_factory=state.db_session_factory,
+        user_id=account.user_id,
+        conversation_id=conv_uuid,
+    )
+
     # Deduplicate: Telegram may retry webhooks — skip if already processed
     async with state.db_session_factory() as db:
         if await repo.is_message_seen(
@@ -398,6 +508,25 @@ async def _handle_channel_message(
 
     from api.routes.conversations import _generate_title, _run_turn
 
+    runtime_prompt_sections: tuple[str, ...] = ()
+    if message.text:
+        try:
+            settings = get_settings()
+            facts = await persistent_store.retrieve_relevant_facts(
+                query=message.text,
+                limit=settings.MEMORY_FACT_TOP_K,
+            )
+            section = format_verified_facts_prompt_section(
+                facts,
+                token_cap_chars=settings.MEMORY_FACT_PROMPT_TOKEN_CAP,
+            )
+            if section:
+                runtime_prompt_sections = (section,)
+        except Exception:
+            logger.warning(
+                "memory_fact_retrieval_failed conversation_id={}", conversation_id_str
+            )
+
     entry.turn_task = asyncio.create_task(
         _run_turn(
             state,
@@ -405,8 +534,31 @@ async def _handle_channel_message(
             entry.orchestrator,
             message.text or "",
             attachments=attachments,
+            runtime_prompt_sections=runtime_prompt_sections,
         )
     )
+
+    if message.text:
+
+        def _schedule_fact_extraction(_done: asyncio.Task[str]) -> None:
+            async def _wrapped() -> None:
+                try:
+                    await _extract_and_upsert_facts_for_turn(
+                        store=persistent_store,
+                        conversation_id=conv_uuid,
+                        turn_id=message.provider_message_id,
+                        message_text=message.text or "",
+                        source_chat_id=message.provider_chat_id,
+                    )
+                except Exception:
+                    logger.warning(
+                        "memory_fact_extraction_failed conversation_id={}",
+                        conversation_id_str,
+                    )
+
+            asyncio.create_task(_wrapped())
+
+        entry.turn_task.add_done_callback(_schedule_fact_extraction)
 
     if is_first_turn and message.text:
         asyncio.create_task(

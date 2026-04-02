@@ -13,6 +13,7 @@ from typing import Any
 from loguru import logger
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from agent.memory.store import PersistentMemoryStore
 from api.channels.provider import ChannelProvider
 from api.channels.repository import ChannelRepository
 from api.channels.schemas import ChannelAccountRecord, InboundMessage
@@ -21,6 +22,9 @@ _HELP_TEXT = (
     "Available commands:\n"
     "/start <token> — Link your account\n"
     "/new — Start a new conversation\n"
+    "/memory — Show remembered facts\n"
+    "/forget <key> — Forget one remembered fact\n"
+    "/forget-all — Forget all remembered facts\n"
     "/help — Show this help message\n"
     "/unlink — Unlink your account"
 )
@@ -140,6 +144,18 @@ class ChannelRouter:
 
         if cmd == "new":
             await self._handle_new_command(account, message, provider)
+            return
+
+        if cmd == "memory":
+            await self._handle_memory_command(account, message, provider)
+            return
+
+        if cmd == "forget":
+            await self._handle_forget_command(account, message, provider)
+            return
+
+        if cmd == "forget-all":
+            await self._handle_forget_all_command(account, message, provider)
             return
 
         if cmd == "unlink":
@@ -291,6 +307,68 @@ class ChannelRouter:
         await provider.send_text(
             message.provider_chat_id,
             "Account unlinked. Use /start <token> to link again.",
+        )
+
+    async def _handle_memory_command(
+        self,
+        account: ChannelAccountRecord,
+        message: InboundMessage,
+        provider: ChannelProvider,
+    ) -> None:
+        store = PersistentMemoryStore(
+            session_factory=self._session_factory,
+            user_id=account.user_id,
+        )
+        facts = await store.list_active_facts(limit=20)
+        if not facts:
+            await provider.send_text(message.provider_chat_id, "No saved facts yet.")
+            return
+
+        lines = ["Known user facts (verified):"]
+        for fact in facts:
+            lines.append(f"- {fact['key']}: {fact['value']}")
+        await provider.send_text(message.provider_chat_id, "\n".join(lines))
+
+    async def _handle_forget_command(
+        self,
+        account: ChannelAccountRecord,
+        message: InboundMessage,
+        provider: ChannelProvider,
+    ) -> None:
+        key = (message.command_args or "").strip().lower()
+        if not key:
+            await provider.send_text(
+                message.provider_chat_id,
+                "Usage: /forget <canonical-key>",
+            )
+            return
+
+        store = PersistentMemoryStore(
+            session_factory=self._session_factory,
+            user_id=account.user_id,
+        )
+        removed = await store.forget_fact(key)
+        if removed:
+            await provider.send_text(message.provider_chat_id, f"Forgot: {key}")
+            return
+        await provider.send_text(
+            message.provider_chat_id, f"No active fact for key: {key}"
+        )
+
+    async def _handle_forget_all_command(
+        self,
+        account: ChannelAccountRecord,
+        message: InboundMessage,
+        provider: ChannelProvider,
+    ) -> None:
+        store = PersistentMemoryStore(
+            session_factory=self._session_factory,
+            user_id=account.user_id,
+        )
+        count = await store.forget_all_facts()
+        await provider.send_text(
+            message.provider_chat_id,
+            f"Forgot {count} remembered fact(s).",
         )
 
     # ------------------------------------------------------------------

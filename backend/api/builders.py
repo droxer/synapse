@@ -319,6 +319,30 @@ def _format_memory_prompt_section(
     return "\n".join(lines)
 
 
+def format_verified_facts_prompt_section(
+    facts: list[dict[str, str]],
+    token_cap_chars: int,
+) -> str:
+    """Format verified fact records into a bounded prompt section."""
+    if not facts:
+        return ""
+
+    lines = ["<verified_user_facts>", "Known user facts (verified):"]
+    for fact in facts:
+        ns = fact.get("namespace", "default")
+        key = fact.get("key", "")
+        value = fact.get("value", "")
+        if not key or not value:
+            continue
+        lines.append(f"- [{ns}] {key}: {value}")
+
+    lines.append("</verified_user_facts>")
+    section = "\n".join(lines)
+    if token_cap_chars > 0:
+        return section[:token_cap_chars]
+    return section
+
+
 def _build_orchestrator(
     claude_client: AnthropicClient,
     event_emitter: EventEmitter,

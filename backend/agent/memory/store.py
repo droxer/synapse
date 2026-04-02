@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, desc, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
+from agent.memory.facts import normalize_fact_key
 from agent.memory.models import MemoryEntry
+from agent.memory.models import MemoryFactEntry, MemoryFactIngestion
 
 
 class PersistentMemoryStore:
@@ -180,3 +183,201 @@ class PersistentMemoryStore:
                 }
                 for e in entries
             ]
+
+    async def mark_fact_ingestion_seen(
+        self,
+        *,
+        conversation_id: uuid.UUID,
+        turn_id: str,
+    ) -> bool:
+        """Return False when turn was already processed, True on first-seen."""
+        user_id = self._require_user_id()
+        async with self._session_factory() as session:
+            existing = await session.execute(
+                select(MemoryFactIngestion).where(
+                    MemoryFactIngestion.conversation_id == conversation_id,
+                    MemoryFactIngestion.turn_id == turn_id,
+                )
+            )
+            if existing.scalar_one_or_none() is not None:
+                return False
+
+            session.add(
+                MemoryFactIngestion(
+                    conversation_id=conversation_id,
+                    turn_id=turn_id,
+                    user_id=user_id,
+                )
+            )
+            await session.commit()
+            return True
+
+    async def upsert_fact(
+        self,
+        *,
+        namespace: str,
+        key: str,
+        value: str,
+        confidence: float,
+        source: str = "telegram",
+        source_chat_id: str | None = None,
+        evidence_snippet: str | None = None,
+    ) -> dict[str, str] | None:
+        """Insert a new active fact and mark previous active value stale."""
+        user_id = self._require_user_id()
+        if not namespace.strip() or not key.strip() or not value.strip():
+            return None
+
+        normalized_ns = namespace.strip().lower()
+        normalized_key = normalize_fact_key(normalized_ns, key)
+        now = datetime.now(timezone.utc)
+
+        async with self._session_factory() as session:
+            existing_stmt = select(MemoryFactEntry).where(
+                MemoryFactEntry.user_id == user_id,
+                MemoryFactEntry.namespace == normalized_ns,
+                MemoryFactEntry.key == normalized_key,
+                MemoryFactEntry.status == "active",
+            )
+            existing_result = await session.execute(existing_stmt)
+            active = existing_result.scalars().all()
+            for row in active:
+                if row.value != value:
+                    row.status = "stale"
+                    row.updated_at = now
+
+            session.add(
+                MemoryFactEntry(
+                    user_id=user_id,
+                    namespace=normalized_ns,
+                    key=normalized_key,
+                    value=value.strip(),
+                    confidence=confidence,
+                    status="active",
+                    source=source,
+                    source_chat_id=source_chat_id,
+                    evidence_snippet=evidence_snippet,
+                    last_seen_at=now,
+                )
+            )
+            await session.commit()
+
+        return {
+            "namespace": normalized_ns,
+            "key": normalized_key,
+            "value": value.strip(),
+            "confidence": str(confidence),
+            "status": "active",
+        }
+
+    async def list_active_facts(self, limit: int = 50) -> list[dict[str, str]]:
+        """Return active facts for the current user."""
+        if self._user_id is None:
+            return []
+
+        async with self._session_factory() as session:
+            stmt = (
+                select(MemoryFactEntry)
+                .where(
+                    MemoryFactEntry.user_id == self._user_id,
+                    MemoryFactEntry.status == "active",
+                )
+                .order_by(desc(MemoryFactEntry.updated_at))
+                .limit(limit)
+            )
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+            return [
+                {
+                    "namespace": row.namespace,
+                    "key": row.key,
+                    "value": row.value,
+                    "confidence": f"{row.confidence:.2f}",
+                }
+                for row in rows
+            ]
+
+    async def retrieve_relevant_facts(
+        self,
+        *,
+        query: str,
+        limit: int = 8,
+    ) -> list[dict[str, str]]:
+        """Retrieve active facts ranked by simple lexical relevance and recency."""
+        if self._user_id is None:
+            return []
+
+        query_text = (query or "").strip().lower()
+        async with self._session_factory() as session:
+            base_conditions = [
+                MemoryFactEntry.user_id == self._user_id,
+                MemoryFactEntry.status == "active",
+            ]
+            if query_text:
+                like = f"%{query_text}%"
+                base_conditions.append(
+                    or_(
+                        func.lower(MemoryFactEntry.key).like(like),
+                        func.lower(MemoryFactEntry.value).like(like),
+                    )
+                )
+
+            stmt = (
+                select(MemoryFactEntry)
+                .where(and_(*base_conditions))
+                .order_by(
+                    desc(MemoryFactEntry.updated_at), desc(MemoryFactEntry.confidence)
+                )
+                .limit(limit)
+            )
+            result = await session.execute(stmt)
+            rows = result.scalars().all()
+            return [
+                {
+                    "namespace": row.namespace,
+                    "key": row.key,
+                    "value": row.value,
+                    "confidence": f"{row.confidence:.2f}",
+                }
+                for row in rows
+            ]
+
+    async def forget_fact(self, key: str) -> bool:
+        """Mark a single active fact stale by canonical key."""
+        if self._user_id is None:
+            return False
+        normalized = key.strip().lower()
+        if not normalized:
+            return False
+
+        async with self._session_factory() as session:
+            stmt = (
+                update(MemoryFactEntry)
+                .where(
+                    MemoryFactEntry.user_id == self._user_id,
+                    MemoryFactEntry.key == normalized,
+                    MemoryFactEntry.status == "active",
+                )
+                .values(status="stale", updated_at=datetime.now(timezone.utc))
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            return bool(result.rowcount)
+
+    async def forget_all_facts(self) -> int:
+        """Mark all active facts stale for the current user."""
+        if self._user_id is None:
+            return 0
+
+        async with self._session_factory() as session:
+            stmt = (
+                update(MemoryFactEntry)
+                .where(
+                    MemoryFactEntry.user_id == self._user_id,
+                    MemoryFactEntry.status == "active",
+                )
+                .values(status="stale", updated_at=datetime.now(timezone.utc))
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            return int(result.rowcount or 0)

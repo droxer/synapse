@@ -81,6 +81,11 @@ class Settings(BaseSettings):
         ""  # Optional public base URL override for per-user webhook setup
     )
 
+    # Telegram long-term memory fact compression
+    MEMORY_FACT_CONFIDENCE_THRESHOLD: float = 0.85
+    MEMORY_FACT_TOP_K: int = 8
+    MEMORY_FACT_PROMPT_TOKEN_CAP: int = 1200
+
     DEFAULT_SYSTEM_PROMPT: str = (
         "You are a helpful AI assistant with access to a sandboxed coding environment "
         "where you can write and execute code, manage files, browse the web, and more.\n\n"

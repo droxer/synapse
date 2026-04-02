@@ -278,6 +278,7 @@ class AgentOrchestrator:
         user_message: str,
         attachments: tuple[Any, ...] = (),
         selected_skills: tuple[str, ...] = (),
+        runtime_prompt_sections: tuple[str, ...] = (),
     ) -> str:
         """Execute the agent loop and return the final text response."""
         if not user_message.strip():
@@ -298,6 +299,12 @@ class AgentOrchestrator:
 
         # Auto-match skill for this turn via shared selector
         effective_prompt = self._system_prompt
+        if runtime_prompt_sections:
+            dynamic_sections = [
+                section for section in runtime_prompt_sections if section
+            ]
+            if dynamic_sections:
+                effective_prompt = "\n".join([effective_prompt, *dynamic_sections])
         self._auto_injected_skill = None
         settings = get_settings()
         matched = await select_skill_for_message(

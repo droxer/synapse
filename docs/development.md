@@ -549,6 +549,9 @@ HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `ENVIRONMENT` | `development` | Environment mode: `development` or `production` |
 | `CHANNELS_ENABLED` | `false` | Enable Telegram channel integration |
 | `CHANNELS_WEBHOOK_BASE_URL` | — | Webhook base URL for channel providers (e.g., `https://your-domain.com`) |
+| `MEMORY_FACT_CONFIDENCE_THRESHOLD` | `0.85` | Minimum confidence required before auto-saving extracted facts |
+| `MEMORY_FACT_TOP_K` | `8` | Maximum number of active facts injected into each turn |
+| `MEMORY_FACT_PROMPT_TOKEN_CAP` | `1200` | Character cap for the verified-facts prompt section |
 
 ---
 

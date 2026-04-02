@@ -314,6 +314,7 @@ async def _run_turn(
     message: str,
     attachments: tuple[FileAttachment, ...] = (),
     selected_skills: tuple[str, ...] = (),
+    runtime_prompt_sections: tuple[str, ...] = (),
 ) -> str:
     """Run a single turn of the conversation. Does NOT close the SSE connection."""
     try:
@@ -332,6 +333,7 @@ async def _run_turn(
             message,
             attachments=attachments,
             selected_skills=selected_skills,
+            runtime_prompt_sections=runtime_prompt_sections,
         )
         logger.info("turn_completed conversation_id={}", conversation_id)
         return result

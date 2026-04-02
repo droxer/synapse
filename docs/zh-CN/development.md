@@ -546,6 +546,9 @@ HiAgent 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。通过 `ANTH
 | `ENVIRONMENT` | `development` | 环境模式：`development` 或 `production` |
 | `CHANNELS_ENABLED` | `false` | 启用 Telegram 频道集成 |
 | `CHANNELS_WEBHOOK_BASE_URL` | — | 频道提供商的 Webhook 基础 URL（例如：`https://your-domain.com`） |
+| `MEMORY_FACT_CONFIDENCE_THRESHOLD` | `0.85` | 自动保存提取记忆前所需的最小置信度 |
+| `MEMORY_FACT_TOP_K` | `8` | 每轮注入提示词的活跃记忆上限 |
+| `MEMORY_FACT_PROMPT_TOKEN_CAP` | `1200` | 已验证记忆提示段的字符上限 |
 
 ---
 
