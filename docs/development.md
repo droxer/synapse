@@ -121,6 +121,7 @@ HiAgent/
 │   │   │   ├── planner.py           # PlannerOrchestrator — task decomposition
 │   │   │   ├── sub_agent_manager.py # SubAgentManager — concurrent agent coordination
 │   │   │   ├── task_runner.py       # TaskAgentRunner — focused sub-task execution
+│   │   │   ├── skill_selector.py    # Shared LLM-driven skill selector (explicit > model > keyword)
 │   │   │   ├── helpers.py           # apply_response_to_state, process_tool_calls
 │   │   │   └── observer.py          # Token-aware tiered context compaction
 │   │   ├── llm/
@@ -302,6 +303,7 @@ task_complete event ──────────────────► Fr
 | `GET` | `/conversations/{id}/events` | SSE stream of `AgentEvent` objects |
 | `POST` | `/conversations/{id}/cancel` | Cancel the current agent turn |
 | `POST` | `/conversations/{id}/respond` | Submit user response to an `ask_user` prompt. Body: `response` |
+| `GET` | `/conversations/{id}/metrics` | Return aggregated metrics: token usage, tool call counts, per-agent metrics |
 
 ### Artifacts
 
@@ -391,11 +393,13 @@ The runtime engine implements the ReAct (Reason + Act) loop:
 
 - **`PlannerOrchestrator`** — Extends the ReAct loop with task decomposition. Requires agents to call `plan_create` first to declare steps with names and descriptions. Then spawns worker agents via `SubAgentManager`, and coordinates results. Emits `plan_created` event. Planner mode auto-registers `plan_create` and `spawn_task_agent` tools.
 
-- **`SubAgentManager`** — Manages concurrent agents (max 5 concurrent, 20 total). Handles dependency tracking (`depends_on`), per-agent tool registries, and an async message bus for agent-to-agent communication. Tracks agent names for UI display.
+- **`SubAgentManager`** — Manages concurrent agents (max 5 concurrent, 20 total). Handles dependency tracking (`depends_on`), per-agent tool registries, and an async message bus for agent-to-agent communication. Tracks agent names for UI display. Enforces per-agent timeouts (`AGENT_TIMEOUT_SECONDS`, default 300s) and propagates failures with configurable policies (cancel remaining agents, degrade gracefully, or replan).
 
-- **`TaskAgentRunner`** — Executes a single sub-task with its own sandbox. Returns `AgentResult` (frozen) with success status, summary, and artifacts.
+- **`TaskAgentRunner`** — Executes a single sub-task with its own sandbox. Returns `AgentResult` (frozen) with success status, summary, artifacts, and per-agent metrics (duration, iterations, tool call counts, token usage). Metrics are emitted in the `agent_complete` event and aggregated by `GET /conversations/{id}/metrics`.
 
-- **`Observer`** — Token-aware tiered context compaction. Estimates token usage via a `chars/4` heuristic and triggers compaction when the budget is exceeded (default 150K tokens). Uses a two-tier strategy: the **hot tier** keeps the last N tool interactions verbatim (default 5), while the **warm tier** summarises older interactions into a concise bullet list via a lightweight LLM call (Haiku). Falls back to 100-char truncation if summarisation fails or no LLM client is configured. Emits a `CONTEXT_COMPACTED` event with before/after message counts.
+- **`Observer`** — Token-aware tiered context compaction. Estimates token usage via a weighted heuristic (ASCII chars ÷ 4, non-ASCII chars × 1.5 for CJK accuracy) and triggers compaction when the budget is exceeded (default 150K tokens). Uses a two-tier strategy: the **hot tier** keeps the last N tool interactions verbatim (default 5), while the **warm tier** applies a layered fallback — structured summary via LLM (Haiku) → larger text preview → minimal marker — to older interactions. Emits a `CONTEXT_COMPACTED` event with before/after message counts.
+
+- **`SkillSelector`** — Shared LLM-driven skill selector used by both `AgentOrchestrator` and `TaskAgentRunner`. Implements a three-tier priority: (1) explicit user selection by name, (2) LLM pick from the skill catalog (configurable via `SKILL_SELECTOR_MODEL`), (3) keyword overlap fallback. Replaces the previous keyword-only matching.
 
 ### Tool System (`agent/tools/`)
 
@@ -435,7 +439,7 @@ allowed_tools:
 ```
 
 - **Discovery** — Scans `~/.hiagent/skills/` (bundled), `./skills/` (project), `./hiagent-skills/` (imported)
-- **Matching** — Keyword overlap between user message and skill descriptions
+- **Matching** — LLM-driven selection from the skill catalog (explicit name → LLM pick → keyword overlap fallback). Configurable model via `SKILL_SELECTOR_MODEL`.
 - **Activation** — Best-match skill prompt injected into orchestrator; agent restricted to allowed tools
 - **Installation** — Clone from GitHub via `SkillInstaller`
 
@@ -445,7 +449,7 @@ A self-contained evaluation framework that hooks into the existing `EventEmitter
 
 - **YAML eval cases** — Each case defines a user message, grading criteria, mock LLM responses, and expected behavior. Cases are stored in `evals/cases/`.
 
-- **Grading criteria** — 10 programmatic criterion types:
+- **Grading criteria** — 11 programmatic criterion types:
 
 | Criterion | Checks |
 |-----------|--------|
@@ -456,6 +460,7 @@ A self-contained evaluation framework that hooks into the existing `EventEmitter
 | `skill_activated` | A specific skill was activated |
 | `agent_spawned` | Sub-agents were spawned (by count, task substring, or any) |
 | `agent_handoff` | An agent handoff occurred (optionally to a specific role) |
+| `context_compaction` | Context compaction was triggered (optionally a minimum count) |
 
 - **LLM-as-judge** — Sends task context, actual output, and tool call sequence to Claude for qualitative scoring. Uses Haiku by default for cost efficiency.
 
@@ -465,7 +470,7 @@ A self-contained evaluation framework that hooks into the existing `EventEmitter
 
 - **EvalCollector** — Subscribes to `EventEmitter` and captures tool calls, token usage, errors, skill activations, agent spawns, and handoffs into frozen `EvalMetrics`.
 
-- **Built-in eval cases** — 6 scenarios covering web search, code execution, multi-tool chaining, skill invocation, sub-agent spawning, and agent handoff.
+- **Built-in eval cases** — 11 scenarios covering web search, code execution, multi-tool chaining, skill invocation, sub-agent spawning, agent handoff, and CJK context compaction (5 cases).
 
 ### State Persistence (`agent/state/`)
 
@@ -507,8 +512,12 @@ HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `LITE_MODEL` | `claude-haiku-4-5-20251001` | Model for simple sub-tasks |
 | `THINKING_BUDGET` | `10000` | Extended thinking token budget (`0` = disabled) |
 | `COMPACT_TOKEN_BUDGET` | `150000` | Estimated token threshold to trigger context compaction |
+| `COMPACT_TOKEN_COUNTER` | `weighted` | Token counting strategy: `weighted` (CJK-aware) or `legacy` (chars÷4) |
 | `COMPACT_FULL_INTERACTIONS` | `5` | Recent tool interactions kept verbatim (hot tier) |
+| `COMPACT_FALLBACK_PREVIEW_CHARS` | `500` | Char limit for text preview in layered compaction fallback |
+| `COMPACT_FALLBACK_RESULT_CHARS` | `1000` | Char limit for result preview in layered compaction fallback |
 | `COMPACT_SUMMARY_MODEL` | (uses `LITE_MODEL`) | Model for warm-tier summarisation of older interactions |
+| `SKILL_SELECTOR_MODEL` | (uses `LITE_MODEL`) | Model for LLM-driven skill selection (tier 2 of 3) |
 
 ### Optional
 
@@ -516,6 +525,7 @@ HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Co
 |----------|---------|-------------|
 | `DATABASE_URL` | — | PostgreSQL connection string (`postgresql+asyncpg://...`) |
 | `REDIS_URL` | — | Redis URL for caching |
+| `AGENT_TIMEOUT_SECONDS` | `300` | Per-agent execution timeout in seconds |
 | `SANDBOX_PROVIDER` | `boxlite` | Sandbox backend: `boxlite` (prebuilt images on GHCR), `e2b`, or `local` |
 | `E2B_API_KEY` | — | E2B API key (if using E2B provider) |
 | `MINIMAX_API_KEY` | — | MiniMax API key (for image generation) |

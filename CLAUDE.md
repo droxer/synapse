@@ -75,9 +75,10 @@ HiAgent is a full-stack AI agent framework: Python/FastAPI backend + TypeScript/
 - **`agent/runtime/`** — Core execution components:
   - `orchestrator.py` — Core ReAct loop, immutable state
   - `planner.py` — Task decomposition orchestrator
-  - `sub_agent_manager.py` — Multi-agent coordination with concurrent agent spawning
-  - `task_runner.py` — Focused sub-task executor for spawned agents
-  - `observer.py` — Token-aware tiered context compaction
+  - `sub_agent_manager.py` — Multi-agent coordination with concurrent agent spawning, failure propagation (cancel/degrade/replan), per-agent timeouts
+  - `task_runner.py` — Focused sub-task executor for spawned agents; emits per-agent metrics (duration, iterations, tool calls, tokens)
+  - `skill_selector.py` — Shared LLM-driven skill selector (explicit name → LLM pick → keyword fallback)
+  - `observer.py` — Token-aware tiered context compaction with CJK-aware token estimation and layered fallback
 - **`agent/tools/`** — Tool abstractions, immutable registry, local & sandbox tools
 - **`agent/sandbox/`** — Execution sandbox providers (`boxlite_provider.py`, `e2b_provider.py`, `local_provider.py`)
 - **`agent/skills/`** — Skill system mapping `SKILL.md` frontmatter to loadable execution states
@@ -122,11 +123,11 @@ Tauri v2 desktop shell wrapping the web frontend. Uses `sidecar.rs` process mana
 - **Immutability**: Frozen dataclasses throughout backend (`AgentState`, `ToolResult`, `SkillMetadata`, `LLMResponse`, `ChannelConversationRecord`)
 - **Event-driven**: `EventEmitter` pub/sub bridges agent loop to SSE stream
 - **Tool registry**: Immutable registry pattern — tools registered at startup, looked up by name
-- **Skill auto-matching**: User messages matched against skill descriptions; best match injected into prompt
+- **Skill auto-matching**: LLM-driven selector (explicit name → LLM pick → keyword fallback) chooses best skill; prompt injected into orchestrator
 - **Agent naming**: Spawned agents receive friendly names via `spawn_task_agent`
 - **Channels isolation**: Channel chat views manage their own SSE connections, history loading, and state independently (no global app store dependency)
 
 ## Environment
 Required in `backend/.env`: `ANTHROPIC_API_KEY`, `TAVILY_API_KEY`.
-Optional: `DATABASE_URL` (SQLite default, use PostgreSQL in production), `SANDBOX_PROVIDER` (`boxlite`/`e2b`/`local`), `REDIS_URL`, `STORAGE_PROVIDER` (`local`/`r2`), `SKILLS_ENABLED`, `THINKING_BUDGET`, `LITE_MODEL`, `COMPACT_TOKEN_BUDGET`, `AUTH_REQUIRED`, `PROXY_SECRET`, `CHANNELS_ENABLED` (enable Telegram channel integration), `CHANNELS_WEBHOOK_BASE_URL` (webhook base URL for channel providers).
+Optional: `DATABASE_URL` (SQLite default, use PostgreSQL in production), `SANDBOX_PROVIDER` (`boxlite`/`e2b`/`local`), `REDIS_URL`, `STORAGE_PROVIDER` (`local`/`r2`), `SKILLS_ENABLED`, `THINKING_BUDGET`, `LITE_MODEL`, `COMPACT_TOKEN_BUDGET`, `COMPACT_TOKEN_COUNTER` (`weighted`/`legacy`), `COMPACT_FALLBACK_PREVIEW_CHARS`, `COMPACT_FALLBACK_RESULT_CHARS`, `SKILL_SELECTOR_MODEL`, `AGENT_TIMEOUT_SECONDS`, `AUTH_REQUIRED`, `PROXY_SECRET`, `CHANNELS_ENABLED` (enable Telegram channel integration), `CHANNELS_WEBHOOK_BASE_URL` (webhook base URL for channel providers).
 Desktop app optional env vars: `HIAGENT_FRONTEND_PORT`, `HIAGENT_BACKEND_PORT`, `HIAGENT_PROJECT_DIR`.
