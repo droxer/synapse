@@ -3,6 +3,7 @@ name = "hiagent-desktop"
 version = "0.1.0"
 description = "HiAgent Desktop"
 authors = ["HiAgent"]
+license = "Apache-2.0"
 edition = "2021"
 rust-version = "1.77"
 

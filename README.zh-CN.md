@@ -105,4 +105,4 @@ make build-desktop
 
 ## 许可证
 
-[AGPL-3.0](LICENSE)
+[Apache-2.0](LICENSE)
