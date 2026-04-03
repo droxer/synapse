@@ -29,7 +29,7 @@ from api.channels.router import ChannelRouter
 from api.channels.schemas import InboundMessage, TelegramBotConfigRecord
 from api.db_subscriber import create_db_subscriber
 from api.dependencies import AppState, get_app_state
-from api.events import AgentEvent, EventEmitter
+from api.events import AgentEvent, EventEmitter, EventType
 from api.models import ConversationEntry, FileAttachment
 from api.sse import _create_queue_subscriber
 from config.settings import get_settings
@@ -422,6 +422,10 @@ async def _handle_channel_message(
         request_id, callback = channel_router._pending_prompts.pop(conv_uuid)  # noqa: SLF001
         if callable(callback) and message.text:
             callback(message.text)
+            await entry.emitter.emit(
+                EventType.USER_RESPONSE,
+                {"request_id": request_id, "response": message.text},
+            )
             logger.info(
                 "channel_ask_user_fulfilled conv={} request={}",
                 conv_uuid,

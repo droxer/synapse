@@ -102,7 +102,7 @@ class ChannelResponder:
             question = data.get("question") or data.get("message") or ""
             if question:
                 await self._send_and_log(str(question))
-            request_id = data.get("_request_id")
+            request_id = data.get("_request_id") or data.get("request_id")
             response_callback = data.get("response_callback")
             if self._on_ask_user and request_id is not None:
                 self._on_ask_user(

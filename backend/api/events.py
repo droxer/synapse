@@ -2,6 +2,7 @@
 
 import asyncio
 import time
+import uuid
 from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Callable, Coroutine
@@ -186,7 +187,12 @@ class EventEmitter:
             response_holder.append(response)
             ready.set()
 
-        enriched_data = {**data, "response_callback": response_callback}
+        request_id = f"req_{uuid.uuid4().hex[:12]}"
+        enriched_data = {
+            **data,
+            "response_callback": response_callback,
+            "request_id": request_id,
+        }
 
         await self.emit(event_type, enriched_data)
 

@@ -289,6 +289,29 @@ def create_db_subscriber(
                         conversation_id,
                     )
 
+                elif event.type == EventType.USER_RESPONSE:
+                    reply = clean.get("response", "")
+                    if reply:
+                        await repo.save_message(
+                            session,
+                            conversation_id,
+                            role="user",
+                            content={"text": reply},
+                            iteration=event.iteration,
+                        )
+                        logger.info(
+                            "db_message_saved role=user (user_response) "
+                            "conversation_id={}",
+                            conversation_id,
+                        )
+                    await repo.save_event(
+                        session,
+                        conversation_id,
+                        event_type=event.type.value,
+                        data=clean,
+                        iteration=event.iteration,
+                    )
+
                 elif event.type == EventType.ARTIFACT_CREATED:
                     await repo.save_artifact(
                         session,
