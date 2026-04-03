@@ -970,6 +970,10 @@ async def respond_to_prompt(
         body.request_id,
     )
     callback(body.response)
+    await entry.emitter.emit(
+        EventType.USER_RESPONSE,
+        {"request_id": body.request_id, "response": body.response},
+    )
     return {"status": "ok"}
 
 

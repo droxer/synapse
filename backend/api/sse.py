@@ -23,7 +23,7 @@ def _create_queue_subscriber(
     async def _subscriber(event: AgentEvent) -> None:
         callback = event.data.get("response_callback")
         if callback is not None:
-            request_id = f"req_{uuid.uuid4().hex[:12]}"
+            request_id = event.data.get("request_id") or f"req_{uuid.uuid4().hex[:12]}"
             event = AgentEvent(
                 type=event.type,
                 data={**event.data, "_request_id": request_id},
