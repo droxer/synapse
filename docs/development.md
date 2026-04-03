@@ -1,6 +1,6 @@
 # Development Guide
 
-**English** | [简体中文](zh-CN/development.md)
+**English** | [简体中文](zh-CN/development.md) · [Documentation index](README.md) · [AGENTS.md](../AGENTS.md)
 
 ## Commands
 

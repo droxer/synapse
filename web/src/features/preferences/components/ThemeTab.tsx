@@ -93,7 +93,7 @@ export function ThemeTab() {
               type="button"
               onClick={() => handleSelect(value)}
               className={cn(
-                "relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-all duration-150",
+                "relative flex flex-col items-start rounded-lg border-2 p-3 text-left transition-[color,background-color,border-color] duration-150 ease-out",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                 "hover:border-border-strong",
                 isActive

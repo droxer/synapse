@@ -56,7 +56,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
         <button
           type="button"
           onClick={handleOpenCommandPalette}
-          className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground shadow-[var(--shadow-card)] transition-all duration-150 hover:border-border-strong hover:bg-sidebar-active hover:text-foreground hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,box-shadow] duration-150 ease-out hover:border-border-strong hover:bg-sidebar-active hover:text-foreground hover:shadow-[var(--shadow-card-hover)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
         >
           <Search className="h-4 w-4" />
           <span className="hidden sm:inline">Search</span>

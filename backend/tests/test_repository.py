@@ -23,6 +23,13 @@ async def session():
     Creates tables first, then wraps each test in a transaction that is
     always rolled back, so tests never modify the database.
     """
+    import os
+
+    try:
+        os.remove("./test.db")
+    except FileNotFoundError:
+        pass
+
     engine = create_async_engine(TEST_DB_URL)
 
     # Create all tables first

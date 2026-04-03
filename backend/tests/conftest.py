@@ -20,6 +20,13 @@ async def session():
     across the connection used for setup and the connection used for tests.
     Test isolation is achieved via transaction rollback.
     """
+    import os
+
+    try:
+        os.remove("./test.db")
+    except FileNotFoundError:
+        pass
+
     engine = create_async_engine(TEST_DB_URL)
 
     # Create all tables first

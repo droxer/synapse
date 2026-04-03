@@ -9,18 +9,24 @@ from typing import Any
 from loguru import logger
 
 from agent.llm.client import AnthropicClient
+from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
+from agent.memory.store import PersistentMemoryStore
 from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
     process_tool_calls,
 )
-from agent.runtime.observer import Observer
-from agent.runtime.skill_dependencies import (
-    build_install_command,
-    group_safe_dependencies,
+from agent.runtime.message_chain import (
+    collect_message_chain_warnings,
+    tool_calls_fingerprint,
 )
+from agent.runtime.observer import Observer, compaction_summary_for_persistence
+from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_selector import select_skill_for_message
-from agent.sandbox.base import SANDBOX_HOME_DIR
+from agent.runtime.turn_attachments import (
+    build_user_message_content,
+    upload_attachments_to_sandbox,
+)
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
@@ -78,6 +84,7 @@ class AgentOrchestrator:
         initial_messages: tuple[dict[str, Any], ...] = (),
         thinking_budget: int = 0,
         skill_registry: SkillRegistry | None = None,
+        persistent_store: PersistentMemoryStore | None = None,
     ) -> None:
         if not system_prompt:
             raise ValueError("system_prompt must not be empty")
@@ -90,16 +97,21 @@ class AgentOrchestrator:
         self._max_iterations = max_iterations
         self._observer = observer or Observer(
             max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+            max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
             token_budget=settings.COMPACT_TOKEN_BUDGET,
             claude_client=claude_client,
             summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
         )
+        self._persistent_store = persistent_store
         self._thinking_budget = thinking_budget
         self._task_complete_summary: str | None = None
         self._cancel_event = asyncio.Event()
         self._state = AgentState(messages=initial_messages)
         self._skill_registry = skill_registry
         self._auto_injected_skill: str | None = None
+        self._run_lock = asyncio.Lock()
+        self._last_tool_batch_signature: str | None = None
+        self._identical_tool_batch_count: int = 0
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -139,140 +151,46 @@ class AgentOrchestrator:
                 )
                 return
 
-    async def _upload_attachments(
-        self, attachments: tuple[Any, ...]
-    ) -> tuple[str, ...]:
-        """Upload file attachments to the sandbox.
-
-        Called after skill matching so the correct sandbox template is
-        already configured on the executor.
-        """
-        import os
-        import shlex
-        import tempfile
-
-        upload_dir = f"{SANDBOX_HOME_DIR}/uploads"
-        session = await self._executor.get_sandbox_session()
-        sandbox_id = getattr(session, "sandbox_id", None)
-        logger.info(
-            "upload_session_ready sandbox_id={} upload_dir={}",
-            sandbox_id or "unknown",
-            upload_dir,
-        )
-        mkdir_result = await session.exec(f"mkdir -p {shlex.quote(upload_dir)}")
-        if not mkdir_result.success:
-            raise RuntimeError(
-                f"Failed to prepare upload directory '{upload_dir}': "
-                f"{mkdir_result.stderr or mkdir_result.stdout}"
-            )
-
-        uploaded_paths: list[str] = []
-
-        for att in attachments:
-            safe_name = self._safe_display_name(att.filename)
-            remote_path = f"{upload_dir}/{safe_name}"
-            try:
-                with tempfile.NamedTemporaryFile(
-                    delete=False, suffix=f"_{safe_name}"
-                ) as tmp:
-                    tmp.write(att.data)
-                    tmp_path = tmp.name
-                try:
-                    await session.upload_file(tmp_path, remote_path)
-                finally:
-                    os.unlink(tmp_path)
-                verify_result = await session.exec(
-                    f"test -f {shlex.quote(remote_path)}"
-                )
-                if not verify_result.success:
-                    raise RuntimeError(
-                        f"Uploaded file was not found at '{remote_path}'"
-                    )
-                uploaded_paths.append(remote_path)
-                logger.info(
-                    "uploaded_file sandbox_id={} remote_path={} filename={} size={}",
-                    sandbox_id or "unknown",
-                    remote_path,
-                    safe_name,
-                    att.size,
-                )
-            except Exception as exc:
-                logger.error(
-                    "file_upload_failed sandbox_id={} remote_path={} filename={} error={}",
-                    sandbox_id or "unknown",
-                    remote_path,
-                    att.filename,
-                    exc,
-                )
-                raise RuntimeError(
-                    f"Failed to upload '{safe_name}' to the sandbox"
-                ) from exc
-
-        return tuple(uploaded_paths)
-
     @staticmethod
-    def _safe_display_name(filename: str) -> str:
-        """Return a display-safe filename stripped of path separators."""
-        import os
-        import re
+    def _append_text_guard_to_last_user_message(
+        state: AgentState,
+        extra_text: str,
+    ) -> AgentState:
+        """Append a text guard/nudge to the last user message when possible."""
+        if not state.messages:
+            return state.add_message({"role": "user", "content": extra_text})
+        msgs = list(state.messages)
+        last = msgs[-1]
+        if last.get("role") != "user":
+            return state.add_message({"role": "user", "content": extra_text})
+        content = last.get("content")
+        if isinstance(content, str):
+            msgs[-1] = {**last, "content": f"{content}\n\n{extra_text}"}
+        elif isinstance(content, list):
+            msgs[-1] = {
+                **last,
+                "content": [
+                    *content,
+                    {"type": "text", "text": extra_text},
+                ],
+            }
+        else:
+            return state.add_message({"role": "user", "content": extra_text})
+        return replace(state, messages=tuple(msgs))
 
-        name = os.path.basename(filename)
-        name = re.sub(r"[^\w.\- ]", "_", name)
-        return name.strip() or "unnamed"
-
-    def _build_message_content(
+    async def _emit_task_error(
         self,
-        user_message: str,
-        attachments: tuple[Any, ...],
-        uploaded_paths: tuple[str, ...] = (),
-    ) -> str | list[dict[str, Any]]:
-        """Build user message content, adding multimodal blocks for attachments."""
-        if not attachments:
-            return user_message
+        message: str,
+        *,
+        code: str = "agent_error",
+        retryable: bool = False,
+    ) -> None:
+        await self._emitter.emit(
+            EventType.TASK_ERROR,
+            {"error": message, "code": code, "retryable": retryable},
+        )
 
-        import base64
-
-        from api.models import VISION_MIME_TYPES
-
-        blocks: list[dict[str, Any]] = []
-        sandbox_files = list(uploaded_paths)
-
-        for att in attachments:
-            if att.content_type in VISION_MIME_TYPES:
-                encoded = base64.standard_b64encode(att.data).decode("ascii")
-                if att.content_type == "application/pdf":
-                    blocks.append(
-                        {
-                            "type": "document",
-                            "source": {
-                                "type": "base64",
-                                "media_type": att.content_type,
-                                "data": encoded,
-                            },
-                        }
-                    )
-                else:
-                    blocks.append(
-                        {
-                            "type": "image",
-                            "source": {
-                                "type": "base64",
-                                "media_type": att.content_type,
-                                "data": encoded,
-                            },
-                        }
-                    )
-
-        # Add user text + file listing
-        text = user_message
-        if sandbox_files:
-            listing = "\n".join(f"  - {path}" for path in sandbox_files)
-            text += f"\n\n[Uploaded files in sandbox:\n{listing}]"
-
-        blocks.append({"type": "text", "text": text})
-        return blocks
-
-    # NOTE: orchestrator is not re-entrant — do not call run() concurrently
+    # NOTE: concurrent run() calls are serialized via ``_run_lock``.
     async def run(
         self,
         user_message: str,
@@ -284,6 +202,22 @@ class AgentOrchestrator:
         if not user_message.strip():
             raise ValueError("user_message must not be empty")
 
+        async with self._run_lock:
+            return await self._run_locked(
+                user_message=user_message,
+                attachments=attachments,
+                selected_skills=selected_skills,
+                runtime_prompt_sections=runtime_prompt_sections,
+            )
+
+    async def _run_locked(
+        self,
+        *,
+        user_message: str,
+        attachments: tuple[Any, ...],
+        selected_skills: tuple[str, ...],
+        runtime_prompt_sections: tuple[str, ...],
+    ) -> str:
         logger.info("turn_start user_message_length={}", len(user_message))
 
         await self._emitter.emit(
@@ -291,8 +225,11 @@ class AgentOrchestrator:
             {"message": user_message},
         )
 
+        self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()
         self._registry = self._base_registry
+        self._last_tool_batch_signature = None
+        self._identical_tool_batch_count = 0
 
         # Append user message to existing state (preserves conversation history)
         self._task_complete_summary = None
@@ -363,24 +300,31 @@ class AgentOrchestrator:
             and matched is not None
             and matched.metadata.dependencies
         ):
-            await self._install_skill_dependencies(matched.metadata.dependencies)
+            await install_skill_dependencies_for_turn(
+                self._executor,
+                matched.metadata.dependencies,
+                self._emitter,
+                context="orchestrator",
+            )
 
         uploaded_paths: tuple[str, ...] = ()
         if attachments:
             try:
-                # Upload files to the sandbox AFTER skill matching so they land
-                # in the correct sandbox template (e.g. data_science, not default).
-                uploaded_paths = await self._upload_attachments(attachments)
+                uploaded_paths = await upload_attachments_to_sandbox(
+                    self._executor,
+                    attachments,
+                )
             except Exception as exc:
                 error = f"Failed to upload attached files to the sandbox: {exc}"
-                await self._emitter.emit(
-                    EventType.TASK_ERROR,
-                    {"error": error},
+                await self._emit_task_error(
+                    error,
+                    code="attachment_upload",
+                    retryable=False,
                 )
                 return f"Error: {error}"
 
         # Build message content only after uploads are verified.
-        content = self._build_message_content(
+        content = build_user_message_content(
             user_message,
             attachments,
             uploaded_paths=uploaded_paths,
@@ -435,10 +379,13 @@ class AgentOrchestrator:
             return final_text
 
         if self._state.error:
-            await self._emitter.emit(
-                EventType.TASK_ERROR,
-                {"error": self._state.error},
-            )
+            err_msg = self._state.error
+            retryable = "LLM call failed" in err_msg
+            code = "llm_error" if retryable else "agent_error"
+            if "maximum iterations" in err_msg.lower():
+                code = "max_iterations"
+                retryable = False
+            await self._emit_task_error(err_msg, code=code, retryable=retryable)
             return f"Error: {self._state.error}"
 
         final_text = extract_final_text(self._state)
@@ -447,52 +394,6 @@ class AgentOrchestrator:
             {"result": final_text},
         )
         return final_text
-
-    async def _install_skill_dependencies(
-        self,
-        dependencies: tuple[str, ...],
-    ) -> None:
-        """Auto-install skill dependencies in the sandbox.
-
-        Each dependency uses the format ``manager:package`` (e.g.
-        ``npm:pptxgenjs``, ``pip:pandas``).  If no manager prefix is
-        given, ``pip`` is assumed.
-        """
-        by_manager = group_safe_dependencies(dependencies)
-
-        for manager, packages in by_manager.items():
-            packages_str = " ".join(packages)
-            logger.info(
-                "auto_installing_skill_dependencies manager={} packages={}",
-                manager,
-                packages_str,
-            )
-            try:
-                session = await self._executor.get_sandbox_session()
-                result = await session.exec(
-                    build_install_command(manager, packages), timeout=120
-                )
-
-                if not result.success:
-                    logger.error(
-                        "skill_dependency_install_failed manager={} packages={} error={}",
-                        manager,
-                        packages_str,
-                        result.stderr or result.stdout,
-                    )
-                else:
-                    logger.info(
-                        "skill_dependencies_installed manager={} packages={}",
-                        manager,
-                        packages_str,
-                    )
-            except Exception as exc:
-                logger.error(
-                    "skill_dependency_install_error manager={} packages={} error={}",
-                    manager,
-                    packages_str,
-                    exc,
-                )
 
     async def _check_mid_turn_skill_activation(
         self,
@@ -593,7 +494,12 @@ class AgentOrchestrator:
 
         # Auto-install dependencies if specified
         if skill.metadata.dependencies:
-            await self._install_skill_dependencies(skill.metadata.dependencies)
+            await install_skill_dependencies_for_turn(
+                self._executor,
+                skill.metadata.dependencies,
+                self._emitter,
+                context="orchestrator_mid_turn",
+            )
 
         # Filter tools by allowed_tools if specified
         if skill.metadata.allowed_tools:
@@ -626,15 +532,27 @@ class AgentOrchestrator:
         """Run a single iteration of the ReAct loop."""
         effective_prompt = system_prompt or self._system_prompt
 
+        settings = get_settings()
+        if settings.VALIDATE_AGENT_MESSAGE_CHAIN:
+            chain_warnings = collect_message_chain_warnings(state.messages)
+            for w in chain_warnings:
+                logger.warning("message_chain_warning detail={}", w)
+
         # Compact message history before the LLM call if needed
         if self._observer.should_compact(state.messages, effective_prompt):
             logger.debug("compacting_message_history")
+            if settings.COMPACT_MEMORY_FLUSH and self._persistent_store is not None:
+                await flush_heuristic_facts_from_messages(
+                    self._persistent_store,
+                    state.messages,
+                )
             compacted = await self._observer.compact(state.messages, effective_prompt)
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,
                 {
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
+                    "summary_text": compaction_summary_for_persistence(compacted),
                 },
                 iteration=state.iteration,
             )
@@ -714,6 +632,32 @@ class AgentOrchestrator:
             cancel_check=lambda: self._cancel_event.is_set(),
         )
         state = tool_result.state
+
+        threshold = settings.STUCK_LOOP_TOOL_REPEAT_THRESHOLD
+        if threshold > 0 and response.tool_calls:
+            sig = tool_calls_fingerprint(response.tool_calls)
+            if sig == self._last_tool_batch_signature:
+                self._identical_tool_batch_count += 1
+            else:
+                self._last_tool_batch_signature = sig
+                self._identical_tool_batch_count = 1
+            if self._identical_tool_batch_count >= threshold:
+                nudge = (
+                    "System notice: The same tool calls were repeated several times. "
+                    "Change approach: verify assumptions, try different tools, "
+                    "or explain what is blocking progress."
+                )
+                await self._emitter.emit(
+                    EventType.LOOP_GUARD_NUDGE,
+                    {
+                        "iteration": state.iteration,
+                        "repeated_signature": sig[:500],
+                    },
+                    iteration=state.iteration,
+                )
+                state = self._append_text_guard_to_last_user_message(state, nudge)
+                self._identical_tool_batch_count = 0
+                self._last_tool_batch_signature = None
 
         # Check if task_complete tool was invoked during tool processing
         if self._task_complete_summary is not None:

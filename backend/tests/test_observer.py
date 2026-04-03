@@ -4,12 +4,13 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
 from agent.runtime.observer import (
     Observer,
+    compaction_summary_for_persistence,
     _build_tool_use_map,
     _compact_content_block,
     _compute_full_boundary,
@@ -80,6 +81,7 @@ def _default_weighted_token_strategy(monkeypatch) -> None:
             COMPACT_TOKEN_COUNTER="weighted",
             COMPACT_FALLBACK_PREVIEW_CHARS=500,
             COMPACT_FALLBACK_RESULT_CHARS=1000,
+            COMPACT_DIALOGUE_FALLBACK_CHARS=12_000,
         ),
     )
 
@@ -353,6 +355,10 @@ class TestObserverInit:
         with pytest.raises(ValueError, match="max_full_interactions"):
             Observer(max_full_interactions=0)
 
+    def test_rejects_zero_dialogue_turns(self) -> None:
+        with pytest.raises(ValueError, match="max_full_dialogue_turns"):
+            Observer(max_full_dialogue_turns=0)
+
     def test_rejects_zero_budget(self) -> None:
         with pytest.raises(ValueError, match="token_budget"):
             Observer(token_budget=0)
@@ -388,7 +394,7 @@ class TestCompact:
 
     @pytest.mark.asyncio
     async def test_preserves_first_message(self) -> None:
-        obs = Observer(max_full_interactions=1)
+        obs = Observer(max_full_interactions=1, token_budget=200)
         msgs = (
             _user_msg("original task"),
             _tool_use_msg("search"),
@@ -403,7 +409,7 @@ class TestCompact:
 
     @pytest.mark.asyncio
     async def test_hot_tier_kept_verbatim(self) -> None:
-        obs = Observer(max_full_interactions=1)
+        obs = Observer(max_full_interactions=1, token_budget=200)
         last_use = _tool_use_msg("new_tool")
         last_result = _tool_result_msg("final result content")
         msgs = (
@@ -431,12 +437,15 @@ class TestCompact:
 
     @pytest.mark.asyncio
     async def test_warm_tier_summarised_with_client(self) -> None:
-        mock_client = AsyncMock()
-        mock_client.create_message.return_value = AsyncMock(
-            text="- Used search tool, found relevant docs\n- Ran code, got output X",
+        mock_client = MagicMock()
+        mock_client.create_message = AsyncMock(
+            return_value=SimpleNamespace(
+                text="- Used search tool, found relevant docs\n- Ran code, got output X",
+            ),
         )
         obs = Observer(
             max_full_interactions=1,
+            token_budget=200,
             claude_client=mock_client,
             summary_model="claude-haiku-4-5-20251001",
         )
@@ -462,6 +471,7 @@ class TestCompact:
         mock_client.create_message.side_effect = RuntimeError("API down")
         obs = Observer(
             max_full_interactions=1,
+            token_budget=200,
             claude_client=mock_client,
             summary_model="claude-haiku-4-5-20251001",
         )
@@ -485,6 +495,7 @@ class TestCompact:
         client.create_message.side_effect = RuntimeError("haiku unavailable")
         obs = Observer(
             max_full_interactions=1,
+            token_budget=200,
             claude_client=client,
             summary_model="haiku",
         )
@@ -507,7 +518,7 @@ class TestCompact:
     async def test_compact_falls_back_to_larger_preview_without_tool_context(
         self,
     ) -> None:
-        obs = Observer(max_full_interactions=1)
+        obs = Observer(max_full_interactions=1, token_budget=200)
         msgs = (
             _user_msg("task"),
             _tool_result_msg("x" * 1500, tool_use_id="call_missing"),
@@ -523,7 +534,7 @@ class TestCompact:
 
     @pytest.mark.asyncio
     async def test_fallback_without_client(self) -> None:
-        obs = Observer(max_full_interactions=1)
+        obs = Observer(max_full_interactions=1, token_budget=200)
         msgs = (
             _user_msg("task"),
             _tool_use_msg("old_tool"),
@@ -539,7 +550,7 @@ class TestCompact:
 
     @pytest.mark.asyncio
     async def test_screenshot_replaced_in_warm_tier(self) -> None:
-        obs = Observer(max_full_interactions=1)
+        obs = Observer(max_full_interactions=1, token_budget=100)
         msgs = (
             _user_msg("task"),
             _tool_use_msg("browser"),
@@ -616,7 +627,7 @@ class TestErrorPreservation:
     @pytest.mark.asyncio
     async def test_compact_preserves_errors_in_warm_tier(self) -> None:
         """Errors in the warm tier should survive compaction."""
-        obs = Observer(max_full_interactions=1)
+        obs = Observer(max_full_interactions=1, token_budget=200)
         error_content = "ImportError: No module named 'foo'" + " details" * 50
         msgs = (
             _user_msg("task"),
@@ -643,6 +654,71 @@ class TestErrorPreservation:
                 for block in content:
                     if isinstance(block, dict) and block.get("is_error"):
                         assert block["content"] == error_content
+
+
+# ------------------------------------------------------------------
+# Dialogue compaction (DB / Telegram-style text threads)
+# ------------------------------------------------------------------
+
+
+class TestDialogueCompaction:
+    @pytest.mark.asyncio
+    async def test_pure_text_thread_summarised(self) -> None:
+        mock_client = MagicMock()
+        mock_client.create_message = AsyncMock(
+            return_value=SimpleNamespace(
+                text="- user asked about plans\n- assistant suggested Tuesday",
+            ),
+        )
+        chunk = "hello " * 300
+        pairs: list[dict[str, Any]] = []
+        for i in range(12):
+            pairs.append(_user_msg(f"u{i} {chunk}"))
+            pairs.append(_assistant_msg(f"a{i} {chunk}"))
+        msgs = (_user_msg("anchor task"), *pairs)
+        obs = Observer(
+            token_budget=2_000,
+            max_full_dialogue_turns=2,
+            claude_client=mock_client,
+            summary_model="claude-haiku-test",
+        )
+        assert obs.should_compact(msgs, "")
+        out = await obs.compact(msgs, "")
+        assert len(out) < len(msgs)
+        assert out[0] == msgs[0]
+        assert "## Earlier conversation" in out[1]["content"]
+        mock_client.create_message.assert_called()
+
+    @pytest.mark.asyncio
+    async def test_pure_text_truncation_without_llm(self) -> None:
+        chunk = "z" * 400
+        pairs: list[dict[str, Any]] = []
+        for i in range(14):
+            pairs.append(_user_msg(f"u{i}{chunk}"))
+            pairs.append(_assistant_msg(f"a{i}{chunk}"))
+        msgs = (_user_msg("anchor"), *pairs)
+        obs = Observer(
+            token_budget=900,
+            max_full_dialogue_turns=2,
+            claude_client=None,
+            summary_model="",
+        )
+        out = await obs.compact(msgs, "")
+        assert len(out) < len(msgs)
+        assert "## Earlier conversation" in out[1]["content"]
+
+
+class TestCompactionSummaryForPersistence:
+    def test_extracts_dialogue_heading(self) -> None:
+        m = (
+            _user_msg("a"),
+            {"role": "assistant", "content": "## Earlier conversation\nx"},
+        )
+        assert compaction_summary_for_persistence(m) == "## Earlier conversation\nx"
+
+    def test_extracts_work_heading(self) -> None:
+        m = (_user_msg("a"), {"role": "assistant", "content": "## Previous work\ny"})
+        assert compaction_summary_for_persistence(m) == "## Previous work\ny"
 
 
 # ------------------------------------------------------------------

@@ -42,6 +42,7 @@ def _to_conversation(model: ConversationModel) -> ConversationRecord:
         id=model.id,
         user_id=model.user_id,
         title=model.title,
+        context_summary=model.context_summary,
         created_at=model.created_at,
         updated_at=model.updated_at,
     )
@@ -177,6 +178,7 @@ class ConversationRepository:
         session: AsyncSession,
         conversation_id: uuid.UUID,
         title: str | None = None,
+        context_summary: str | None = None,
     ) -> ConversationRecord:
         stmt = select(ConversationModel).where(ConversationModel.id == conversation_id)
         result = await session.execute(stmt)
@@ -186,11 +188,42 @@ class ConversationRepository:
 
         if title is not None:
             model.title = title
+        if context_summary is not None:
+            model.context_summary = context_summary
         model.updated_at = datetime.now(timezone.utc)
 
         await session.commit()
         await session.refresh(model)  # refresh after commit to get final state
         return _to_conversation(model)
+
+    async def merge_conversation_context_summary(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+        new_fragment: str,
+        max_chars: int,
+    ) -> None:
+        """Append *new_fragment* to rolling context_summary, capped at *max_chars* tail."""
+        fragment = new_fragment.strip()
+        if not fragment:
+            return
+
+        stmt = select(ConversationModel).where(ConversationModel.id == conversation_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return
+
+        prev = (model.context_summary or "").strip()
+        if prev:
+            merged = f"{prev}\n\n---\n\n{fragment}"
+        else:
+            merged = fragment
+        if len(merged) > max_chars:
+            merged = merged[-max_chars:]
+        model.context_summary = merged
+        model.updated_at = datetime.now(timezone.utc)
+        await session.commit()
 
     async def save_message(
         self,
@@ -225,6 +258,26 @@ class ConversationRepository:
         )
         result = await session.execute(stmt)
         return [_to_message(m) for m in result.scalars().all()]
+
+    async def get_recent_messages(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+        limit: int,
+    ) -> list[MessageRecord]:
+        """Return the last *limit* messages in chronological order."""
+        if limit < 1:
+            return []
+        stmt = (
+            select(MessageModel)
+            .where(MessageModel.conversation_id == conversation_id)
+            .order_by(MessageModel.created_at.desc())
+            .limit(limit)
+        )
+        result = await session.execute(stmt)
+        rows = list(result.scalars().all())
+        rows.reverse()
+        return [_to_message(m) for m in rows]
 
     async def save_event(
         self,

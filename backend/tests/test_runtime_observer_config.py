@@ -20,6 +20,7 @@ from api.events import EventEmitter
 def _settings(summary_model: str = "") -> SimpleNamespace:
     return SimpleNamespace(
         COMPACT_FULL_INTERACTIONS=7,
+        COMPACT_FULL_DIALOGUE_TURNS=5,
         COMPACT_TOKEN_BUDGET=4321,
         COMPACT_TOKEN_COUNTER="weighted",
         COMPACT_SUMMARY_MODEL=summary_model,
@@ -54,6 +55,7 @@ def test_orchestrator_uses_compaction_settings(monkeypatch) -> None:
     )
 
     assert orchestrator._observer._max_full_interactions == 7
+    assert orchestrator._observer._max_full_dialogue_turns == 5
     assert orchestrator._observer._token_budget == 4321
     assert orchestrator._observer._summary_model == "claude-lite-test"
 

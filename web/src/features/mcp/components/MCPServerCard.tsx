@@ -26,7 +26,7 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
 
   return (
     <div className={cn(
-      "group flex h-full flex-col rounded-lg border bg-card p-4 shadow-card transition-all duration-200",
+      "group flex h-full flex-col rounded-lg border bg-card p-4 shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out",
       isDisabled
         ? "border-border/60 hover:border-border"
         : "border-border hover:border-border-strong",

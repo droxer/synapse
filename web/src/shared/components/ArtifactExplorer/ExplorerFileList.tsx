@@ -291,7 +291,7 @@ function FileCard({
       <motion.button
         type="button"
         className={[
-          "rounded-lg bg-card border overflow-hidden shadow-card transition-all duration-200 cursor-pointer flex flex-col relative group text-left w-full",
+          "rounded-lg bg-card border overflow-hidden shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
           "border-l-2",
           isSelected
             ? "ring-[3px] ring-primary border-border/50 border-l-primary shadow-card-hover"
@@ -334,7 +334,7 @@ function FileCard({
             onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
           >
             <div
-              className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-all backdrop-blur-sm ${
+              className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-[color,background-color,border-color,box-shadow] duration-200 ease-out backdrop-blur-sm ${
                 isSelected
                   ? "bg-primary border-primary text-primary-foreground shadow-sm"
                   : "border-white/70 bg-black/30 hover:border-white"
@@ -371,7 +371,7 @@ function FileCard({
     <motion.button
       type="button"
       className={[
-        "rounded-lg bg-card border p-2.5 shadow-card transition-all duration-200 cursor-pointer flex items-center gap-3 relative group text-left w-full",
+        "rounded-lg bg-card border p-2.5 shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l-2",
         isSelected
           ? "ring-[3px] ring-primary border-border/50 border-l-primary bg-primary/5"

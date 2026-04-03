@@ -146,7 +146,7 @@ export function MCPDialog({
                     initial="hidden"
                     animate="show"
                     className={cn(
-                      "group flex items-center gap-3 rounded-lg border px-4 py-3 shadow-sm transition-all duration-200",
+                      "group flex items-center gap-3 rounded-lg border px-4 py-3 shadow-sm transition-[border-color,background-color,box-shadow] duration-200 ease-out",
                       server.enabled === false
                         ? "border-border/60 hover:border-border"
                         : "border-border hover:border-border-strong hover:shadow-md",

@@ -103,6 +103,9 @@ class _FakeExecutor:
         self.current_template = None
         self.reset_calls += 1
 
+    def reset_turn_quotas(self) -> None:
+        """Match ToolExecutor API used at turn start."""
+
     async def get_sandbox_session(
         self, tool_tags: tuple[str, ...] = ()
     ) -> _FakeSession:
@@ -205,6 +208,7 @@ async def test_failed_upload_aborts_turn_and_skips_llm() -> None:
     assert any(
         event_type == EventType.TASK_ERROR
         and "Failed to upload attached files" in data["error"]
+        and data.get("code") == "attachment_upload"
         for event_type, data in events
     )
 

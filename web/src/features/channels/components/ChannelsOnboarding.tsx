@@ -85,7 +85,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
         <button
           type="button"
           onClick={onConfigureBot}
-          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-md bg-accent-purple px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-accent-purple/20 transition-all hover:bg-accent-purple/90 hover:shadow-lg hover:shadow-accent-purple/25 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-purple/40 active:scale-[0.98]"
+          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-md bg-accent-purple px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-accent-purple/20 transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-purple/90 hover:shadow-lg hover:shadow-accent-purple/25 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-purple/40 active:scale-[0.98]"
         >
           <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
           <ChannelProviderIcon provider="telegram" size="sm" />

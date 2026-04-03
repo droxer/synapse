@@ -90,11 +90,11 @@ class TestSanitizerConsistency:
     )
 
     def test_both_sanitizers_produce_identical_results(self) -> None:
-        from agent.runtime.orchestrator import AgentOrchestrator
+        from agent.runtime.turn_attachments import safe_attachment_filename
 
         for name in self.FILENAMES:
             route_result = _sanitize_filename(name)
-            orchestrator_result = AgentOrchestrator._safe_display_name(name)
+            orchestrator_result = safe_attachment_filename(name)
             assert route_result == orchestrator_result, (
                 f"Sanitizer divergence for {name!r}: "
                 f"route={route_result!r}, orchestrator={orchestrator_result!r}"
@@ -169,22 +169,22 @@ class TestLocalSessionSandboxPathMapping:
 
 
 class TestSanitizeFilenameInOrchestrator:
-    """Verify the orchestrator's display-name sanitizer."""
+    """Verify upload attachment display-name sanitizer (shared with routes)."""
 
     def test_strips_traversal(self) -> None:
-        from agent.runtime.orchestrator import AgentOrchestrator
+        from agent.runtime.turn_attachments import safe_attachment_filename
 
-        assert AgentOrchestrator._safe_display_name("../../etc/passwd") == "passwd"
+        assert safe_attachment_filename("../../etc/passwd") == "passwd"
 
     def test_empty_returns_unnamed(self) -> None:
-        from agent.runtime.orchestrator import AgentOrchestrator
+        from agent.runtime.turn_attachments import safe_attachment_filename
 
-        assert AgentOrchestrator._safe_display_name("") == "unnamed"
+        assert safe_attachment_filename("") == "unnamed"
 
     def test_safe_name_unchanged(self) -> None:
-        from agent.runtime.orchestrator import AgentOrchestrator
+        from agent.runtime.turn_attachments import safe_attachment_filename
 
-        assert AgentOrchestrator._safe_display_name("photo.jpg") == "photo.jpg"
+        assert safe_attachment_filename("photo.jpg") == "photo.jpg"
 
 
 class TestExtractUploadFiles:

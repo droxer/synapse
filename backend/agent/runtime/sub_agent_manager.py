@@ -23,6 +23,7 @@ from agent.tools.meta.send_message import (
 )
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
+from config.settings import get_settings
 from loguru import logger
 
 # Type aliases for factory callables
@@ -40,6 +41,8 @@ def _format_handoff_context(
     source_messages: tuple[dict, ...],
     handoff_context: str,
     source_role: str,
+    *,
+    max_message_chars: int,
 ) -> str:
     """Format the previous agent's conversation history for the new agent."""
     parts: list[str] = []
@@ -57,7 +60,7 @@ def _format_handoff_context(
                     if isinstance(b, dict) and b.get("type") == "text"
                 ]
                 content = "\n".join(text_parts)
-            parts.append(f"  [{role}]: {content[:500]}")
+            parts.append(f"  [{role}]: {content[:max_message_chars]}")
 
     if handoff_context:
         parts.append(f"\nHandoff notes: {handoff_context}")
@@ -118,6 +121,20 @@ class SubAgentManager:
         """
         if self.total_spawned >= self._max_total:
             raise RuntimeError(f"Maximum total agents reached ({self._max_total})")
+
+        settings = get_settings()
+        if settings.AGENT_GLOBAL_TOKEN_BUDGET > 0:
+            total_tokens = sum(
+                r.metrics.input_tokens + r.metrics.output_tokens
+                for r in self._results.values()
+                if r.metrics is not None
+            )
+            if total_tokens >= settings.AGENT_GLOBAL_TOKEN_BUDGET:
+                raise RuntimeError(
+                    "Global agent token budget exceeded "
+                    f"({total_tokens} >= {settings.AGENT_GLOBAL_TOKEN_BUDGET}); "
+                    "refuse spawning further task agents",
+                )
 
         agent_id = str(uuid.uuid4())
         self._configs[agent_id] = config
@@ -238,6 +255,7 @@ class SubAgentManager:
                 handoff.source_messages,
                 handoff.context,
                 current_config.role,
+                max_message_chars=get_settings().HANDOFF_MESSAGE_SNIPPET_CHARS,
             )
 
             current_config = TaskAgentConfig(

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -115,13 +116,10 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
       {/* ── Header ── */}
       <div className="shrink-0 border-b border-border px-6 py-4">
         <div className="flex items-center gap-3">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            onClick={() => router.push("/skills")}
-            aria-label={t("skills.backToSkills")}
-          >
-            <ArrowLeft className="h-4 w-4" />
+          <Button variant="ghost" size="icon-sm" asChild>
+            <Link href="/skills" aria-label={t("skills.backToSkills")}>
+              <ArrowLeft className="h-4 w-4" />
+            </Link>
           </Button>
 
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">

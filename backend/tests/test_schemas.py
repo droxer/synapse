@@ -23,6 +23,7 @@ class TestConversationRecord:
             id=uuid.uuid4(),
             user_id=None,
             title="Test",
+            context_summary=None,
             created_at=_now(),
             updated_at=_now(),
         )
@@ -33,7 +34,12 @@ class TestConversationRecord:
         now = _now()
         rid = uuid.uuid4()
         record = ConversationRecord(
-            id=rid, user_id=None, title=None, created_at=now, updated_at=now
+            id=rid,
+            user_id=None,
+            title=None,
+            context_summary=None,
+            created_at=now,
+            updated_at=now,
         )
         assert record.id == rid
         assert record.title is None

@@ -319,6 +319,23 @@ def _format_memory_prompt_section(
     return "\n".join(lines)
 
 
+def build_agent_system_prompt(
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> str:
+    """Assemble the same system prompt string used by the main orchestrator."""
+    settings = get_settings()
+    system_prompt = settings.DEFAULT_SYSTEM_PROMPT
+    if skill_registry is not None and settings.SKILLS_ENABLED:
+        catalog_section = skill_registry.catalog_prompt_section()
+        if catalog_section:
+            system_prompt = system_prompt + "\n" + catalog_section
+    memory_section = _format_memory_prompt_section(memory_entries or [])
+    if memory_section:
+        system_prompt = system_prompt + "\n" + memory_section
+    return system_prompt
+
+
 def format_verified_facts_prompt_section(
     facts: list[dict[str, str]],
     token_cap_chars: int,
@@ -380,17 +397,7 @@ def _build_orchestrator(
         conversation_id=conversation_id,
     )
 
-    # Append skill catalog to system prompt if available
-    system_prompt = settings.DEFAULT_SYSTEM_PROMPT
-    if skill_registry is not None and settings.SKILLS_ENABLED:
-        catalog_section = skill_registry.catalog_prompt_section()
-        if catalog_section:
-            system_prompt = system_prompt + "\n" + catalog_section
-
-    # Append personal memory to system prompt
-    memory_section = _format_memory_prompt_section(memory_entries or [])
-    if memory_section:
-        system_prompt = system_prompt + "\n" + memory_section
+    system_prompt = build_agent_system_prompt(memory_entries, skill_registry)
 
     orchestrator = AgentOrchestrator(
         claude_client=claude_client,
@@ -402,6 +409,7 @@ def _build_orchestrator(
         initial_messages=initial_messages,
         thinking_budget=settings.THINKING_BUDGET,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
+        persistent_store=persistent_store,
     )
     callback_holder.set(orchestrator.on_task_complete)
 

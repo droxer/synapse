@@ -16,7 +16,8 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from agent.memory.facts import FactCandidate, validate_fact_candidate
+from agent.memory.facts import validate_fact_candidate
+from agent.memory.heuristic_extract import extract_fact_candidates
 from agent.memory.store import PersistentMemoryStore
 from api.auth.middleware import AuthUser, common_dependencies, get_current_user
 from api.builders import format_verified_facts_prompt_section
@@ -54,59 +55,6 @@ class TelegramBotConfigRequest(BaseModel):
     bot_token: str = Field(min_length=10, max_length=512)
 
 
-def _extract_fact_candidates(text: str) -> tuple[FactCandidate, ...]:
-    """Extract strict memory fact candidates from a user message."""
-    normalized = text.strip()
-    if not normalized:
-        return ()
-
-    lower = normalized.lower()
-    candidates: list[FactCandidate] = []
-
-    if "timezone" in lower and " is " in lower:
-        value = normalized.split(" is ", 1)[-1].strip()
-        if value:
-            candidates.append(
-                FactCandidate(
-                    namespace="profile",
-                    key="profile.timezone",
-                    value=value,
-                    confidence=0.9,
-                    evidence_snippet=normalized[:500],
-                )
-            )
-
-    if "i prefer" in lower:
-        value = normalized[lower.find("i prefer") + len("i prefer") :].strip()
-        if value:
-            candidates.append(
-                FactCandidate(
-                    namespace="preferences",
-                    key="preferences.general",
-                    value=value,
-                    confidence=0.88,
-                    evidence_snippet=normalized[:500],
-                )
-            )
-
-    if "my language is" in lower:
-        value = normalized[
-            lower.find("my language is") + len("my language is") :
-        ].strip()
-        if value:
-            candidates.append(
-                FactCandidate(
-                    namespace="preferences",
-                    key="preferences.language",
-                    value=value,
-                    confidence=0.92,
-                    evidence_snippet=normalized[:500],
-                )
-            )
-
-    return tuple(candidates)
-
-
 async def _extract_and_upsert_facts_for_turn(
     *,
     store: PersistentMemoryStore,
@@ -124,7 +72,7 @@ async def _extract_and_upsert_facts_for_turn(
         return
 
     settings = get_settings()
-    candidates = _extract_fact_candidates(message_text)
+    candidates = extract_fact_candidates(message_text)
     saved = 0
     rejected = 0
     for candidate in candidates:

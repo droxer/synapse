@@ -220,13 +220,14 @@ export function ChannelConversationList({
               <button
                 type="button"
                 onClick={(e) => handleDelete(e, conv.conversation_id)}
-                className="flex h-7 w-7 items-center justify-center rounded-md bg-card border border-border text-muted-foreground shadow-sm hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 outline-none"
+                className="flex h-7 w-7 items-center justify-center rounded-md bg-card border border-border text-muted-foreground shadow-sm hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                 title="Delete conversation"
+                aria-label="Delete conversation"
               >
                 {deletingId === conv.conversation_id ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
                 ) : (
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 )}
               </button>
             </div>

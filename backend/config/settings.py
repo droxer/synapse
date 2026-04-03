@@ -68,7 +68,25 @@ class Settings(BaseSettings):
     COMPACT_SUMMARY_MODEL: str = (
         ""  # Model for warm-tier summarization (default: LITE_MODEL)
     )
+    COMPACT_FULL_DIALOGUE_TURNS: int = 5
+    # Max chars for dialogue fallback when summarisation is unavailable
+    COMPACT_DIALOGUE_FALLBACK_CHARS: int = 12_000
+    # Merge cap for persisted rolling context summaries (OpenClaw-style)
+    COMPACT_CONTEXT_SUMMARY_MAX_CHARS: int = 32_000
+    # When context_summary is set, load only the last N DB messages on reconstruct
+    COMPACT_RECONSTRUCT_TAIL_MESSAGES: int = 80
+    # Before compaction, persist heuristic facts from user text in dropped context
+    COMPACT_MEMORY_FLUSH: bool = False
     SKILL_SELECTOR_MODEL: str = ""
+
+    # Agent robustness / guardrails
+    HANDOFF_MESSAGE_SNIPPET_CHARS: int = 2000
+    SKILL_DEPENDENCY_INSTALL_STRICT: bool = False
+    STUCK_LOOP_TOOL_REPEAT_THRESHOLD: int = 3
+    VALIDATE_AGENT_MESSAGE_CHAIN: bool = False
+    MAX_SHELL_TOOLS_PER_TURN: int = 100
+    AGENT_GLOBAL_TOKEN_BUDGET: int = 0  # 0 = disabled (sum of sub-agent metrics)
+    PARALLEL_SAFE_TOOLS_ENABLED: bool = True
 
     # Auth (user identity comes from NextAuth via proxy headers)
     AUTH_REQUIRED: bool = False  # When False, unauthenticated requests are allowed

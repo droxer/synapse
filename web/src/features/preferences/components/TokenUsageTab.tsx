@@ -60,11 +60,11 @@ export function TokenUsageTab() {
             {/* Bar */}
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full bg-accent-purple/40 transition-all duration-500"
+                className="h-full bg-accent-purple/40 transition-[width] duration-500 ease-out"
                 style={{ width: `${inputPct}%` }}
               />
               <div
-                className="h-full bg-accent-purple transition-all duration-500"
+                className="h-full bg-accent-purple transition-[width] duration-500 ease-out"
                 style={{ width: `${outputPct}%` }}
               />
             </div>

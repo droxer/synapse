@@ -1,4 +1,4 @@
-[English](../development.md) | **简体中文**
+[English](../development.md) | **简体中文** · [文档索引](../README.md) · [AGENTS.md](../../AGENTS.md)
 
 # 开发指南
 

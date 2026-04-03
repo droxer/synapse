@@ -59,6 +59,7 @@ class Runnable(Protocol):
         user_message: str,
         attachments: tuple[FileAttachment, ...] = (),
         selected_skills: tuple[str, ...] = (),
+        runtime_prompt_sections: tuple[str, ...] = (),
     ) -> str: ...
 
 
@@ -88,6 +89,7 @@ class ConversationEntry:
         "created_at",
         "last_attachments",
         "last_selected_skills",
+        "idempotency_cache",
     )
 
     def __init__(
@@ -108,6 +110,7 @@ class ConversationEntry:
         self.created_at: float = _time.monotonic()
         self.last_attachments: tuple[FileAttachment, ...] = ()
         self.last_selected_skills: tuple[str, ...] = ()
+        self.idempotency_cache: dict[str, str] = {}
 
 
 @dataclass
@@ -150,6 +153,11 @@ class MessageRequest(BaseModel):
     use_planner: bool = Field(
         default=False,
         description="When True, use PlannerOrchestrator to decompose into sub-tasks.",
+    )
+    idempotency_key: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Optional key; duplicate requests with the same key return the cached result.",
     )
 
     @field_validator("message")

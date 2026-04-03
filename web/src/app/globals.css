@@ -312,15 +312,22 @@ h1, h2, h3 {
 /* ─── Base ─── */
 
 html {
+  color-scheme: light;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   font-size: var(--text-sm);
   line-height: 1.5;
   letter-spacing: -0.011em;
+  touch-action: manipulation;
 }
 
 html,

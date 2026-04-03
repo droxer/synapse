@@ -29,7 +29,12 @@ from api.models import (
     UserInputRequest,
 )
 from api.auth import AuthUser, common_dependencies, get_current_user
-from api.builders import _build_orchestrator, _build_planner_orchestrator
+from agent.runtime.observer import Observer
+from api.builders import (
+    _build_orchestrator,
+    _build_planner_orchestrator,
+    build_agent_system_prompt,
+)
 from api.sse import _create_queue_subscriber, _event_generator
 from api.events import AgentEvent, EventEmitter, EventType
 from api.db_subscriber import create_db_subscriber
@@ -222,14 +227,30 @@ async def _reconstruct_conversation(
     Returns the new ConversationEntry, or None if the conversation doesn't exist in DB.
     """
     conv_uuid = uuid.UUID(conversation_id)
+    settings = get_settings()
     async with state.db_session_factory() as session:
         convo = await state.db_repo.get_conversation(session, conv_uuid)
         if convo is None:
             return None
-        db_messages = await state.db_repo.get_messages(session, conv_uuid)
+        if convo.context_summary and convo.context_summary.strip():
+            db_messages = await state.db_repo.get_recent_messages(
+                session,
+                conv_uuid,
+                settings.COMPACT_RECONSTRUCT_TAIL_MESSAGES,
+            )
+        else:
+            db_messages = await state.db_repo.get_messages(session, conv_uuid)
 
     # Convert DB messages to Claude API format
     initial_messages: list[dict[str, Any]] = []
+    if convo.context_summary and convo.context_summary.strip():
+        initial_messages.append(
+            {
+                "role": "assistant",
+                "content": "## Earlier sessions (compressed)\n"
+                + convo.context_summary.strip(),
+            }
+        )
     for m in db_messages:
         if m.role not in ("user", "assistant"):
             continue
@@ -264,6 +285,19 @@ async def _reconstruct_conversation(
 
     # Build a user-scoped skill registry for this conversation's owner
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
+
+    effective_sp = build_agent_system_prompt(memory_entries, user_skill_registry)
+    obs = Observer(
+        max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+        max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
+        token_budget=settings.COMPACT_TOKEN_BUDGET,
+        claude_client=state.claude_client,
+        summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+    )
+    msg_tuple = tuple(initial_messages)
+    if obs.should_compact(msg_tuple, effective_sp):
+        msg_tuple = await obs.compact(msg_tuple, effective_sp)
+    initial_messages = list(msg_tuple)
 
     orchestrator, executor = _build_orchestrator(
         state.claude_client,
@@ -315,11 +349,23 @@ async def _run_turn(
     attachments: tuple[FileAttachment, ...] = (),
     selected_skills: tuple[str, ...] = (),
     runtime_prompt_sections: tuple[str, ...] = (),
+    idempotency_key: str | None = None,
 ) -> str:
     """Run a single turn of the conversation. Does NOT close the SSE connection."""
     try:
         # Store attachments on the entry so retry can re-send them
         entry = state.conversations.get(conversation_id)
+        if (
+            idempotency_key
+            and entry is not None
+            and idempotency_key in entry.idempotency_cache
+        ):
+            logger.info(
+                "turn_idempotent_hit conversation_id={} key={}",
+                conversation_id,
+                idempotency_key[:16],
+            )
+            return entry.idempotency_cache[idempotency_key]
         if entry is not None and attachments:
             entry.last_attachments = attachments
         if entry is not None:
@@ -336,6 +382,12 @@ async def _run_turn(
             runtime_prompt_sections=runtime_prompt_sections,
         )
         logger.info("turn_completed conversation_id={}", conversation_id)
+        store_entry = state.conversations.get(conversation_id)
+        if idempotency_key and store_entry is not None and result:
+            if len(store_entry.idempotency_cache) >= 32:
+                drop_key = next(iter(store_entry.idempotency_cache))
+                del store_entry.idempotency_cache[drop_key]
+            store_entry.idempotency_cache[idempotency_key] = result
         return result
     except asyncio.CancelledError:
         logger.info("turn_cancelled conversation_id={}", conversation_id)
@@ -531,6 +583,16 @@ async def create_conversation(
         selected_skills = tuple(body.skills)
         attachments = ()
 
+    idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
+    if not idem_key:
+        if "multipart/form-data" in content_type:
+            raw_ik = form.get("idempotency_key")
+            if raw_ik:
+                idem_key = str(raw_ik).strip()[:128]
+        else:
+            if body.idempotency_key:
+                idem_key = body.idempotency_key.strip()[:128]
+
     conversation_id = str(uuid.uuid4())
     conv_uuid = uuid.UUID(conversation_id)
     emitter = EventEmitter()
@@ -643,6 +705,7 @@ async def create_conversation(
             message,
             attachments,
             selected_skills,
+            idempotency_key=idem_key,
         ),
     )
 
@@ -725,6 +788,16 @@ async def send_message(
         selected_skills = tuple(body.skills)
         attachments = ()
 
+    idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
+    if not idem_key:
+        if "multipart/form-data" in content_type:
+            raw_ik = form.get("idempotency_key")
+            if raw_ik:
+                idem_key = str(raw_ik).strip()[:128]
+        else:
+            if body.idempotency_key:
+                idem_key = body.idempotency_key.strip()[:128]
+
     entry = state.conversations.get(conversation_id)
     if entry is None:
         entry = await _reconstruct_conversation(state, conversation_id)
@@ -747,6 +820,7 @@ async def send_message(
             message,
             attachments,
             selected_skills,
+            idempotency_key=idem_key,
         ),
     )
 

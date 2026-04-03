@@ -102,7 +102,7 @@ export function LanguageSwitcher({ collapsed = false }: LanguageSwitcherProps) {
             onClick={() => setLocale(loc)}
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
-              "flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-all duration-150",
+              "flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-[color,background-color] duration-150 ease-out",
               "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
               isActive
                 ? "bg-background text-foreground shadow-sm"

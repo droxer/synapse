@@ -94,6 +94,26 @@ async def test_updates_title_on_conversation_title_event(repo, session_factory) 
     repo.update_conversation.assert_called_once()
 
 
+@patch("api.db_subscriber.get_settings")
+async def test_context_compacted_merges_summary(
+    mock_get_settings, repo, session_factory
+) -> None:
+    mock_get_settings.return_value = MagicMock(COMPACT_CONTEXT_SUMMARY_MAX_CHARS=10_000)
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.CONTEXT_COMPACTED,
+        {
+            "original_messages": 10,
+            "compacted_messages": 3,
+            "summary_text": "## Earlier conversation\nkey point",
+        },
+    )
+    await subscriber(event)
+    repo.merge_conversation_context_summary.assert_called_once()
+    repo.save_event.assert_called_once()
+
+
 # ---------------------------------------------------------------------------
 # Retry behavior
 # ---------------------------------------------------------------------------

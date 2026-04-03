@@ -15,6 +15,7 @@ from api.events import EventEmitter, EventType
 def _task_settings(timeout_seconds: float = 5.0) -> SimpleNamespace:
     return SimpleNamespace(
         COMPACT_FULL_INTERACTIONS=5,
+        COMPACT_FULL_DIALOGUE_TURNS=5,
         COMPACT_TOKEN_BUDGET=150_000,
         COMPACT_SUMMARY_MODEL="",
         LITE_MODEL="claude-lite-test",
@@ -54,24 +55,30 @@ class _CompactingObserver:
     def __init__(self) -> None:
         self.compact_calls = 0
 
-    def should_compact(self, messages: tuple[dict[str, object], ...]) -> bool:
+    def should_compact(
+        self, messages: tuple[dict[str, object], ...], system_prompt: str = ""
+    ) -> bool:
         return self.compact_calls == 0
 
     async def compact(
         self,
         messages: tuple[dict[str, object], ...],
+        system_prompt: str = "",
     ) -> tuple[dict[str, object], ...]:
         self.compact_calls += 1
         return messages
 
 
 class _NoopObserver:
-    def should_compact(self, messages: tuple[dict[str, object], ...]) -> bool:
+    def should_compact(
+        self, messages: tuple[dict[str, object], ...], system_prompt: str = ""
+    ) -> bool:
         return False
 
     async def compact(
         self,
         messages: tuple[dict[str, object], ...],
+        system_prompt: str = "",
     ) -> tuple[dict[str, object], ...]:
         return messages
 

@@ -41,7 +41,7 @@ export function LanguageTab() {
               type="button"
               onClick={() => handleSelect(loc)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-all duration-150",
+                "flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-[color,background-color,border-color] duration-150 ease-out",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                 "hover:border-border-strong",
                 isActive

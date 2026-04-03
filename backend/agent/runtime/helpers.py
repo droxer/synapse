@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Callable
 
 from loguru import logger
 
 from agent.llm.client import LLMResponse, ToolCall
+from agent.tools.base import ToolResult
 from agent.tools.executor import ToolExecutor
 from api.events import EventEmitter, EventType
+from config.settings import get_settings
 
 if TYPE_CHECKING:
     from agent.runtime.orchestrator import AgentState
@@ -94,6 +97,70 @@ def extract_final_text(state: AgentState) -> str:
     return ""
 
 
+# Local tools that are safe to run concurrently (no shared sandbox mutation).
+_PARALLEL_SAFE_TOOL_NAMES = frozenset({"web_search", "memory_list", "memory_recall"})
+
+
+def _tool_batch_allows_parallel_execution(tool_calls: tuple[ToolCall, ...]) -> bool:
+    return len(tool_calls) >= 2 and all(
+        tc.name in _PARALLEL_SAFE_TOOL_NAMES for tc in tool_calls
+    )
+
+
+async def _emit_and_execute_single_tool(
+    state: AgentState,
+    tc: ToolCall,
+    executor: ToolExecutor,
+    emitter: EventEmitter,
+    agent_id: str | None,
+) -> tuple[ToolResult, dict[str, Any]]:
+    """Run one tool after emitting TOOL_CALL; return (ToolResult, result_data dict)."""
+    event_data: dict[str, Any] = {
+        "tool_name": tc.name,
+        "tool_input": tc.input,
+        "tool_id": tc.id,
+    }
+    if agent_id is not None:
+        event_data["agent_id"] = agent_id
+
+    await emitter.emit(
+        EventType.TOOL_CALL,
+        event_data,
+        iteration=state.iteration,
+    )
+
+    result = await executor.execute(tc.name, tc.input)
+    output = result.output if result.success else (result.error or "Unknown error")
+
+    logger.info("tool_result name={} success={}", tc.name, result.success)
+
+    result_data: dict[str, Any] = {
+        "tool_id": tc.id,
+        "success": result.success,
+        "output": output,
+    }
+    if result.metadata:
+        if "artifact_ids" in result.metadata:
+            result_data["artifact_ids"] = list(result.metadata["artifact_ids"])
+        if "content_type" in result.metadata:
+            result_data["content_type"] = result.metadata["content_type"]
+        for key in ("steps", "is_done", "max_steps", "url", "task"):
+            if key in result.metadata:
+                result_data[key] = result.metadata[key]
+        for key in ("action", "x", "y", "text", "end_x", "end_y", "amount"):
+            if key in result.metadata:
+                result_data[key] = result.metadata[key]
+    if agent_id is not None:
+        result_data["agent_id"] = agent_id
+
+    await emitter.emit(
+        EventType.TOOL_RESULT,
+        result_data,
+        iteration=state.iteration,
+    )
+    return result, result_data
+
+
 async def process_tool_calls(
     state: AgentState,
     tool_calls: tuple[ToolCall, ...],
@@ -124,58 +191,95 @@ async def process_tool_calls(
     artifact_ids: list[str] = []
     processed_count = 0
 
+    if (
+        get_settings().PARALLEL_SAFE_TOOLS_ENABLED
+        and _tool_batch_allows_parallel_execution(tool_calls)
+    ):
+        logger.info(
+            "executing_tools_parallel count={} names={}",
+            len(tool_calls),
+            [tc.name for tc in tool_calls],
+        )
+
+        emit_tasks = [
+            emitter.emit(
+                EventType.TOOL_CALL,
+                {
+                    "tool_name": tc.name,
+                    "tool_input": tc.input,
+                    "tool_id": tc.id,
+                    **({"agent_id": agent_id} if agent_id is not None else {}),
+                },
+                iteration=state.iteration,
+            )
+            for tc in tool_calls
+        ]
+        await asyncio.gather(*emit_tasks)
+
+        exec_tasks = [executor.execute(tc.name, tc.input) for tc in tool_calls]
+        parallel_results = await asyncio.gather(*exec_tasks)
+
+        for tc, result in zip(tool_calls, parallel_results, strict=True):
+            processed_count += 1
+            output = (
+                result.output if result.success else (result.error or "Unknown error")
+            )
+            logger.info("tool_result name={} success={}", tc.name, result.success)
+
+            result_data: dict[str, Any] = {
+                "tool_id": tc.id,
+                "success": result.success,
+                "output": output,
+            }
+            if result.metadata:
+                if "artifact_ids" in result.metadata:
+                    new_artifact_ids = list(result.metadata["artifact_ids"])
+                    result_data["artifact_ids"] = new_artifact_ids
+                    artifact_ids.extend(new_artifact_ids)
+                if "content_type" in result.metadata:
+                    result_data["content_type"] = result.metadata["content_type"]
+                for key in ("steps", "is_done", "max_steps", "url", "task"):
+                    if key in result.metadata:
+                        result_data[key] = result.metadata[key]
+                for key in ("action", "x", "y", "text", "end_x", "end_y", "amount"):
+                    if key in result.metadata:
+                        result_data[key] = result.metadata[key]
+            if agent_id is not None:
+                result_data["agent_id"] = agent_id
+
+            await emitter.emit(
+                EventType.TOOL_RESULT,
+                result_data,
+                iteration=state.iteration,
+            )
+
+            screenshot_base64 = None
+            if result.metadata and "screenshot_base64" in result.metadata:
+                screenshot_base64 = result.metadata["screenshot_base64"]
+
+            tool_results.append(
+                build_tool_result_block(
+                    tc.id, output, result.success, screenshot_base64=screenshot_base64
+                ),
+            )
+
+        return ToolCallProcessingResult(
+            state=state.add_message({"role": "user", "content": tool_results}),
+            processed_count=processed_count,
+            artifact_ids=tuple(artifact_ids),
+        )
+
     for tc in tool_calls:
         logger.info("executing_tool name={}", tc.name)
 
-        event_data: dict[str, Any] = {
-            "tool_name": tc.name,
-            "tool_input": tc.input,
-            "tool_id": tc.id,
-        }
-        if agent_id is not None:
-            event_data["agent_id"] = agent_id
-
-        await emitter.emit(
-            EventType.TOOL_CALL,
-            event_data,
-            iteration=state.iteration,
+        result, _ = await _emit_and_execute_single_tool(
+            state, tc, executor, emitter, agent_id
         )
-
-        result = await executor.execute(tc.name, tc.input)
         processed_count += 1
         output = result.output if result.success else (result.error or "Unknown error")
 
-        logger.info("tool_result name={} success={}", tc.name, result.success)
-
-        result_data: dict[str, Any] = {
-            "tool_id": tc.id,
-            "success": result.success,
-            "output": output,
-        }
-        # Forward artifact_ids and content_type from tool metadata
-        if result.metadata:
-            if "artifact_ids" in result.metadata:
-                new_artifact_ids = list(result.metadata["artifact_ids"])
-                result_data["artifact_ids"] = new_artifact_ids
-                artifact_ids.extend(new_artifact_ids)
-            if "content_type" in result.metadata:
-                result_data["content_type"] = result.metadata["content_type"]
-            # Forward browser-specific metadata fields
-            for key in ("steps", "is_done", "max_steps", "url", "task"):
-                if key in result.metadata:
-                    result_data[key] = result.metadata[key]
-            # Forward computer_use-specific metadata fields
-            for key in ("action", "x", "y", "text", "end_x", "end_y", "amount"):
-                if key in result.metadata:
-                    result_data[key] = result.metadata[key]
-        if agent_id is not None:
-            result_data["agent_id"] = agent_id
-
-        await emitter.emit(
-            EventType.TOOL_RESULT,
-            result_data,
-            iteration=state.iteration,
-        )
+        if result.metadata and "artifact_ids" in result.metadata:
+            artifact_ids.extend(list(result.metadata["artifact_ids"]))
 
         screenshot_base64 = None
         if result.metadata and "screenshot_base64" in result.metadata:

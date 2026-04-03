@@ -68,6 +68,7 @@ class ConversationModel(Base):
         Uuid, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     title: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    context_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
     )

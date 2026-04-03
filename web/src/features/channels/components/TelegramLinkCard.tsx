@@ -119,7 +119,7 @@ function TelegramConfigModal({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md transition-all"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md transition-opacity duration-200"
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-150 relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card shadow-elevated">
         {/* Header */}
@@ -169,7 +169,7 @@ function TelegramConfigModal({
                   onKeyDown={(e) => { if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot(); }}
                   placeholder="123456789:AAFx..."
                   autoFocus
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-border-active focus:ring-[3px] focus:ring-ring/50 shadow-sm focus:shadow-md"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-border-active focus-visible:ring-[3px] focus-visible:ring-ring/50 shadow-sm focus-visible:shadow-md"
                 />
               </div>
 
@@ -260,7 +260,7 @@ function TelegramConfigModal({
                     onKeyDown={(e) => { if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot(); if (e.key === "Escape") onCancelEditToken(); }}
                     placeholder="New API Token..."
                     autoFocus
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus:border-border-active focus:ring-[3px] focus:ring-ring/50 shadow-sm focus:shadow-md"
+                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:border-border-active focus-visible:ring-[3px] focus-visible:ring-ring/50 shadow-sm focus-visible:shadow-md"
                   />
                   <div className="flex gap-2 pt-1">
                     <button
@@ -328,7 +328,7 @@ function TelegramConfigModal({
                 href={`https://t.me/${status.bot_username.replace(/^@/, '')}?start=${linkToken.token}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2AABEE] px-4 py-3 text-sm font-semibold text-white transition-all hover:bg-[#229ED9] active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2AABEE] px-4 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-200 ease-out hover:bg-[#229ED9] active:scale-[0.98]"
               >
                 <ExternalLink className="h-4 w-4" />
                 Open in Telegram
@@ -551,7 +551,7 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="group relative flex w-full flex-col gap-2 overflow-hidden rounded-lg border border-border bg-card p-3 text-left shadow-card transition-all hover:border-border-strong hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+        className="group relative flex w-full flex-col gap-2 overflow-hidden rounded-lg border border-border bg-card p-3 text-left shadow-card transition-[border-color,box-shadow] duration-200 ease-out hover:border-border-strong hover:shadow-card-hover focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
       >
         {/* Telegram brand color strip */}
         <div
@@ -568,7 +568,7 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
               </div>
             </div>
           </div>
-          <div className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-all group-hover:bg-secondary group-hover:text-foreground group-hover:border-border-strong">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-[color,background-color,border-color] duration-200 ease-out group-hover:bg-secondary group-hover:text-foreground group-hover:border-border-strong">
             {configured ? <Settings className="h-3 w-3" /> : <ChevronDown className="h-3.5 w-3.5 -rotate-90" />}
           </div>
         </div>

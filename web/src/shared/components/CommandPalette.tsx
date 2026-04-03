@@ -149,11 +149,12 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
               loop
             >
               {/* Search input */}
-              <div className="flex items-center gap-2 border-b border-border px-4">
-                <Search className="h-4 w-4 shrink-0 text-muted-foreground" />
+              <div className="flex items-center gap-2 border-b border-border px-4 focus-within:ring-[3px] focus-within:ring-inset focus-within:ring-ring/50">
+                <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 <Command.Input
                   placeholder={t("command.placeholder")}
-                  className="h-12 w-full bg-transparent text-sm text-foreground placeholder:text-placeholder outline-none"
+                  className="h-12 w-full bg-transparent text-sm text-foreground placeholder:text-placeholder outline-none focus-visible:outline-none"
+                  aria-label={t("command.placeholder")}
                   autoFocus
                 />
                 <kbd className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
@@ -161,7 +162,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
                 </kbd>
               </div>
 
-              <Command.List className="max-h-[320px] overflow-y-auto p-2">
+              <Command.List className="max-h-[320px] overflow-y-auto overscroll-contain p-2">
                 <Command.Empty className="px-4 py-8 text-center text-sm text-muted-foreground">
                   {t("command.noResults")}
                 </Command.Empty>

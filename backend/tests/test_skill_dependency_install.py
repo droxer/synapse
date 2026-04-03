@@ -3,14 +3,9 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from unittest.mock import MagicMock
-
 import pytest
 
-from agent.runtime.orchestrator import AgentOrchestrator
-from agent.runtime.planner import PlannerOrchestrator
-from agent.tools.executor import ToolExecutor
-from agent.tools.registry import ToolRegistry
+from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from api.events import EventEmitter
 
 
@@ -41,21 +36,17 @@ class _FakeExecutor:
 @pytest.mark.asyncio
 async def test_orchestrator_skips_unsafe_skill_dependencies() -> None:
     session = _FakeSession()
-    orchestrator = AgentOrchestrator(
-        claude_client=MagicMock(),
-        tool_registry=ToolRegistry(),
-        tool_executor=_FakeExecutor(session),  # type: ignore[arg-type]
-        event_emitter=EventEmitter(),
-        system_prompt="test",
-    )
-
-    await orchestrator._install_skill_dependencies(
+    fake_exec = _FakeExecutor(session)
+    await install_skill_dependencies_for_turn(
+        fake_exec,  # type: ignore[arg-type]
         (
             "pip:pandas",
             "pip:bad;rm -rf /",
             "pip:--index-url=https://evil.example",
             "npm:@scope/pkg",
-        )
+        ),
+        EventEmitter(),
+        context="test",
     )
 
     assert session.commands == ["pip install pandas", "npm install @scope/pkg"]
@@ -64,17 +55,13 @@ async def test_orchestrator_skips_unsafe_skill_dependencies() -> None:
 @pytest.mark.asyncio
 async def test_planner_skips_unsafe_skill_dependencies() -> None:
     session = _FakeSession()
-    planner = PlannerOrchestrator(
-        claude_client=MagicMock(),
-        tool_registry=ToolRegistry(),
-        tool_executor=ToolExecutor(registry=ToolRegistry()),
-        event_emitter=EventEmitter(),
-        sub_agent_manager=MagicMock(),
-    )
-    planner._executor = _FakeExecutor(session)  # type: ignore[assignment]
+    planner_like = _FakeExecutor(session)
 
-    await planner._install_skill_dependencies(
-        ("pip:numpy", "npm:bad && whoami", "npm:--global", "npm:react")
+    await install_skill_dependencies_for_turn(
+        planner_like,  # type: ignore[arg-type]
+        ("pip:numpy", "npm:bad && whoami", "npm:--global", "npm:react"),
+        EventEmitter(),
+        context="test",
     )
 
     assert session.commands == ["pip install numpy", "npm install react"]

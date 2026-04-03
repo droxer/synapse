@@ -55,6 +55,9 @@ class EventType(StrEnum):
 
     CONTEXT_COMPACTED = "context_compacted"
 
+    SKILL_DEPENDENCY_FAILED = "skill_dependency_failed"
+    LOOP_GUARD_NUDGE = "loop_guard_nudge"
+
 
 @dataclass(frozen=True)
 class AgentEvent:

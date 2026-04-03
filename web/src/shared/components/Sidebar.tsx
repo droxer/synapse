@@ -182,7 +182,7 @@ export function Sidebar({
                   className={cn(
                     "group/new flex w-full items-center justify-center rounded-md p-2",
                     "border border-transparent",
-                    "transition-all duration-200",
+                    "transition-[color,background-color,border-color] duration-200",
                     "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                     activePath === "/" && !activeTaskId
                       ? "bg-sidebar-active text-foreground"
@@ -292,14 +292,14 @@ export function Sidebar({
               className={cn(
                 "group/new flex w-full items-center gap-2 rounded-md px-3 py-2.5",
                 "border border-transparent",
-                "transition-all duration-200",
+                "transition-[color,background-color,border-color] duration-200",
                 "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                 activePath === "/" && !activeTaskId
                   ? "bg-sidebar-active"
                   : "hover:bg-sidebar-hover hover:border-border",
               )}
             >
-              <Plus className="h-4 w-4 shrink-0 text-muted-foreground transition-all duration-200 group-hover/new:rotate-90 group-hover/new:text-foreground" />
+              <Plus className="h-4 w-4 shrink-0 text-muted-foreground transition-[color,transform] duration-200 group-hover/new:rotate-90 group-hover/new:text-foreground" />
               <span className="text-sm font-medium text-foreground">
                 {t("sidebar.newTask")}
               </span>

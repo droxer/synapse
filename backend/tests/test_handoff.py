@@ -84,6 +84,7 @@ class TestTaskAgentRunnerHandoff:
             "agent.runtime.task_runner.get_settings",
             lambda: SimpleNamespace(
                 COMPACT_FULL_INTERACTIONS=5,
+                COMPACT_FULL_DIALOGUE_TURNS=5,
                 COMPACT_TOKEN_BUDGET=150_000,
                 COMPACT_SUMMARY_MODEL="",
                 LITE_MODEL="claude-lite-test",
@@ -183,7 +184,10 @@ class TestSubAgentManagerHandoff:
         new_cfg = TaskAgentConfig(
             task_description=handoff.task_description,
             context=_format_handoff_context(
-                handoff.source_messages, handoff.context, cfg.role
+                handoff.source_messages,
+                handoff.context,
+                cfg.role,
+                max_message_chars=2000,
             ),
             sandbox_template=cfg.sandbox_template,
             role=handoff.target_role,
@@ -352,19 +356,24 @@ class TestFormatHandoffContext:
             {"role": "user", "content": "hello"},
             {"role": "assistant", "content": "I found a bug"},
         )
-        result = _format_handoff_context(messages, "Needs security review", "coder")
+        result = _format_handoff_context(
+            messages,
+            "Needs security review",
+            "coder",
+            max_message_chars=2000,
+        )
         assert "coder" in result
         assert "hello" in result
         assert "I found a bug" in result
         assert "security review" in result
 
     def test_empty_messages(self):
-        result = _format_handoff_context((), "", "coder")
+        result = _format_handoff_context((), "", "coder", max_message_chars=2000)
         assert "coder" in result
 
     def test_no_handoff_context(self):
         messages = ({"role": "user", "content": "test"},)
-        result = _format_handoff_context(messages, "", "coder")
+        result = _format_handoff_context(messages, "", "coder", max_message_chars=2000)
         assert "test" in result
 
 

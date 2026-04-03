@@ -68,7 +68,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   type="button"
                   onClick={() => setActiveId(id)}
                   className={cn(
-                    "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-all duration-150 overflow-hidden mb-1",
+                    "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-[color,background-color] duration-150 ease-out overflow-hidden mb-1",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                     isActive
                       ? "bg-accent-purple/10 text-accent-purple font-semibold"

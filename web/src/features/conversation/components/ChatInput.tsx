@@ -151,7 +151,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "relative rounded-md border border-border/50 bg-background/50 shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] transition-all duration-200",
+            "relative rounded-md border border-border/50 bg-background/50 shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] transition-[border-color,box-shadow,background-color] duration-200 ease-out",
             isFocused
               ? "border-accent-purple/50 ring-1 ring-accent-purple/20"
               : "",

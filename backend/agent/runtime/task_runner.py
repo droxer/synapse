@@ -13,7 +13,7 @@ from agent.runtime.helpers import (
     extract_final_text,
     process_tool_calls,
 )
-from agent.runtime.observer import Observer
+from agent.runtime.observer import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
@@ -139,6 +139,7 @@ class TaskAgentRunner:
         self._max_iterations = max_iterations
         self._observer = observer or Observer(
             max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+            max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
             token_budget=settings.COMPACT_TOKEN_BUDGET,
             claude_client=claude_client,
             summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
@@ -269,6 +270,7 @@ class TaskAgentRunner:
         metrics: AgentRunMetrics | None = None,
     ) -> None:
         """Emit the AGENT_COMPLETE event."""
+        completed_via_task_complete = self._task_complete_summary is not None
         await self._emitter.emit(
             EventType.AGENT_COMPLETE,
             {
@@ -279,6 +281,7 @@ class TaskAgentRunner:
                 "timed_out": timed_out,
                 "timeout_seconds": timeout_seconds,
                 "metrics": asdict(metrics) if metrics is not None else None,
+                "completed_via_task_complete": completed_via_task_complete,
             },
         )
 
@@ -308,14 +311,18 @@ class TaskAgentRunner:
     ) -> AgentState:
         """Run a single iteration of the task agent loop."""
         # Compact history before the LLM call if needed
-        if self._observer.should_compact(state.messages):
-            compacted = await self._observer.compact(state.messages)
+        if self._observer.should_compact(state.messages, self._system_prompt):
+            compacted = await self._observer.compact(
+                state.messages,
+                self._system_prompt,
+            )
             self._context_compaction_count += 1
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,
                 {
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
+                    "summary_text": compaction_summary_for_persistence(compacted),
                 },
             )
             state = replace(state, messages=compacted)

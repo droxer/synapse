@@ -30,6 +30,13 @@ _SUMMARISE_SYSTEM = (
     "Keep each bullet to 1-2 sentences. Output only the bullet list."
 )
 
+_DIALOGUE_SUMMARISE_SYSTEM = (
+    "Summarize the following chat turns between a user and an assistant. "
+    "Preserve: names, dates, decisions, preferences, open questions, and "
+    "any commitments or todos. Use a concise bullet list. "
+    "Output only the bullet list, no preamble."
+)
+
 
 # ------------------------------------------------------------------
 # Token estimation
@@ -103,6 +110,49 @@ def _get_fallback_truncation_limits() -> tuple[int, int]:
     )
 
 
+def _get_dialogue_fallback_chars() -> int:
+    from config.settings import get_settings
+
+    return getattr(get_settings(), "COMPACT_DIALOGUE_FALLBACK_CHARS", 12_000)
+
+
+def _message_plain_text(message: dict[str, Any]) -> str:
+    """Flatten a Claude-style message to plain text for dialogue compaction."""
+    content = message.get("content", "")
+    if isinstance(content, str):
+        return content.strip()
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            btype = block.get("type", "")
+            if btype == "text":
+                parts.append(str(block.get("text", "")))
+            elif btype == "tool_result":
+                parts.append(_flatten_content(block.get("content", "")))
+        return " ".join(parts).strip()
+    return str(content).strip()
+
+
+def _dialogue_transcript(messages: list[dict[str, Any]]) -> str:
+    lines: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "?")
+        text = _message_plain_text(msg)
+        if text:
+            lines.append(f"[{role}] {text}")
+    return "\n".join(lines)
+
+
+def _truncate_transcript_chars(text: str, max_chars: int) -> str:
+    if len(text) <= max_chars:
+        return text
+    head = max_chars // 2
+    tail = max_chars - head - 30
+    return f"{text[:head]}\n...[truncated]...\n{text[-tail:]}"
+
+
 def _estimate_tokens(
     messages: tuple[dict[str, Any], ...],
     system_prompt: str = "",
@@ -116,6 +166,23 @@ def _estimate_tokens(
     for msg in messages:
         total += estimate_text_tokens(json.dumps(msg, default=str, ensure_ascii=False))
     return total
+
+
+def compaction_summary_for_persistence(
+    messages: tuple[dict[str, Any], ...],
+) -> str | None:
+    """Extract synthetic summary text produced by :meth:`Observer.compact`."""
+    for msg in messages:
+        if msg.get("role") != "assistant":
+            continue
+        content = msg.get("content")
+        if not isinstance(content, str):
+            continue
+        if content.startswith("## Earlier conversation") or content.startswith(
+            "## Previous work"
+        ):
+            return content
+    return None
 
 
 # ------------------------------------------------------------------
@@ -134,15 +201,19 @@ class Observer:
         self,
         *,
         max_full_interactions: int = 5,
+        max_full_dialogue_turns: int = 5,
         token_budget: int = 150_000,
         claude_client: AnthropicClient | None = None,
         summary_model: str = "",
     ) -> None:
         if max_full_interactions < 1:
             raise ValueError("max_full_interactions must be >= 1")
+        if max_full_dialogue_turns < 1:
+            raise ValueError("max_full_dialogue_turns must be >= 1")
         if token_budget < 1:
             raise ValueError("token_budget must be >= 1")
         self._max_full_interactions = max_full_interactions
+        self._max_full_dialogue_turns = max_full_dialogue_turns
         self._token_budget = token_budget
         self._client = claude_client
         self._summary_model = summary_model
@@ -174,28 +245,47 @@ class Observer:
         3. Older interactions are summarised into a single assistant
            message via a lightweight LLM call (**warm tier**). If the
            LLM call fails, older results fall back to structured compaction.
+
+        **Dialogue mode** (no ``tool_result`` blocks, typical DB replay):
+        summarises older user/assistant text into ``## Earlier conversation``.
         """
         if len(messages) <= 1:
+            return messages
+
+        if _estimate_tokens(messages, system_prompt) <= self._token_budget:
             return messages
 
         first_message = messages[0]
         remaining = list(messages[1:])
 
-        # Identify the boundary between warm and hot tiers
         interaction_indices = _find_tool_interaction_indices(remaining)
         keep_full_from = _compute_full_boundary(
             interaction_indices,
             self._max_full_interactions,
         )
 
+        if (
+            keep_full_from == 0
+            and interaction_indices
+            and _estimate_tokens(messages, system_prompt) > self._token_budget
+        ):
+            for reduced in range(self._max_full_interactions - 1, 0, -1):
+                keep_full_from = _compute_full_boundary(interaction_indices, reduced)
+                if keep_full_from > 0:
+                    break
+
         if keep_full_from == 0:
-            # Everything fits in the hot tier — nothing to compact
-            return messages
+            if not interaction_indices:
+                return await self._compact_pure_dialogue(messages, system_prompt)
+            return await self._compact_tool_hot_overflow(
+                first_message,
+                remaining,
+                system_prompt,
+            )
 
         warm_messages = remaining[:keep_full_from]
         hot_messages = remaining[keep_full_from:]
 
-        # Attempt LLM summarisation of the warm tier
         summary = await self._summarise(warm_messages)
 
         if summary is not None:
@@ -205,7 +295,6 @@ class Observer:
             }
             return (first_message, summary_message, *hot_messages)
 
-        # Fallback: truncate warm-tier tool results in-place
         logger.warning("llm_summarisation_failed, falling back to truncation")
         tool_use_map = _build_tool_use_map(warm_messages)
         compacted_warm = tuple(
@@ -214,9 +303,173 @@ class Observer:
         )
         return (first_message, *compacted_warm, *hot_messages)
 
+    async def _compact_pure_dialogue(
+        self,
+        messages: tuple[dict[str, Any], ...],
+        system_prompt: str,
+    ) -> tuple[dict[str, Any], ...]:
+        """Summarise middle text turns; keep first message and a recent tail."""
+        first_message = messages[0]
+        rest = list(messages[1:])
+        max_tail_msgs = max(2, 2 * self._max_full_dialogue_turns)
+        tail_n = min(max_tail_msgs, len(rest))
+        fb_chars = _get_dialogue_fallback_chars()
+
+        for _ in range(16):
+            middle = rest[:-tail_n] if len(rest) > tail_n else []
+            tail = rest[-tail_n:] if tail_n else []
+
+            if middle:
+                summary = await self._summarise_dialogue(middle)
+                if summary is None:
+                    summary = _truncate_transcript_chars(
+                        _dialogue_transcript(middle),
+                        fb_chars,
+                    )
+                summary_msg: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": f"## Earlier conversation\n{summary}",
+                }
+                candidate = (first_message, summary_msg, *tail)
+            else:
+                transcript = _dialogue_transcript(rest)
+                truncated = _truncate_transcript_chars(transcript, fb_chars)
+                summary_msg = {
+                    "role": "assistant",
+                    "content": f"## Earlier conversation\n{truncated}",
+                }
+                candidate = (first_message, summary_msg)
+
+            if _estimate_tokens(candidate, system_prompt) <= self._token_budget:
+                return candidate
+
+            if tail_n >= len(rest) and not middle:
+                return self._shrink_dialogue_candidate(candidate, system_prompt)
+
+            tail_n = max(2, tail_n // 2)
+            if tail_n > len(rest):
+                tail_n = len(rest)
+
+        return self._shrink_dialogue_candidate(candidate, system_prompt)
+
+    def _shrink_dialogue_candidate(
+        self,
+        candidate: tuple[dict[str, Any], ...],
+        system_prompt: str,
+    ) -> tuple[dict[str, Any], ...]:
+        """Halve synthetic summary body until within budget or floor reached."""
+        msgs = list(candidate)
+        fb_chars = _get_dialogue_fallback_chars()
+        for _ in range(24):
+            if _estimate_tokens(tuple(msgs), system_prompt) <= self._token_budget:
+                return tuple(msgs)
+            shrunk = False
+            for i, msg in enumerate(msgs):
+                content = msg.get("content")
+                if (
+                    msg.get("role") == "assistant"
+                    and isinstance(content, str)
+                    and content.startswith("## Earlier conversation\n")
+                ):
+                    body = content.split("\n", 1)[-1]
+                    if len(body) <= 200:
+                        continue
+                    new_len = max(200, len(body) // 2)
+                    new_body = (
+                        _truncate_transcript_chars(body, new_len) + "\n[truncated]"
+                    )
+                    msgs[i] = {
+                        **msg,
+                        "content": "## Earlier conversation\n" + new_body,
+                    }
+                    shrunk = True
+                    break
+            if not shrunk:
+                break
+        if _estimate_tokens(tuple(msgs), system_prompt) > self._token_budget:
+            # Last resort: keep first + tiny summary
+            first = msgs[0]
+            summary_piece = _truncate_transcript_chars(
+                _dialogue_transcript(msgs[1:]),
+                min(800, fb_chars),
+            )
+            return (
+                first,
+                {
+                    "role": "assistant",
+                    "content": "## Earlier conversation\n" + summary_piece,
+                },
+            )
+        return tuple(msgs)
+
+    async def _compact_tool_hot_overflow(
+        self,
+        first_message: dict[str, Any],
+        remaining: list[dict[str, Any]],
+        system_prompt: str,
+    ) -> tuple[dict[str, Any], ...]:
+        """All tool interactions fit in hot tier but total tokens still exceed budget."""
+        keep_suffix = min(len(remaining), max(4, self._max_full_interactions * 2))
+        warm_messages = remaining[:-keep_suffix] if keep_suffix else remaining
+        hot_messages = remaining[-keep_suffix:] if keep_suffix else []
+
+        if not warm_messages:
+            tool_use_map = _build_tool_use_map(remaining)
+            n = len(remaining)
+            compacted = tuple(
+                _compact_message(
+                    msg, idx=i, keep_full_from=n, tool_use_map=tool_use_map
+                )
+                for i, msg in enumerate(remaining)
+            )
+            return (first_message, *compacted)
+
+        summary = await self._summarise(warm_messages)
+        if summary is not None:
+            summary_message: dict[str, Any] = {
+                "role": "assistant",
+                "content": f"## Previous work\n{summary}",
+            }
+            return (first_message, summary_message, *hot_messages)
+
+        logger.warning(
+            "tool_hot_overflow_summarisation_failed, falling back to truncation"
+        )
+        tool_use_map = _build_tool_use_map(warm_messages)
+        wn = len(warm_messages)
+        compacted_warm = tuple(
+            _compact_message(msg, idx=i, keep_full_from=wn, tool_use_map=tool_use_map)
+            for i, msg in enumerate(warm_messages)
+        )
+        return (first_message, *compacted_warm, *hot_messages)
+
     # ------------------------------------------------------------------
     # Summarisation (warm tier)
     # ------------------------------------------------------------------
+
+    async def _summarise_dialogue(
+        self,
+        messages: list[dict[str, Any]],
+    ) -> str | None:
+        """Summarise plain user/assistant dialogue turns."""
+        if self._client is None or not self._summary_model:
+            return None
+
+        transcript = _dialogue_transcript(messages)
+        if not transcript.strip():
+            return None
+
+        try:
+            response = await self._client.create_message(
+                system=_DIALOGUE_SUMMARISE_SYSTEM,
+                messages=[{"role": "user", "content": transcript[:80_000]}],
+                model=self._summary_model,
+                max_tokens=1024,
+            )
+            return response.text.strip() if response.text else None
+        except Exception:
+            logger.opt(exception=True).warning("dialogue_summarisation_error")
+            return None
 
     async def _summarise(
         self,

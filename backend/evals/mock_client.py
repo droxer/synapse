@@ -116,6 +116,9 @@ class MockToolExecutor:
     def reset_sandbox_template(self) -> None:
         """No-op for mock executor."""
 
+    def reset_turn_quotas(self) -> None:
+        """No-op; matches ToolExecutor API for turn boundaries."""
+
     def set_sandbox_template(self, template: str) -> None:
         """No-op for mock executor."""
 

@@ -196,6 +196,7 @@ class AnthropicClient:
                 anthropic.RateLimitError,
                 anthropic.InternalServerError,
                 anthropic.APIConnectionError,
+                anthropic.APITimeoutError,
             ) as exc:
                 last_exc = exc
                 logger.warning(
@@ -272,6 +273,7 @@ class AnthropicClient:
                 anthropic.RateLimitError,
                 anthropic.InternalServerError,
                 anthropic.APIConnectionError,
+                anthropic.APITimeoutError,
             ) as exc:
                 last_exc = exc
                 logger.warning(

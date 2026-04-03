@@ -13,14 +13,15 @@ from agent.runtime.helpers import (
     extract_final_text,
     process_tool_calls,
 )
-from agent.runtime.observer import Observer
+from agent.runtime.observer import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
-from agent.runtime.skill_dependencies import (
-    build_install_command,
-    group_safe_dependencies,
-)
+from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.task_runner import TaskAgentConfig
+from agent.runtime.turn_attachments import (
+    build_user_message_content,
+    upload_attachments_to_sandbox,
+)
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.meta.plan_create import PlanCreate
@@ -97,6 +98,7 @@ class PlannerOrchestrator:
         self._max_iterations = max_iterations
         self._observer = observer or Observer(
             max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+            max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
             token_budget=settings.COMPACT_TOKEN_BUDGET,
             claude_client=claude_client,
             summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
@@ -120,12 +122,7 @@ class PlannerOrchestrator:
         )
 
         self._registry = registry_with_meta
-        # Preserve sandbox provider/config from the passed executor
-        self._executor = ToolExecutor(
-            registry=registry_with_meta,
-            sandbox_provider=tool_executor._sandbox_provider,
-            sandbox_config=tool_executor._sandbox_config,
-        )
+        self._executor = tool_executor.with_registry(registry_with_meta)
 
         # Persistent conversation state — appended to on each run() call
         self._state = AgentState()
@@ -137,8 +134,9 @@ class PlannerOrchestrator:
     async def run(
         self,
         user_message: str,
-        attachments: tuple = (),
+        attachments: tuple[Any, ...] = (),
         selected_skills: tuple[str, ...] = (),
+        runtime_prompt_sections: tuple[str, ...] = (),
     ) -> str:
         """Execute the planner loop and return the final synthesized response.
 
@@ -153,16 +151,17 @@ class PlannerOrchestrator:
             EventType.TURN_START,
             {"message": user_message},
         )
-
-        # Append to persistent state rather than creating a fresh one
-        self._state = self._state.add_message(
-            {"role": "user", "content": user_message},
-        )
+        self._executor.reset_turn_quotas()
         self._task_complete_summary = None
-        self._state = replace(self._state, completed=False, error=None, iteration=0)
 
-        # Skill matching via shared selector
-        effective_prompt = self._system_prompt
+        base_prompt = self._system_prompt
+        if runtime_prompt_sections:
+            dynamic = [s for s in runtime_prompt_sections if s]
+            if dynamic:
+                base_prompt = "\n".join([base_prompt, *dynamic])
+
+        # Skill matching via shared selector (before user message / uploads)
+        effective_prompt = base_prompt
         effective_registry = self._registry
         settings = get_settings()
         matched = await select_skill_for_message(
@@ -174,7 +173,7 @@ class PlannerOrchestrator:
         )
         if matched is not None:
             effective_prompt = (
-                self._system_prompt
+                base_prompt
                 + f'\n\n<skill_content name="{matched.metadata.name}">\n'
                 + matched.instructions
                 + "\n</skill_content>"
@@ -212,7 +211,12 @@ class PlannerOrchestrator:
 
             # Auto-install dependencies
             if matched.metadata.dependencies:
-                await self._install_skill_dependencies(matched.metadata.dependencies)
+                await install_skill_dependencies_for_turn(
+                    self._executor,
+                    matched.metadata.dependencies,
+                    self._emitter,
+                    context="planner",
+                )
 
             # Filter tools by allowed_tools
             if matched.metadata.allowed_tools:
@@ -221,6 +225,33 @@ class PlannerOrchestrator:
                     allowed,
                     {"mcp"},
                 )
+
+        uploaded_paths: tuple[str, ...] = ()
+        if attachments:
+            try:
+                uploaded_paths = await upload_attachments_to_sandbox(
+                    self._executor,
+                    attachments,
+                )
+            except Exception as exc:
+                err = f"Failed to upload attached files to the sandbox: {exc}"
+                await self._emitter.emit(
+                    EventType.TASK_ERROR,
+                    {
+                        "error": err,
+                        "code": "attachment_upload",
+                        "retryable": False,
+                    },
+                )
+                return f"Error: {err}"
+
+        content: str | list[dict[str, Any]] = build_user_message_content(
+            user_message,
+            attachments,
+            uploaded_paths=uploaded_paths,
+        )
+        self._state = self._state.add_message({"role": "user", "content": content})
+        self._state = replace(self._state, completed=False, error=None, iteration=0)
 
         tools = effective_registry.to_anthropic_tools()
         model = get_settings().PLANNING_MODEL
@@ -265,6 +296,7 @@ class PlannerOrchestrator:
                 {
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
+                    "summary_text": compaction_summary_for_persistence(compacted),
                 },
                 iteration=state.iteration,
             )
@@ -305,51 +337,6 @@ class PlannerOrchestrator:
             return state.mark_completed(self._task_complete_summary)
 
         return state
-
-    async def _install_skill_dependencies(
-        self,
-        dependencies: tuple[str, ...],
-    ) -> None:
-        """Auto-install skill dependencies in the sandbox.
-
-        Format: ``manager:package`` (e.g. ``npm:pptxgenjs``).
-        Defaults to ``pip`` if no manager prefix.
-        """
-        by_manager = group_safe_dependencies(dependencies)
-
-        for manager, packages in by_manager.items():
-            packages_str = " ".join(packages)
-            logger.info(
-                "planner_auto_installing_dependencies manager={} packages={}",
-                manager,
-                packages_str,
-            )
-            try:
-                session = await self._executor.get_sandbox_session()
-                result = await session.exec(
-                    build_install_command(manager, packages), timeout=120
-                )
-
-                if not result.success:
-                    logger.error(
-                        "planner_dependency_install_failed manager={} packages={} error={}",
-                        manager,
-                        packages_str,
-                        result.stderr or result.stdout,
-                    )
-                else:
-                    logger.info(
-                        "planner_dependencies_installed manager={} packages={}",
-                        manager,
-                        packages_str,
-                    )
-            except Exception as exc:
-                logger.error(
-                    "planner_dependency_install_error manager={} packages={} error={}",
-                    manager,
-                    packages_str,
-                    exc,
-                )
 
     async def _call_llm(
         self,
@@ -399,9 +386,15 @@ class PlannerOrchestrator:
     async def _finalize(self, state: AgentState) -> str:
         """Emit final event and return the result text."""
         if state.error:
+            err_msg = state.error
+            retryable = "LLM call failed" in err_msg
+            code = "llm_error" if retryable else "agent_error"
+            if "maximum iterations" in err_msg.lower():
+                code = "max_iterations"
+                retryable = False
             await self._emitter.emit(
                 EventType.TASK_ERROR,
-                {"error": state.error},
+                {"error": err_msg, "code": code, "retryable": retryable},
             )
             return f"Error: {state.error}"
 

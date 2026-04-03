@@ -86,7 +86,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation"
-            className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw]"
+            className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] touch-manipulation overscroll-contain overflow-y-auto"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}

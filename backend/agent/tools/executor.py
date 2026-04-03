@@ -34,6 +34,36 @@ class ToolExecutor:
         self._event_emitter = event_emitter
         self._artifact_manager = artifact_manager or ArtifactManager()
         self._conversation_id = conversation_id
+        self._shell_tools_this_turn = 0
+
+    @property
+    def sandbox_provider(self) -> Any | None:
+        """Sandbox provider used to create sessions (read-only)."""
+        return self._sandbox_provider
+
+    @property
+    def sandbox_config(self) -> Any | None:
+        """Optional explicit sandbox configuration override."""
+        return self._sandbox_config
+
+    @property
+    def conversation_id(self) -> str | None:
+        return self._conversation_id
+
+    def with_registry(self, registry: ToolRegistry) -> ToolExecutor:
+        """Return a new executor that shares sandbox configuration and side channels."""
+        return ToolExecutor(
+            registry=registry,
+            sandbox_provider=self._sandbox_provider,
+            sandbox_config=self._sandbox_config,
+            event_emitter=self._event_emitter,
+            artifact_manager=self._artifact_manager,
+            conversation_id=self._conversation_id,
+        )
+
+    def reset_turn_quotas(self) -> None:
+        """Reset per-turn counters (call at the start of each user turn)."""
+        self._shell_tools_this_turn = 0
 
     def set_sandbox_template(self, template: str) -> None:
         """Override the default sandbox template.
@@ -160,7 +190,18 @@ class ToolExecutor:
                 return await tool.execute(**resolved_input)
 
             if isinstance(tool, SandboxTool):
-                session = await self._get_sandbox_session(tool.definition().tags)
+                from config.settings import get_settings
+
+                tags = tool.definition().tags
+                if "shell" in tags:
+                    self._shell_tools_this_turn += 1
+                    cap = get_settings().MAX_SHELL_TOOLS_PER_TURN
+                    if cap > 0 and self._shell_tools_this_turn > cap:
+                        return ToolResult.fail(
+                            "Shell tool call limit reached for this turn. "
+                            "Stop invoking shell/shell_exec or batch work differently.",
+                        )
+                session = await self._get_sandbox_session(tags)
                 logger.debug(
                     "sandbox_tool_input name={} keys={}",
                     resolved_name,

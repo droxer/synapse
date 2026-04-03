@@ -29,6 +29,7 @@ from agent.state.repository import (
     UsageRepository,
 )
 from api.events import AgentEvent, EventType, SubscriberCallback
+from config.settings import get_settings
 
 # Event types that should not be persisted (too noisy or ephemeral)
 _SKIP_EVENTS = {EventType.TEXT_DELTA}
@@ -359,6 +360,23 @@ def create_db_subscriber(
                         await repo.update_conversation(
                             session, conversation_id, title=title
                         )
+
+                elif event.type == EventType.CONTEXT_COMPACTED:
+                    summary = clean.get("summary_text")
+                    if isinstance(summary, str) and summary.strip():
+                        await repo.merge_conversation_context_summary(
+                            session,
+                            conversation_id,
+                            summary.strip(),
+                            get_settings().COMPACT_CONTEXT_SUMMARY_MAX_CHARS,
+                        )
+                    await repo.save_event(
+                        session,
+                        conversation_id,
+                        event_type=event.type.value,
+                        data=clean,
+                        iteration=event.iteration,
+                    )
 
                 else:
                     await repo.save_event(
