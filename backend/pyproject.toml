@@ -2,6 +2,7 @@
 name = "hiagent"
 version = "0.1.0"
 description = "HiAgent - AI Agent Framework"
+license = { text = "Apache-2.0" }
 requires-python = ">=3.12"
 dependencies = [
     "anthropic",
