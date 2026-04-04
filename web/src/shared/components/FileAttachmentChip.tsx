@@ -15,7 +15,7 @@ interface FileAttachmentChipProps {
 export function FileAttachmentChip({ name, size, previewUrl, onRemove }: FileAttachmentChipProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border/50 bg-secondary/40 px-2.5 py-1.5 text-xs text-foreground font-mono">
+    <div className="flex items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground font-mono">
       {previewUrl ? (
         <img src={previewUrl} alt={name} className="h-8 w-8 rounded object-cover" />
       ) : (

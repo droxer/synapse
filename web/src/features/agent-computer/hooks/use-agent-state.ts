@@ -60,7 +60,7 @@ export function useAgentState(events: AgentEvent[]) {
       }
 
       if (e.type === "thinking") {
-        const text = String(e.data.text ?? e.data.content ?? "");
+        const text = String(e.data.thinking ?? e.data.text ?? e.data.content ?? "");
         if (text) {
           pendingThinkingParts = [...pendingThinkingParts, text];
         }
@@ -239,6 +239,18 @@ export function useAgentState(events: AgentEvent[]) {
       }
     }
 
+    // If THINKING events arrived after LLM_RESPONSE (old DB ordering), attach
+    // leftover thinking to the last assistant message that has no thinking yet.
+    if (pendingThinkingParts.length > 0) {
+      const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
+      if (lastIdx !== -1 && !msgs[lastIdx].thinkingContent) {
+        msgs[lastIdx] = {
+          ...msgs[lastIdx],
+          thinkingContent: pendingThinkingParts.join("\n\n"),
+        };
+      }
+    }
+
     return msgs;
   }, [events]);
 
@@ -249,7 +261,7 @@ export function useAgentState(events: AgentEvent[]) {
 
     for (const e of events) {
       if (e.type === "thinking") {
-        pendingThinking = String(e.data.text ?? e.data.content ?? "");
+        pendingThinking = String(e.data.thinking ?? e.data.text ?? e.data.content ?? "");
       }
 
       if (e.type === "tool_call") {
@@ -427,7 +439,7 @@ export function useAgentState(events: AgentEvent[]) {
     const thinkingEvents = events.filter((e) => e.type === "thinking");
     if (thinkingEvents.length === 0) return "";
     return thinkingEvents
-      .map((e) => String(e.data.text ?? e.data.content ?? ""))
+      .map((e) => String(e.data.thinking ?? e.data.text ?? e.data.content ?? ""))
       .join("\n");
   }, [events]);
 

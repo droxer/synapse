@@ -30,7 +30,7 @@ function formatBytes(bytes: number): string {
 function GroupSkeleton() {
   return (
     <div className="mb-8">
-      <div className="flex items-center gap-3 pb-3 border-b border-border/40 mb-4">
+      <div className="flex items-center gap-3 pb-3 border-b border-border mb-4">
         <div className="h-4 w-48 skeleton-shimmer rounded" />
         <div className="flex-1" />
         <div className="h-4 w-14 skeleton-shimmer rounded" />

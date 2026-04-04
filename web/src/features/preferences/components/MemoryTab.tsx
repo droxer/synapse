@@ -67,7 +67,7 @@ export function MemoryTab() {
       {/* Table */}
       <div className="rounded-lg border border-border overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[180px_1fr_100px_100px_40px] gap-3 bg-secondary/50 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[180px_1fr_100px_100px_40px] gap-3 bg-secondary px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
           <span>{t("preferences.memory.key")}</span>
           <span>{t("preferences.memory.value")}</span>
           <span>{t("preferences.memory.scope")}</span>
@@ -100,7 +100,7 @@ export function MemoryTab() {
                   className={cn(
                     "grid grid-cols-[180px_1fr_100px_100px_40px] items-center gap-3 px-4 py-3 text-sm",
                     "border-t border-border first:border-t-0",
-                    "hover:bg-secondary/30 transition-colors duration-100",
+                    "hover:bg-secondary transition-colors duration-100",
                   )}
                 >
                 <span

@@ -329,7 +329,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             </div>
             <div className="space-y-1.5">
               {messages.map((msg, i) => (
-                <div key={i} className="rounded border border-border bg-background/50 px-2.5 py-1.5 text-sm">
+                <div key={i} className="rounded border border-border bg-background px-2.5 py-1.5 text-sm">
                   <div className="mb-0.5 text-xs text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
@@ -375,7 +375,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                   </thead>
                   <tbody>
                     {visibleRows.map((row, i) => (
-                      <tr key={i} className={cn("border-b border-border/50", i % 2 === 1 && "bg-background/30")}>
+                      <tr key={i} className={cn("border-b border-border", i % 2 === 1 && "bg-background")}>
                         {columns.map((col) => (
                           <td key={col} className="whitespace-nowrap px-2 py-1 text-muted-foreground">{String(row[col] ?? "")}</td>
                         ))}

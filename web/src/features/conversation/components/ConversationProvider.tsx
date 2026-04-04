@@ -140,13 +140,19 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const effectiveMessages = useMemo<ChatMessage[]>(() => {
     const merged = [...historyMessages];
     for (const msg of messages) {
-      const isDuplicate = merged.some(
+      const duplicateIdx = merged.findIndex(
         (m) =>
           m.role === msg.role &&
           m.content === msg.content &&
           Math.abs(m.timestamp - msg.timestamp) < 30_000,
       );
-      if (!isDuplicate) {
+      if (duplicateIdx !== -1) {
+        // Update existing merged message to ensure we don't lose thinkingContent from events
+        merged[duplicateIdx] = {
+          ...merged[duplicateIdx],
+          thinkingContent: msg.thinkingContent || merged[duplicateIdx].thinkingContent,
+        };
+      } else {
         merged.push(msg);
       }
     }

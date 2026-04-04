@@ -52,8 +52,8 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
   useEffect(() => {
     if (!mounted) return;
     if (prevThemeRef.current !== undefined && prevThemeRef.current !== theme) {
-      setSpinClass("animate-[themeSpin_500ms_ease-out]");
-      const timer = setTimeout(() => setSpinClass(""), 500);
+      setSpinClass("animate-[themeSpin_200ms_ease-out]");
+      const timer = setTimeout(() => setSpinClass(""), 200);
       return () => clearTimeout(timer);
     }
     prevThemeRef.current = theme;

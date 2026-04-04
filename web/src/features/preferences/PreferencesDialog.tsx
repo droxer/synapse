@@ -54,10 +54,10 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         <div className="flex h-[min(80vh,700px)]">
           {/* Side menu */}
           <nav
-            className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary/30 p-3"
+            className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary p-3"
             aria-label={t("preferences.title")}
           >
-            <p className="px-3 pb-3 pt-4 text-[11px] font-bold uppercase tracking-widest text-muted-foreground/80">
+            <p className="px-3 pb-3 pt-4 text-micro font-semibold uppercase tracking-widest text-muted-foreground-dim">
               {t("preferences.title")}
             </p>
             {MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => {
@@ -72,7 +72,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
                     isActive
                       ? "bg-accent-purple/10 text-accent-purple font-semibold"
-                      : "text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                      : "text-muted-foreground hover:bg-background hover:text-foreground",
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >

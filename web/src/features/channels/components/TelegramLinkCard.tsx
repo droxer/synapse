@@ -119,7 +119,7 @@ function TelegramConfigModal({
     <div
       ref={overlayRef}
       onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-md transition-opacity duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background backdrop-blur-md transition-opacity duration-200"
     >
       <div className="animate-in fade-in slide-in-from-bottom-2 duration-150 relative w-full max-w-md overflow-hidden rounded-xl border border-border bg-card shadow-elevated">
         {/* Header */}
@@ -174,7 +174,7 @@ function TelegramConfigModal({
               </div>
 
               {/* Help accordion */}
-              <div className="rounded-md border border-border overflow-hidden bg-secondary/30">
+              <div className="rounded-md border border-border overflow-hidden bg-secondary">
                 <button
                   type="button"
                   onClick={onHelpToggle}
@@ -187,7 +187,7 @@ function TelegramConfigModal({
                   {helpOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
                 {helpOpen && (
-                  <ol className="space-y-2 border-t border-border bg-secondary/40 px-4 py-3 leading-normal text-muted-foreground">
+                  <ol className="space-y-2 border-t border-border bg-secondary px-4 py-3 leading-normal text-muted-foreground">
                     {[
                       "Message @BotFather on Telegram",
                       "Send /newbot and follow prompts",
@@ -249,7 +249,7 @@ function TelegramConfigModal({
               )}
 
               {isEditingToken && (
-                <div className="rounded-md border border-border bg-secondary/50 p-3 space-y-2">
+                <div className="rounded-md border border-border bg-secondary p-3 space-y-2">
                   <p className="text-sm font-medium text-foreground">
                     Update Token
                   </p>
@@ -328,7 +328,7 @@ function TelegramConfigModal({
                 href={`https://t.me/${status.bot_username.replace(/^@/, '')}?start=${linkToken.token}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2AABEE] px-4 py-3 text-sm font-semibold text-white transition-[background-color,transform] duration-200 ease-out hover:bg-[#229ED9] active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2AABEE] px-4 py-3 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-[#229ED9] active:scale-[0.98]"
               >
                 <ExternalLink className="h-4 w-4" />
                 Open in Telegram
@@ -338,7 +338,7 @@ function TelegramConfigModal({
                 Or copy this command and send it to <strong className="text-foreground">@{status.bot_username}</strong>
               </p>
 
-              <div className="flex items-center gap-0 rounded-lg border border-border overflow-hidden bg-secondary/60">
+              <div className="flex items-center gap-0 rounded-lg border border-border overflow-hidden bg-secondary">
                 <code className="flex-1 px-3 py-2.5 font-mono text-xs text-foreground truncate">
                   /start {linkToken.token}
                 </code>

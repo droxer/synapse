@@ -451,7 +451,7 @@ export function Sidebar({
                 >
                   {/* Active indicator bar */}
                   {isActive && (
-                    <div className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-md bg-accent-purple" />
+                    <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-purple" />
                   )}
                   <span
                     title={task.title}

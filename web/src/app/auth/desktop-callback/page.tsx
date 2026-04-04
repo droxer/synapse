@@ -78,7 +78,7 @@ function CallbackContent() {
           <p className="text-sm text-muted-foreground">
             Sign in successful! Return to the HiAgent desktop app.
           </p>
-          <p className="text-xs text-muted-foreground/50">
+          <p className="text-xs text-muted-foreground-dim">
             You can close this browser tab.
           </p>
         </>

@@ -35,14 +35,14 @@ function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key
 
   return (
     <div className="mt-1.5">
-      <p className={cn("text-sm leading-relaxed text-accent-rose/70", !expanded && "line-clamp-2")}>
+      <p className={cn("text-sm leading-relaxed text-accent-rose", !expanded && "line-clamp-2")}>
         {expanded ? output : output.slice(0, 200)}
       </p>
       {isLong && (
         <button
           type="button"
           onClick={() => setExpanded((p) => !p)}
-          className="mt-0.5 text-micro font-medium text-accent-rose/50 hover:text-accent-rose/70 transition-colors"
+          className="mt-0.5 text-micro font-medium text-accent-rose transition-colors hover:text-accent-rose"
           aria-label={expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
         >
           {expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
@@ -86,31 +86,21 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
+      initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
       className="my-2"
     >
       <div
         className={cn(
-          "group relative overflow-hidden rounded-lg border transition-colors duration-300",
+          "group relative overflow-hidden rounded-lg border border-l-2 transition-colors duration-200",
           isError
-            ? "border-accent-rose/30 bg-accent-rose/[0.04]"
+            ? "border-destructive/20 border-l-destructive bg-destructive/5"
             : isComplete
-              ? "border-[var(--color-ai-border)] bg-[var(--color-ai-surface)]"
-              : "border-[var(--color-ai-glow)]/20 bg-[var(--color-ai-glow)]/[0.03]",
+              ? "border-ai-border border-l-accent-purple bg-ai-surface"
+              : "border-ai-border border-l-accent-purple bg-ai-surface",
         )}
       >
-        {/* Gradient accent line at top */}
-        <div
-          className={cn(
-            "h-[2px] w-full",
-            isError
-              ? "bg-gradient-to-r from-accent-rose/60 via-accent-rose/30 to-transparent"
-              : "bg-gradient-to-r from-[var(--color-ai-glow)]/60 via-accent-purple/30 to-transparent",
-          )}
-        />
-
         {/* Main content */}
         <div className="flex items-start gap-3 px-3.5 py-2.5">
           {/* Icon container */}
@@ -118,8 +108,8 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             role="img"
             aria-label={isComplete ? (isError ? t("skills.activity.skillFailed") : t("skills.activity.skillLoaded")) : t("skills.activity.skillLoading")}
             className={cn(
-              "mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md",
-              isError ? "bg-accent-rose/10" : "bg-[var(--color-ai-surface)]",
+              "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+              isError ? "bg-destructive/5" : "bg-ai-surface",
             )}
           >
             {isComplete ? (
@@ -155,7 +145,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 >
                   <Badge
                     variant="secondary"
-                    className="gap-1 rounded-full border-0 bg-[var(--color-ai-surface)] px-1.5 py-0.5 text-micro font-medium text-accent-purple"
+                    className="gap-1 rounded-full border-0 bg-ai-surface px-1.5 py-0.5 text-micro font-medium text-accent-purple"
                   >
                     <Check className="h-2.5 w-2.5" />
                     {t("skills.activity.loaded")}
@@ -164,13 +154,13 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {!isComplete && (
-                <Badge variant="secondary" className="rounded-full border-0 bg-accent-purple/10 px-1.5 py-0.5 text-micro font-medium text-accent-purple/70">
+                <Badge variant="secondary" className="rounded-full border-0 bg-accent-purple/10 px-1.5 py-0.5 text-micro font-medium text-accent-purple">
                   {t("skills.activity.loading")}
                 </Badge>
               )}
 
               {isError && (
-                <Badge variant="secondary" className="rounded-full border-0 bg-accent-rose/10 px-1.5 py-0.5 text-micro font-medium text-accent-rose/70">
+                <Badge variant="secondary" className="rounded-full border-0 bg-destructive/5 px-1.5 py-0.5 text-micro font-medium text-accent-rose">
                   {t("skills.activity.failed")}
                 </Badge>
               )}
@@ -180,7 +170,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
-                  transition={{ duration: 0.2 }}
+                  transition={{ duration: 0.12 }}
                   className="ml-auto shrink-0"
                 >
                   <Badge
@@ -206,7 +196,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               <motion.p
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
-                transition={{ duration: 0.2 }}
+                transition={{ duration: 0.12 }}
                 className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
               >
                 {skillMeta.description}
@@ -268,10 +258,10 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
+              transition={{ duration: 0.12, ease: "easeInOut" }}
               className="overflow-hidden"
             >
-              <div className="border-t border-[var(--color-ai-border)] px-3.5 py-2">
+              <div className="border-t border-ai-border px-3.5 py-2">
                 <pre className="max-h-48 md:max-h-64 overflow-auto font-mono text-micro leading-relaxed text-muted-foreground-dim">
                   {toolCall.output}
                 </pre>
