@@ -5,7 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
-import { TopBar, MarkdownRenderer } from "@/shared/components";
+import { TopBar, MarkdownRenderer, ThinkingBlock } from "@/shared/components";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
 import { NON_ARTIFACT_TOOLS } from "@/features/agent-computer/lib/tool-constants";
 import { ChatInput } from "@/features/conversation";
@@ -273,6 +273,14 @@ export function ConversationWorkspace({
                         )}
                       >
                         <div className="relative">
+                          {/* Thinking / reasoning block (if present) */}
+                          {msg.thinkingContent && (
+                            <ThinkingBlock
+                              content={msg.thinkingContent}
+                              isLive={isStreamingThis}
+                            />
+                          )}
+
                           {/* Message body */}
                           <div className="text-sm leading-[1.5] text-foreground">
                             <MarkdownRenderer content={msg.content} />

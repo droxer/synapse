@@ -6,6 +6,7 @@ export { FilePreview } from "./FilePreview";
 export { IconButton } from "./IconButton";
 export { Logo, LogoMark } from "./Logo";
 export { MarkdownRenderer } from "./MarkdownRenderer";
+export { ThinkingBlock } from "./ThinkingBlock";
 export { PulsingDot } from "./PulsingDot";
 export { Sidebar } from "./Sidebar";
 export { TopBar } from "./TopBar";

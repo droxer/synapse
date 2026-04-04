@@ -600,6 +600,13 @@ class AgentOrchestrator:
             response.usage.output_tokens,
         )
 
+        if response.thinking:
+            await self._emitter.emit(
+                EventType.THINKING,
+                {"thinking": response.thinking},
+                iteration=state.iteration,
+            )
+
         await self._emitter.emit(
             EventType.LLM_RESPONSE,
             {
@@ -610,13 +617,6 @@ class AgentOrchestrator:
             },
             iteration=state.iteration,
         )
-
-        if response.thinking:
-            await self._emitter.emit(
-                EventType.THINKING,
-                {"thinking": response.thinking},
-                iteration=state.iteration,
-            )
 
         state = apply_response_to_state(state, response)
 

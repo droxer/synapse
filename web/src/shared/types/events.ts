@@ -48,6 +48,7 @@ export interface ChatMessage {
   readonly timestamp: number;
   readonly attachments?: Array<{ readonly name: string; readonly size: number; readonly type: string }>;
   imageArtifactIds?: string[];
+  readonly thinkingContent?: string;
 }
 
 export interface BrowserMetadata {
