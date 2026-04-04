@@ -75,7 +75,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.12 }}
             onClick={onClose}
             aria-hidden="true"
           />
@@ -90,7 +90,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
           >
             {children}
           </motion.div>

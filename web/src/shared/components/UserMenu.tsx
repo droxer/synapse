@@ -89,7 +89,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
           <PopoverContent
             side="right"
             align="end"
-            className="w-56 animate-[scaleIn_0.15s_ease-out] rounded-lg border-border bg-card shadow-[var(--shadow-elevated)] p-0"
+            className="w-56 animate-in fade-in duration-100 rounded-lg border-border bg-card shadow-[var(--shadow-elevated)] p-0"
           >
             <ProfilePopoverContent
               name={name}
@@ -136,7 +136,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
       <PopoverContent
         side="top"
         align="start"
-        className="w-56 animate-[scaleIn_0.15s_ease-out] rounded-lg border-border bg-card shadow-[var(--shadow-elevated)] p-0"
+        className="w-56 animate-in fade-in duration-100 rounded-lg border-border bg-card shadow-[var(--shadow-elevated)] p-0"
       >
         <ProfilePopoverContent
           name={name}

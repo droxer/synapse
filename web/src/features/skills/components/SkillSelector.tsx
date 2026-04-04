@@ -110,7 +110,7 @@ export function SkillSelector({
                 aria-label={t("skills.selector.select")}
                 className={cn(
                   "gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  variant === "welcome" ? "h-8 px-3 bg-secondary/50" : "h-7 bg-secondary/40",
+                  variant === "welcome" ? "h-8 px-3 bg-secondary" : "h-7 bg-secondary",
                 )}
               >
                 <Lightbulb aria-hidden="true" className="h-3.5 w-3.5" />
@@ -161,7 +161,7 @@ export function SkillSelector({
                       onClick={() => handleSelect(skill.name)}
                       className={cn(
                         "group relative flex cursor-pointer flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors",
-                        "hover:bg-secondary/60",
+                        "hover:bg-secondary",
                         "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                         isSelected && "bg-secondary ring-1 ring-border-strong",
                       )}
@@ -180,7 +180,7 @@ export function SkillSelector({
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors",
                             isSelected
                               ? "bg-secondary text-accent-purple"
-                              : "bg-secondary/80 text-muted-foreground group-hover:text-foreground",
+                              : "bg-secondary text-muted-foreground group-hover:text-foreground",
                           )}
                         >
                           <Lightbulb aria-hidden="true" className="h-3 w-3" />

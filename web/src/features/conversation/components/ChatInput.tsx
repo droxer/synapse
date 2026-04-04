@@ -151,11 +151,11 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "relative rounded-md border border-border/50 bg-background/50 shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+            "relative rounded-md border border-border bg-background shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] transition-[border-color,box-shadow,background-color] duration-200 ease-out",
             isFocused
               ? "border-accent-purple/50 ring-1 ring-accent-purple/20"
               : "",
-            isDragOver && "border-dashed border-border-active bg-secondary/30",
+            isDragOver && "border-dashed border-border-active bg-secondary",
           )}
         >
           {/* File & skill attachment shelf */}
@@ -165,7 +165,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.2, ease: "easeOut" }}
+                transition={{ duration: 0.12, ease: "easeOut" }}
                 className="overflow-hidden"
               >
                 <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-2">
@@ -224,7 +224,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
                   "gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  isWelcome ? "h-8 px-3 bg-secondary/50" : "h-7 bg-secondary/40",
+                  isWelcome ? "h-8 px-3 bg-secondary" : "h-7 bg-secondary",
                 )}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -272,9 +272,9 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     hasContent && !isAgentRunning ? "opacity-100" : "opacity-0",
                   )}
                 >
-                  <kbd className="rounded border border-border bg-secondary/60 px-1 py-0.5 font-mono text-micro text-muted-foreground">Enter</kbd>
+                  <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">Enter</kbd>
                   <span className="mx-1 text-muted-foreground">{t("chat.enterToSend")}</span>
-                  <kbd className="rounded border border-border bg-secondary/60 px-1 py-0.5 font-mono text-micro text-muted-foreground">Shift+Enter</kbd>
+                  <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">Shift+Enter</kbd>
                   <span className="ml-1 text-muted-foreground">{t("chat.shiftEnterNewLine")}</span>
                 </span>
               )}

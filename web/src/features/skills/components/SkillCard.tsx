@@ -30,7 +30,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       className={cn(
         "group flex h-full cursor-pointer flex-col rounded-lg border bg-card p-4 shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out",
         isDisabled
-          ? "border-border/60 hover:border-border"
+          ? "border-border hover:border-border"
           : "border-border hover:border-border-strong",
       )}
     >
@@ -38,7 +38,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       <div className="flex items-start justify-between gap-2">
         <div className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200",
-          isDisabled ? "bg-secondary/60" : "bg-secondary",
+          isDisabled ? "bg-secondary" : "bg-secondary",
         )}>
           <Lightbulb aria-hidden="true" className={cn(
             "h-4 w-4 transition-colors duration-200",
@@ -63,7 +63,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
               size="icon-xs"
               aria-label={`${t("skills.uninstall")} ${normalizeSkillName(skill.name)}`}
               className={cn(
-                "shrink-0 text-muted-foreground/0 transition-colors",
+                "shrink-0 text-transparent transition-colors",
                 "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
                 "hover:text-destructive hover:bg-destructive/10",
               )}
@@ -114,7 +114,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
               "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
               "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
               isDisabled
-                ? "bg-secondary text-muted-foreground-dim hover:bg-secondary/80 hover:text-muted-foreground"
+                ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
                 : "bg-accent-emerald/10 text-accent-emerald hover:bg-accent-emerald/15",
             )}
             onClick={(e) => {

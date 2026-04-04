@@ -49,7 +49,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
   const role = String(tc.input.role ?? "");
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary/50 px-3 py-2">
+    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary px-3 py-2">
       <div className="flex items-center gap-2">
         <GitFork className="h-3.5 w-3.5 shrink-0 text-accent-purple" />
         <span className="text-sm font-medium text-foreground">{agentName}</span>
@@ -74,7 +74,7 @@ function WaitForAgentsDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallIn
   const waitingAll = agentIds.length === 0;
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary/50 px-3 py-2">
+    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary px-3 py-2">
       <div className="flex items-center gap-2">
         <Clock className="h-3.5 w-3.5 shrink-0 text-accent-amber" />
         <span className="text-sm font-medium text-foreground">
@@ -106,7 +106,7 @@ function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
   const isBroadcast = targetId === "all";
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary/50 px-3 py-2">
+    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary px-3 py-2">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-3.5 w-3.5 shrink-0 text-accent-purple" />
         <span className="text-sm font-medium text-foreground">
@@ -133,8 +133,8 @@ function ThinkingPreview({ text }: { readonly text: string }) {
   const shown = expanded || !isLong ? text : text.slice(0, THINKING_PREVIEW_LENGTH);
 
   return (
-    <div className="ml-6 mb-1.5 border-l-2 border-accent-purple/40 pl-2 py-0.5">
-      <span className="text-xs italic text-accent-purple/80 leading-relaxed">
+    <div className="ml-6 mb-1.5 border-l-2 border-accent-purple pl-2 py-0.5">
+      <span className="text-xs italic text-accent-purple leading-relaxed">
         {shown}
         {isLong && !expanded && "..."}
       </span>
@@ -423,7 +423,7 @@ export function AgentComputerPanel({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <Monitor className="h-3 w-3" />
+            <Monitor className="h-3.5 w-3.5" />
             {t("computer.activity")}
           </button>
           <button
@@ -441,7 +441,7 @@ export function AgentComputerPanel({
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <FolderOpen className="h-3 w-3" />
+            <FolderOpen className="h-3.5 w-3.5" />
             {t("computer.artifacts")}
             {artifacts.length > 0 && (
               <span className="ml-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted px-1 text-micro font-semibold">
@@ -463,7 +463,7 @@ export function AgentComputerPanel({
       {activeTab === "activity" && isRunning && latestToolCall && (
         <div className="flex shrink-0 items-center gap-2 border-b border-border px-4 py-2" role="status" aria-live="polite">
           <PulsingDot size="sm" />
-          <span className="text-base text-muted-foreground">
+          <span className="text-sm text-muted-foreground">
             {getRunningToolStatusText(latestToolCall, t)}
           </span>
           {latestToolCall.output === undefined && !SKILL_TOOL_NAMES.has(latestToolCall.name) && latestToolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(latestToolCall.name) && !AGENT_META_TOOLS.has(latestToolCall.name) && (
@@ -517,7 +517,7 @@ export function AgentComputerPanel({
                         ? "var(--color-secondary)"
                         : "transparent",
                     }}
-                    transition={{ duration: 0.15, ease: "easeOut" }}
+                    transition={{ duration: 0.12, ease: "easeOut" }}
                     className="rounded-md"
                   >
                     {/* Thinking preview — shown above the tool call it produced */}

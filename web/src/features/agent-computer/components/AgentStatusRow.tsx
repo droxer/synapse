@@ -14,8 +14,8 @@ import type { AgentStatus, ToolCallInfo } from "@/shared/types";
 function ToolStatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   if (tc.output !== undefined) {
     return tc.success === false
-      ? <CircleX className="h-3 w-3 shrink-0 text-accent-rose" />
-      : <CircleCheck className="h-3 w-3 shrink-0 text-accent-emerald" />;
+      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
+      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />;
   }
   return <PulsingDot size="sm" />;
 }
@@ -49,7 +49,7 @@ export function AgentStatusRow({
         className={cn(
           "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
           "bg-secondary",
-          hasTools && "cursor-pointer hover:bg-secondary/80",
+          hasTools && "cursor-pointer hover:bg-muted",
           !hasTools && "cursor-default",
         )}
       >
@@ -60,12 +60,12 @@ export function AgentStatusRow({
         ) : (
           <PulsingDot size="sm" />
         )}
-        <GitFork className={cn("h-3 w-3 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
+        <GitFork className={cn("h-3.5 w-3.5 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
         <span className={cn("flex-1 truncate", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
           {agent.description.includes(" → ") ? (
             <>
               {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
-              <ArrowRightLeft className="inline h-3 w-3 mx-1 text-muted-foreground" />
+              <ArrowRightLeft className="mx-1 inline h-3.5 w-3.5 text-muted-foreground" />
               {agent.description.split(" → ").slice(1).join(" → ")}
             </>
           ) : (
@@ -83,7 +83,7 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex items-center"
           >
-            <ChevronRight className="h-3 w-3 text-muted-foreground" />
+            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
           </motion.span>
         )}
         <span className={cn("ml-auto font-mono text-micro", isDark ? "text-[var(--color-terminal-dim)]" : "text-muted-foreground")}>

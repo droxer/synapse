@@ -1,6 +1,19 @@
 "use client";
 
 import { useMemo } from "react";
+
+// Some LLM providers (e.g. Qwen3 via DashScope) embed thinking content in
+// the response text using <think>…</think> tags rather than returning it as
+// a separate content block.  Split them out so we can display the reasoning
+// in a dedicated ThinkingBlock instead of raw prose.
+const THINK_TAG_RE = /^<think>([\s\S]*?)<\/think>\s*/;
+
+function splitThinkTag(text: string): { thinking: string; content: string } {
+  const m = THINK_TAG_RE.exec(text);
+  if (!m) return { thinking: "", content: text };
+  return { thinking: m[1].trim(), content: text.slice(m[0].length) };
+}
+
 import type {
   AgentEvent,
   ArtifactInfo,
@@ -23,6 +36,8 @@ export function useAgentState(events: AgentEvent[]) {
     let pendingImageArtifactIds: string[] = [];
     // Track which artifact IDs are images
     const imageArtifactIdSet = new Set<string>();
+    // Accumulate thinking content between messages
+    let pendingThinkingParts: string[] = [];
 
     for (const e of events) {
       // Collect image artifact IDs from artifact_created events
@@ -44,11 +59,18 @@ export function useAgentState(events: AgentEvent[]) {
         }
       }
 
-      if (e.type === "turn_start") {
+      if (e.type === "thinking") {
+        const text = String(e.data.thinking ?? e.data.text ?? e.data.content ?? "");
+        if (text) {
+          pendingThinkingParts = [...pendingThinkingParts, text];
+        }
+      } else if (e.type === "turn_start") {
         const userMsg = String(e.data.message ?? "");
         if (userMsg) {
           msgs.push({ role: "user", content: userMsg, timestamp: e.timestamp });
         }
+        // Reset thinking accumulator at turn start
+        pendingThinkingParts = [];
       } else if (e.type === "text_delta") {
         // Accumulate streaming text from deltas
         streamingText += String(e.data.delta ?? "");
@@ -57,66 +79,88 @@ export function useAgentState(events: AgentEvent[]) {
         }
       } else if (e.type === "llm_response") {
         // LLM response finalizes the streamed text
-        const text = String(e.data.text ?? "");
+        const rawText = String(e.data.text ?? "");
         const _toolCallCount = Number(e.data.tool_call_count ?? 0);
         // Reset streaming buffer — this response covers the accumulated deltas
         streamingText = "";
         streamingTimestamp = 0;
-        if (text) {
+        if (rawText) {
+          // Strip inline <think> tags (used by Qwen3 and similar models when
+          // thinking is embedded in the text block rather than a separate block).
+          const { thinking: inlineThinking, content: text } = splitThinkTag(rawText);
+          const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
+          const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
           const msg: ChatMessage = {
             role: "assistant",
             content: text,
             timestamp: e.timestamp,
+            ...(thinkingContent && { thinkingContent }),
             ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
           };
           if (pendingImageArtifactIds.length > 0) {
             pendingImageArtifactIds = [];
           }
+          pendingThinkingParts = [];
           msgs.push(msg);
         }
       } else if (e.type === "message_user") {
+        const thinkingContent = pendingThinkingParts.length > 0
+          ? pendingThinkingParts.join("\n\n")
+          : undefined;
         const msg: ChatMessage = {
           role: "assistant",
           content: String(e.data.message ?? e.data.content ?? ""),
           timestamp: e.timestamp,
+          ...(thinkingContent && { thinkingContent }),
           ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
         };
         if (pendingImageArtifactIds.length > 0) {
           pendingImageArtifactIds = [];
         }
+        pendingThinkingParts = [];
         msgs.push(msg);
       } else if (e.type === "turn_cancelled") {
         // Finalize any streaming text as a partial message
         if (streamingText) {
+          const thinkingContent = pendingThinkingParts.length > 0
+            ? pendingThinkingParts.join("\n\n")
+            : undefined;
           const msg: ChatMessage = {
             role: "assistant",
             content: streamingText,
             timestamp: streamingTimestamp,
+            ...(thinkingContent && { thinkingContent }),
             ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
           };
           if (pendingImageArtifactIds.length > 0) {
             pendingImageArtifactIds = [];
           }
+          pendingThinkingParts = [];
           msgs.push(msg);
           streamingText = "";
           streamingTimestamp = 0;
         }
       } else if (e.type === "turn_complete" || e.type === "task_complete") {
-        const result = String(e.data.result ?? "");
-        if (result) {
+        const rawResult = String(e.data.result ?? "");
+        if (rawResult) {
+          const { thinking: inlineThinking, content: result } = splitThinkTag(rawResult);
           const alreadyShown = msgs.some(
             (m) => m.role === "assistant" && m.content === result,
           );
           if (!alreadyShown) {
+            const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
+            const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
             const msg: ChatMessage = {
               role: "assistant",
               content: result,
               timestamp: e.timestamp,
+              ...(thinkingContent && { thinkingContent }),
               ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
             };
             if (pendingImageArtifactIds.length > 0) {
               pendingImageArtifactIds = [];
             }
+            pendingThinkingParts = [];
             msgs.push(msg);
           } else if (pendingImageArtifactIds.length > 0) {
             // Attach to the existing matching message (immutably replace in array)
@@ -164,10 +208,14 @@ export function useAgentState(events: AgentEvent[]) {
     // If there's still streaming text (deltas arrived but no llm_response yet),
     // show it as an in-progress message
     if (streamingText) {
+      const thinkingContent = pendingThinkingParts.length > 0
+        ? pendingThinkingParts.join("\n\n")
+        : undefined;
       const msg: ChatMessage = {
         role: "assistant",
         content: streamingText,
         timestamp: streamingTimestamp,
+        ...(thinkingContent && { thinkingContent }),
         ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
       };
       if (pendingImageArtifactIds.length > 0) {
@@ -191,6 +239,18 @@ export function useAgentState(events: AgentEvent[]) {
       }
     }
 
+    // If THINKING events arrived after LLM_RESPONSE (old DB ordering), attach
+    // leftover thinking to the last assistant message that has no thinking yet.
+    if (pendingThinkingParts.length > 0) {
+      const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
+      if (lastIdx !== -1 && !msgs[lastIdx].thinkingContent) {
+        msgs[lastIdx] = {
+          ...msgs[lastIdx],
+          thinkingContent: pendingThinkingParts.join("\n\n"),
+        };
+      }
+    }
+
     return msgs;
   }, [events]);
 
@@ -201,7 +261,7 @@ export function useAgentState(events: AgentEvent[]) {
 
     for (const e of events) {
       if (e.type === "thinking") {
-        pendingThinking = String(e.data.text ?? e.data.content ?? "");
+        pendingThinking = String(e.data.thinking ?? e.data.text ?? e.data.content ?? "");
       }
 
       if (e.type === "tool_call") {
@@ -379,7 +439,7 @@ export function useAgentState(events: AgentEvent[]) {
     const thinkingEvents = events.filter((e) => e.type === "thinking");
     if (thinkingEvents.length === 0) return "";
     return thinkingEvents
-      .map((e) => String(e.data.text ?? e.data.content ?? ""))
+      .map((e) => String(e.data.thinking ?? e.data.text ?? e.data.content ?? ""))
       .join("\n");
   }, [events]);
 

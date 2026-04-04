@@ -116,7 +116,7 @@ export function ChannelConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="mx-2 mt-1 rounded-md border border-dashed border-border bg-secondary/30 px-3 py-4 text-center">
+      <div className="mx-2 mt-1 rounded-md border border-dashed border-border bg-secondary px-3 py-4 text-center">
         <p className="text-xs font-medium text-muted-foreground">No conversations yet</p>
         <p className="mt-0.5 text-micro text-muted-foreground-dim leading-normal">
           Messages arrive automatically
@@ -127,7 +127,7 @@ export function ChannelConversationList({
 
   const container: Variants = {
     hidden: {},
-    show: { transition: { staggerChildren: 0.04, delayChildren: 0.05 } },
+    show: { transition: { staggerChildren: 0.02, delayChildren: 0.05 } },
   };
   const item: Variants = {
     hidden: { opacity: 0, x: -6 },
@@ -167,7 +167,7 @@ export function ChannelConversationList({
               {/* Avatar */}
               <div className="relative shrink-0">
                 <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold text-white shadow-card"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold text-primary-foreground shadow-card"
                   style={{
                     background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})`,
                   }}
@@ -225,7 +225,7 @@ export function ChannelConversationList({
                 aria-label="Delete conversation"
               >
                 {deletingId === conv.conversation_id ? (
-                  <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                  <Trash2 className="h-3.5 w-3.5 animate-pulse text-destructive" aria-hidden />
                 ) : (
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
                 )}

@@ -5,13 +5,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
-import { TopBar, MarkdownRenderer } from "@/shared/components";
+import { TopBar, MarkdownRenderer, ThinkingBlock } from "@/shared/components";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
 import { NON_ARTIFACT_TOOLS } from "@/features/agent-computer/lib/tool-constants";
 import { ChatInput } from "@/features/conversation";
 import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
-import { StreamingCursor } from "./StreamingCursor";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import type {
@@ -226,14 +225,14 @@ export function ConversationWorkspace({
                     {msg.role === "user" ? (
                       /* ─── User message ─── right-aligned command surface */
                       <motion.div
-                        initial={{ opacity: 0, x: 8 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className="flex justify-end"
                       >
                         <div className="max-w-[90%] min-w-[120px] sm:max-w-[80%]">
                           {/* Frosted card surface */}
-                          <div className="rounded-md bg-secondary/40 px-4 py-3 border border-border/50">
+                          <div className="rounded-md bg-secondary px-4 py-3 border border-border">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
@@ -269,16 +268,20 @@ export function ConversationWorkspace({
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className={cn(
                           "group relative max-w-full min-w-0 sm:max-w-[85%]",
-                          isStreamingThis && "pl-4",
                         )}
                       >
                         <div className="relative">
+                          {/* Thinking / reasoning block (if present) */}
+                          {msg.thinkingContent && (
+                            <ThinkingBlock
+                              content={msg.thinkingContent}
+                              isLive={isStreamingThis}
+                            />
+                          )}
+
                           {/* Message body */}
                           <div className="text-sm leading-[1.5] text-foreground">
-                            <MarkdownRenderer content={msg.content} />
-                            <AnimatePresence>
-                              {isStreamingThis && <StreamingCursor />}
-                            </AnimatePresence>
+                            <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
 
                             {/* Inline images for this message */}
                             {(() => {
@@ -403,9 +406,9 @@ export function ConversationWorkspace({
         {panelOpen && (
           <motion.div
             className="flex w-full flex-col md:w-1/2"
-            initial={{ opacity: 0, x: 20 }}
+            initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.2, ease: "easeOut" }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <AgentComputerPanel
               conversationId={conversationId}

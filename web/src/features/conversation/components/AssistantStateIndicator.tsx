@@ -44,7 +44,7 @@ export function AssistantStateIndicator({ phase }: AssistantStateIndicatorProps)
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -4 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
     >
       <div
         className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm ${config.className}`}

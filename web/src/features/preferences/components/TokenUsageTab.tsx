@@ -60,11 +60,11 @@ export function TokenUsageTab() {
             {/* Bar */}
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full bg-accent-purple/40 transition-[width] duration-500 ease-out"
+                className="h-full bg-accent-purple/40 transition-[width] duration-200 ease-out"
                 style={{ width: `${inputPct}%` }}
               />
               <div
-                className="h-full bg-accent-purple transition-[width] duration-500 ease-out"
+                className="h-full bg-accent-purple transition-[width] duration-200 ease-out"
                 style={{ width: `${outputPct}%` }}
               />
             </div>
@@ -112,7 +112,7 @@ export function TokenUsageTab() {
 
         <div className="rounded-lg border border-border overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_120px_120px_80px_120px] gap-3 bg-secondary/50 px-4 py-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[1fr_120px_120px_80px_120px] gap-3 bg-secondary px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
             <span>{t("preferences.usage.conversationId")}</span>
             <span className="text-right">{t("profile.inputTokens")}</span>
             <span className="text-right">{t("profile.outputTokens")}</span>
@@ -142,7 +142,7 @@ export function TokenUsageTab() {
                   className={cn(
                     "grid grid-cols-[1fr_120px_120px_80px_120px] items-center gap-3 px-4 py-3 text-sm",
                     "border-t border-border first:border-t-0",
-                    "hover:bg-secondary/30 transition-colors duration-100",
+                    "hover:bg-secondary transition-colors duration-100",
                   )}
                 >
                   <span className="truncate font-mono text-xs text-foreground">

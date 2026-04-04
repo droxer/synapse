@@ -70,14 +70,16 @@ const components: Components = {
 interface MarkdownRendererProps {
   content: string;
   className?: string;
+  isStreaming?: boolean;
 }
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   className,
+  isStreaming,
 }: MarkdownRendererProps) {
   return (
-    <div className={className ?? "markdown-body"}>
+    <div className={`${className ?? "markdown-body"} ${isStreaming ? "streaming-active" : ""}`.trim()}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm, remarkMath]}
         rehypePlugins={[rehypeKatex, rehypeHighlight]}

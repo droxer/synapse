@@ -9,7 +9,7 @@ export function ChannelsListening() {
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.3, ease: "easeOut" }}
+        transition={{ duration: 0.12, ease: "easeOut" }}
         className="flex w-full max-w-xs flex-col items-center gap-5 text-center"
       >
         {/* Sonar radar animation */}
@@ -44,7 +44,7 @@ export function ChannelsListening() {
           </p>
         </div>
 
-        <div className="w-full rounded-lg border border-border bg-secondary/50 p-3.5">
+        <div className="w-full rounded-lg border border-border bg-secondary p-3.5">
           <div className="flex items-start gap-2.5">
             <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent-purple/10">
               <svg className="h-3 w-3 text-accent-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">

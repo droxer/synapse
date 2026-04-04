@@ -59,7 +59,7 @@ export function LanguageTab() {
               </div>
               {isActive && (
                 <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-purple">
-                  <Check className="h-3 w-3 text-white" />
+                  <Check className="h-3 w-3 text-primary-foreground" />
                 </div>
               )}
             </button>

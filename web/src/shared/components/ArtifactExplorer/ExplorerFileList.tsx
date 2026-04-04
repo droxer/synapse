@@ -112,7 +112,7 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
         <img
           src={artifactUrl}
           alt={item.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ease-out"
           loading="lazy"
         />
       </div>
@@ -294,14 +294,14 @@ function FileCard({
           "rounded-lg bg-card border overflow-hidden shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
           "border-l-2",
           isSelected
-            ? "ring-[3px] ring-primary border-border/50 border-l-primary shadow-card-hover"
-            : "border-border/50 hover:border-border-strong hover:shadow-card-hover",
+            ? "ring-[3px] ring-primary border-border border-l-primary shadow-card-hover"
+            : "border-border hover:border-border-strong hover:shadow-card-hover",
           "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
         ].join(" ")}
         style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.2, delay: Math.min(index * 0.02, 0.2) }}
+        transition={{ duration: 0.12, delay: Math.min(index * 0.02, 0.2) }}
         onClick={() => onPreview(item)}
         onKeyDown={(e) => {
           if (e.key === "Enter") { e.preventDefault(); onPreview(item); }
@@ -320,8 +320,8 @@ function FileCard({
               className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
               onClick={(e) => { e.stopPropagation(); onDownload(item); }}
             >
-              <div className="h-6 w-6 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center hover:bg-black/60 transition-colors">
-                <Download className="w-3 h-3 text-white" />
+              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center hover:bg-secondary-foreground transition-colors">
+                <Download className="w-3 h-3 text-primary-foreground" />
               </div>
             </div>
           )}
@@ -334,10 +334,10 @@ function FileCard({
             onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
           >
             <div
-              className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-[color,background-color,border-color,box-shadow] duration-200 ease-out backdrop-blur-sm ${
+              className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-[color,background-color,border-color,box-shadow] duration-200 ease-out  ${
                 isSelected
                   ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                  : "border-white/70 bg-black/30 hover:border-white"
+                  : "border-border bg-muted hover:border-border-strong"
               }`}
             >
               {isSelected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -356,7 +356,7 @@ function FileCard({
                 {ext}
               </span>
             )}
-            <p className="text-[10px] text-muted-foreground/70 truncate">
+            <p className="text-micro text-muted-foreground-dim truncate">
               {sizeText}
               {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
             </p>
@@ -374,8 +374,8 @@ function FileCard({
         "rounded-lg bg-card border p-2.5 shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l-2",
         isSelected
-          ? "ring-[3px] ring-primary border-border/50 border-l-primary bg-primary/5"
-          : "border-border/50 hover:border-border-strong hover:bg-secondary/40",
+          ? "ring-[3px] ring-primary border-border border-l-primary bg-primary/5"
+          : "border-border hover:border-border-strong hover:bg-secondary",
         "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
       ].join(" ")}
       style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
@@ -398,7 +398,7 @@ function FileCard({
         </p>
         <div className="flex items-center gap-1.5 mt-0.5">
           {ext && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-[10px] uppercase text-muted-foreground">
+            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
               {ext}
             </span>
           )}
@@ -417,7 +417,7 @@ function FileCard({
             className="opacity-0 group-hover:opacity-100 transition-opacity"
             onClick={(e) => { e.stopPropagation(); onDownload(item); }}
           >
-            <div className={`h-6 w-6 rounded-full border border-muted-foreground/30 bg-background/80 flex items-center justify-center hover:border-primary hover:${iconColor} transition-colors`}>
+            <div className={`h-6 w-6 rounded-full border border-muted-foreground/30 bg-background flex items-center justify-center hover:border-primary hover:${iconColor} transition-colors`}>
               <Download className="w-3 h-3" />
             </div>
           </div>
@@ -434,7 +434,7 @@ function FileCard({
             className={`h-5 w-5 rounded-full border flex items-center justify-center transition-colors ${
               isSelected
                 ? "bg-primary border-primary text-primary-foreground"
-                : "border-muted-foreground/50 bg-background/50 hover:border-primary"
+                : "border-muted-foreground/50 bg-background hover:border-primary"
             }`}
           >
             {isSelected && <Check className="w-3 h-3" strokeWidth={3} />}
@@ -542,14 +542,14 @@ export function ExplorerFileList({
 
               return (
                 <div key={group.id} className="mb-8 last:mb-0">
-                  <div className="flex items-center gap-3 mb-4 mt-8 first:mt-0 pb-3 border-b border-border/40">
+                  <div className="flex items-center gap-3 mb-4 mt-8 first:mt-0 pb-3 border-b border-border">
                     <h3 className="text-sm font-semibold text-foreground truncate flex-1">
                       {group.title}
                     </h3>
                     <span className="shrink-0 text-xs text-muted-foreground">
                       {t(groupItems.length === 1 ? "library.statsFile" : "library.statsFiles", { count: groupItems.length })}
                     </span>
-                    <span className="shrink-0 text-xs text-muted-foreground/60" title={groupAbsDate}>
+                    <span className="shrink-0 text-xs text-muted-foreground-dim" title={groupAbsDate}>
                       {groupDate}
                     </span>
                   </div>

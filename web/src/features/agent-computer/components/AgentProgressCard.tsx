@@ -260,16 +260,16 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "running") {
     return (
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-ai-glow/15">
+      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-ai-surface">
         <Icon className="h-3 w-3 text-ai-glow" />
-        <span className="absolute inset-0 rounded-md bg-ai-glow/10 animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
+        <span className="absolute inset-0 rounded-md bg-ai-surface animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
       </span>
     );
   }
 
   if (step.status === "error") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent-rose/15">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-destructive/5">
         <CircleX className="h-3 w-3 text-accent-rose" />
       </span>
     );
@@ -389,7 +389,7 @@ export function AgentProgressCard({
               <div
                 role="status"
                 aria-live="polite"
-                className="text-base truncate text-muted-foreground"
+                className="truncate text-sm text-muted-foreground"
               >
                 {runningStepTitle}
               </div>
@@ -443,10 +443,11 @@ export function AgentProgressCard({
                   {steps.map((step, index) => {
                     const isClickable = step.id.startsWith("tool-") || step.id.startsWith("agent-");
                     return (
-                      <motion.div
+                      <motion.button
+                        type="button"
                         key={step.id}
-                        initial={{ opacity: 0, x: -4 }}
-                        animate={{ opacity: 1, x: 0 }}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
                         transition={{
                           delay: index * 0.015,
                           duration: 0.12,
@@ -454,17 +455,10 @@ export function AgentProgressCard({
                         }}
                         className={cn(
                           "flex items-center gap-2.5 py-1.5 rounded-md px-1.5 -mx-1.5",
-                          isClickable && "cursor-pointer hover:bg-secondary/60 transition-colors",
+                          isClickable && "cursor-pointer hover:bg-secondary transition-colors",
                         )}
                         onClick={isClickable ? () => onStepClick?.(step.id) : undefined}
-                        role={isClickable ? "button" : undefined}
-                        tabIndex={isClickable ? 0 : undefined}
-                        onKeyDown={isClickable ? (e) => {
-                          if (e.key === "Enter" || e.key === " ") {
-                            e.preventDefault();
-                            onStepClick?.(step.id);
-                          }
-                        } : undefined}
+                        disabled={!isClickable}
                       >
                         <StepIcon step={step} />
                         <span
@@ -494,7 +488,7 @@ export function AgentProgressCard({
                             step.title
                           )}
                         </span>
-                      </motion.div>
+                      </motion.button>
                     );
                   })}
                 </div>

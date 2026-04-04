@@ -148,7 +148,7 @@ export function MCPDialog({
                     className={cn(
                       "group flex items-center gap-3 rounded-lg border px-4 py-3 shadow-sm transition-[border-color,background-color,box-shadow] duration-200 ease-out",
                       server.enabled === false
-                        ? "border-border/60 hover:border-border"
+                        ? "border-border hover:border-border"
                         : "border-border hover:border-border-strong hover:shadow-md",
                     )}
                   >
@@ -223,7 +223,7 @@ export function MCPDialog({
                         "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
                         "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
                         server.enabled === false
-                          ? "bg-secondary text-muted-foreground-dim hover:bg-secondary/80 hover:text-muted-foreground"
+                          ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
                           : "bg-accent-emerald/10 text-accent-emerald hover:bg-accent-emerald/15",
                       )}
                       onClick={() => handleToggle(server.name, server.enabled === false)}
@@ -239,7 +239,7 @@ export function MCPDialog({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="shrink-0 text-muted-foreground/0 transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                      className="shrink-0 text-transparent transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
                       onClick={() => setServerToDelete(server.name)}
                       aria-label={t("mcp.removeServer", { name: server.name })}
                     >

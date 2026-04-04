@@ -135,7 +135,7 @@ function LoginForm() {
           {/* Brand gradient top strip */}
           <div
             className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl"
-            style={{ background: "linear-gradient(90deg, #6C3AED, #4F46E5)" }}
+            style={{ background: "linear-gradient(90deg, var(--color-accent-purple), var(--color-accent-emerald))" }}
             aria-hidden="true"
           />
           {/* Faint inner dot-grid */}
@@ -151,7 +151,7 @@ function LoginForm() {
 
             {/* Title block */}
             <div
-              className="animate-[fadeIn_0.5s_ease-out_0.1s] text-center"
+              className=" text-center"
               style={{ animationFillMode: "both" }}
             >
               <h1 className="text-3xl font-semibold tracking-[-0.04em] leading-tight text-foreground">
@@ -166,7 +166,7 @@ function LoginForm() {
             {error && (
               <div
                 role="alert"
-                className="flex w-full items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive animate-[slideUp_0.3s_ease-out]"
+                className="flex w-full items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive "
                 style={{ animationFillMode: "both" }}
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
@@ -181,7 +181,7 @@ function LoginForm() {
             {/* Google sign in button */}
             {!waitingForBrowser && (
               <div
-                className="w-full animate-[slideUp_0.4s_ease-out_0.2s]"
+                className="w-full "
                 style={{ animationFillMode: "both" }}
               >
                 <button
@@ -227,7 +227,7 @@ function LoginForm() {
 
             {/* Desktop: waiting for browser auth */}
             {waitingForBrowser && (
-              <div className="flex w-full flex-col items-center gap-2 text-center animate-[fadeIn_0.3s_ease-out]">
+              <div className="flex w-full flex-col items-center gap-2 text-center ">
                 <span role="status">
                   <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
                   <span className="sr-only">Waiting for browser authentication...</span>
@@ -242,7 +242,7 @@ function LoginForm() {
 
         {/* Footer flourish */}
         <p
-          className="mt-6 text-center text-xs text-muted-foreground/70 animate-[fadeIn_0.5s_ease-out_0.4s]"
+          className="mt-6 text-center text-xs text-muted-foreground-dim "
           style={{ animationFillMode: "both" }}
         >
           <span>Secure</span>

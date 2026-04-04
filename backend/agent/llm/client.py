@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+import re
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
@@ -84,6 +85,27 @@ def _extract_thinking(content: list) -> str:
     return "".join(block.thinking for block in content if block.type == "thinking")
 
 
+_THINK_TAG_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
+
+
+def _split_think_tags(text: str) -> tuple[str, str]:
+    """Split <think>...</think> blocks out of text.
+
+    Returns (thinking_text, clean_text) where thinking_text concatenates all
+    <think> block contents and clean_text is the remainder with tags removed.
+    Some models (e.g. Qwen3 via OpenAI-compatible proxy) embed chain-of-thought
+    reasoning inline using these tags instead of separate thinking blocks.
+    """
+    thinking_parts: list[str] = []
+
+    def _collect(m: re.Match) -> str:
+        thinking_parts.append(m.group(1).strip())
+        return ""
+
+    clean = _THINK_TAG_RE.sub(_collect, text).strip()
+    return "\n\n".join(thinking_parts), clean
+
+
 def _build_usage(usage: Any) -> TokenUsage:
     """Build a frozen TokenUsage from an API response usage object."""
     return TokenUsage(
@@ -94,12 +116,23 @@ def _build_usage(usage: Any) -> TokenUsage:
 
 def _parse_response(response: Any) -> LLMResponse:
     """Parse an Anthropic API response into an immutable LLMResponse."""
+    raw_text = _extract_text_blocks(response.content)
+    explicit_thinking = _extract_thinking(response.content)
+
+    # Prefer explicit thinking blocks (Claude extended thinking); fall back to
+    # inline <think> tags used by models like Qwen3.
+    if explicit_thinking:
+        text = raw_text
+        thinking = explicit_thinking
+    else:
+        thinking, text = _split_think_tags(raw_text)
+
     return LLMResponse(
-        text=_extract_text_blocks(response.content),
+        text=text,
         tool_calls=_extract_tool_calls(response.content),
         stop_reason=response.stop_reason,
         usage=_build_usage(response.usage),
-        thinking=_extract_thinking(response.content),
+        thinking=thinking,
     )
 
 

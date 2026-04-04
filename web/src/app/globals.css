@@ -767,3 +767,106 @@ pre, code {
     min-height: 44px;
   }
 }
+
+/* ─── Streaming Cursor (Inline) ─── */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.markdown-body.streaming-active:empty::after,
+.markdown-body.streaming-active > *:last-child::after {
+  content: "";
+  display: inline-block;
+  vertical-align: baseline;
+  width: 0.6em;
+  height: 1em;
+  background-color: var(--color-ai-glow);
+  margin-left: 0.25em;
+  border-radius: 2px;
+  animation: blink-cursor 1.5s ease-in-out infinite;
+}
+
+/* ─── Markdown Reasoning (for Thinking Blocks) ─── */
+.markdown-reasoning {
+  line-height: 1.6;
+  word-wrap: break-word;
+  font-size: 0.875rem; /* text-sm */
+  color: var(--color-muted-foreground);
+  opacity: 0.9;
+}
+
+.markdown-reasoning p {
+  margin: 0.6em 0;
+  white-space: pre-wrap;
+}
+
+.markdown-reasoning > *:first-child { margin-top: 0; }
+.markdown-reasoning > *:last-child { margin-bottom: 0; }
+
+.markdown-reasoning h1,
+.markdown-reasoning h2,
+.markdown-reasoning h3,
+.markdown-reasoning h4,
+.markdown-reasoning h5,
+.markdown-reasoning h6 {
+  margin: 1.2em 0 0.5em;
+  font-weight: 600;
+  color: var(--color-foreground);
+  opacity: 0.8;
+}
+
+.markdown-reasoning h1 { font-size: 1.1em; }
+.markdown-reasoning h2 { font-size: 1.05em; }
+.markdown-reasoning h3 { font-size: 1em; }
+
+.markdown-reasoning ul,
+.markdown-reasoning ol {
+  margin: 0.5em 0;
+  padding-left: 1.5em;
+}
+
+.markdown-reasoning ul { list-style-type: disc; }
+.markdown-reasoning ol { list-style-type: decimal; }
+
+.markdown-reasoning li { margin: 0.25em 0; }
+
+.markdown-reasoning pre {
+  margin: 0.5em 0;
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.375rem;
+  padding: 0.75em 1em;
+  font-size: 0.85em;
+}
+
+.markdown-reasoning code {
+  font-family: var(--font-mono);
+}
+
+.markdown-reasoning :not(pre) > code {
+  background: var(--color-muted);
+  border-radius: 0.25rem;
+  padding: 0.15em 0.3em;
+  font-size: 0.9em;
+}
+
+.markdown-reasoning a {
+  color: var(--color-foreground);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 3px;
+}
+
+.markdown-reasoning.streaming-active:empty::after,
+.markdown-reasoning.streaming-active > *:last-child::after {
+  content: "";
+  display: inline-block;
+  vertical-align: baseline;
+  width: 0.5em;
+  height: 1em;
+  background-color: var(--color-muted-foreground);
+  margin-left: 0.25em;
+  border-radius: 1px;
+  animation: blink-cursor 1.5s ease-in-out infinite;
+}
