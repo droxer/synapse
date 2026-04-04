@@ -5,11 +5,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
-import { TopBar, MarkdownRenderer, ThinkingBlock } from "@/shared/components";
+import { TopBar, MarkdownRenderer } from "@/shared/components";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
 import { NON_ARTIFACT_TOOLS } from "@/features/agent-computer/lib/tool-constants";
 import { ChatInput } from "@/features/conversation";
 import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
+import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
@@ -22,6 +23,7 @@ import type {
   ToolCallInfo,
   AgentStatus,
   PlanStep,
+  ThinkingEntry,
 } from "@/shared/types";
 
 function formatTime(ts: number): string {
@@ -38,7 +40,7 @@ interface ConversationWorkspaceProps {
   planSteps: PlanStep[];
   artifacts: ArtifactInfo[];
   taskState: TaskState;
-  thinkingContent: string;
+  currentThinkingEntries: ThinkingEntry[];
   isStreaming: boolean;
   assistantPhase: AssistantPhase;
   isConnected: boolean;
@@ -62,7 +64,7 @@ export function ConversationWorkspace({
   planSteps,
   artifacts,
   taskState,
-  thinkingContent,
+  currentThinkingEntries,
   isStreaming,
   assistantPhase,
   isConnected,
@@ -271,14 +273,20 @@ export function ConversationWorkspace({
                         )}
                       >
                         <div className="relative">
-                          {/* Thinking / reasoning block (if present) */}
-                          {msg.thinkingContent && (
-                            <ThinkingBlock
-                              content={msg.thinkingContent}
-                              isLive={isStreamingThis}
-                            />
+                          {/* Thinking blocks for this assistant message */}
+                          {msg.thinkingEntries && msg.thinkingEntries.length > 0 && (
+                            <div className="mb-3 space-y-2">
+                              {msg.thinkingEntries.map((entry, idx) => (
+                                <ThinkingBlock
+                                  key={`${msg.timestamp}-thinking-${idx}`}
+                                  content={entry.content}
+                                  isThinking={isLastAssistant && assistantPhase.phase === "thinking"}
+                                  isTurnStreaming={isLastAssistant ? isStreaming : false}
+                                  durationMs={entry.durationMs}
+                                />
+                              ))}
+                            </div>
                           )}
-
                           {/* Message body */}
                           <div className="text-sm leading-[1.5] text-foreground">
                             <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
@@ -366,6 +374,21 @@ export function ConversationWorkspace({
                 </div>
               )}
 
+              {/* Standalone thinking block when no assistant message yet */}
+              {showLoadingSkeleton && currentThinkingEntries.length > 0 && (
+                <div className="mt-6 max-w-full space-y-2 sm:max-w-[85%]">
+                  {currentThinkingEntries.map((entry, idx) => (
+                    <ThinkingBlock
+                      key={`current-thinking-${entry.timestamp}-${idx}`}
+                      content={entry.content}
+                      isThinking={effectivePhase.phase === "thinking"}
+                      isTurnStreaming={isStreaming}
+                      durationMs={entry.durationMs}
+                    />
+                  ))}
+                </div>
+              )}
+
               <AnimatePresence mode="wait">
                 {showLoadingSkeleton && (
                   <div className="mt-6">
@@ -384,7 +407,6 @@ export function ConversationWorkspace({
                 toolCalls={toolCalls}
                 agentStatuses={agentStatuses}
                 taskState={taskState}
-                thinkingContent={thinkingContent}
                 onClick={handleProgressCardClick}
                 onStepClick={handleStepClick}
                 panelOpen={panelOpen}

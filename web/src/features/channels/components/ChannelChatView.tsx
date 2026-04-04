@@ -100,7 +100,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     agentStatuses,
     planSteps,
     artifacts,
-    thinkingContent,
+    currentThinkingEntries,
     isStreaming,
     assistantPhase,
   } = useAgentState(effectiveEvents);
@@ -115,7 +115,30 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
           m.content === msg.content &&
           Math.abs(m.timestamp - msg.timestamp) < 30_000,
       );
-      if (!isDuplicate) merged.push(msg);
+      if (!isDuplicate) {
+        merged.push(msg);
+      } else {
+        const idx = merged.findIndex(
+          (m) =>
+            m.role === msg.role &&
+            m.content === msg.content &&
+            Math.abs(m.timestamp - msg.timestamp) < 30_000,
+        );
+        if (idx !== -1) {
+          const existing = merged[idx];
+          merged[idx] = {
+            ...existing,
+            imageArtifactIds:
+              msg.imageArtifactIds && msg.imageArtifactIds.length > 0
+                ? [...(existing.imageArtifactIds ?? []), ...msg.imageArtifactIds]
+                : existing.imageArtifactIds,
+            thinkingEntries:
+              msg.thinkingEntries && msg.thinkingEntries.length > 0
+                ? [...(existing.thinkingEntries ?? []), ...msg.thinkingEntries]
+                : existing.thinkingEntries,
+          };
+        }
+      }
     }
     return merged.sort((a, b) => a.timestamp - b.timestamp);
   }, [historyMessages, eventMessages]);
@@ -208,7 +231,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
       planSteps={planSteps}
       artifacts={artifacts}
       taskState={taskState}
-      thinkingContent={thinkingContent}
+      currentThinkingEntries={currentThinkingEntries}
       isStreaming={isStreaming}
       assistantPhase={assistantPhase}
       isConnected={isConnected}

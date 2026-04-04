@@ -71,6 +71,8 @@
   "progress.taskComplete": "任務完成",
   "progress.error": "錯誤",
   "progress.reasoningLive": "思考中...",
+  "thinking.thinking": "思考中...",
+  "thinking.thoughtFor": "思考了 {seconds} 秒",
   "progress.complete": "完成",
   "progress.stateIdle": "就緒",
   "progress.statePlanning": "規劃中",

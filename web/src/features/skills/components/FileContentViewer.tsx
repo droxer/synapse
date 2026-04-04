@@ -90,14 +90,14 @@ export function FileContentViewer({
       const parts = splitFrontmatter(content);
       if (parts) {
         const combined = `\`\`\`yaml\n${parts.yaml}\n\`\`\`\n\n${parts.body}`;
-        return <MarkdownRenderer content={combined} className="markdown-prose" />;
+        return <MarkdownRenderer content={combined} className="prose dark:prose-invert max-w-none break-words" />;
       }
-      return <MarkdownRenderer content={content} className="markdown-prose" />;
+      return <MarkdownRenderer content={content} className="prose dark:prose-invert max-w-none break-words" />;
     }
 
     // Regular markdown
     if (isMarkdown(path)) {
-      return <MarkdownRenderer content={content} className="markdown-prose" />;
+      return <MarkdownRenderer content={content} className="prose dark:prose-invert max-w-none break-words" />;
     }
 
     // Code files — render through MarkdownRenderer for syntax highlighting

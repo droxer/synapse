@@ -16,7 +16,7 @@ export function ConversationView() {
     planSteps,
     artifacts,
     taskState,
-    thinkingContent,
+    currentThinkingEntries,
     isStreaming,
     assistantPhase,
     isConnected,
@@ -70,7 +70,7 @@ export function ConversationView() {
             planSteps={planSteps}
             artifacts={artifacts}
             taskState={taskState}
-            thinkingContent={thinkingContent}
+            currentThinkingEntries={currentThinkingEntries}
             isStreaming={isStreaming}
             assistantPhase={assistantPhase}
             isConnected={isConnected}

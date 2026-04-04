@@ -363,7 +363,7 @@ class PlannerOrchestrator:
                 on_text_delta=_on_text_delta,
             )
         except Exception as exc:
-            logger.exception("llm_call_failed_planning error={}", exc)
+            logger.exception("llm_call_failed_planning model={} error={}", model, exc)
             return None
 
     async def _emit_llm_response(

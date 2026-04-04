@@ -11,7 +11,6 @@ import {
   CircleX,
   Lightbulb,
   Play,
-  Brain,
   Code,
   FileText,
   Globe,
@@ -40,13 +39,12 @@ interface AgentProgressCardProps {
   toolCalls: ToolCallInfo[];
   agentStatuses: unknown[];
   taskState: TaskState;
-  thinkingContent: string;
   onClick?: () => void;
   onStepClick?: (stepId: string) => void;
   panelOpen?: boolean;
 }
 
-type StepKind = "start" | "thinking" | "tool" | "skill" | "agent" | "complete" | "error";
+type StepKind = "start" | "tool" | "skill" | "agent" | "complete" | "error";
 
 interface TimelineStep {
   readonly id: string;
@@ -63,7 +61,6 @@ function buildSteps(
   events: AgentEvent[],
   toolCalls: ToolCallInfo[],
   taskState: TaskState,
-  thinkingContent: string,
   t: TFn,
 ): TimelineStep[] {
   let steps: TimelineStep[] = [];
@@ -80,14 +77,6 @@ function buildSteps(
         }];
         break;
 
-      case "thinking":
-        steps = [...steps, {
-          id: `think-${event.timestamp}`,
-          kind: "thinking",
-          title: t("progress.reasoning"),
-          status: "complete",
-        }];
-        break;
 
       case "tool_call": {
         const toolName = String(event.data.name ?? event.data.tool_name ?? "unknown");
@@ -212,17 +201,6 @@ function buildSteps(
     }
   }
 
-  if (thinkingContent && taskState === "executing") {
-    const hasLive = steps.some((s) => s.title === t("progress.reasoning") && s.status === "running");
-    if (!hasLive) {
-      steps = [...steps, {
-        id: "thinking-live",
-        kind: "thinking",
-        title: t("progress.reasoningLive"),
-        status: "running",
-      }];
-    }
-  }
 
   return steps;
 }
@@ -245,7 +223,6 @@ function toolCategoryIcon(category: ToolCategory) {
 function kindIcon(kind: StepKind, rawToolName?: string) {
   switch (kind) {
     case "start": return Play;
-    case "thinking": return Brain;
     case "skill": return Lightbulb;
     case "agent": return Bot;
     case "complete": return Flag;
@@ -324,7 +301,6 @@ export function AgentProgressCard({
   toolCalls,
   agentStatuses: _agentStatuses,
   taskState,
-  thinkingContent,
   onClick,
   onStepClick,
   panelOpen = false,
@@ -333,8 +309,8 @@ export function AgentProgressCard({
   const [expanded, setExpanded] = useState(true);
 
   const steps = useMemo(
-    () => buildSteps(events, toolCalls, taskState, thinkingContent, t),
-    [events, toolCalls, taskState, thinkingContent, t],
+    () => buildSteps(events, toolCalls, taskState, t),
+    [events, toolCalls, taskState, t],
   );
 
   const completedCount = steps.filter((s) => s.status === "complete").length;

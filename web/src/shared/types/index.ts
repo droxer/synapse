@@ -11,4 +11,5 @@ export type {
   AgentStatus,
   PlanStep,
   AssistantPhase,
+  ThinkingEntry,
 } from "./events";

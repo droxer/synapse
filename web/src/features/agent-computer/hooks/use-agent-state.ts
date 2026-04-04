@@ -21,6 +21,7 @@ import type {
   BrowserMetadata,
   ComputerUseMetadata,
   ChatMessage,
+  ThinkingEntry,
   ToolCallInfo,
   TaskState,
   AgentStatus,
@@ -34,10 +35,21 @@ export function useAgentState(events: AgentEvent[]) {
     let streamingTimestamp = 0;
     // Track image artifact IDs from tool results; attach to the next assistant message
     let pendingImageArtifactIds: string[] = [];
+    let pendingThinkingEntries: ThinkingEntry[] = [];
     // Track which artifact IDs are images
     const imageArtifactIdSet = new Set<string>();
     // Accumulate thinking content between messages
     let pendingThinkingParts: string[] = [];
+
+    const appendPendingThinkingToMessage = (msg: ChatMessage): ChatMessage => {
+      if (pendingThinkingEntries.length === 0) return msg;
+      const withThinking: ChatMessage = {
+        ...msg,
+        thinkingEntries: pendingThinkingEntries,
+      };
+      pendingThinkingEntries = [];
+      return withThinking;
+    };
 
     for (const e of events) {
       // Collect image artifact IDs from artifact_created events
@@ -63,8 +75,20 @@ export function useAgentState(events: AgentEvent[]) {
         const text = String(e.data.thinking ?? e.data.text ?? e.data.content ?? "");
         if (text) {
           pendingThinkingParts = [...pendingThinkingParts, text];
+          pendingThinkingEntries = [
+            ...pendingThinkingEntries,
+            {
+              content: text,
+              timestamp: e.timestamp,
+              durationMs:
+                typeof e.data.duration_ms === "number" && Number.isFinite(e.data.duration_ms)
+                  ? e.data.duration_ms
+                  : 0,
+            },
+          ];
         }
       } else if (e.type === "turn_start") {
+        pendingThinkingEntries = [];
         const userMsg = String(e.data.message ?? "");
         if (userMsg) {
           msgs.push({ role: "user", content: userMsg, timestamp: e.timestamp });
@@ -90,30 +114,34 @@ export function useAgentState(events: AgentEvent[]) {
           const { thinking: inlineThinking, content: text } = splitThinkTag(rawText);
           const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
           const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
-          const msg: ChatMessage = {
+          let msg: ChatMessage = {
             role: "assistant",
             content: text,
             timestamp: e.timestamp,
             ...(thinkingContent && { thinkingContent }),
             ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
           };
+          msg = appendPendingThinkingToMessage(msg);
           if (pendingImageArtifactIds.length > 0) {
             pendingImageArtifactIds = [];
           }
           pendingThinkingParts = [];
           msgs.push(msg);
         }
+        streamingText = "";
+        streamingTimestamp = 0;
       } else if (e.type === "message_user") {
         const thinkingContent = pendingThinkingParts.length > 0
           ? pendingThinkingParts.join("\n\n")
           : undefined;
-        const msg: ChatMessage = {
+        let msg: ChatMessage = {
           role: "assistant",
           content: String(e.data.message ?? e.data.content ?? ""),
           timestamp: e.timestamp,
           ...(thinkingContent && { thinkingContent }),
           ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
         };
+        msg = appendPendingThinkingToMessage(msg);
         if (pendingImageArtifactIds.length > 0) {
           pendingImageArtifactIds = [];
         }
@@ -125,13 +153,14 @@ export function useAgentState(events: AgentEvent[]) {
           const thinkingContent = pendingThinkingParts.length > 0
             ? pendingThinkingParts.join("\n\n")
             : undefined;
-          const msg: ChatMessage = {
+          let msg: ChatMessage = {
             role: "assistant",
             content: streamingText,
             timestamp: streamingTimestamp,
             ...(thinkingContent && { thinkingContent }),
             ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
           };
+          msg = appendPendingThinkingToMessage(msg);
           if (pendingImageArtifactIds.length > 0) {
             pendingImageArtifactIds = [];
           }
@@ -157,11 +186,12 @@ export function useAgentState(events: AgentEvent[]) {
               ...(thinkingContent && { thinkingContent }),
               ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
             };
+            const withThinking = appendPendingThinkingToMessage(msg);
             if (pendingImageArtifactIds.length > 0) {
               pendingImageArtifactIds = [];
             }
             pendingThinkingParts = [];
-            msgs.push(msg);
+            msgs.push(withThinking);
           } else if (pendingImageArtifactIds.length > 0) {
             // Attach to the existing matching message (immutably replace in array)
             const existingIdx = msgs.findLastIndex(
@@ -179,6 +209,22 @@ export function useAgentState(events: AgentEvent[]) {
             }
             pendingImageArtifactIds = [];
           }
+          if (pendingThinkingEntries.length > 0) {
+            const existingIdx = msgs.findLastIndex(
+              (m) => m.role === "assistant" && m.content === result,
+            );
+            if (existingIdx !== -1) {
+              const existing = msgs[existingIdx];
+              msgs[existingIdx] = {
+                ...existing,
+                thinkingEntries: [
+                  ...(existing.thinkingEntries ?? []),
+                  ...pendingThinkingEntries,
+                ],
+              };
+              pendingThinkingEntries = [];
+            }
+          }
         } else if (pendingImageArtifactIds.length > 0) {
           // No result text but have pending images — attach to last assistant message (immutably replace in array)
           const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
@@ -194,13 +240,28 @@ export function useAgentState(events: AgentEvent[]) {
           }
           pendingImageArtifactIds = [];
         }
+        if (pendingThinkingEntries.length > 0) {
+          const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
+          if (lastIdx !== -1) {
+            const lastAssistant = msgs[lastIdx];
+            msgs[lastIdx] = {
+              ...lastAssistant,
+              thinkingEntries: [
+                ...(lastAssistant.thinkingEntries ?? []),
+                ...pendingThinkingEntries,
+              ],
+            };
+            pendingThinkingEntries = [];
+          }
+        }
       } else if (e.type === "task_error") {
         const error = String(e.data.error ?? "An error occurred");
-        msgs.push({
+        const msg: ChatMessage = appendPendingThinkingToMessage({
           role: "assistant",
           content: `Error: ${error}`,
           timestamp: e.timestamp,
         });
+        msgs.push(msg);
         pendingImageArtifactIds = [];
       }
     }
@@ -211,13 +272,14 @@ export function useAgentState(events: AgentEvent[]) {
       const thinkingContent = pendingThinkingParts.length > 0
         ? pendingThinkingParts.join("\n\n")
         : undefined;
-      const msg: ChatMessage = {
+      let msg: ChatMessage = {
         role: "assistant",
         content: streamingText,
         timestamp: streamingTimestamp,
         ...(thinkingContent && { thinkingContent }),
         ...(pendingImageArtifactIds.length > 0 && { imageArtifactIds: pendingImageArtifactIds }),
       };
+      msg = appendPendingThinkingToMessage(msg);
       if (pendingImageArtifactIds.length > 0) {
         pendingImageArtifactIds = [];
       }
@@ -234,6 +296,19 @@ export function useAgentState(events: AgentEvent[]) {
           imageArtifactIds: [
             ...(lastAssistant.imageArtifactIds ?? []),
             ...pendingImageArtifactIds,
+          ],
+        };
+      }
+    }
+    if (pendingThinkingEntries.length > 0) {
+      const lastIdx = msgs.findLastIndex((m) => m.role === "assistant");
+      if (lastIdx !== -1) {
+        const lastAssistant = msgs[lastIdx];
+        msgs[lastIdx] = {
+          ...lastAssistant,
+          thinkingEntries: [
+            ...(lastAssistant.thinkingEntries ?? []),
+            ...pendingThinkingEntries,
           ],
         };
       }
@@ -443,6 +518,46 @@ export function useAgentState(events: AgentEvent[]) {
       .join("\n");
   }, [events]);
 
+  const thinkingDurationMs = useMemo<number>(() => {
+    const thinkingEvents = events.filter((e) => e.type === "thinking");
+    if (thinkingEvents.length === 0) return 0;
+    const first = thinkingEvents[0].timestamp;
+    const last = thinkingEvents[thinkingEvents.length - 1].timestamp;
+    return Math.max(last - first, 0);
+  }, [events]);
+
+  const currentThinkingEntries = useMemo<ThinkingEntry[]>(() => {
+    let current: ThinkingEntry[] = [];
+    for (const e of events) {
+      if (e.type === "turn_start") {
+        current = [];
+      } else if (e.type === "thinking") {
+        const content = String(e.data.thinking ?? e.data.text ?? e.data.content ?? "");
+        if (content) {
+          current = [
+            ...current,
+            {
+              content,
+              timestamp: e.timestamp,
+              durationMs:
+                typeof e.data.duration_ms === "number" && Number.isFinite(e.data.duration_ms)
+                  ? e.data.duration_ms
+                  : 0,
+            },
+          ];
+        }
+      } else if (
+        e.type === "turn_complete" ||
+        e.type === "turn_cancelled" ||
+        e.type === "task_complete" ||
+        e.type === "task_error"
+      ) {
+        current = [];
+      }
+    }
+    return current;
+  }, [events]);
+
   const isStreaming = useMemo<boolean>(() => {
     let hasUnfinalizedDeltas = false;
     for (const e of events) {
@@ -564,6 +679,8 @@ export function useAgentState(events: AgentEvent[]) {
     currentIteration,
     reasoningSteps,
     thinkingContent,
+    thinkingDurationMs,
+    currentThinkingEntries,
     isStreaming,
     assistantPhase,
     artifacts,

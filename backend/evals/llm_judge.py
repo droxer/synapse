@@ -95,14 +95,14 @@ async def judge_with_llm(
             detail=f"Score: {score:.2f} — {reasoning}",
         )
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
-        logger.warning("LLM judge response parse failed: {}", exc)
+        logger.warning("LLM judge response parse failed model={}: {}", model, exc)
         return CriterionResult(
             criterion_name="llm_judge",
             passed=False,
             detail=f"Failed to parse LLM judge response: {exc}",
         )
     except Exception as exc:
-        logger.error("LLM judge call failed: {}", exc)
+        logger.error("LLM judge call failed model={}: {}", model, exc)
         return CriterionResult(
             criterion_name="llm_judge",
             passed=False,

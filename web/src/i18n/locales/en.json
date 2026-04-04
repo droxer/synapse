@@ -71,6 +71,8 @@
   "progress.taskComplete": "Task Complete",
   "progress.error": "Error",
   "progress.reasoningLive": "Thinking...",
+  "thinking.thinking": "Thinking...",
+  "thinking.thoughtFor": "Thought for {seconds}s",
   "progress.complete": "Complete",
   "progress.stateIdle": "Idle",
   "progress.statePlanning": "Planning",

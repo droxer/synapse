@@ -332,6 +332,7 @@ class TaskAgentRunner:
                 f"Exceeded maximum iterations ({self._max_iterations})",
             )
 
+        llm_model = self._config.model or settings.TASK_MODEL
         try:
 
             async def _on_text_delta(delta: str) -> None:
@@ -344,10 +345,11 @@ class TaskAgentRunner:
                 system=self._system_prompt,
                 messages=list(state.messages),
                 tools=tools if tools else None,
-                model=self._config.model or settings.TASK_MODEL,
+                model=llm_model,
                 on_text_delta=_on_text_delta,
             )
         except Exception as exc:
+            logger.error("llm_call_failed model={} error={}", llm_model, exc)
             return state.mark_error(f"LLM call failed: {exc}")
 
         state = apply_response_to_state(state, response)

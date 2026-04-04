@@ -81,8 +81,24 @@ def _extract_tool_calls(content: list) -> tuple[ToolCall, ...]:
 
 
 def _extract_thinking(content: list) -> str:
-    """Extract and concatenate thinking text from thinking blocks."""
-    return "".join(block.thinking for block in content if block.type == "thinking")
+    """Extract and concatenate thinking text from thinking blocks.
+
+    Handles both Anthropic-native ``thinking`` blocks and DashScope-compatible
+    variants where the attribute may be ``reasoning_content``.
+    """
+    parts: list[str] = []
+    for block in content:
+        if block.type == "thinking":
+            text = getattr(block, "thinking", "") or ""
+            parts.append(text)
+        elif block.type == "reasoning":
+            text = (
+                getattr(block, "reasoning_content", "")
+                or getattr(block, "text", "")
+                or ""
+            )
+            parts.append(text)
+    return "".join(parts)
 
 
 _THINK_TAG_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
@@ -109,23 +125,34 @@ def _split_think_tags(text: str) -> tuple[str, str]:
 def _build_usage(usage: Any) -> TokenUsage:
     """Build a frozen TokenUsage from an API response usage object."""
     return TokenUsage(
-        input_tokens=usage.input_tokens,
-        output_tokens=usage.output_tokens,
+        input_tokens=getattr(usage, "input_tokens", 0) or 0,
+        output_tokens=getattr(usage, "output_tokens", 0) or 0,
     )
 
 
 def _parse_response(response: Any) -> LLMResponse:
-    """Parse an Anthropic API response into an immutable LLMResponse."""
+    """Parse an API response into an immutable LLMResponse.
+
+    Supports Anthropic-native, DashScope Anthropic-compatible, and
+    OpenAI-compatible formats.  Reasoning is resolved in priority order:
+    1. Explicit thinking content blocks (Claude extended thinking).
+    2. DashScope ``reasoning_content`` top-level attribute.
+    3. Inline ``<think>`` tags (Qwen3 and similar models).
+    """
     raw_text = _extract_text_blocks(response.content)
     explicit_thinking = _extract_thinking(response.content)
 
-    # Prefer explicit thinking blocks (Claude extended thinking); fall back to
-    # inline <think> tags used by models like Qwen3.
     if explicit_thinking:
         text = raw_text
         thinking = explicit_thinking
     else:
-        thinking, text = _split_think_tags(raw_text)
+        # DashScope fallback: reasoning_content on the response object itself
+        fallback = getattr(response, "reasoning_content", None)
+        if isinstance(fallback, str) and fallback:
+            text = raw_text
+            thinking = fallback
+        else:
+            thinking, text = _split_think_tags(raw_text)
 
     return LLMResponse(
         text=text,
@@ -155,6 +182,11 @@ class AnthropicClient:
             api_key=api_key,
             base_url=base_url or None,
         )
+
+    @property
+    def default_model(self) -> str:
+        """Configured default model id when callers omit ``model``."""
+        return self._default_model
 
     async def close(self) -> None:
         """Close the underlying httpx client.
@@ -224,6 +256,13 @@ class AnthropicClient:
         for attempt in range(_MAX_RETRIES):
             try:
                 response = await self._client.messages.create(**kwargs)
+                if thinking_budget > 0:
+                    block_types = [getattr(b, "type", "?") for b in response.content]
+                    logger.debug(
+                        "llm_response_blocks types={} has_reasoning_content={}",
+                        block_types,
+                        hasattr(response, "reasoning_content"),
+                    )
                 return _parse_response(response)
             except (
                 anthropic.RateLimitError,
@@ -233,7 +272,8 @@ class AnthropicClient:
             ) as exc:
                 last_exc = exc
                 logger.warning(
-                    "llm_retry attempt={}/{} error={}",
+                    "llm_retry model={} attempt={}/{} error={}",
+                    effective_model,
                     attempt + 1,
                     _MAX_RETRIES,
                     exc,
@@ -301,6 +341,13 @@ class AnthropicClient:
                         async for text in stream.text_stream:
                             await on_text_delta(text)
                     response = await stream.get_final_message()
+                if thinking_budget > 0:
+                    block_types = [getattr(b, "type", "?") for b in response.content]
+                    logger.debug(
+                        "llm_stream_response_blocks types={} has_reasoning_content={}",
+                        block_types,
+                        hasattr(response, "reasoning_content"),
+                    )
                 return _parse_response(response)
             except (
                 anthropic.RateLimitError,
@@ -310,7 +357,8 @@ class AnthropicClient:
             ) as exc:
                 last_exc = exc
                 logger.warning(
-                    "llm_retry attempt={}/{} error={}",
+                    "llm_retry model={} attempt={}/{} error={}",
+                    effective_model,
                     attempt + 1,
                     _MAX_RETRIES,
                     exc,

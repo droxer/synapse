@@ -12,6 +12,7 @@ import type {
   ArtifactInfo,
   AssistantPhase,
   ChatMessage,
+  ThinkingEntry,
   ToolCallInfo,
   TaskState,
   AgentStatus,
@@ -45,17 +46,26 @@ export function mergeUniqueEvents(
   historyEvents: readonly AgentEvent[],
   liveEvents: readonly AgentEvent[],
 ): AgentEvent[] {
-  const merged: AgentEvent[] = [];
+  const merged: Array<{ event: AgentEvent; originalIndex: number }> = [];
   const seen = new Set<string>();
+  let originalIndex = 0;
 
   for (const event of [...historyEvents, ...liveEvents]) {
     const key = getEventKey(event);
     if (seen.has(key)) continue;
     seen.add(key);
-    merged.push(event);
+    merged.push({ event, originalIndex });
+    originalIndex += 1;
   }
 
-  return merged;
+  merged.sort((a, b) => {
+    if (a.event.timestamp === b.event.timestamp) {
+      return a.originalIndex - b.originalIndex;
+    }
+    return a.event.timestamp - b.event.timestamp;
+  });
+
+  return merged.map(({ event }) => event);
 }
 
 export interface ConversationContextValue {
@@ -70,6 +80,8 @@ export interface ConversationContextValue {
   readonly currentIteration: number;
   readonly reasoningSteps: string[];
   readonly thinkingContent: string;
+  readonly thinkingDurationMs: number;
+  readonly currentThinkingEntries: ThinkingEntry[];
   readonly isStreaming: boolean;
   readonly assistantPhase: AssistantPhase;
   readonly artifacts: ArtifactInfo[];
@@ -119,6 +131,8 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     currentIteration,
     reasoningSteps,
     thinkingContent,
+    thinkingDurationMs,
+    currentThinkingEntries,
     isStreaming,
     assistantPhase: rawAssistantPhase,
     artifacts,
@@ -147,10 +161,18 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
           Math.abs(m.timestamp - msg.timestamp) < 30_000,
       );
       if (duplicateIdx !== -1) {
-        // Update existing merged message to ensure we don't lose thinkingContent from events
+        const existing = merged[duplicateIdx];
         merged[duplicateIdx] = {
-          ...merged[duplicateIdx],
-          thinkingContent: msg.thinkingContent || merged[duplicateIdx].thinkingContent,
+          ...existing,
+          thinkingContent: msg.thinkingContent || existing.thinkingContent,
+          imageArtifactIds:
+            msg.imageArtifactIds && msg.imageArtifactIds.length > 0
+              ? [...(existing.imageArtifactIds ?? []), ...msg.imageArtifactIds]
+              : existing.imageArtifactIds,
+          thinkingEntries:
+            msg.thinkingEntries && msg.thinkingEntries.length > 0
+              ? [...(existing.thinkingEntries ?? []), ...msg.thinkingEntries]
+              : existing.thinkingEntries,
         };
       } else {
         merged.push(msg);
@@ -189,6 +211,8 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     currentIteration,
     reasoningSteps,
     thinkingContent,
+    thinkingDurationMs,
+    currentThinkingEntries,
     isStreaming: isLive ? isStreaming : false,
     assistantPhase,
     artifacts,

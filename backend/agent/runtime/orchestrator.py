@@ -572,6 +572,7 @@ class AgentOrchestrator:
                 f"Exceeded maximum iterations ({self._max_iterations})",
             )
 
+        llm_model = self._client.default_model
         try:
 
             async def _on_text_delta(delta: str) -> None:
@@ -589,11 +590,12 @@ class AgentOrchestrator:
                 thinking_budget=self._thinking_budget,
             )
         except Exception as exc:
-            logger.error("llm_call_failed error={}", exc)
+            logger.error("llm_call_failed model={} error={}", llm_model, exc)
             return state.mark_error(f"LLM call failed: {exc}")
 
         logger.info(
-            "llm_response stop_reason={} tool_calls={} input_tokens={} output_tokens={}",
+            "llm_response model={} stop_reason={} tool_calls={} input_tokens={} output_tokens={}",
+            llm_model,
             response.stop_reason,
             len(response.tool_calls),
             response.usage.input_tokens,
