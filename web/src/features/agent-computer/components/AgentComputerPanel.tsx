@@ -25,6 +25,7 @@ import { ArtifactFilesPanel } from "./ArtifactFilesPanel";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
+import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
@@ -245,6 +246,7 @@ export function AgentComputerPanel({
 }: AgentComputerPanelProps) {
   const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
+  const visibleToolCallsPrevLenRef = useRef(0);
   const [activeTab, setActiveTab] = useState<PanelTab>("activity");
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
@@ -279,7 +281,7 @@ export function AgentComputerPanel({
     });
 
     // Clear highlight after animation
-    const timer = setTimeout(() => setActiveHighlight(null), 1500);
+    const timer = setTimeout(() => setActiveHighlight(null), 2800);
     return () => clearTimeout(timer);
   }, [highlightedStepId]);
 
@@ -364,11 +366,37 @@ export function AgentComputerPanel({
   }, [agentStatuses]);
 
   useEffect(() => {
-    contentRef.current?.scrollTo({
-      top: contentRef.current.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [visibleToolCalls]);
+    visibleToolCallsPrevLenRef.current = 0;
+  }, [conversationId]);
+
+  const STICK_BOTTOM_PX = 120;
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (!el || activeTab !== "activity") return;
+
+    const prevLen = visibleToolCallsPrevLenRef.current;
+    const len = visibleToolCalls.length;
+    const grew = len > prevLen;
+    const firstPopulate = prevLen === 0 && len > 0;
+    visibleToolCallsPrevLenRef.current = len;
+
+    if (len === 0 || (!grew && !firstPopulate)) return;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    const nearBottom = distanceFromBottom < STICK_BOTTOM_PX;
+
+    if (firstPopulate || nearBottom) {
+      requestAnimationFrame(() => {
+        const scrollEl = contentRef.current;
+        if (!scrollEl) return;
+        scrollEl.scrollTo({
+          top: scrollEl.scrollHeight,
+          behavior: "smooth",
+        });
+      });
+    }
+  }, [visibleToolCalls, activeTab]);
   const latestToolCall = visibleToolCalls[visibleToolCalls.length - 1];
   const isRunning = taskState === "executing" || taskState === "planning";
   const isComplete = taskState === "complete";
@@ -378,11 +406,15 @@ export function AgentComputerPanel({
     [visibleToolCalls],
   );
 
-  const progressValue = useMemo(() => {
-    if (taskState === "complete") return 100;
-    if (taskState === "idle" || visibleToolCalls.length === 0) return 0;
-    return Math.min(95, (completedCount / Math.max(1, visibleToolCalls.length)) * 100);
-  }, [taskState, visibleToolCalls.length, completedCount]);
+  const progressValue = useMemo(
+    () =>
+      computeAgentTaskProgressPercent(
+        taskState,
+        completedCount,
+        visibleToolCalls.length,
+      ),
+    [taskState, completedCount, visibleToolCalls.length],
+  );
 
   return (
     <div className="flex h-full flex-col bg-background">
