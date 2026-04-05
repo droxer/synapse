@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback, useRef } from "react";
+import { useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/shared/components";
 import { MobileDrawer } from "@/shared/components/MobileDrawer";
@@ -26,11 +26,25 @@ export function AppSidebar() {
   const switchConversation = useAppStore((s) => s.switchConversation);
   const resetConversation = useAppStore((s) => s.resetConversation);
 
-  const loadedRef = useRef(false);
   useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
     loadConversations();
+  }, [loadConversations]);
+
+  useEffect(() => {
+    const refresh = () => {
+      loadConversations();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        refresh();
+      }
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+    };
   }, [loadConversations]);
 
   const handleNewConversation = useCallback(() => {

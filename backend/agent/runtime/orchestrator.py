@@ -343,10 +343,7 @@ class AgentOrchestrator:
             and matched.metadata.allowed_tools
         ):
             allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-            effective_registry = self._registry.filter_by_names_or_tags(
-                allowed,
-                {"mcp"},
-            )
+            effective_registry = self._registry.filter_by_names(allowed)
 
         tools = effective_registry.to_anthropic_tools()
 
@@ -426,13 +423,19 @@ class AgentOrchestrator:
         activated_name: str | None = None
         tool_id: str | None = None
         for block in content:
-            if (
-                isinstance(block, dict)
-                and block.get("type") == "tool_use"
-                and block.get("name") == "activate_skill"
-            ):
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            block_name = block.get("name")
+            if block_name == "activate_skill":
                 skill_input = block.get("input", {})
                 activated_name = skill_input.get("name")
+                tool_id = block.get("id")
+                break
+            if (
+                isinstance(block_name, str)
+                and self._skill_registry.find_by_name(block_name) is not None
+            ):
+                activated_name = block_name
                 tool_id = block.get("id")
                 break
 
@@ -504,10 +507,7 @@ class AgentOrchestrator:
         # Filter tools by allowed_tools if specified
         if skill.metadata.allowed_tools:
             allowed = set(skill.metadata.allowed_tools) | {"activate_skill"}
-            updated_registry = updated_registry.filter_by_names_or_tags(
-                allowed,
-                {"mcp"},
-            )
+            updated_registry = updated_registry.filter_by_names(allowed)
 
         tools = updated_registry.to_anthropic_tools()
 

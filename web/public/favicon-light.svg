@@ -1,0 +1,18 @@
+<svg width="128" height="128" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logo-bg-light" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#1B7EF2" />
+      <stop offset="100%" stop-color="#3B82F6" />
+    </linearGradient>
+    <linearGradient id="logo-node-light" x1="32" y1="28" x2="96" y2="100" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#DBEAFE" />
+      <stop offset="100%" stop-color="#BFDBFE" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#logo-bg-light)" />
+  <rect x="30" y="30" width="20" height="68" rx="10" fill="#FAFAFA" opacity="0.95" />
+  <rect x="78" y="30" width="20" height="68" rx="10" fill="#FAFAFA" opacity="0.95" />
+  <rect x="40" y="52" width="48" height="16" rx="8" fill="#FAFAFA" opacity="0.95" />
+  <circle cx="88" cy="30" r="10" fill="url(#logo-node-light)" />
+  <circle cx="88" cy="30" r="4" fill="#FAFAFA" opacity="0.9" />
+</svg>

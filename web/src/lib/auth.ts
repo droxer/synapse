@@ -19,11 +19,15 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       },
       async authorize(credentials) {
         if (!credentials?.email) return null;
+        const googleId = typeof credentials.googleId === "string" ? credentials.googleId : "";
+        const email = typeof credentials.email === "string" ? credentials.email : "";
+        if (!email) return null;
         return {
-          id: (credentials.googleId as string) || (credentials.email as string),
-          email: credentials.email as string,
-          name: (credentials.name as string) || "",
-          image: (credentials.image as string) || "",
+          id: googleId || email,
+          email,
+          name: typeof credentials.name === "string" ? credentials.name : "",
+          image: typeof credentials.image === "string" ? credentials.image : "",
+          googleId: googleId || undefined,
         };
       },
     }),
@@ -65,7 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       // On initial sign-in, persist Google profile data in the JWT
       // and sync user record to backend
       if (account && profile) {
-        token.googleId = profile.sub;
+        token.googleId = profile.sub ?? undefined;
         token.picture = profile.picture as string | undefined;
 
         // Sync to backend — fires only on initial sign-in
@@ -102,8 +106,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         session.user.id = token.userId as string;
       }
       if (token.googleId) {
-        (session.user as { googleId?: string }).googleId =
-          token.googleId as string;
+        session.user.googleId = token.googleId as string;
       }
       return session;
     },

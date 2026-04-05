@@ -80,6 +80,7 @@ class SkillInstaller:
         RuntimeError for git clone failures.
         """
         _validate_https_url(repo_url)
+        _validate_not_internal(repo_url)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             clone_dir = os.path.join(tmp_dir, "repo")
@@ -124,6 +125,7 @@ class SkillInstaller:
         RuntimeError for download failures.
         """
         _validate_https_url(url)
+        _validate_not_internal(url)
 
         timeout = httpx.Timeout(connect=10.0, read=30.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:

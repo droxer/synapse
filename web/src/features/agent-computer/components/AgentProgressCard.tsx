@@ -260,8 +260,8 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   // complete — swap category icon for a check
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background">
-      <Check className="h-3 w-3 text-muted-foreground" />
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent-emerald/30 bg-accent-emerald/10">
+      <Check className="h-3 w-3 text-accent-emerald" />
     </span>
   );
 }
@@ -285,8 +285,8 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
       );
     case "complete":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-          <CircleCheck className="h-3 w-3" />
+        <span className="inline-flex items-center gap-1 rounded-full border border-accent-emerald/30 bg-accent-emerald/10 px-2 py-0.5 text-xs font-medium text-accent-emerald">
+          <CircleCheck className="h-3 w-3 text-accent-emerald" />
           {t("progress.stateComplete")}
         </span>
       );
@@ -344,7 +344,7 @@ export function AgentProgressCard({
         value={Math.round(progressRatio * 100)}
         className="h-1 rounded-none"
         indicatorClassName={cn(
-          taskState === "complete" && "bg-foreground",
+          taskState === "complete" && "bg-accent-emerald",
           taskState === "error" && "bg-accent-rose",
           taskState === "planning" && "bg-muted-foreground",
           (taskState === "executing" || taskState === "idle") && "bg-foreground",
@@ -438,6 +438,7 @@ export function AgentProgressCard({
                         className={cn(
                           "flex items-center gap-2.5 py-1.5 rounded-md px-1.5 -mx-1.5",
                           isClickable && "cursor-pointer hover:bg-muted transition-colors",
+                          step.status === "complete" && "bg-accent-emerald/5",
                           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         )}
                         onClick={isClickable ? () => onStepClick?.(step.id) : undefined}
@@ -448,7 +449,7 @@ export function AgentProgressCard({
                           className={cn(
                             "min-w-0 flex-1 truncate",
                             step.status === "running" && "text-foreground",
-                            step.status === "complete" && "text-muted-foreground",
+                            step.status === "complete" && "text-foreground",
                             step.status === "error" && "text-accent-rose",
                           )}
                         >

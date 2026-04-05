@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from dataclasses import replace
 from typing import Any, Protocol
 
@@ -106,6 +107,8 @@ class PlannerOrchestrator:
         self._task_complete_summary: str | None = None
         self._system_prompt = system_prompt or PLANNER_SYSTEM_PROMPT
         self._skill_registry = skill_registry
+        self._auto_injected_skill: str | None = None
+        self._turn_base_prompt = self._system_prompt
 
         # Register meta-tools into the provided registry
         registry_with_meta = tool_registry.register(
@@ -126,6 +129,7 @@ class PlannerOrchestrator:
 
         # Persistent conversation state — appended to on each run() call
         self._state = AgentState()
+        self._run_lock = asyncio.Lock()
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -137,6 +141,22 @@ class PlannerOrchestrator:
         attachments: tuple[Any, ...] = (),
         selected_skills: tuple[str, ...] = (),
         runtime_prompt_sections: tuple[str, ...] = (),
+    ) -> str:
+        async with self._run_lock:
+            return await self._run_locked(
+                user_message=user_message,
+                attachments=attachments,
+                selected_skills=selected_skills,
+                runtime_prompt_sections=runtime_prompt_sections,
+            )
+
+    async def _run_locked(
+        self,
+        *,
+        user_message: str,
+        attachments: tuple[Any, ...],
+        selected_skills: tuple[str, ...],
+        runtime_prompt_sections: tuple[str, ...],
     ) -> str:
         """Execute the planner loop and return the final synthesized response.
 
@@ -152,13 +172,16 @@ class PlannerOrchestrator:
             {"message": user_message},
         )
         self._executor.reset_turn_quotas()
+        self._executor.reset_sandbox_template()
         self._task_complete_summary = None
+        self._auto_injected_skill = None
 
         base_prompt = self._system_prompt
         if runtime_prompt_sections:
             dynamic = [s for s in runtime_prompt_sections if s]
             if dynamic:
                 base_prompt = "\n".join([base_prompt, *dynamic])
+        self._turn_base_prompt = base_prompt
 
         # Skill matching via shared selector (before user message / uploads)
         effective_prompt = base_prompt
@@ -172,6 +195,7 @@ class PlannerOrchestrator:
             model=settings.SKILL_SELECTOR_MODEL or settings.LITE_MODEL,
         )
         if matched is not None:
+            self._auto_injected_skill = matched.metadata.name
             effective_prompt = (
                 base_prompt
                 + f'\n\n<skill_content name="{matched.metadata.name}">\n'
@@ -221,10 +245,7 @@ class PlannerOrchestrator:
             # Filter tools by allowed_tools
             if matched.metadata.allowed_tools:
                 allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-                effective_registry = effective_registry.filter_by_names_or_tags(
-                    allowed,
-                    {"mcp"},
-                )
+                effective_registry = effective_registry.filter_by_names(allowed)
 
         uploaded_paths: tuple[str, ...] = ()
         if attachments:
@@ -257,26 +278,25 @@ class PlannerOrchestrator:
         model = get_settings().PLANNING_MODEL
 
         try:
-            self._state = await self._execute_loop(
-                self._state, tools, model, effective_prompt
-            )
+            while not self._state.completed and self._state.error is None:
+                self._state = self._state.increment_iteration()
+                self._state = await self._run_iteration(
+                    self._state,
+                    tools,
+                    model,
+                    effective_prompt,
+                )
+
+                updated = await self._check_mid_turn_skill_activation(
+                    effective_prompt,
+                    effective_registry,
+                )
+                if updated is not None:
+                    effective_prompt, effective_registry, tools = updated
         finally:
             await self._cleanup_sub_agents()
 
         return await self._finalize(self._state)
-
-    async def _execute_loop(
-        self,
-        state: AgentState,
-        tools: list[dict[str, Any]],
-        model: str,
-        system_prompt: str | None = None,
-    ) -> AgentState:
-        """Run the ReAct loop until completion, error, or max iterations."""
-        while not state.completed and state.error is None:
-            state = state.increment_iteration()
-            state = await self._run_iteration(state, tools, model, system_prompt)
-        return state
 
     async def _run_iteration(
         self,
@@ -337,6 +357,115 @@ class PlannerOrchestrator:
             return state.mark_completed(self._task_complete_summary)
 
         return state
+
+    async def _check_mid_turn_skill_activation(
+        self,
+        current_prompt: str,
+        current_registry: ToolRegistry,
+    ) -> tuple[str, ToolRegistry, list[dict[str, Any]]] | None:
+        """Detect a successful mid-turn skill activation and enforce constraints."""
+        if self._skill_registry is None:
+            return None
+
+        last_assistant = None
+        for msg in reversed(self._state.messages):
+            if msg.get("role") == "assistant":
+                last_assistant = msg
+                break
+
+        if last_assistant is None:
+            return None
+
+        content = last_assistant.get("content")
+        if not isinstance(content, list):
+            return None
+
+        activated_name: str | None = None
+        tool_id: str | None = None
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            block_name = block.get("name")
+            if block_name == "activate_skill":
+                skill_input = block.get("input", {})
+                activated_name = skill_input.get("name")
+                tool_id = block.get("id")
+                break
+            if (
+                isinstance(block_name, str)
+                and self._skill_registry.find_by_name(block_name) is not None
+            ):
+                activated_name = block_name
+                tool_id = block.get("id")
+                break
+
+        if not activated_name or activated_name == self._auto_injected_skill:
+            return None
+
+        if tool_id is not None:
+            for msg in self._state.messages:
+                if msg.get("role") != "user":
+                    continue
+                msg_content = msg.get("content")
+                if not isinstance(msg_content, list):
+                    continue
+                for block in msg_content:
+                    if (
+                        isinstance(block, dict)
+                        and block.get("type") == "tool_result"
+                        and block.get("tool_use_id") == tool_id
+                        and block.get("is_error") is True
+                    ):
+                        return None
+
+        skill = self._skill_registry.find_by_name(activated_name)
+        if skill is None:
+            return None
+
+        self._auto_injected_skill = skill.metadata.name
+        effective_prompt = (
+            self._turn_base_prompt
+            + f'\n\n<skill_content name="{skill.metadata.name}">\n'
+            + skill.instructions
+            + "\n</skill_content>"
+        )
+
+        from agent.tools.local.activate_skill import ActivateSkill
+
+        updated_registry = current_registry.replace_tool(
+            ActivateSkill(
+                skill_registry=self._skill_registry,
+                active_skill_name=skill.metadata.name,
+            )
+        )
+
+        if skill.metadata.sandbox_template:
+            self._executor.set_sandbox_template(skill.metadata.sandbox_template)
+            logger.info(
+                "planner_mid_turn_skill_sandbox_template name={} template={}",
+                skill.metadata.name,
+                skill.metadata.sandbox_template,
+            )
+
+        if skill.metadata.dependencies:
+            await install_skill_dependencies_for_turn(
+                self._executor,
+                skill.metadata.dependencies,
+                self._emitter,
+                context="planner_mid_turn",
+            )
+
+        if skill.metadata.allowed_tools:
+            allowed = set(skill.metadata.allowed_tools) | {"activate_skill"}
+            updated_registry = updated_registry.filter_by_names(allowed)
+
+        tools = updated_registry.to_anthropic_tools()
+        await self._emitter.emit(
+            EventType.SKILL_ACTIVATED,
+            {"name": skill.metadata.name, "source": "mid_turn"},
+        )
+        logger.info("planner_mid_turn_skill_activated name={}", skill.metadata.name)
+        return effective_prompt, updated_registry, tools
 
     async def _call_llm(
         self,

@@ -10,13 +10,20 @@ import {
   retryTurn,
 } from "@/features/conversation/api/conversation-api";
 import { fetchMessages, fetchEvents } from "@/features/conversation/api/history-api";
-import type { ChatMessage, AgentEvent } from "@/shared/types";
+import { EVENT_TYPES } from "@/shared/types";
+import type { ChatMessage, AgentEvent, EventType } from "@/shared/types";
 import type { ChannelConversation } from "../api/channel-api";
 import { getProviderLabel } from "./ChannelProviderIcon";
 
 interface ChannelChatViewProps {
   conversation: ChannelConversation;
   hideTopBar?: boolean;
+}
+
+const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
+
+function isEventType(value: string): value is EventType {
+  return EVENT_TYPE_SET.has(value);
 }
 
 export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewProps) {
@@ -63,12 +70,17 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
             return { role: m.role as "user" | "assistant", content: text, timestamp: new Date(m.created_at).getTime() };
           });
 
-        const events: AgentEvent[] = evtRes.events.map((e) => ({
-          type: e.type as AgentEvent["type"],
-          data: e.data,
-          timestamp: new Date(e.timestamp).getTime(),
-          iteration: e.iteration,
-        }));
+        const events: AgentEvent[] = evtRes.events.flatMap((e) => {
+          if (!isEventType(e.type)) {
+            return [];
+          }
+          return [{
+            type: e.type,
+            data: e.data,
+            timestamp: new Date(e.timestamp).getTime(),
+            iteration: e.iteration,
+          } as AgentEvent];
+        });
 
         setHistoryMessages(messages);
         setHistoryEvents(events);

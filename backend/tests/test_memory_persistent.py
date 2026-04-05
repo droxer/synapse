@@ -9,6 +9,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
+from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.memory.facts import FactCandidate, validate_fact_candidate
 from agent.memory.models import MemoryEntry, MemoryFactEntry
 from agent.memory.store import PersistentMemoryStore
@@ -179,6 +180,18 @@ def test_validate_fact_rejects_ephemeral_text() -> None:
     assert result.reason == "ephemeral"
 
 
+def test_validate_fact_rejects_sensitive_key() -> None:
+    candidate = FactCandidate(
+        namespace="profile",
+        key="github_token",
+        value="opaque-reference",
+        confidence=0.91,
+    )
+    result = validate_fact_candidate(candidate)
+    assert result.accepted is False
+    assert result.reason == "sensitive"
+
+
 @pytest.mark.asyncio
 async def test_upsert_fact_marks_previous_active_as_stale(session) -> None:
     user = UserModel(
@@ -214,3 +227,80 @@ async def test_upsert_fact_marks_previous_active_as_stale(session) -> None:
     assert active[0].value == "UTC"
     assert len(stale) == 1
     assert stale[0].value == "UTC+8"
+
+
+@pytest.mark.asyncio
+async def test_upsert_fact_same_value_is_idempotent(session) -> None:
+    user = UserModel(
+        id=uuid.uuid4(),
+        google_id=f"google_{uuid.uuid4().hex[:8]}",
+        email=f"{uuid.uuid4().hex[:8]}@example.com",
+        name="Fact Idempotent User",
+    )
+    session.add(user)
+    await session.flush()
+
+    session_factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+    store = PersistentMemoryStore(session_factory=session_factory, user_id=user.id)
+
+    await store.upsert_fact(
+        namespace="preferences",
+        key="language",
+        value="English",
+        confidence=0.90,
+    )
+    await store.upsert_fact(
+        namespace="preferences",
+        key="language",
+        value="English",
+        confidence=0.95,
+    )
+
+    rows = (await session.execute(select(MemoryFactEntry))).scalars().all()
+    active = [row for row in rows if row.status == "active"]
+    stale = [row for row in rows if row.status == "stale"]
+
+    assert len(active) == 1
+    assert active[0].value == "English"
+    assert active[0].confidence == 0.95
+    assert stale == []
+
+
+@pytest.mark.asyncio
+async def test_compaction_flush_ignores_tool_result_messages(
+    session, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        "agent.memory.compaction_flush.get_settings",
+        lambda: type("Settings", (), {"MEMORY_FACT_CONFIDENCE_THRESHOLD": 0.85})(),
+    )
+
+    user = UserModel(
+        id=uuid.uuid4(),
+        google_id=f"google_{uuid.uuid4().hex[:8]}",
+        email=f"{uuid.uuid4().hex[:8]}@example.com",
+        name="Compaction Flush User",
+    )
+    session.add(user)
+    await session.flush()
+
+    session_factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+    store = PersistentMemoryStore(session_factory=session_factory, user_id=user.id)
+
+    messages = (
+        {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "call_web_search",
+                    "content": "my language is French",
+                }
+            ],
+        },
+    )
+
+    await flush_heuristic_facts_from_messages(store, messages)
+
+    rows = (await session.execute(select(MemoryFactEntry))).scalars().all()
+    assert rows == []

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ChangeEvent } from "react";
 import { Lightbulb, X, Search, Check } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Popover, PopoverTrigger, PopoverContent } from "@/shared/components/ui/popover";
@@ -132,7 +132,7 @@ export function SkillSelector({
                 <input
                   type="text"
                   value={filter}
-                  onChange={(e) => setFilter(e.target.value)}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => setFilter(e.target.value)}
                   placeholder={t("skills.selector.search")}
                   aria-label={t("skills.selector.search")}
                   className="flex-1 bg-transparent text-xs text-foreground placeholder:text-placeholder outline-none"

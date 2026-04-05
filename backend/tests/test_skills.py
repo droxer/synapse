@@ -829,6 +829,38 @@ class TestSSRFPrevention:
         # Should not raise
         _validate_not_internal("https://github.com/user/repo")
 
+    @pytest.mark.asyncio
+    async def test_install_from_url_blocks_internal_host_before_request(self) -> None:
+        from unittest.mock import patch
+
+        from agent.skills.installer import SkillInstaller
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+            with patch(
+                "agent.skills.installer.httpx.AsyncClient.stream",
+                side_effect=AssertionError("network should not be reached"),
+            ) as mock_stream:
+                with pytest.raises(ValueError, match="blocked internal host"):
+                    await installer.install_from_url("https://localhost/SKILL.md")
+                mock_stream.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_install_from_git_blocks_internal_host_before_clone(self) -> None:
+        from unittest.mock import patch
+
+        from agent.skills.installer import SkillInstaller
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+            with patch(
+                "agent.skills.installer.subprocess.run",
+                side_effect=AssertionError("git clone should not be reached"),
+            ) as mock_run:
+                with pytest.raises(ValueError, match="blocked internal host"):
+                    await installer.install_from_git("https://localhost/repo.git")
+                mock_run.assert_not_called()
+
 
 class TestGitOptionInjection:
     """Verify git clone uses -- separator to prevent option injection."""

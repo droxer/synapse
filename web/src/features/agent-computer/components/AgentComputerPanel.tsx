@@ -216,12 +216,13 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   if (tc.output !== undefined) {
     return tc.success === false
       ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" aria-label={t("a11y.toolFailed")} role="img" />
-      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={t("a11y.toolSuccess")} role="img" />;
+      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" aria-label={t("a11y.toolSuccess")} role="img" />;
   }
   return <PulsingDot size="sm" aria-label={t("a11y.toolRunning")} />;
 }
 
 type PanelTab = "activity" | "files";
+const PANEL_TABS: readonly PanelTab[] = ["activity", "files"];
 
 interface AgentComputerPanelProps {
   conversationId: string | null;
@@ -247,8 +248,6 @@ export function AgentComputerPanel({
   const [activeTab, setActiveTab] = useState<PanelTab>("activity");
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
-
-  const TABS: PanelTab[] = ["activity", "files"];
 
   // Scroll to highlighted step and flash it
   useEffect(() => {
@@ -289,13 +288,13 @@ export function AgentComputerPanel({
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault();
 
-      const currentIndex = TABS.indexOf(activeTab);
+      const currentIndex = PANEL_TABS.indexOf(activeTab);
       const nextIndex =
         e.key === "ArrowRight"
-          ? (currentIndex + 1) % TABS.length
-          : (currentIndex - 1 + TABS.length) % TABS.length;
+          ? (currentIndex + 1) % PANEL_TABS.length
+          : (currentIndex - 1 + PANEL_TABS.length) % PANEL_TABS.length;
 
-      const nextTab = TABS[nextIndex];
+      const nextTab = PANEL_TABS[nextIndex];
       setActiveTab(nextTab);
 
       const nextButton = tabListRef.current?.querySelector<HTMLElement>(
@@ -372,6 +371,7 @@ export function AgentComputerPanel({
   }, [visibleToolCalls]);
   const latestToolCall = visibleToolCalls[visibleToolCalls.length - 1];
   const isRunning = taskState === "executing" || taskState === "planning";
+  const isComplete = taskState === "complete";
 
   const completedCount = useMemo(
     () => visibleToolCalls.filter((t) => t.output !== undefined).length,
@@ -473,7 +473,6 @@ export function AgentComputerPanel({
           )}
         </div>
       )}
-
       {/* ── Activity content area — terminal-style logs ── */}
       {activeTab === "activity" && (
         <div id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" className="flex min-h-0 flex-1 flex-col">
@@ -526,29 +525,57 @@ export function AgentComputerPanel({
                     )}
 
                     {/* Log line */}
-                    <div className="flex items-start gap-2 py-1.5">
+                    <div
+                      className={cn(
+                        "flex items-start gap-2 rounded-md px-1.5 py-1.5",
+                        item.toolCall.output !== undefined && item.toolCall.success !== false && "bg-accent-emerald/5",
+                      )}
+                    >
                       <StatusIcon tc={item.toolCall} />
                       {item.toolCall.name === "browser_use" ? (
                         <>
-                          <span className="text-foreground">
+                          <span
+                            className={cn(
+                              item.toolCall.output !== undefined && item.toolCall.success === false
+                                  ? "text-accent-rose"
+                                  : "text-foreground",
+                            )}
+                          >
                             {getBrowserStatusText(item.toolCall, t)}
                           </span>
                           <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       ) : COMPUTER_USE_TOOLS.has(item.toolCall.name) ? (
                         <>
-                          <span className="text-foreground">
+                          <span
+                            className={cn(
+                              item.toolCall.output !== undefined && item.toolCall.success === false
+                                  ? "text-accent-rose"
+                                  : "text-foreground",
+                            )}
+                          >
                             {getComputerUseStatusText(item.toolCall, t)}
                           </span>
                           <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       ) : (
                         <>
-                          <span className="text-foreground">
+                          <span
+                            className={cn(
+                              item.toolCall.output !== undefined && item.toolCall.success === false
+                                  ? "text-accent-rose"
+                                  : "text-foreground",
+                            )}
+                          >
                             {normalizeToolNameI18n(item.toolCall.name, t)}
                           </span>
                           <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
+                      )}
+                      {item.toolCall.output !== undefined && item.toolCall.success !== false && (
+                        <span className="ml-auto rounded-full border border-accent-emerald/20 bg-accent-emerald/10 px-1.5 py-0.5 text-micro font-medium text-accent-emerald">
+                          {t("computer.statusDone")}
+                        </span>
                       )}
                     </div>
 
@@ -588,17 +615,33 @@ export function AgentComputerPanel({
 
           {/* ── Consolidated status bar ── */}
           <div className="flex shrink-0 items-center gap-3 border-t border-border px-4 py-2">
-            <Progress value={progressValue} className="flex-1 h-1" />
+            <Progress
+              value={progressValue}
+              className="flex-1 h-1"
+              indicatorClassName={cn(
+                isComplete && "bg-accent-emerald",
+                taskState === "error" && "bg-accent-rose",
+                isRunning && "bg-foreground",
+                taskState === "idle" && "bg-muted-foreground",
+              )}
+            />
 
             <div className="flex items-center gap-1.5">
               {isRunning ? (
                 <PulsingDot size="sm" />
               ) : taskState === "complete" ? (
-                <CircleCheck className="h-3.5 w-3.5 text-muted-foreground" />
+                <CircleCheck className="h-3.5 w-3.5 text-accent-emerald" />
               ) : taskState === "error" ? (
                 <CircleX className="h-3.5 w-3.5 text-accent-rose" />
               ) : null}
-              <span className="text-xs font-medium text-muted-foreground">
+              <span
+                className={cn(
+                  "text-xs font-medium",
+                  isComplete && "text-accent-emerald",
+                  taskState === "error" && "text-accent-rose",
+                  (isRunning || taskState === "idle") && "text-muted-foreground",
+                )}
+              >
                 {taskState === "complete"
                   ? t("computer.statusDone")
                   : isRunning
@@ -609,7 +652,12 @@ export function AgentComputerPanel({
               </span>
             </div>
 
-            <span className="text-xs font-mono font-medium text-muted-foreground tabular-nums">
+            <span
+              className={cn(
+                "text-xs font-mono font-medium tabular-nums",
+                isComplete ? "text-accent-emerald" : "text-muted-foreground",
+              )}
+            >
               {completedCount}/{visibleToolCalls.length}
             </span>
           </div>

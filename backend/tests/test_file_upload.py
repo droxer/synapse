@@ -167,6 +167,18 @@ class TestLocalSessionSandboxPathMapping:
             with pytest.raises(ValueError, match="outside the sandbox roots"):
                 await session.upload_file(src, "/etc/passwd")
 
+    @pytest.mark.asyncio
+    async def test_exec_rejects_absolute_host_workdir(self) -> None:
+        from agent.sandbox.local_provider import LocalSession
+
+        with tempfile.TemporaryDirectory() as workdir:
+            session = LocalSession(workdir=workdir)
+
+            result = await session.exec("pwd", workdir="/etc")
+
+            assert result.exit_code == 1
+            assert "outside the sandbox roots" in result.stderr
+
 
 class TestSanitizeFilenameInOrchestrator:
     """Verify upload attachment display-name sanitizer (shared with routes)."""

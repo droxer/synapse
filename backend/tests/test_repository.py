@@ -109,6 +109,31 @@ class TestUpdateConversation:
         updated = await repo.update_conversation(session, created.id, title="New")
         assert updated.title == "New"
 
+    async def test_merge_context_summary_preserves_fragment_boundaries(
+        self, repo, session: AsyncSession
+    ) -> None:
+        convo = await repo.create_conversation(session, title="Summary test")
+
+        await repo.merge_conversation_context_summary(
+            session,
+            convo.id,
+            "## Earlier conversation\n" + "a" * 80,
+            max_chars=200,
+        )
+        await repo.merge_conversation_context_summary(
+            session,
+            convo.id,
+            "## Previous work\n" + "b" * 80,
+            max_chars=120,
+        )
+
+        updated = await repo.get_conversation(session, convo.id)
+
+        assert updated is not None
+        assert updated.context_summary is not None
+        assert updated.context_summary.startswith("## ")
+        assert "## Previous work" in updated.context_summary
+
 
 class TestMessages:
     async def test_save_and_get_messages(self, repo, session: AsyncSession) -> None:

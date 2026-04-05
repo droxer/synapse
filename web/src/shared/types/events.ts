@@ -1,38 +1,151 @@
-export type EventType =
-  | "task_start"
-  | "task_complete"
-  | "task_error"
-  | "turn_start"
-  | "turn_complete"
-  | "turn_cancelled"
-  | "iteration_start"
-  | "iteration_complete"
-  | "llm_request"
-  | "llm_response"
-  | "text_delta"
-  | "tool_call"
-  | "tool_result"
-  | "message_user"
-  | "ask_user"
-  | "user_response"
-  | "agent_spawn"
-  | "agent_complete"
-  | "agent_handoff"
-  | "thinking"
-  | "sandbox_stdout"
-  | "sandbox_stderr"
-  | "code_result"
-  | "artifact_created"
-  | "conversation_title"
-  | "skill_activated"
-  | "plan_created";
+export const EVENT_TYPES = [
+  "task_start",
+  "task_complete",
+  "task_error",
+  "turn_start",
+  "turn_complete",
+  "turn_cancelled",
+  "iteration_start",
+  "iteration_complete",
+  "llm_request",
+  "llm_response",
+  "text_delta",
+  "tool_call",
+  "tool_result",
+  "message_user",
+  "ask_user",
+  "user_response",
+  "agent_spawn",
+  "agent_complete",
+  "agent_handoff",
+  "thinking",
+  "sandbox_stdout",
+  "sandbox_stderr",
+  "code_result",
+  "artifact_created",
+  "conversation_title",
+  "skill_activated",
+  "plan_created",
+] as const;
 
-export interface AgentEvent {
-  readonly type: EventType;
-  readonly data: Record<string, unknown>;
-  readonly timestamp: number;
-  readonly iteration: number | null;
+export type EventType = (typeof EVENT_TYPES)[number];
+
+type GenericEventData = Record<string, unknown>;
+
+export interface ThinkingEventData extends GenericEventData {
+  readonly thinking?: string;
+  readonly text?: string;
+  readonly content?: string;
+  readonly duration_ms?: number;
 }
+
+export interface TextDeltaEventData extends GenericEventData {
+  readonly delta?: string;
+}
+
+export interface LLMResponseEventData extends GenericEventData {
+  readonly text?: string;
+  readonly content?: string;
+  readonly message?: string;
+}
+
+export interface ToolCallEventData extends GenericEventData {
+  readonly tool_id?: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly tool_name?: string;
+  readonly input?: Record<string, unknown>;
+  readonly tool_input?: Record<string, unknown>;
+  readonly arguments?: Record<string, unknown>;
+  readonly agent_id?: string;
+}
+
+export interface ToolResultEventData extends GenericEventData {
+  readonly tool_id?: string;
+  readonly id?: string;
+  readonly output?: string;
+  readonly result?: string;
+  readonly success?: boolean;
+  readonly content_type?: string;
+  readonly artifact_ids?: string[];
+  readonly agent_id?: string;
+  readonly steps?: number;
+  readonly is_done?: boolean;
+  readonly max_steps?: number;
+  readonly url?: string;
+  readonly task?: string;
+  readonly action?: string;
+  readonly x?: number;
+  readonly y?: number;
+  readonly text?: string;
+  readonly end_x?: number;
+  readonly end_y?: number;
+  readonly amount?: number;
+}
+
+export interface ArtifactCreatedEventData extends GenericEventData {
+  readonly artifact_id?: string;
+  readonly name?: string;
+  readonly content_type?: string;
+  readonly size?: number;
+}
+
+export interface AgentSpawnEventData extends GenericEventData {
+  readonly agent_id?: string;
+  readonly id?: string;
+  readonly name?: string;
+  readonly description?: string;
+  readonly task?: string;
+}
+
+export interface AgentCompleteEventData extends GenericEventData {
+  readonly agent_id?: string;
+  readonly id?: string;
+  readonly error?: unknown;
+}
+
+export interface PlanCreatedEventData extends GenericEventData {
+  readonly steps?: Array<{ readonly name?: string; readonly description?: string }>;
+}
+
+export type AgentEventDataByType = {
+  task_start: GenericEventData;
+  task_complete: GenericEventData;
+  task_error: GenericEventData;
+  turn_start: GenericEventData;
+  turn_complete: GenericEventData;
+  turn_cancelled: GenericEventData;
+  iteration_start: GenericEventData;
+  iteration_complete: GenericEventData;
+  llm_request: GenericEventData;
+  llm_response: LLMResponseEventData;
+  text_delta: TextDeltaEventData;
+  tool_call: ToolCallEventData;
+  tool_result: ToolResultEventData;
+  message_user: GenericEventData;
+  ask_user: GenericEventData;
+  user_response: GenericEventData;
+  agent_spawn: AgentSpawnEventData;
+  agent_complete: AgentCompleteEventData;
+  agent_handoff: GenericEventData;
+  thinking: ThinkingEventData;
+  sandbox_stdout: GenericEventData;
+  sandbox_stderr: GenericEventData;
+  code_result: GenericEventData;
+  artifact_created: ArtifactCreatedEventData;
+  conversation_title: GenericEventData;
+  skill_activated: GenericEventData;
+  plan_created: PlanCreatedEventData;
+};
+
+export type AgentEvent = {
+  readonly [K in EventType]: {
+    readonly type: K;
+    readonly data: AgentEventDataByType[K];
+    readonly timestamp: number;
+    readonly iteration: number | null;
+  };
+}[EventType];
 
 export type TaskState = "idle" | "planning" | "executing" | "complete" | "error";
 
@@ -47,9 +160,9 @@ export interface ChatMessage {
   readonly content: string;
   readonly timestamp: number;
   readonly attachments?: Array<{ readonly name: string; readonly size: number; readonly type: string }>;
-  imageArtifactIds?: string[];
+  readonly imageArtifactIds?: readonly string[];
   readonly thinkingContent?: string;
-  thinkingEntries?: ThinkingEntry[];
+  readonly thinkingEntries?: readonly ThinkingEntry[];
 }
 
 export interface ThinkingEntry {

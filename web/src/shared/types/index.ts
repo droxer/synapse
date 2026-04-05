@@ -1,5 +1,6 @@
 export type {
   EventType,
+  AgentEventDataByType,
   AgentEvent,
   TaskState,
   ChatMessage,
@@ -13,3 +14,5 @@ export type {
   AssistantPhase,
   ThinkingEntry,
 } from "./events";
+
+export { EVENT_TYPES } from "./events";

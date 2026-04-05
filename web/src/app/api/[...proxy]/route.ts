@@ -18,7 +18,7 @@ async function handler(req: NextRequest) {
     console.log("[proxy]", req.method, pathname, {
       hasSession: !!session,
       user: session?.user?.email ?? "none",
-      googleId: (session?.user as { googleId?: string } | undefined)?.googleId ?? "none",
+      googleId: session?.user?.googleId ?? "none",
     });
   }
 
@@ -40,8 +40,7 @@ async function handler(req: NextRequest) {
     headers.set("X-User-Email", session.user.email ?? "");
     headers.set("X-User-Name", session.user.name ?? "");
     headers.set("X-User-Picture", session.user.image ?? "");
-    const googleId = (session.user as { googleId?: string }).googleId;
-    headers.set("X-User-Google-Id", googleId ?? "");
+    headers.set("X-User-Google-Id", session.user.googleId ?? "");
   }
 
   try {
@@ -50,9 +49,8 @@ async function handler(req: NextRequest) {
       const backendResponse = await fetch(url, {
         method: req.method,
         headers,
-        // @ts-expect-error — Node.js fetch supports duplex for streaming
         duplex: "half",
-      });
+      } as RequestInit & { duplex: "half" });
 
       // Forward upstream headers, override streaming-specific ones
       const sseHeaders = new Headers(backendResponse.headers);

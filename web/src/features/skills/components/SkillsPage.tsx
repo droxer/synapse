@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, type DragEvent } from "react";
+import { useState, useCallback, useRef, type ChangeEvent, type DragEvent, type KeyboardEvent } from "react";
 import { motion } from "framer-motion";
 import { Lightbulb, Plus, Package, Globe, X, Upload, FileText, FolderOpen, Search } from "lucide-react";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -29,6 +29,7 @@ import {
 import { SkillCard } from "./SkillCard";
 import { SkillSection } from "./SkillSection";
 import { cn } from "@/shared/lib/utils";
+import { listVariants } from "@/shared/lib/animations";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
 import {
@@ -37,24 +38,8 @@ import {
   uploadSkill,
   toggleSkill,
 } from "../api/skills-api";
+import { useSkillsForm } from "../hooks/use-skills-form";
 import { useTranslation } from "@/i18n";
-
-/* ── animation variants ── */
-const listContainer = {
-  hidden: {},
-  show: {
-    transition: { staggerChildren: 0.02, delayChildren: 0 },
-  },
-};
-
-const listItem = {
-  hidden: { opacity: 0, y: 6 },
-  show: {
-    opacity: 1,
-    y: 0,
-    transition: { duration: 0.12, ease: "easeOut" as const },
-  },
-};
 
 /* ── skeleton (matches grid card layout) ── */
 function SkillSkeleton() {
@@ -111,8 +96,6 @@ async function readDirectoryEntries(
   return files;
 }
 
-type InstallSource = "git" | "upload";
-
 export function SkillsPage() {
   const { t } = useTranslation();
   const { getAllSkills, refetch, isLoading } = useSkillsCache();
@@ -121,31 +104,30 @@ export function SkillsPage() {
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
-  // Install form state
-  const [showForm, setShowForm] = useState(false);
-  const [installSource, setInstallSource] = useState<InstallSource>("upload");
-  const [formUrl, setFormUrl] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-
-  // Upload state
-  const [selectedFiles, setSelectedFiles] = useState<File[] | null>(null);
-  const [isFolderUpload, setIsFolderUpload] = useState(false);
-  const [folderName, setFolderName] = useState("");
-  const [isDragging, setIsDragging] = useState(false);
+  const {
+    showForm,
+    setShowForm,
+    installSource,
+    setInstallSource,
+    formUrl,
+    setFormUrl,
+    submitting,
+    setSubmitting,
+    selectedFiles,
+    setSelectedFiles,
+    isFolderUpload,
+    setIsFolderUpload,
+    folderName,
+    setFolderName,
+    isDragging,
+    setIsDragging,
+    resetForm,
+  } = useSkillsForm();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
 
   // Delete confirmation
   const [skillToDelete, setSkillToDelete] = useState<string | null>(null);
-
-  const resetForm = () => {
-    setFormUrl("");
-    setSelectedFiles(null);
-    setIsFolderUpload(false);
-    setFolderName("");
-    setInstallSource("upload");
-    setShowForm(false);
-  };
 
   const handleInstall = async () => {
     if (installSource === "upload") {
@@ -181,12 +163,12 @@ export function SkillsPage() {
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
-  }, []);
+  }, [setIsDragging]);
 
   const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(false);
-  }, []);
+  }, [setIsDragging]);
 
   const handleDrop = useCallback(async (e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -207,7 +189,7 @@ export function SkillsPage() {
       setIsFolderUpload(false);
       setFolderName("");
     }
-  }, []);
+  }, [setFolderName, setIsDragging, setIsFolderUpload, setSelectedFiles]);
 
   const handleDelete = useCallback(async () => {
     if (!skillToDelete) return;
@@ -221,7 +203,7 @@ export function SkillsPage() {
         err instanceof Error ? err.message : "Failed to uninstall skill",
       );
     }
-  }, [skillToDelete]);
+  }, [refetch, skillToDelete]);
 
   const handleToggle = useCallback(async (name: string, enabled: boolean) => {
     setError(null);
@@ -352,12 +334,12 @@ export function SkillsPage() {
             /* Flat grid when search is active */
             <motion.div
               className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-              variants={listContainer}
+              variants={listVariants.container}
               initial="hidden"
               animate="show"
             >
               {displaySkills.map((skill) => (
-                <motion.div key={skill.name} variants={listItem} className="h-full">
+                <motion.div key={skill.name} variants={listVariants.item} className="h-full">
                   <SkillCard
                     skill={skill}
                     onDelete={setSkillToDelete}
@@ -378,12 +360,12 @@ export function SkillsPage() {
                 >
                   <motion.div
                     className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                    variants={listContainer}
+                    variants={listVariants.container}
                     initial="hidden"
                     animate="show"
                   >
                     {bundledSkills.map((skill) => (
-                      <motion.div key={skill.name} variants={listItem} className="h-full">
+                      <motion.div key={skill.name} variants={listVariants.item} className="h-full">
                         <SkillCard skill={skill} />
                       </motion.div>
                     ))}
@@ -413,12 +395,12 @@ export function SkillsPage() {
                 ) : (
                   <motion.div
                     className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-                    variants={listContainer}
+                    variants={listVariants.container}
                     initial="hidden"
                     animate="show"
                   >
                     {installedSkills.map((skill) => (
-                      <motion.div key={skill.name} variants={listItem} className="h-full">
+                      <motion.div key={skill.name} variants={listVariants.item} className="h-full">
                         <SkillCard
                           skill={skill}
                           onDelete={setSkillToDelete}
@@ -483,8 +465,8 @@ export function SkillsPage() {
                     id="skill-url"
                     placeholder={t("skills.repoPlaceholder")}
                     value={formUrl}
-                    onChange={(e) => setFormUrl(e.target.value)}
-                    onKeyDown={(e) => {
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => setFormUrl(e.target.value)}
+                    onKeyDown={(e: KeyboardEvent<HTMLInputElement>) => {
                       if (e.key === "Enter" && formUrl.trim() && !submitting) {
                         handleInstall();
                       }
@@ -537,7 +519,7 @@ export function SkillsPage() {
                     multiple
                     accept=".zip,.md"
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       if (e.target.files && e.target.files.length > 0) {
                         setSelectedFiles(Array.from(e.target.files));
                         setIsFolderUpload(false);
@@ -548,12 +530,11 @@ export function SkillsPage() {
                   <input
                     ref={folderInputRef}
                     type="file"
-                    // @ts-expect-error webkitdirectory is not in React's type defs
                     webkitdirectory=""
                     className="hidden"
-                    onChange={(e) => {
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => {
                       if (e.target.files && e.target.files.length > 0) {
-                        const files = Array.from(e.target.files);
+                        const files: File[] = Array.from(e.target.files);
                         setSelectedFiles(files);
                         setIsFolderUpload(true);
                         // Extract folder name from the first file's webkitRelativePath

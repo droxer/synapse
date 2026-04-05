@@ -1,18 +1,37 @@
 <svg width="512" height="512" viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <style>
+    :root {
+      --logo-bg-start: #1B7EF2;
+      --logo-bg-end: #3B82F6;
+      --logo-glyph: #FAFAFA;
+      --logo-node-start: #DBEAFE;
+      --logo-node-end: #BFDBFE;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --logo-bg-start: #3B8EF5;
+        --logo-bg-end: #60A5FA;
+        --logo-glyph: #FAFAFA;
+        --logo-node-start: #E0F2FE;
+        --logo-node-end: #BAE6FD;
+      }
+    }
+  </style>
   <defs>
     <linearGradient id="logo-bg" x1="0" y1="0" x2="128" y2="128" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#6C3AED" />
-      <stop offset="100%" stop-color="#4F46E5" />
+      <stop offset="0%" style="stop-color: var(--logo-bg-start)" />
+      <stop offset="100%" style="stop-color: var(--logo-bg-end)" />
     </linearGradient>
     <linearGradient id="logo-accent" x1="32" y1="28" x2="96" y2="100" gradientUnits="userSpaceOnUse">
-      <stop offset="0%" stop-color="#E0E7FF" />
-      <stop offset="100%" stop-color="#C7D2FE" />
+      <stop offset="0%" style="stop-color: var(--logo-node-start)" />
+      <stop offset="100%" style="stop-color: var(--logo-node-end)" />
     </linearGradient>
   </defs>
   <rect width="128" height="128" rx="28" fill="url(#logo-bg)" />
-  <rect x="30" y="30" width="20" height="68" rx="10" fill="white" opacity="0.95" />
-  <rect x="78" y="30" width="20" height="68" rx="10" fill="white" opacity="0.95" />
-  <rect x="40" y="52" width="48" height="16" rx="8" fill="white" opacity="0.95" />
+  <rect x="30" y="30" width="20" height="68" rx="10" fill="var(--logo-glyph)" opacity="0.95" />
+  <rect x="78" y="30" width="20" height="68" rx="10" fill="var(--logo-glyph)" opacity="0.95" />
+  <rect x="40" y="52" width="48" height="16" rx="8" fill="var(--logo-glyph)" opacity="0.95" />
   <circle cx="88" cy="30" r="10" fill="url(#logo-accent)" />
-  <circle cx="88" cy="30" r="4" fill="white" opacity="0.9" />
+  <circle cx="88" cy="30" r="4" fill="var(--logo-glyph)" opacity="0.9" />
 </svg>

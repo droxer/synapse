@@ -1,7 +1,10 @@
 [English](README.md) | **简体中文**
 
 <p align="center">
-  <img src="web/public/logo.svg" width="80" height="80" alt="HiAgent logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/favicon-dark.svg" />
+    <img src="web/public/favicon-light.svg" width="80" height="80" alt="HiAgent logo" />
+  </picture>
 </p>
 
 <h1 align="center">HiAgent</h1>

@@ -1,5 +1,8 @@
 <p align="center">
-  <img src="web/public/logo.svg" width="80" height="80" alt="HiAgent logo" />
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="web/public/favicon-dark.svg" />
+    <img src="web/public/favicon-light.svg" width="80" height="80" alt="HiAgent logo" />
+  </picture>
 </p>
 
 <h1 align="center">HiAgent</h1>
@@ -29,6 +32,16 @@ An open-source AI agent platform that does the work for you. Describe any task i
 | Multi-Agent Planning | Skills System | MCP Integration |
 |:---:|:---:|:---:|
 | ![Multi-Agent Planning](images/multi-agents.png) | ![Skills System](images/skills.png) | ![MCP Integration](images/mcp.png) |
+
+## Brand Assets
+
+- **Theme-adaptive logo**: `web/public/logo.svg` uses light/dark color treatment via `prefers-color-scheme`.
+- **App logo component**: `web/src/shared/components/Logo.tsx` maps logo colors to semantic design tokens in `web/src/app/globals.css`.
+- **Favicon variants**:
+  - SVG: `web/public/favicon-light.svg`, `web/public/favicon-dark.svg`
+  - PNG/ICO: `web/public/favicon-16.png`, `web/public/favicon-32.png`, `web/public/favicon.ico`, plus dark PNG variants
+  - Apple touch icons: `web/public/apple-touch-icon.png` and `web/public/apple-touch-icon-dark.png`
+- **Metadata wiring**: `web/src/app/layout.tsx` serves light/dark icon variants using Next.js `icons` entries with `media`.
 
 ## Features
 

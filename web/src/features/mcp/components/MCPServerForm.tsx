@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent, KeyboardEvent } from "react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { TransportToggle } from "./TransportToggle";
 import { Button } from "@/shared/components/ui/button";
@@ -43,7 +44,7 @@ export function MCPServerForm({
 }: MCPServerFormProps) {
   const { t } = useTranslation();
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && formName.trim() && !submitting) {
       onSubmit();
     }
@@ -65,7 +66,7 @@ export function MCPServerForm({
           id={`${idPrefix}-name`}
           placeholder={t("mcp.namePlaceholder")}
           value={formName}
-          onChange={(e) => onFormNameChange(e.target.value)}
+          onChange={(e: ChangeEvent<HTMLInputElement>) => onFormNameChange(e.target.value)}
           className="font-mono"
           autoFocus
         />
@@ -87,7 +88,7 @@ export function MCPServerForm({
             id={`${idPrefix}-command`}
             placeholder={t("mcp.commandPlaceholder")}
             value={formCommand}
-            onChange={(e) => onFormCommandChange(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => onFormCommandChange(e.target.value)}
             onKeyDown={handleKeyDown}
             className="font-mono"
           />
@@ -101,7 +102,7 @@ export function MCPServerForm({
             id={`${idPrefix}-url`}
             placeholder={t("mcp.urlPlaceholder")}
             value={formUrl}
-            onChange={(e) => onFormUrlChange(e.target.value)}
+            onChange={(e: ChangeEvent<HTMLInputElement>) => onFormUrlChange(e.target.value)}
             onKeyDown={handleKeyDown}
             className="font-mono"
           />

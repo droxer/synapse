@@ -3,7 +3,14 @@
 import { useState, useEffect, useRef } from "react";
 import { useAppStore } from "@/shared/stores";
 import { fetchMessages, fetchEvents } from "../api/history-api";
-import type { ChatMessage, AgentEvent } from "@/shared/types";
+import { EVENT_TYPES } from "@/shared/types";
+import type { ChatMessage, AgentEvent, EventType } from "@/shared/types";
+
+const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
+
+function isEventType(value: string): value is EventType {
+  return EVENT_TYPE_SET.has(value);
+}
 
 /**
  * Loads persisted messages and events for the selected conversation.
@@ -67,12 +74,17 @@ export function useConversationHistory(
             };
           });
 
-        const events: AgentEvent[] = eventsResponse.events.map((e) => ({
-          type: e.type as AgentEvent["type"],
-          data: e.data,
-          timestamp: new Date(e.timestamp).getTime(),
-          iteration: e.iteration,
-        }));
+        const events: AgentEvent[] = eventsResponse.events.flatMap((e) => {
+          if (!isEventType(e.type)) {
+            return [];
+          }
+          return [{
+            type: e.type,
+            data: e.data,
+            timestamp: new Date(e.timestamp).getTime(),
+            iteration: e.iteration,
+          } as AgentEvent];
+        });
 
         setHistoryMessages(messages);
         setHistoryEvents(events);

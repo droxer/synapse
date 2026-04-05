@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, ReactNode } from "react";
+import { memo, useState, useCallback, isValidElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -15,8 +15,8 @@ const extractText = (node: ReactNode): string => {
   if (typeof node === "string") return node;
   if (typeof node === "number") return node.toString();
   if (Array.isArray(node)) return node.map(extractText).join("");
-  if (node && typeof node === "object" && "props" in node) {
-    const props = (node as any).props;
+  if (isValidElement<{ children?: ReactNode }>(node)) {
+    const props = node.props;
     if (props && props.children) {
       return extractText(props.children);
     }
@@ -50,14 +50,9 @@ const components: Components = {
   pre({ children }) {
     let language = "text";
 
-    if (
-      children &&
-      typeof children === "object" &&
-      "props" in children &&
-      (children as any).props &&
-      typeof (children as any).props.className === "string"
-    ) {
-      const match = /language-(\w+)/.exec((children as any).props.className || "");
+    if (isValidElement<{ className?: string }>(children)) {
+      const className = children.props.className;
+      const match = /language-(\w+)/.exec(className ?? "");
       if (match) {
         language = match[1];
       }

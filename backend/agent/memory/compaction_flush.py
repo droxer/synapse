@@ -9,8 +9,26 @@ from loguru import logger
 from agent.memory.facts import validate_fact_candidate
 from agent.memory.heuristic_extract import extract_fact_candidates
 from agent.memory.store import PersistentMemoryStore
-from agent.runtime.observer import _message_plain_text
 from config.settings import get_settings
+
+
+def _user_text_for_fact_flush(message: dict[str, Any]) -> str:
+    """Return only human-authored user text, excluding tool results."""
+    content = message.get("content", "")
+    if isinstance(content, str):
+        return content.strip()
+    if not isinstance(content, list):
+        return str(content).strip()
+
+    parts: list[str] = []
+    for block in content:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "text":
+            text = str(block.get("text", "")).strip()
+            if text:
+                parts.append(text)
+    return " ".join(parts).strip()
 
 
 async def flush_heuristic_facts_from_messages(
@@ -29,7 +47,7 @@ async def flush_heuristic_facts_from_messages(
     for msg in messages:
         if msg.get("role") != "user":
             continue
-        text = _message_plain_text(msg)
+        text = _user_text_for_fact_flush(msg)
         if not text:
             continue
         for candidate in extract_fact_candidates(text):

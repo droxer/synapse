@@ -98,7 +98,7 @@ def extract_final_text(state: AgentState) -> str:
 
 
 # Local tools that are safe to run concurrently (no shared sandbox mutation).
-_PARALLEL_SAFE_TOOL_NAMES = frozenset({"web_search", "memory_list", "memory_recall"})
+_PARALLEL_SAFE_TOOL_NAMES = frozenset({"web_search", "memory_list", "memory_search"})
 
 
 def _tool_batch_allows_parallel_execution(tool_calls: tuple[ToolCall, ...]) -> bool:
@@ -159,6 +159,30 @@ async def _emit_and_execute_single_tool(
         iteration=state.iteration,
     )
     return result, result_data
+
+
+async def _emit_skipped_tool_result(
+    state: AgentState,
+    tc: ToolCall,
+    emitter: EventEmitter,
+    reason: str,
+    agent_id: str | None,
+) -> dict[str, Any]:
+    """Emit a synthetic TOOL_RESULT for an unexecuted tool call."""
+    result_data: dict[str, Any] = {
+        "tool_id": tc.id,
+        "success": False,
+        "output": reason,
+    }
+    if agent_id is not None:
+        result_data["agent_id"] = agent_id
+
+    await emitter.emit(
+        EventType.TOOL_RESULT,
+        result_data,
+        iteration=state.iteration,
+    )
+    return build_tool_result_block(tc.id, reason, False)
 
 
 async def process_tool_calls(
@@ -270,6 +294,7 @@ async def process_tool_calls(
         )
 
     for tc in tool_calls:
+        break_reason: str | None = None
         logger.info("executing_tool name={}", tc.name)
 
         result, _ = await _emit_and_execute_single_tool(
@@ -293,10 +318,24 @@ async def process_tool_calls(
 
         # Break early when task_complete (or any other stop condition) fires
         if stop_check is not None and stop_check():
-            break
+            break_reason = (
+                "Tool call skipped because the task was already marked complete."
+            )
+        elif cancel_check is not None and cancel_check():
+            break_reason = "Tool call skipped because the turn was cancelled."
 
-        # Break early when cancellation is requested
-        if cancel_check is not None and cancel_check():
+        if break_reason is not None:
+            remaining_calls = tool_calls[processed_count:]
+            for skipped_tc in remaining_calls:
+                tool_results.append(
+                    await _emit_skipped_tool_result(
+                        state,
+                        skipped_tc,
+                        emitter,
+                        break_reason,
+                        agent_id,
+                    )
+                )
             break
 
     return ToolCallProcessingResult(

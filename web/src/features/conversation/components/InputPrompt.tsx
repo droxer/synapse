@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { FOCUSABLE_SELECTOR } from "@/shared/lib/a11y";
@@ -96,7 +96,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
               ref={inputRef}
               type="text"
               value={value}
-              onChange={(e) => setValue(e.target.value)}
+              onChange={(e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
               placeholder={t("inputPrompt.placeholder")}
               aria-label={t("inputPrompt.ariaLabel")}
               className="flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-[color,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"

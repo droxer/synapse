@@ -8,6 +8,7 @@ import sys
 import tempfile
 import types
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -80,6 +81,28 @@ class _FakeBox:
 
     async def copy_in(self, local_path: str, dir_path: str) -> None:
         await self._copy_in_impl(local_path, dir_path)
+
+
+@pytest.mark.asyncio
+async def test_exec_exports_configured_env_vars(
+    boxlite_provider_module: Any,
+) -> None:
+    box = types.SimpleNamespace(
+        exec=AsyncMock(
+            return_value=types.SimpleNamespace(stdout="ok", stderr="", exit_code=0)
+        )
+    )
+    session = boxlite_provider_module.BoxliteSession(
+        box,
+        env_vars=(("API_TOKEN", "secret value"),),
+    )
+
+    await session.exec('printf %s "$API_TOKEN"')
+
+    args = box.exec.await_args.args
+    assert args[:2] == ("sh", "-c")
+    assert "export API_TOKEN='secret value' &&" in args[2]
+    assert 'printf %s "$API_TOKEN"' in args[2]
 
 
 @pytest.mark.asyncio

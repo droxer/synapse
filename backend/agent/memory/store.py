@@ -241,17 +241,40 @@ class PersistentMemoryStore:
             )
             existing_result = await session.execute(existing_stmt)
             active = existing_result.scalars().all()
+            normalized_value = value.strip()
+            matching = [row for row in active if row.value == normalized_value]
+
+            if matching:
+                keeper = max(matching, key=lambda row: row.updated_at)
+                keeper.confidence = confidence
+                keeper.source = source
+                keeper.source_chat_id = source_chat_id
+                keeper.evidence_snippet = evidence_snippet
+                keeper.last_seen_at = now
+                keeper.updated_at = now
+                for row in active:
+                    if row.id != keeper.id:
+                        row.status = "stale"
+                        row.updated_at = now
+                await session.commit()
+                return {
+                    "namespace": normalized_ns,
+                    "key": normalized_key,
+                    "value": normalized_value,
+                    "confidence": str(confidence),
+                    "status": "active",
+                }
+
             for row in active:
-                if row.value != value:
-                    row.status = "stale"
-                    row.updated_at = now
+                row.status = "stale"
+                row.updated_at = now
 
             session.add(
                 MemoryFactEntry(
                     user_id=user_id,
                     namespace=normalized_ns,
                     key=normalized_key,
-                    value=value.strip(),
+                    value=normalized_value,
                     confidence=confidence,
                     status="active",
                     source=source,
@@ -265,7 +288,7 @@ class PersistentMemoryStore:
         return {
             "namespace": normalized_ns,
             "key": normalized_key,
-            "value": value.strip(),
+            "value": normalized_value,
             "confidence": str(confidence),
             "status": "active",
         }

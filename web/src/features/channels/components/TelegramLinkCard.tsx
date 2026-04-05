@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from "react";
 import { ChevronDown, ChevronUp, Copy, Check, ExternalLink, AlertCircle, X, Settings, Link } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import {
@@ -105,12 +105,12 @@ function TelegramConfigModal({
 }: TelegramConfigModalProps) {
   const overlayRef = useRef<HTMLDivElement>(null);
 
-  const handleOverlayClick = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
     if (e.target === overlayRef.current) onClose();
   };
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    const handler = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("keydown", handler);
     return () => document.removeEventListener("keydown", handler);
   }, [onClose]);
@@ -161,8 +161,10 @@ function TelegramConfigModal({
                   id="tg-bot-token"
                   type="password"
                   value={botTokenInput}
-                  onChange={(e) => onBotTokenChange(e.target.value)}
-                  onKeyDown={(e) => { if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot(); }}
+                  onChange={(e: ChangeEvent<HTMLInputElement>) => onBotTokenChange(e.target.value)}
+                  onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                    if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot();
+                  }}
                   placeholder="123456789:AAFx..."
                   autoFocus
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
@@ -252,8 +254,11 @@ function TelegramConfigModal({
                   <input
                     type="password"
                     value={botTokenInput}
-                    onChange={(e) => onBotTokenChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot(); if (e.key === "Escape") onCancelEditToken(); }}
+                    onChange={(e: ChangeEvent<HTMLInputElement>) => onBotTokenChange(e.target.value)}
+                    onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
+                      if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot();
+                      if (e.key === "Escape") onCancelEditToken();
+                    }}
                     placeholder="New API Token..."
                     autoFocus
                     className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"

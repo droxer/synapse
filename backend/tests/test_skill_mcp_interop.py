@@ -1,4 +1,4 @@
-"""Regression tests for skill filtering with MCP tools."""
+"""Regression tests for skill filtering boundaries."""
 
 from __future__ import annotations
 
@@ -75,7 +75,9 @@ def _tool_names(tools: list[dict[str, Any]] | None) -> set[str]:
 
 
 @pytest.mark.asyncio
-async def test_orchestrator_keeps_mcp_tools_when_skill_filters_registry() -> None:
+async def test_orchestrator_excludes_unlisted_mcp_tools_when_skill_filters_registry() -> (
+    None
+):
     client = _RecordingClient()
     registry = ToolRegistry().register(_FakeMCPTool())
     orchestrator = AgentOrchestrator(
@@ -89,11 +91,13 @@ async def test_orchestrator_keeps_mcp_tools_when_skill_filters_registry() -> Non
 
     await orchestrator.run("please do deep research")
 
-    assert "demo_server__lookup_docs" in _tool_names(client.last_tools)
+    assert "demo_server__lookup_docs" not in _tool_names(client.last_tools)
 
 
 @pytest.mark.asyncio
-async def test_planner_keeps_mcp_tools_when_skill_filters_registry() -> None:
+async def test_planner_excludes_unlisted_mcp_tools_when_skill_filters_registry() -> (
+    None
+):
     client = _RecordingClient()
     registry = ToolRegistry().register(_FakeMCPTool())
     planner = PlannerOrchestrator(
@@ -108,4 +112,4 @@ async def test_planner_keeps_mcp_tools_when_skill_filters_registry() -> None:
 
     await planner.run("please do deep research")
 
-    assert "demo_server__lookup_docs" in _tool_names(client.last_tools)
+    assert "demo_server__lookup_docs" not in _tool_names(client.last_tools)

@@ -56,6 +56,8 @@ def validate_fact_candidate(
         return ValidationResult(accepted=False, reason="empty_key_or_value")
     if candidate.confidence < threshold:
         return ValidationResult(accepted=False, reason="low_confidence")
+    if any(pattern.search(key) for pattern in _SENSITIVE_PATTERNS):
+        return ValidationResult(accepted=False, reason="sensitive")
     if any(pattern.search(value) for pattern in _SENSITIVE_PATTERNS):
         return ValidationResult(accepted=False, reason="sensitive")
     if any(pattern.search(value) for pattern in _EPHEMERAL_PATTERNS):

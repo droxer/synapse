@@ -36,6 +36,55 @@ from agent.state.schemas import (
     UserUsageSummary,
 )
 
+_SUMMARY_SEPARATOR = "\n\n---\n\n"
+
+
+def _trim_context_summary_fragment(fragment: str, max_chars: int) -> str:
+    """Trim a single fragment without dropping its heading marker."""
+    cleaned = fragment.strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+
+    lines = cleaned.splitlines()
+    if lines and lines[0].startswith("## "):
+        heading = lines[0]
+        body = "\n".join(lines[1:]).strip()
+        if not body:
+            return heading[:max_chars]
+        marker = "[...]\n"
+        available = max_chars - len(heading) - 1 - len(marker)
+        if available <= 0:
+            return heading[:max_chars]
+        return f"{heading}\n{marker}{body[-available:]}"
+
+    marker = "[...]"
+    if max_chars <= len(marker):
+        return marker[:max_chars]
+    return f"{marker}{cleaned[-(max_chars - len(marker)) :]}"
+
+
+def _trim_context_summary(merged: str, max_chars: int) -> str:
+    """Keep the newest whole fragments when possible, otherwise trim one fragment."""
+    cleaned = merged.strip()
+    if len(cleaned) <= max_chars:
+        return cleaned
+
+    fragments = [
+        frag.strip() for frag in cleaned.split(_SUMMARY_SEPARATOR) if frag.strip()
+    ]
+    kept: list[str] = []
+    current_len = 0
+    for fragment in reversed(fragments):
+        extra = len(fragment) if not kept else len(_SUMMARY_SEPARATOR) + len(fragment)
+        if current_len + extra <= max_chars:
+            kept.append(fragment)
+            current_len += extra
+            continue
+        if not kept:
+            kept.append(_trim_context_summary_fragment(fragment, max_chars))
+        break
+    return _SUMMARY_SEPARATOR.join(reversed(kept))
+
 
 def _to_conversation(model: ConversationModel) -> ConversationRecord:
     return ConversationRecord(
@@ -216,12 +265,10 @@ class ConversationRepository:
 
         prev = (model.context_summary or "").strip()
         if prev:
-            merged = f"{prev}\n\n---\n\n{fragment}"
+            merged = f"{prev}{_SUMMARY_SEPARATOR}{fragment}"
         else:
             merged = fragment
-        if len(merged) > max_chars:
-            merged = merged[-max_chars:]
-        model.context_summary = merged
+        model.context_summary = _trim_context_summary(merged, max_chars)
         model.updated_at = datetime.now(timezone.utc)
         await session.commit()
 

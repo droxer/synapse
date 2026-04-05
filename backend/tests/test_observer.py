@@ -528,9 +528,12 @@ class TestCompact:
 
         compacted = await obs.compact(msgs)
 
+        assert _estimate_tokens(compacted) <= 200
         warm_block = compacted[1]["content"][0]
-        assert warm_block["content"].startswith("x" * 1000)
-        assert warm_block["content"].endswith("...[HISTORY_TRUNCATED]")
+        assert "HISTORY_TRUNCATED" in warm_block["content"]
+        assert warm_block["content"].startswith("x") or warm_block[
+            "content"
+        ].startswith("...[HISTORY_TRUNCATED]")
 
     @pytest.mark.asyncio
     async def test_fallback_without_client(self) -> None:
@@ -579,9 +582,30 @@ class TestCompact:
                     if isinstance(block, dict) and block.get("type") == "image":
                         if block["source"] == "[screenshot captured]":
                             found_compacted_image = True
-        assert found_compacted_image, (
-            "Expected image block in warm tier to be compacted"
+        assert _estimate_tokens(result) <= 100
+        if not found_compacted_image:
+            assert any(
+                msg.get("role") == "assistant"
+                and isinstance(msg.get("content"), str)
+                and msg["content"].startswith("## Previous work\n")
+                for msg in result
+            )
+
+    @pytest.mark.asyncio
+    async def test_tool_thread_compaction_converges_under_budget(self) -> None:
+        obs = Observer(max_full_interactions=1, token_budget=220)
+        msgs = (
+            _user_msg("task"),
+            _tool_use_msg("old_tool", {"query": "alpha"}),
+            _tool_result_msg("x" * 5000, tool_use_id="call_old_tool"),
+            _tool_use_msg("new_tool", {"query": "beta"}),
+            _tool_result_msg("y" * 4000, tool_use_id="call_new_tool"),
         )
+
+        result = await obs.compact(msgs)
+
+        assert _estimate_tokens(result) <= 220
+        assert result[0] == _user_msg("task")
 
 
 # ------------------------------------------------------------------

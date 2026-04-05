@@ -33,7 +33,7 @@ import {
   DialogDescription,
 } from "@/shared/components/ui/dialog";
 import { cn } from "@/shared/lib/utils";
-import { listContainer, listItem } from "@/shared/lib/animations";
+import { listVariants } from "@/shared/lib/animations";
 import { useTranslation } from "@/i18n";
 import { useMCPServers } from "../hooks/use-mcp-servers";
 
@@ -214,12 +214,12 @@ export function MCPPage() {
           ) : (
             <motion.div
               className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3"
-              variants={listContainer}
+              variants={listVariants.container}
               initial="hidden"
               animate="show"
             >
               {displayServers.map((server) => (
-                <motion.div key={server.name} variants={listItem} className="h-full">
+                <motion.div key={server.name} variants={listVariants.item} className="h-full">
                   <MCPServerCard
                     server={server}
                     onDelete={setServerToDelete}

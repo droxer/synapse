@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { HomeScreen } from "./HomeScreen";
 import { ConversationWorkspace } from "./ConversationWorkspace";
 import { useConversationContext } from "../hooks/use-conversation-context";
+import { ErrorBoundary } from "@/shared/components";
 import { useAppStore } from "@/shared/stores";
 
 export function ConversationView() {
@@ -60,28 +61,30 @@ export function ConversationView() {
           animate={{ opacity: 1 }}
           transition={{ duration: 0.12, delay: 0.05 }}
         >
-          <ConversationWorkspace
-            conversationId={conversationId}
-            conversationTitle={conversationTitle}
-            events={events}
-            messages={allMessages}
-            toolCalls={toolCalls}
-            agentStatuses={agentStatuses}
-            planSteps={planSteps}
-            artifacts={artifacts}
-            taskState={taskState}
-            currentThinkingEntries={currentThinkingEntries}
-            isStreaming={isStreaming}
-            assistantPhase={assistantPhase}
-            isConnected={isConnected}
-            onSendMessage={handleSendMessage}
-            onNavigateHome={handleNewConversation}
-            isWaitingForAgent={isWaitingForAgent}
-            userCancelled={userCancelled}
-            onCancel={handleCancel}
-            onRetry={handleRetry}
-            isLoadingHistory={isLoadingHistory}
-          />
+          <ErrorBoundary>
+            <ConversationWorkspace
+              conversationId={conversationId}
+              conversationTitle={conversationTitle}
+              events={events}
+              messages={allMessages}
+              toolCalls={toolCalls}
+              agentStatuses={agentStatuses}
+              planSteps={planSteps}
+              artifacts={artifacts}
+              taskState={taskState}
+              currentThinkingEntries={currentThinkingEntries}
+              isStreaming={isStreaming}
+              assistantPhase={assistantPhase}
+              isConnected={isConnected}
+              onSendMessage={handleSendMessage}
+              onNavigateHome={handleNewConversation}
+              isWaitingForAgent={isWaitingForAgent}
+              userCancelled={userCancelled}
+              onCancel={handleCancel}
+              onRetry={handleRetry}
+              isLoadingHistory={isLoadingHistory}
+            />
+          </ErrorBoundary>
         </motion.div>
       )}
     </AnimatePresence>

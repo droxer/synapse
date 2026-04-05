@@ -55,9 +55,15 @@ class BoxliteSession:
     isolation with a separate kernel per instance.
     """
 
-    def __init__(self, box: boxlite.SimpleBox, workdir: str = SANDBOX_HOME_DIR) -> None:
+    def __init__(
+        self,
+        box: boxlite.SimpleBox,
+        workdir: str = SANDBOX_HOME_DIR,
+        env_vars: tuple[tuple[str, str], ...] = (),
+    ) -> None:
         self._box = box
         self._workdir = workdir
+        self._env_vars = env_vars
 
     # -- command execution ---------------------------------------------------
 
@@ -73,13 +79,19 @@ class BoxliteSession:
         like pipes, redirects, and chaining.
         """
         effective_workdir = workdir or self._workdir
+        env_prefix = ""
+        if self._env_vars:
+            exports = " ".join(
+                f"{name}={shlex.quote(value)}" for name, value in self._env_vars
+            )
+            env_prefix = f"export {exports} && "
 
         try:
             # Use sh -c to support full shell syntax
             coro = self._box.exec(
                 "sh",
                 "-c",
-                f"cd {shlex.quote(effective_workdir)} && {command}",
+                f"{env_prefix}cd {shlex.quote(effective_workdir)} && {command}",
             )
             if timeout is not None:
                 result = await asyncio.wait_for(coro, timeout=timeout)
@@ -442,7 +454,11 @@ class BoxliteProvider(SandboxProvider):
             config.memory_mb,
             config.cpu_count,
         )
-        return BoxliteSession(box=box, workdir=SANDBOX_HOME_DIR)
+        return BoxliteSession(
+            box=box,
+            workdir=SANDBOX_HOME_DIR,
+            env_vars=config.env_vars,
+        )
 
     async def destroy_session(self, session: SandboxSession) -> None:
         """Destroy the sandbox session (idempotent)."""

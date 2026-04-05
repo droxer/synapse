@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChangeEvent } from "react";
 import { Search, X } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 
@@ -18,7 +19,7 @@ export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear 
       <input
         type="text"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
         className="w-32 bg-transparent text-xs text-foreground placeholder:text-muted-foreground-dim outline-none"

@@ -216,10 +216,11 @@ export function ConversationWorkspace({
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
+                const messageKey = `${msg.role}-${msg.timestamp}-${msg.content.slice(0, 48)}`;
 
                 return (
                   <div
-                    key={`msg-${i}`}
+                    key={messageKey}
                     className={cn(
                       i > 0 && "mt-6",
                     )}

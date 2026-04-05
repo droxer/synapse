@@ -153,6 +153,15 @@ def _truncate_transcript_chars(text: str, max_chars: int) -> str:
     return f"{text[:head]}\n...[truncated]...\n{text[-tail:]}"
 
 
+def _truncate_tail_chars(text: str, max_chars: int, marker: str) -> str:
+    """Keep the tail of *text* while preserving an explicit truncation marker."""
+    if len(text) <= max_chars:
+        return text
+    if max_chars <= len(marker):
+        return marker[:max_chars]
+    return f"{marker}{text[-(max_chars - len(marker)) :]}"
+
+
 def _estimate_tokens(
     messages: tuple[dict[str, Any], ...],
     system_prompt: str = "",
@@ -293,7 +302,10 @@ class Observer:
                 "role": "assistant",
                 "content": f"## Previous work\n{summary}",
             }
-            return (first_message, summary_message, *hot_messages)
+            return self._shrink_tool_candidate(
+                (first_message, summary_message, *hot_messages),
+                system_prompt,
+            )
 
         logger.warning("llm_summarisation_failed, falling back to truncation")
         tool_use_map = _build_tool_use_map(warm_messages)
@@ -301,7 +313,10 @@ class Observer:
             _compact_message(msg, idx=0, keep_full_from=1, tool_use_map=tool_use_map)
             for msg in warm_messages
         )
-        return (first_message, *compacted_warm, *hot_messages)
+        return self._shrink_tool_candidate(
+            (first_message, *compacted_warm, *hot_messages),
+            system_prompt,
+        )
 
     async def _compact_pure_dialogue(
         self,
@@ -422,7 +437,10 @@ class Observer:
                 )
                 for i, msg in enumerate(remaining)
             )
-            return (first_message, *compacted)
+            return self._shrink_tool_candidate(
+                (first_message, *compacted),
+                system_prompt,
+            )
 
         summary = await self._summarise(warm_messages)
         if summary is not None:
@@ -430,7 +448,10 @@ class Observer:
                 "role": "assistant",
                 "content": f"## Previous work\n{summary}",
             }
-            return (first_message, summary_message, *hot_messages)
+            return self._shrink_tool_candidate(
+                (first_message, summary_message, *hot_messages),
+                system_prompt,
+            )
 
         logger.warning(
             "tool_hot_overflow_summarisation_failed, falling back to truncation"
@@ -441,7 +462,62 @@ class Observer:
             _compact_message(msg, idx=i, keep_full_from=wn, tool_use_map=tool_use_map)
             for i, msg in enumerate(warm_messages)
         )
-        return (first_message, *compacted_warm, *hot_messages)
+        return self._shrink_tool_candidate(
+            (first_message, *compacted_warm, *hot_messages),
+            system_prompt,
+        )
+
+    def _shrink_tool_candidate(
+        self,
+        candidate: tuple[dict[str, Any], ...],
+        system_prompt: str,
+    ) -> tuple[dict[str, Any], ...]:
+        """Iteratively shrink tool-thread candidates until they fit the budget."""
+        msgs = list(candidate)
+        for _ in range(32):
+            if _estimate_tokens(tuple(msgs), system_prompt) <= self._token_budget:
+                return tuple(msgs)
+            if self._shrink_previous_work_summary(msgs):
+                continue
+            if _shrink_tool_result_block(msgs):
+                continue
+            if len(msgs) > 2:
+                msgs = [
+                    msgs[0],
+                    {
+                        "role": "assistant",
+                        "content": "## Previous work\n"
+                        + _truncate_transcript_chars(
+                            _tool_history_transcript(msgs[1:]),
+                            min(800, _get_dialogue_fallback_chars()),
+                        ),
+                    },
+                ]
+                continue
+            break
+        return tuple(msgs)
+
+    def _shrink_previous_work_summary(self, msgs: list[dict[str, Any]]) -> bool:
+        """Shorten synthetic tool-history summaries in place."""
+        for idx, msg in enumerate(msgs):
+            content = msg.get("content")
+            if (
+                msg.get("role") != "assistant"
+                or not isinstance(content, str)
+                or not content.startswith("## Previous work\n")
+            ):
+                continue
+            body = content.split("\n", 1)[-1]
+            if len(body) <= 40:
+                continue
+            new_len = max(40, len(body) // 2)
+            msgs[idx] = {
+                **msg,
+                "content": "## Previous work\n"
+                + _truncate_tail_chars(body, new_len, "[truncated]\n"),
+            }
+            return True
+        return False
 
     # ------------------------------------------------------------------
     # Summarisation (warm tier)
@@ -542,6 +618,38 @@ def _flatten_content(content: Any) -> str:
                 parts.append(block)
         return " ".join(parts)
     return str(content)
+
+
+def _tool_history_transcript(messages: list[dict[str, Any]]) -> str:
+    """Flatten tool-thread history to plain text for last-resort summaries."""
+    lines: list[str] = []
+    for msg in messages:
+        role = msg.get("role", "?")
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            if content.strip():
+                lines.append(f"[{role}] {content.strip()}")
+            continue
+        if not isinstance(content, list):
+            continue
+        for block in content:
+            if not isinstance(block, dict):
+                continue
+            block_type = block.get("type")
+            if block_type == "tool_use":
+                lines.append(
+                    "[assistant:tool_use] "
+                    f"{block.get('name', '?')}({json.dumps(block.get('input', {}), default=str)[:200]})"
+                )
+            elif block_type == "tool_result":
+                lines.append(
+                    "[tool_result] " + _flatten_content(block.get("content", ""))[:500]
+                )
+            elif block_type == "text":
+                text = str(block.get("text", "")).strip()
+                if text:
+                    lines.append(f"[{role}:text] {text}")
+    return "\n".join(lines)
 
 
 def _find_tool_interaction_indices(
@@ -744,3 +852,45 @@ def _truncate_tool_result(
         preview_chars=preview_chars,
         result_chars=result_chars,
     )
+
+
+def _shrink_tool_result_block(messages: list[dict[str, Any]]) -> bool:
+    """Aggressively shorten the oldest non-error tool result in place."""
+    for msg_index in range(1, len(messages)):
+        content = messages[msg_index].get("content")
+        if not isinstance(content, list):
+            continue
+        updated_blocks: list[Any] = []
+        changed = False
+        for block in content:
+            if (
+                changed
+                or not isinstance(block, dict)
+                or block.get("type") != "tool_result"
+                or block.get("is_error")
+            ):
+                updated_blocks.append(block)
+                continue
+            text = _flatten_content(block.get("content", ""))
+            if len(text) <= 40:
+                updated_blocks.append(block)
+                continue
+            new_len = max(40, len(text) // 2)
+            updated_blocks.append(
+                {
+                    **block,
+                    "content": _truncate_tail_chars(
+                        text,
+                        new_len,
+                        "...[HISTORY_TRUNCATED]",
+                    ),
+                }
+            )
+            changed = True
+        if changed:
+            messages[msg_index] = {
+                **messages[msg_index],
+                "content": updated_blocks,
+            }
+            return True
+    return False

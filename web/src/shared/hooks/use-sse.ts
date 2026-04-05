@@ -1,43 +1,129 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
-import type { AgentEvent, EventType } from "@/shared/types";
+import { EVENT_TYPES } from "@/shared/types";
+import type {
+  AgentEvent,
+  AgentEventDataByType,
+  EventType,
+} from "@/shared/types";
 import { API_BASE, MAX_RETRIES, BASE_DELAY_MS, MAX_DELAY_MS } from "@/shared/constants";
 
-const SSE_EVENT_NAMES: readonly string[] = [
-  "task_start",
-  "task_complete",
-  "task_error",
-  "turn_start",
-  "turn_complete",
-  "turn_cancelled",
-  "iteration_start",
-  "iteration_complete",
-  "llm_request",
-  "llm_response",
-  "text_delta",
-  "tool_call",
-  "tool_result",
-  "message_user",
-  "ask_user",
-  "user_response",
-  "agent_spawn",
-  "agent_complete",
-  "plan_created",
-  "thinking",
-  "sandbox_stdout",
-  "sandbox_stderr",
-  "code_result",
-  "artifact_created",
-  "conversation_title",
-  "done",
-] as const;
+const SSE_EVENT_NAMES: readonly string[] = [...EVENT_TYPES, "done"] as const;
+const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
 
 function normalizeTimestamp(ts: unknown): number {
   if (typeof ts === "number") {
     return ts < 1e12 ? ts * 1000 : ts;
   }
   return Date.now();
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isEventType(value: unknown): value is EventType {
+  return typeof value === "string" && EVENT_TYPE_SET.has(value);
+}
+
+function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): AgentEventDataByType[K] {
+  const data = isRecord(raw) ? raw : {};
+
+  if (eventType === "text_delta") {
+    return {
+      ...data,
+      delta: typeof data.delta === "string" ? data.delta : undefined,
+    } as AgentEventDataByType[K];
+  }
+
+  if (eventType === "llm_response") {
+    return {
+      ...data,
+      text: typeof data.text === "string" ? data.text : undefined,
+      content: typeof data.content === "string" ? data.content : undefined,
+      message: typeof data.message === "string" ? data.message : undefined,
+    } as AgentEventDataByType[K];
+  }
+
+  if (eventType === "thinking") {
+    return {
+      ...data,
+      thinking: typeof data.thinking === "string" ? data.thinking : undefined,
+      text: typeof data.text === "string" ? data.text : undefined,
+      content: typeof data.content === "string" ? data.content : undefined,
+      duration_ms: typeof data.duration_ms === "number" ? data.duration_ms : undefined,
+    } as AgentEventDataByType[K];
+  }
+
+  if (eventType === "tool_call") {
+    return {
+      ...data,
+      tool_id: typeof data.tool_id === "string" ? data.tool_id : undefined,
+      id: typeof data.id === "string" ? data.id : undefined,
+      name: typeof data.name === "string" ? data.name : undefined,
+      tool_name: typeof data.tool_name === "string" ? data.tool_name : undefined,
+      input: isRecord(data.input) ? data.input : undefined,
+      tool_input: isRecord(data.tool_input) ? data.tool_input : undefined,
+      arguments: isRecord(data.arguments) ? data.arguments : undefined,
+      agent_id: typeof data.agent_id === "string" ? data.agent_id : undefined,
+    } as AgentEventDataByType[K];
+  }
+
+  if (eventType === "tool_result") {
+    return {
+      ...data,
+      tool_id: typeof data.tool_id === "string" ? data.tool_id : undefined,
+      id: typeof data.id === "string" ? data.id : undefined,
+      output: typeof data.output === "string" ? data.output : undefined,
+      result: typeof data.result === "string" ? data.result : undefined,
+      success: typeof data.success === "boolean" ? data.success : undefined,
+      content_type: typeof data.content_type === "string" ? data.content_type : undefined,
+      artifact_ids: Array.isArray(data.artifact_ids)
+        ? data.artifact_ids.filter((id): id is string => typeof id === "string")
+        : undefined,
+      agent_id: typeof data.agent_id === "string" ? data.agent_id : undefined,
+      steps: typeof data.steps === "number" ? data.steps : undefined,
+      is_done: typeof data.is_done === "boolean" ? data.is_done : undefined,
+      max_steps: typeof data.max_steps === "number" ? data.max_steps : undefined,
+      url: typeof data.url === "string" ? data.url : undefined,
+      task: typeof data.task === "string" ? data.task : undefined,
+      action: typeof data.action === "string" ? data.action : undefined,
+      x: typeof data.x === "number" ? data.x : undefined,
+      y: typeof data.y === "number" ? data.y : undefined,
+      text: typeof data.text === "string" ? data.text : undefined,
+      end_x: typeof data.end_x === "number" ? data.end_x : undefined,
+      end_y: typeof data.end_y === "number" ? data.end_y : undefined,
+      amount: typeof data.amount === "number" ? data.amount : undefined,
+    } as AgentEventDataByType[K];
+  }
+
+  if (eventType === "artifact_created") {
+    return {
+      ...data,
+      artifact_id: typeof data.artifact_id === "string" ? data.artifact_id : undefined,
+      name: typeof data.name === "string" ? data.name : undefined,
+      content_type: typeof data.content_type === "string" ? data.content_type : undefined,
+      size: typeof data.size === "number" ? data.size : undefined,
+    } as AgentEventDataByType[K];
+  }
+
+  return data as AgentEventDataByType[K];
+}
+
+function parseSSEEvent(rawJson: string, fallbackEventType: EventType): AgentEvent | null {
+  const parsed: unknown = JSON.parse(rawJson);
+  if (!isRecord(parsed)) return null;
+
+  const eventType = isEventType(parsed.event_type) ? parsed.event_type : fallbackEventType;
+  const dataPayload = isRecord(parsed.data) ? parsed.data : parsed;
+
+  return {
+    type: eventType,
+    data: normalizeEventData(eventType, dataPayload),
+    timestamp: normalizeTimestamp(parsed.timestamp),
+    iteration: typeof parsed.iteration === "number" ? parsed.iteration : null,
+  } as AgentEvent;
 }
 
 export function useSSE(conversationId: string | null, isLive = true) {
@@ -114,16 +200,10 @@ export function useSSE(conversationId: string | null, isLive = true) {
 
         const handler = (e: MessageEvent) => {
           try {
-            const parsed = JSON.parse(e.data);
-            const eventType = (parsed.event_type ?? eventName) as EventType;
-            const agentEvent: AgentEvent = {
-              type: eventType,
-              data: parsed.data ?? parsed,
-              timestamp: normalizeTimestamp(parsed.timestamp),
-              iteration: parsed.iteration ?? null,
-            };
+            const agentEvent = parseSSEEvent(e.data, eventName as EventType);
+            if (!agentEvent) return;
 
-            if (eventType === "ask_user") {
+            if (agentEvent.type === "ask_user" && process.env.NODE_ENV === "development") {
               console.log("[SSE] ask_user event received:", JSON.stringify(agentEvent.data));
             }
 

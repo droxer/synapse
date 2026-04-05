@@ -1,0 +1,439 @@
+"""Regression tests for runtime guardrails and helper behavior."""
+
+from __future__ import annotations
+
+import asyncio
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from agent.llm.client import LLMResponse, TokenUsage, ToolCall
+from agent.runtime.helpers import (
+    _tool_batch_allows_parallel_execution,
+    process_tool_calls,
+)
+from agent.runtime.message_chain import collect_message_chain_warnings
+from agent.runtime.orchestrator import AgentOrchestrator
+from agent.runtime.orchestrator import AgentState
+from agent.runtime.planner import PlannerOrchestrator
+from agent.skills.loader import SkillRegistry
+from agent.skills.models import SkillContent, SkillMetadata
+from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolResult
+from agent.tools.executor import ToolExecutor
+from agent.tools.local.activate_skill import ActivateSkill
+from agent.tools.registry import ToolRegistry
+from api.events import EventEmitter
+from api.models import FileAttachment
+
+
+class _SequenceExecutor:
+    def __init__(self, *results: ToolResult) -> None:
+        self._results = list(results)
+
+    async def execute(self, name: str, tool_input: dict[str, object]) -> ToolResult:
+        return self._results.pop(0)
+
+
+@pytest.mark.asyncio
+async def test_process_tool_calls_marks_remaining_calls_skipped_on_early_stop() -> None:
+    state = AgentState(iteration=1).add_message(
+        {
+            "role": "assistant",
+            "content": [
+                {
+                    "type": "tool_use",
+                    "id": "tool-1",
+                    "name": "task_complete",
+                    "input": {"summary": "done"},
+                },
+                {
+                    "type": "tool_use",
+                    "id": "tool-2",
+                    "name": "web_search",
+                    "input": {"query": "leftover"},
+                },
+                {
+                    "type": "tool_use",
+                    "id": "tool-3",
+                    "name": "memory_list",
+                    "input": {},
+                },
+            ],
+        }
+    )
+    result = await process_tool_calls(
+        state=state,
+        tool_calls=(
+            ToolCall(id="tool-1", name="task_complete", input={"summary": "done"}),
+            ToolCall(id="tool-2", name="web_search", input={"query": "leftover"}),
+            ToolCall(id="tool-3", name="memory_list", input={}),
+        ),
+        executor=_SequenceExecutor(ToolResult.ok("Task marked as complete.")),  # type: ignore[arg-type]
+        emitter=EventEmitter(),
+        stop_check=lambda: True,
+    )
+
+    assert result.processed_count == 1
+    last_message = result.state.messages[-1]
+    assert last_message["role"] == "user"
+    content = last_message["content"]
+    assert isinstance(content, list)
+    assert len(content) == 3
+    assert collect_message_chain_warnings(result.state.messages) == []
+    assert content[1]["tool_use_id"] == "tool-2"
+    assert content[1]["is_error"] is True
+    assert (
+        "skipped because the task was already marked complete"
+        in content[1]["content"][0]["text"].lower()
+    )
+    assert content[2]["tool_use_id"] == "tool-3"
+    assert content[2]["is_error"] is True
+
+
+def test_parallel_safe_tool_batch_accepts_memory_search() -> None:
+    tool_calls = (
+        ToolCall(id="tool-1", name="web_search", input={"query": "alpha"}),
+        ToolCall(id="tool-2", name="memory_search", input={"query": "beta"}),
+    )
+
+    assert _tool_batch_allows_parallel_execution(tool_calls) is True
+
+
+class _PlannerClient:
+    def __init__(self) -> None:
+        self.last_tools: list[dict[str, Any]] | None = None
+
+    async def create_message_stream(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        on_text_delta: Any | None = None,
+    ) -> LLMResponse:
+        self.last_tools = tools
+        return LLMResponse(
+            text="planned",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        )
+
+
+class _SerializingPlannerClient:
+    def __init__(self) -> None:
+        self.active_calls = 0
+        self.max_active_calls = 0
+
+    async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
+        self.active_calls += 1
+        self.max_active_calls = max(self.max_active_calls, self.active_calls)
+        try:
+            await asyncio.sleep(0.01)
+            return LLMResponse(
+                text="planned",
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+        finally:
+            self.active_calls -= 1
+
+
+class _FakeMCPTool(LocalTool):
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="demo_server__lookup_docs",
+            description="Lookup docs via MCP.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.LOCAL,
+            tags=("mcp", "demo_server"),
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        return ToolResult.ok("ok")
+
+
+class _FakeWebSearchTool(LocalTool):
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="web_search",
+            description="Search the web.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        return ToolResult.ok("ok")
+
+
+class _SequenceClient:
+    def __init__(self, *responses: LLMResponse) -> None:
+        self._responses = list(responses)
+        self.tool_batches: list[set[str]] = []
+        self.default_model = "test-model"
+
+    async def create_message_stream(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        on_text_delta: Any | None = None,
+        thinking_budget: int = 0,
+    ) -> LLMResponse:
+        self.tool_batches.append({tool["name"] for tool in tools or []})
+        return self._responses.pop(0)
+
+
+class _FakeSession:
+    def __init__(self) -> None:
+        self.files: set[str] = set()
+
+    async def exec(
+        self,
+        command: str,
+        timeout: int | None = None,
+        workdir: str | None = None,
+    ) -> Any:
+        from agent.sandbox.base import ExecResult
+
+        import shlex
+
+        parts = shlex.split(command)
+        if parts[:2] == ["mkdir", "-p"]:
+            return ExecResult(stdout="", stderr="", exit_code=0)
+        if parts[:2] == ["test", "-f"]:
+            exists = len(parts) >= 3 and parts[2] in self.files
+            return ExecResult(stdout="", stderr="", exit_code=0 if exists else 1)
+        return ExecResult(stdout="", stderr="", exit_code=0)
+
+    async def upload_file(self, local_path: str, remote_path: str) -> None:
+        self.files.add(remote_path)
+
+
+@dataclass
+class _FakePlannerExecutor:
+    session: _FakeSession
+
+    def __post_init__(self) -> None:
+        self.current_template: str | None = None
+        self.template_requests: list[str] = []
+        self.reset_calls = 0
+
+    def set_sandbox_template(self, template: str) -> None:
+        self.current_template = template
+
+    def reset_sandbox_template(self) -> None:
+        self.current_template = None
+        self.reset_calls += 1
+
+    def reset_turn_quotas(self) -> None:
+        """Match ToolExecutor API used at turn start."""
+
+    def with_registry(self, registry: ToolRegistry) -> _FakePlannerExecutor:
+        return self
+
+    async def get_sandbox_session(
+        self, tool_tags: tuple[str, ...] = ()
+    ) -> _FakeSession:
+        self.template_requests.append(self.current_template or "default")
+        return self.session
+
+
+def _build_skill_registry() -> SkillRegistry:
+    return SkillRegistry(
+        (
+            SkillContent(
+                metadata=SkillMetadata(
+                    name="deep-research",
+                    description="research a topic thoroughly",
+                    allowed_tools=("web_search", "web_fetch", "user_message"),
+                ),
+                instructions="Use deep research workflow.",
+                directory_path=Path("/tmp/deep-research"),
+                source_type="bundled",
+            ),
+            SkillContent(
+                metadata=SkillMetadata(
+                    name="data-analysis",
+                    description="analyze data charts",
+                    sandbox_template="data_science",
+                ),
+                instructions="Use Python.",
+                directory_path=Path("/tmp/data-analysis"),
+                source_type="bundled",
+            ),
+        )
+    )
+
+
+def _attachment(name: str) -> FileAttachment:
+    return FileAttachment(
+        filename=name,
+        content_type="text/plain",
+        data=b"hello",
+        size=5,
+    )
+
+
+@pytest.mark.asyncio
+async def test_planner_skill_filter_excludes_unlisted_mcp_tools() -> None:
+    client = _PlannerClient()
+    registry = ToolRegistry().register(_FakeMCPTool())
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    await planner.run("please do deep research")
+
+    tool_names = {tool["name"] for tool in client.last_tools or []}
+    assert "demo_server__lookup_docs" not in tool_names
+
+
+@pytest.mark.asyncio
+async def test_planner_resets_skill_selected_template_on_next_turn() -> None:
+    client = _PlannerClient()
+    executor = _FakePlannerExecutor(session=_FakeSession())
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=executor,  # type: ignore[arg-type]
+        event_emitter=EventEmitter(),
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    await planner.run(
+        "please analyze data",
+        attachments=(_attachment("a.csv"),),
+        selected_skills=("data-analysis",),
+    )
+    await planner.run("say hello", attachments=(_attachment("b.txt"),))
+
+    assert executor.template_requests == ["data_science", "default"]
+    assert executor.reset_calls == 2
+
+
+@pytest.mark.asyncio
+async def test_planner_serializes_concurrent_runs() -> None:
+    client = _SerializingPlannerClient()
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=MagicMock(cleanup=AsyncMock()),
+        system_prompt="test",
+    )
+
+    await asyncio.gather(
+        planner.run("first turn"),
+        planner.run("second turn"),
+    )
+
+    assert client.max_active_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_skill_alias_triggers_mid_turn_skill_enforcement() -> None:
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(ToolCall(id="tool-1", name="deep-research", input={}),),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    await orchestrator.run("help me")
+
+    assert client.tool_batches[0] == {
+        "activate_skill",
+        "demo_server__lookup_docs",
+        "web_search",
+    }
+    assert client.tool_batches[1] == {"activate_skill", "web_search"}
+
+
+@pytest.mark.asyncio
+async def test_planner_applies_mid_turn_skill_activation_constraints() -> None:
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    await planner.run("help me plan")
+
+    assert client.tool_batches[0] == {
+        "activate_skill",
+        "agent_spawn",
+        "agent_wait",
+        "demo_server__lookup_docs",
+        "plan_create",
+        "web_search",
+    }
+    assert client.tool_batches[1] == {"activate_skill", "web_search"}

@@ -1,7 +1,12 @@
 "use client";
 
 import { MCPPage } from "@/features/mcp/components/MCPPage";
+import { ErrorBoundary } from "@/shared/components";
 
 export default function Page() {
-  return <MCPPage />;
+  return (
+    <ErrorBoundary>
+      <MCPPage />
+    </ErrorBoundary>
+  );
 }

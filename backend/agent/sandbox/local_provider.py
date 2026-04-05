@@ -47,10 +47,12 @@ class LocalSession:
         if self._closed:
             raise RuntimeError("Session is closed")
 
-        effective_workdir = workdir or self._workdir
         effective_timeout = timeout or 30
 
         try:
+            effective_workdir = (
+                str(self._resolve_path(workdir)) if workdir else self._workdir
+            )
             proc = await asyncio.create_subprocess_shell(
                 command,
                 stdout=asyncio.subprocess.PIPE,
