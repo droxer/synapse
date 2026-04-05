@@ -104,9 +104,10 @@ export function useAgentState(events: AgentEvent[]) {
       } else if (e.type === "llm_response") {
         // LLM response finalizes the streamed text
         const rawText = String(e.data.text ?? "");
-        const _toolCallCount = Number(e.data.tool_call_count ?? 0);
-        // Reset streaming buffer — this response covers the accumulated deltas
+        // Reset streaming buffer — this response covers the accumulated deltas (values read on later events)
+        // eslint-disable-next-line no-useless-assignment -- loop-carried streaming state
         streamingText = "";
+        // eslint-disable-next-line no-useless-assignment -- loop-carried streaming state
         streamingTimestamp = 0;
         if (rawText) {
           // Strip inline <think> tags (used by Qwen3 and similar models when
@@ -333,6 +334,26 @@ export function useAgentState(events: AgentEvent[]) {
     const callMap = new Map<string, ToolCallInfo>();
     const insertOrder: string[] = [];
     let pendingThinking = "";
+    let toolCallSeq = 0;
+
+    const resolveToolResultRow = (apiToolId: string): string | undefined => {
+      if (!apiToolId) return undefined;
+      for (let i = insertOrder.length - 1; i >= 0; i--) {
+        const rid = insertOrder[i]!;
+        const call = callMap.get(rid);
+        if (call && call.toolUseId === apiToolId && call.output === undefined) {
+          return rid;
+        }
+      }
+      for (let i = insertOrder.length - 1; i >= 0; i--) {
+        const rid = insertOrder[i]!;
+        const call = callMap.get(rid);
+        if (call && call.toolUseId === apiToolId) {
+          return rid;
+        }
+      }
+      return undefined;
+    };
 
     for (const e of events) {
       if (e.type === "thinking") {
@@ -340,23 +361,30 @@ export function useAgentState(events: AgentEvent[]) {
       }
 
       if (e.type === "tool_call") {
-        const toolId = String(e.data.tool_id ?? e.data.id ?? crypto.randomUUID());
+        const rawApiId = e.data.tool_id ?? e.data.id;
+        const toolUseId =
+          rawApiId != null && String(rawApiId).length > 0
+            ? String(rawApiId)
+            : crypto.randomUUID();
+        const rowId = `tc-${++toolCallSeq}`;
         const agentId = e.data.agent_id ? String(e.data.agent_id) : undefined;
         const entry: ToolCallInfo = {
-          id: toolId,
+          id: rowId,
+          toolUseId,
           name: String(e.data.name ?? e.data.tool_name ?? "unknown"),
           input: (e.data.input ?? e.data.tool_input ?? e.data.arguments ?? {}) as Record<string, unknown>,
           timestamp: e.timestamp,
           agentId,
           thinkingText: pendingThinking || undefined,
         };
-        callMap.set(toolId, entry);
-        insertOrder.push(toolId);
+        callMap.set(rowId, entry);
+        insertOrder.push(rowId);
         pendingThinking = "";
       }
       if (e.type === "tool_result") {
-        const toolId = String(e.data.tool_id ?? e.data.id ?? "");
-        const existing = callMap.get(toolId);
+        const apiToolId = String(e.data.tool_id ?? e.data.id ?? "");
+        const rowId = resolveToolResultRow(apiToolId);
+        const existing = rowId ? callMap.get(rowId) : undefined;
         if (existing) {
           const agentId = e.data.agent_id ? String(e.data.agent_id) : existing.agentId;
           const browserMeta: BrowserMetadata | undefined = existing.name === "browser_use" ? {
@@ -380,7 +408,7 @@ export function useAgentState(events: AgentEvent[]) {
                   amount: typeof e.data.amount === "number" ? e.data.amount : undefined,
                 }
               : undefined;
-          callMap.set(toolId, {
+          callMap.set(rowId!, {
             ...existing,
             output: String(e.data.output ?? e.data.result ?? ""),
             success: e.data.success !== false,
@@ -398,15 +426,27 @@ export function useAgentState(events: AgentEvent[]) {
       }
       if (e.type === "code_result") {
         const codeToolNames = new Set(["code_run", "code_interpret", "shell_exec"]);
-        // Prefer direct tool_id match to avoid race conditions with concurrent code calls
         const directId = e.data.tool_id ? String(e.data.tool_id) : undefined;
         let targetId: string | undefined;
-        if (directId && callMap.has(directId)) {
-          targetId = directId;
-        } else {
+        if (directId) {
+          for (let i = insertOrder.length - 1; i >= 0; i--) {
+            const id = insertOrder[i]!;
+            const call = callMap.get(id);
+            if (
+              call
+              && call.toolUseId === directId
+              && codeToolNames.has(call.name)
+              && call.output === undefined
+            ) {
+              targetId = id;
+              break;
+            }
+          }
+        }
+        if (!targetId) {
           // Fall back: most recent code tool call with no output yet
           for (let i = insertOrder.length - 1; i >= 0; i--) {
-            const id = insertOrder[i];
+            const id = insertOrder[i]!;
             const call = callMap.get(id);
             if (call && codeToolNames.has(call.name) && call.output === undefined) {
               targetId = id;

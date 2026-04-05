@@ -64,7 +64,9 @@ function buildSteps(
   t: TFn,
 ): TimelineStep[] {
   let steps: TimelineStep[] = [];
-  const seenTools = new Set<string>();
+  /** Deduplicate by (api tool id + ordinal), since providers may reuse ids across turns. */
+  const seenToolCalls = new Set<string>();
+  const toolCallOrdinalByApiId = new Map<string, number>();
 
   for (const event of events) {
     switch (event.type) {
@@ -80,10 +82,14 @@ function buildSteps(
 
       case "tool_call": {
         const toolName = String(event.data.name ?? event.data.tool_name ?? "unknown");
-        const toolId = String(event.data.tool_id ?? event.data.id ?? event.timestamp);
-        if (!seenTools.has(toolId)) {
-          seenTools.add(toolId);
-          const tc = toolCalls.find((t) => t.id === toolId);
+        const apiToolId = String(event.data.tool_id ?? event.data.id ?? event.timestamp);
+        const ord = toolCallOrdinalByApiId.get(apiToolId) ?? 0;
+        toolCallOrdinalByApiId.set(apiToolId, ord + 1);
+        const dedupeKey = `${apiToolId}#${ord}`;
+        if (!seenToolCalls.has(dedupeKey)) {
+          seenToolCalls.add(dedupeKey);
+          const sameApiCalls = toolCalls.filter((t) => t.toolUseId === apiToolId);
+          const tc = sameApiCalls[ord];
           const isSkill = toolName === "activate_skill" || toolName === "load_skill";
           const input = (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>;
           const isBrowser = toolName === "browser_use";
@@ -133,7 +139,7 @@ function buildSteps(
           }
 
           steps = [...steps, {
-            id: `tool-${toolId}`,
+            id: tc ? `tool-${tc.id}` : `tool-${apiToolId}-${ord}-${event.timestamp}`,
             kind: isSkill ? "skill" : "tool",
             title: stepTitle,
             name: displayName,

@@ -145,6 +145,45 @@ class TestModelDrivenSelection:
         assert result.metadata.name == "data-analysis"
 
     @pytest.mark.asyncio
+    async def test_model_json_inside_markdown_fence(self) -> None:
+        """Providers may wrap the object in ```json fences despite the prompt."""
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        skill = _make_skill("web-research", "Deep web research")
+        registry = SkillRegistry((skill,))
+        client = _mock_client('```json\n{"skill": "web-research"}\n```')
+
+        result = await select_skill_for_message(
+            user_message="research this",
+            selected_skills=(),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is not None
+        assert result.metadata.name == "web-research"
+
+    @pytest.mark.asyncio
+    async def test_model_json_after_leading_prose(self) -> None:
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        skill = _make_skill("data-analysis", "Analyze datasets")
+        registry = SkillRegistry((skill,))
+        client = _mock_client('Sure. {"skill": "data-analysis"}')
+
+        result = await select_skill_for_message(
+            user_message="analyze my sheet",
+            selected_skills=(),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is not None
+        assert result.metadata.name == "data-analysis"
+
+    @pytest.mark.asyncio
     async def test_model_returns_null_means_no_skill(self) -> None:
         from agent.runtime.skill_selector import select_skill_for_message
 
@@ -257,6 +296,31 @@ class TestFallbackToKeyword:
         )
 
         assert result is None
+
+
+# ---------------------------------------------------------------------------
+# JSON parsing helpers
+# ---------------------------------------------------------------------------
+
+
+class TestParseSkillSelectorJson:
+    """Unit tests for tolerant parsing of model output."""
+
+    def test_strips_bom_and_parses(self) -> None:
+        from agent.runtime.skill_selector import _parse_skill_selector_json
+
+        assert _parse_skill_selector_json('\ufeff{"skill": null}') == {"skill": None}
+
+    def test_extracts_object_from_wrapped_text(self) -> None:
+        from agent.runtime.skill_selector import _parse_skill_selector_json
+
+        raw = '```\n{"skill": "alpha"}\n```'
+        assert _parse_skill_selector_json(raw) == {"skill": "alpha"}
+
+    def test_non_dict_top_level_returns_none(self) -> None:
+        from agent.runtime.skill_selector import _parse_skill_selector_json
+
+        assert _parse_skill_selector_json('["skill"]') is None
 
 
 # ---------------------------------------------------------------------------

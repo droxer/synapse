@@ -14,6 +14,51 @@ SELECTOR_SYSTEM_PROMPT = """Choose at most one skill from the provided catalog.
 Return JSON: {"skill": "<name>"} or {"skill": null}."""
 
 
+def _first_balanced_json_object(text: str) -> str | None:
+    """Return the first top-level `{ ... }` slice in *text*, or ``None``.
+
+    Hosts sometimes return prose, markdown fences, or BOM-prefixed text before
+    the JSON object.  A simple brace depth walk is enough for flat selector
+    payloads (`{"skill": ...}`).
+    """
+    start = text.find("{")
+    if start < 0:
+        return None
+    depth = 0
+    for i in range(start, len(text)):
+        c = text[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return text[start : i + 1]
+    return None
+
+
+def _parse_skill_selector_json(raw: str) -> dict | None:
+    """Parse selector JSON from model text; tolerate wrappers and extra prose."""
+    text = raw.strip().removeprefix("\ufeff")
+    if not text:
+        return None
+    try:
+        val = json.loads(text)
+        if isinstance(val, dict):
+            return val
+    except json.JSONDecodeError:
+        pass
+    snippet = _first_balanced_json_object(text)
+    if snippet is None:
+        return None
+    try:
+        val = json.loads(snippet)
+        if isinstance(val, dict):
+            return val
+    except json.JSONDecodeError:
+        return None
+    return None
+
+
 async def select_skill_for_message(
     *,
     user_message: str,
@@ -70,7 +115,9 @@ async def select_skill_for_message(
                 "skill_selector_model_empty_response, falling back to keyword"
             )
             raise ValueError("empty response text")
-        parsed = json.loads(response.text)
+        parsed = _parse_skill_selector_json(response.text)
+        if parsed is None:
+            raise ValueError("unparseable skill selector JSON")
         chosen_name = parsed.get("skill")
         if chosen_name is not None:
             model_skill = skill_registry.find_by_name(chosen_name)

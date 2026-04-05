@@ -77,7 +77,10 @@ export interface ComputerUseMetadata {
 }
 
 export interface ToolCallInfo {
+  /** Stable unique id for React keys and UI (monotonic per conversation timeline). */
   readonly id: string;
+  /** Provider tool_use id from events; may repeat across turns, so do not use as React key. */
+  readonly toolUseId: string;
   readonly name: string;
   readonly input: Record<string, unknown>;
   readonly output?: string;
