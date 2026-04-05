@@ -21,9 +21,9 @@ export function TransportToggle({ value, onChange }: TransportToggleProps) {
           disabled={transport === "stdio"}
           className={cn(
             "flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-[color,background-color] duration-150 ease-out",
-            "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             value === transport
-              ? "bg-background text-foreground shadow-sm"
+              ? "border border-border bg-background text-foreground"
               : transport === "stdio"
                 ? "cursor-not-allowed text-muted-foreground-dim"
                 : "text-muted-foreground hover:text-foreground",

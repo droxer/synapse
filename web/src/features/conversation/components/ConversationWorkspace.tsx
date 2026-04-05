@@ -233,8 +233,8 @@ export function ConversationWorkspace({
                         className="flex justify-end"
                       >
                         <div className="max-w-[90%] min-w-[120px] sm:max-w-[80%]">
-                          {/* Frosted card surface */}
-                          <div className="rounded-md bg-secondary px-4 py-3 border border-border">
+                          {/* User bubble */}
+                          <div className="rounded-md border border-border bg-card px-4 py-3">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
@@ -243,7 +243,7 @@ export function ConversationWorkspace({
                                 {msg.attachments.map((att, idx) => (
                                   <span
                                     key={idx}
-                                    className="inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-0.5 text-xs font-mono text-muted-foreground"
+                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground"
                                   >
                                     <Paperclip className="h-3 w-3" />
                                     {att.name}

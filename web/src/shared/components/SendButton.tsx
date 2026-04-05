@@ -27,7 +27,7 @@ export function SendButton({ disabled = false, hasContent = false }: SendButtonP
       className={cn(
         "flex h-8 w-8 shrink-0 items-center justify-center rounded-md",
         "transition-colors transition-transform duration-200 ease-out",
-        "focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none",
+        "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none",
         hasContent
           ? [
               "bg-primary text-primary-foreground",

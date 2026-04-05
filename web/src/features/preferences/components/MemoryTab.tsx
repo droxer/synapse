@@ -46,7 +46,7 @@ export function MemoryTab() {
       {/* Header */}
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <Brain className="h-4 w-4 text-accent-purple" />
+          <Brain className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold text-foreground">
             {t("preferences.memory.title")}
           </h3>
@@ -119,7 +119,7 @@ export function MemoryTab() {
                   className={cn(
                     "inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full w-fit",
                     entry.scope === "global"
-                      ? "bg-accent-purple/10 text-accent-purple"
+                      ? "border border-border bg-muted text-foreground"
                       : "bg-secondary text-muted-foreground",
                   )}
                 >

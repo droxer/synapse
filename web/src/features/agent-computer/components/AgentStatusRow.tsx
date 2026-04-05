@@ -47,7 +47,7 @@ export function AgentStatusRow({
         onClick={() => hasTools && setExpanded((prev) => !prev)}
         aria-label={hasTools ? (expanded ? t("a11y.collapse") : t("a11y.expand")) : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           "bg-secondary",
           hasTools && "cursor-pointer hover:bg-muted",
           !hasTools && "cursor-default",

@@ -42,10 +42,10 @@ export function LanguageTab() {
               onClick={() => handleSelect(loc)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-lg border-2 px-4 py-3 text-left transition-[color,background-color,border-color] duration-150 ease-out",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 "hover:border-border-strong",
                 isActive
-                  ? "border-accent-purple bg-accent-purple/[0.03]"
+                  ? "border-border-strong bg-muted/60"
                   : "border-border bg-card",
               )}
             >
@@ -58,8 +58,8 @@ export function LanguageTab() {
                 </p>
               </div>
               {isActive && (
-                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-purple">
-                  <Check className="h-3 w-3 text-primary-foreground" />
+                <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full border border-border bg-background">
+                  <Check className="h-3 w-3 text-foreground" />
                 </div>
               )}
             </button>

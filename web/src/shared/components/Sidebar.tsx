@@ -183,7 +183,7 @@ export function Sidebar({
                     "group/new flex w-full items-center justify-center rounded-md p-2",
                     "border border-transparent",
                     "transition-[color,background-color,border-color] duration-200",
-                    "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     activePath === "/" && !activeTaskId
                       ? "bg-sidebar-active text-foreground"
                       : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover hover:border-border",
@@ -293,7 +293,7 @@ export function Sidebar({
                 "group/new flex w-full items-center gap-2 rounded-md px-3 py-2.5",
                 "border border-transparent",
                 "transition-[color,background-color,border-color] duration-200",
-                "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/" && !activeTaskId
                   ? "bg-sidebar-active"
                   : "hover:bg-sidebar-hover hover:border-border",
@@ -308,18 +308,18 @@ export function Sidebar({
               href="/channels"
               aria-label={t("sidebar.channels")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/channels"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/channels" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-[#2AABEE]" aria-hidden="true" />
+                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
               )}
               <Radio className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
-                activePath === "/channels" ? "text-[#2AABEE]" : "text-muted-foreground group-hover:text-foreground",
+                activePath === "/channels" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
               )} />
               {t("sidebar.channels")}
             </Link>
@@ -327,18 +327,18 @@ export function Sidebar({
               href="/library"
               aria-label={t("sidebar.library")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/library"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/library" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-amber" aria-hidden="true" />
+                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
               )}
               <FolderOpen className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
-                activePath === "/library" ? "text-accent-amber" : "text-muted-foreground group-hover:text-foreground",
+                activePath === "/library" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
               )} />
               {t("sidebar.library")}
             </Link>
@@ -347,18 +347,18 @@ export function Sidebar({
               href="/skills"
               aria-label={t("sidebar.skills")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/skills"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/skills" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-emerald" aria-hidden="true" />
+                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
               )}
               <Lightbulb className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
-                activePath === "/skills" ? "text-accent-emerald" : "text-muted-foreground group-hover:text-foreground",
+                activePath === "/skills" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
               )} />
               {t("sidebar.skills")}
             </Link>
@@ -366,18 +366,18 @@ export function Sidebar({
               href="/mcp"
               aria-label={t("sidebar.mcp")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/mcp"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
               {activePath === "/mcp" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-purple" aria-hidden="true" />
+                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
               )}
               <Blocks className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
-                activePath === "/mcp" ? "text-accent-purple" : "text-muted-foreground group-hover:text-foreground",
+                activePath === "/mcp" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
               )} />
               {t("sidebar.mcp")}
             </Link>
@@ -416,64 +416,55 @@ export function Sidebar({
                       className={cn(
                         "relative flex w-full cursor-pointer items-center justify-center rounded-md p-2 transition-colors duration-200",
                         "hover:bg-sidebar-hover",
-                        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         isActive && "bg-sidebar-active",
                       )}
                     >
                       <div className={cn(
                         "h-1.5 w-1.5 shrink-0 rounded-md transition-colors duration-200",
-                        isActive ? "bg-accent-purple" : "bg-border-strong",
+                        isActive ? "bg-foreground" : "bg-border-strong",
                       )} />
                     </button>
                   </TooltipTrigger>
                   <TooltipContent side="right">{task.title}</TooltipContent>
                 </Tooltip>
               ) : (
-                <div
-                  role="button"
-                  tabIndex={0}
-                  key={task.id}
-                  aria-current={isActive ? "true" : undefined}
-                  onClick={() => onSelectTask?.(task.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onSelectTask?.(task.id);
-                    }
-                  }}
-                  className={cn(
-                    "group relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 text-left",
-                    "transition-colors duration-200 ease-out",
-                    "hover:bg-sidebar-hover",
-                    "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                    isActive && "bg-sidebar-active",
-                  )}
-                >
-                  {/* Active indicator bar */}
-                  {isActive && (
-                    <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-accent-purple" />
-                  )}
-                  <span
-                    title={task.title}
+                <div key={task.id} className="group relative">
+                  <button
+                    type="button"
+                    aria-current={isActive ? "true" : undefined}
+                    onClick={() => onSelectTask?.(task.id)}
                     className={cn(
-                      "flex-1 truncate text-sm transition-colors duration-200",
-                      isActive ? "text-foreground font-medium" : "text-sidebar-foreground-muted",
+                      "relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 pr-9 text-left",
+                      "transition-colors duration-200 ease-out",
+                      "hover:bg-sidebar-hover",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      isActive && "bg-sidebar-active",
                     )}
                   >
-                    {task.title}
-                  </span>
+                    {/* Active indicator bar */}
+                    {isActive && (
+                      <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" />
+                    )}
+                    <span
+                      title={task.title}
+                      className={cn(
+                        "flex-1 truncate text-sm transition-colors duration-200",
+                        isActive ? "text-foreground font-medium" : "text-sidebar-foreground-muted",
+                      )}
+                    >
+                      {task.title}
+                    </span>
+                  </button>
                   {onDeleteTask && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="icon-xs"
                       aria-label={t("sidebar.deleteTaskLabel", { title: task.title })}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTaskToDelete(task);
-                      }}
+                      onClick={() => setTaskToDelete(task)}
                       className={cn(
-                        "shrink-0 opacity-0 transition-opacity duration-150",
+                        "absolute right-1 top-1/2 -translate-y-1/2 shrink-0 opacity-0 transition-opacity duration-150",
                         "text-muted-foreground-dim hover:text-destructive hover:bg-destructive/10",
                         "group-hover:opacity-100 group-focus-within:opacity-100",
                         "focus-visible:opacity-100",

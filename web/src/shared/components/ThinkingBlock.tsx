@@ -21,58 +21,48 @@ export function ThinkingBlock({ content, isLive = false, className }: ThinkingBl
   return (
     <div
       className={cn(
-        "mb-4 overflow-hidden rounded-lg",
-        "border border-border bg-secondary",
+        "mb-4 overflow-hidden rounded-lg border border-border bg-card",
         className,
       )}
     >
-      {/* ── Header ─────────────────────────────────────── */}
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         className={cn(
-          "group flex w-full items-center gap-2 px-3 py-2.5",
-          "text-left transition-colors hover:bg-muted",
-          "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+          "group flex w-full items-center gap-3 px-4 py-3",
+          "text-left transition-colors hover:bg-muted/50",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
       >
-        {/* Brain icon — pulsing amber when live, muted when done */}
-        <span
+        <div
           className={cn(
-            "flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-            isLive ? "bg-accent-amber/10" : "bg-border",
+            "inline-flex shrink-0 items-center gap-2 rounded-md border border-border px-2.5 py-1 text-sm font-medium",
+            "bg-muted text-muted-foreground",
           )}
         >
           <Brain
             className={cn(
               "h-3 w-3",
-              isLive
-                ? "animate-[pulsingDotFade_2s_ease-in-out_infinite] text-accent-amber"
-                : "text-muted-foreground",
+              isLive && "animate-[pulsingDotFade_2s_ease-in-out_infinite]",
             )}
           />
-        </span>
+          <span>
+            {isLive ? t("progress.reasoningLive") : t("progress.reasoning")}
+          </span>
+        </div>
 
-        <span
-          className={cn(
-            "flex-1 text-xs font-medium",
-            isLive ? "text-accent-amber" : "text-muted-foreground",
-          )}
-        >
-          {isLive ? t("progress.reasoningLive") : t("progress.reasoning")}
-        </span>
+        <div className="min-w-0 flex-1" />
 
         <motion.span
           animate={{ rotate: expanded ? 180 : 0 }}
           transition={{ duration: 0.15, ease: "easeOut" }}
-          className="flex shrink-0 items-center opacity-50 transition-opacity group-hover:opacity-80"
+          className="shrink-0 text-muted-foreground transition-opacity group-hover:text-foreground"
         >
-          <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+          <ChevronDown className="h-4 w-4" />
         </motion.span>
       </button>
 
-      {/* ── Expandable content ──────────────────────────── */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -83,9 +73,9 @@ export function ThinkingBlock({ content, isLive = false, className }: ThinkingBl
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border bg-muted">
-              <div className="max-h-72 overflow-y-auto px-4 py-4">
-                <div className="pl-3 border-l-2 border-muted">
+            <div className="border-t border-border bg-muted/40">
+              <div className="max-h-72 overflow-y-auto px-4 py-3">
+                <div className="border-l-2 border-border pl-3">
                   <MarkdownRenderer content={content} isStreaming={isLive} className="markdown-reasoning" />
                 </div>
               </div>

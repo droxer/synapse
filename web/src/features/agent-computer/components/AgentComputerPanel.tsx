@@ -49,12 +49,12 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
   const role = String(tc.input.role ?? "");
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary px-3 py-2">
+    <div className="ml-6 mb-1 rounded-md border border-border bg-muted px-3 py-2">
       <div className="flex items-center gap-2">
-        <GitFork className="h-3.5 w-3.5 shrink-0 text-accent-purple" />
+        <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">{agentName}</span>
         {role && (
-          <span className="rounded-full bg-accent-purple/10 px-2 py-0.5 text-micro font-medium text-accent-purple">
+          <span className="rounded-full border border-border bg-background px-2 py-0.5 text-micro font-medium text-muted-foreground">
             {role}
           </span>
         )}
@@ -74,9 +74,9 @@ function WaitForAgentsDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallIn
   const waitingAll = agentIds.length === 0;
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary px-3 py-2">
+    <div className="ml-6 mb-1 rounded-md border border-border bg-muted px-3 py-2">
       <div className="flex items-center gap-2">
-        <Clock className="h-3.5 w-3.5 shrink-0 text-accent-amber" />
+        <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">
           {waitingAll
             ? t("computer.waitingAllAgents")
@@ -106,9 +106,9 @@ function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
   const isBroadcast = targetId === "all";
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-secondary px-3 py-2">
+    <div className="ml-6 mb-1 rounded-md border border-border bg-muted px-3 py-2">
       <div className="flex items-center gap-2">
-        <MessageSquare className="h-3.5 w-3.5 shrink-0 text-accent-purple" />
+        <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">
           {isBroadcast
             ? t("computer.broadcastMessage")
@@ -133,8 +133,8 @@ function ThinkingPreview({ text }: { readonly text: string }) {
   const shown = expanded || !isLong ? text : text.slice(0, THINKING_PREVIEW_LENGTH);
 
   return (
-    <div className="ml-6 mb-1.5 border-l-2 border-accent-purple pl-2 py-0.5">
-      <span className="text-xs italic text-accent-purple leading-relaxed">
+    <div className="ml-6 mb-1.5 border-l-2 border-border-strong pl-2 py-0.5">
+      <span className="text-xs italic text-muted-foreground leading-relaxed">
         {shown}
         {isLong && !expanded && "..."}
       </span>
@@ -142,7 +142,7 @@ function ThinkingPreview({ text }: { readonly text: string }) {
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="ml-1 text-xs text-accent-purple hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 rounded"
+          className="ml-1 rounded text-xs text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {expanded ? t("computer.thinkingCollapse") : t("computer.thinkingReadMore")}
         </button>
@@ -183,7 +183,7 @@ function getRunningToolStatusText(toolCall: ToolCallInfo, t: TFn): string {
 
 function RunningBadge({ toolCall, t }: { readonly toolCall: ToolCallInfo; readonly t: TFn }) {
   if (toolCall.output !== undefined) return null;
-  return <span className="text-ai-glow">{t("computer.running")}</span>;
+  return <span className="text-foreground">{t("computer.running")}</span>;
 }
 
 function getComputerUseStatusText(tc: ToolCallInfo, t: TFn): string {
@@ -216,7 +216,7 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   if (tc.output !== undefined) {
     return tc.success === false
       ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" aria-label={t("a11y.toolFailed")} role="img" />
-      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" aria-label={t("a11y.toolSuccess")} role="img" />;
+      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" aria-label={t("a11y.toolSuccess")} role="img" />;
   }
   return <PulsingDot size="sm" aria-label={t("a11y.toolRunning")} />;
 }
@@ -467,7 +467,7 @@ export function AgentComputerPanel({
             {getRunningToolStatusText(latestToolCall, t)}
           </span>
           {latestToolCall.output === undefined && !SKILL_TOOL_NAMES.has(latestToolCall.name) && latestToolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(latestToolCall.name) && !AGENT_META_TOOLS.has(latestToolCall.name) && (
-            <span className="ml-auto max-w-[240px] truncate font-mono text-sm text-muted-foreground-dim">
+            <span className="ml-auto hidden min-w-0 max-w-[45%] truncate font-mono text-xs text-muted-foreground-dim sm:inline sm:text-sm">
               {formatToolPreview(latestToolCall.input)}
             </span>
           )}
@@ -594,7 +594,7 @@ export function AgentComputerPanel({
               {isRunning ? (
                 <PulsingDot size="sm" />
               ) : taskState === "complete" ? (
-                <CircleCheck className="h-3.5 w-3.5 text-accent-emerald" />
+                <CircleCheck className="h-3.5 w-3.5 text-muted-foreground" />
               ) : taskState === "error" ? (
                 <CircleX className="h-3.5 w-3.5 text-accent-rose" />
               ) : null}

@@ -79,17 +79,16 @@ export function ComputerUseOutput({
   const action = computerUseMetadata?.action;
 
   return (
-    <div className="mt-2.5 rounded-md border-l-2 border-l-accent-amber bg-muted px-2.5 py-1.5">
+    <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
       {/* Header */}
       <div className="mb-1.5 flex items-center gap-2">
-        <Monitor className="h-3.5 w-3.5 text-accent-amber" />
+        <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-xs font-medium text-foreground">
           {t("output.category.computer")}
         </span>
         {/* Action badge */}
         <span className={cn(
-          "inline-flex items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
-          "bg-accent-amber/10 text-accent-amber",
+          "inline-flex items-center rounded-full border border-border bg-background px-1.5 py-0.5 text-micro font-medium text-muted-foreground",
         )}>
           {actionLabel(action)}
         </span>

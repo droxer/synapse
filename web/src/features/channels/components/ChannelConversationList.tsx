@@ -105,7 +105,7 @@ export function ChannelConversationList({
         <button
           type="button"
           onClick={() => { setLoading(true); void fetchConversations(); }}
-          className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <RefreshCw className="h-3 w-3" />
           Retry
@@ -154,7 +154,7 @@ export function ChannelConversationList({
             className={cn(
               "group relative flex w-full items-center rounded-md text-left transition-colors duration-150",
               isSelected
-                ? "bg-accent-purple/8 text-foreground shadow-sm before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r-full before:bg-accent-purple before:content-['']"
+                ? "bg-muted text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r-full before:bg-border-strong before:content-['']"
                 : "text-foreground hover:bg-sidebar-hover",
               deletingId === conv.conversation_id && "opacity-50 pointer-events-none"
             )}
@@ -162,12 +162,12 @@ export function ChannelConversationList({
             <button
               type="button"
               onClick={() => onSelect(conv)}
-              className="flex flex-1 items-center gap-3 px-2.5 py-2.5 text-left w-full outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-md"
+              className="flex w-full flex-1 items-center gap-3 rounded-md px-2.5 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               {/* Avatar */}
               <div className="relative shrink-0">
                 <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg text-sm font-semibold text-primary-foreground shadow-card"
+                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-sm font-semibold text-primary-foreground"
                   style={{
                     background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})`,
                   }}
@@ -220,7 +220,7 @@ export function ChannelConversationList({
               <button
                 type="button"
                 onClick={(e) => handleDelete(e, conv.conversation_id)}
-                className="flex h-7 w-7 items-center justify-center rounded-md bg-card border border-border text-muted-foreground shadow-sm hover:text-destructive hover:border-destructive/30 hover:bg-destructive/10 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 title="Delete conversation"
                 aria-label="Delete conversation"
               >

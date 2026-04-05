@@ -36,7 +36,7 @@ const QUICK_ACTION_KEYS = [
 ] as const;
 
 const ITEM_CLASS =
-  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground transition-colors data-[selected=true]:bg-secondary data-[selected=true]:text-foreground";
+  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground transition-colors data-[selected=true]:bg-muted data-[selected=true]:text-foreground";
 
 const GROUP_HEADING_CLASS =
   "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground";
@@ -122,9 +122,9 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
     <AnimatePresence>
       {open && (
         <>
-          {/* Backdrop — stronger blur */}
+          {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-50 bg-overlay backdrop-blur-md"
+            className="fixed inset-0 z-50 bg-overlay/90 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -132,7 +132,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
             onClick={() => setOpen(false)}
           />
 
-          {/* Command dialog — blur-to-sharp entry */}
+          {/* Command dialog */}
           <motion.div
             ref={dialogRef}
             role="dialog"
@@ -145,11 +145,11 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
             transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <Command
-              className="w-[calc(100%-2rem)] max-w-[560px] overflow-hidden rounded-md border border-border bg-card shadow-elevated"
+              className="w-[calc(100%-2rem)] max-w-[560px] overflow-hidden rounded-lg border border-border bg-card shadow-elevated"
               loop
             >
               {/* Search input */}
-              <div className="flex items-center gap-2 border-b border-border px-4 focus-within:ring-[3px] focus-within:ring-inset focus-within:ring-ring/50">
+              <div className="flex items-center gap-2 border-b border-border px-4 focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring">
                 <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 <Command.Input
                   placeholder={t("command.placeholder")}

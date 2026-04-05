@@ -40,7 +40,7 @@ import { useMCPServers } from "../hooks/use-mcp-servers";
 /* ── shimmer skeleton matching card shape ── */
 function ServerSkeleton() {
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-card">
+    <div className="flex flex-col rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between">
         <div className="h-9 w-9 shrink-0 rounded-lg skeleton-shimmer" />
         <div className="h-4 w-14 skeleton-shimmer" />
@@ -132,7 +132,7 @@ export function MCPPage() {
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
                   connectedCount > 0
-                    ? "bg-accent-emerald"
+                    ? "bg-foreground"
                     : "bg-border-strong",
                 )}
               />

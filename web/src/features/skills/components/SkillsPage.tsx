@@ -59,7 +59,7 @@ const listItem = {
 /* ── skeleton (matches grid card layout) ── */
 function SkillSkeleton() {
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4 shadow-sm">
+    <div className="flex flex-col rounded-lg border border-border bg-card p-4">
       <div className="flex items-start justify-between">
         <div className="h-9 w-9 shrink-0 rounded-lg skeleton-shimmer" />
         <div className="h-4 w-14 skeleton-shimmer" />
@@ -460,11 +460,11 @@ export function SkillsPage() {
                     disabled={src === "git"}
                     className={cn(
                       "flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       src === "git"
                         ? "cursor-not-allowed text-muted-foreground-dim opacity-60"
                         : installSource === src
-                          ? "bg-background text-foreground shadow-sm"
+                          ? "border border-border bg-background text-foreground"
                           : "text-muted-foreground hover:text-foreground",
                     )}
                   >
@@ -502,18 +502,8 @@ export function SkillsPage() {
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === " ") {
-                        e.preventDefault();
-                        fileInputRef.current?.click();
-                      }
-                    }}
                     className={cn(
-                      "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                      "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 transition-colors duration-150",
                       isDragging
                         ? "border-border-active bg-secondary"
                         : "border-border hover:border-border-strong hover:bg-secondary",
@@ -528,7 +518,14 @@ export function SkillsPage() {
                     </p>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); folderInputRef.current?.click(); }}
+                      onClick={() => fileInputRef.current?.click()}
+                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    >
+                      {t("chat.attachFile")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => folderInputRef.current?.click()}
                       className="text-xs text-primary underline-offset-2 hover:underline"
                     >
                       {t("skills.chooseFolder")}
@@ -582,7 +579,7 @@ export function SkillsPage() {
                           setIsFolderUpload(false);
                           setFolderName("");
                         }}
-                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       >
                         <X className="h-3 w-3" />
                       </button>

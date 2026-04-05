@@ -51,7 +51,7 @@ export function TerminalWindow({ title, children, className, copyText }: Termina
           type="button"
           onClick={handleCopy}
           aria-label={copied ? t("output.copied") : t("output.terminalCopy")}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-[var(--color-terminal-dim)] transition-colors hover:text-[var(--color-terminal-text)] focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-[var(--color-terminal-dim)] transition-colors hover:text-[var(--color-terminal-text)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {copied ? (
             <Check className="h-3 w-3" />

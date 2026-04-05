@@ -85,8 +85,9 @@
 | `accent-emerald` | `#10B981` / `#34D399` | 成功、运行中、进度 |
 | `accent-amber` | `#B45309` / `#D97706` | 警告、思考中 |
 | `accent-rose` | `#EF4444` / `#F87171` | 错误、失败 |
-| `accent-purple` | `#1B7EF2` / `#3B8EF5` | AI 强调色、工具执行、主要交互强调色 — 蓝色 |
-| `ai-glow` | `#1B7EF2` / `#3B8EF5` | AI 活跃状态 — 用于 AI 正在输入、处理或高亮生成文本时 |
+| `color-focus` | `#1B7EF2` / `#3B8EF5` | 规范化交互蓝色令牌 |
+| `accent-purple` | `var(--color-focus)` | 兼容旧代码的交互蓝色别名 |
+| `ai-glow` | `var(--color-focus)` | 兼容旧代码的 AI 活跃蓝色别名 |
 
 ### 侧边栏
 
@@ -188,15 +189,15 @@ text-rendering: optimizeLegibility;
 
 ## 阴影
 
-阴影设计极其极简，优先使用清晰的 1px 边框（`0 0 0 1px`）而非大面积模糊的投影，以创造扁平、明确的视觉层级分离。暗色模式使用更高透明度的纯黑以增加深度感。
+阴影策略已调整为**边框优先、整体扁平**。优先通过边框强度与背景变化表达层级，而非悬浮抬升感。
 
 ### 亮色模式
 
 | 名称 | 值 | 用途 |
 |------|------|------|
-| `shadow-card` | `0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.05)` | 卡片静止状态 |
-| `shadow-card-hover` | `0 4px 12px rgba(15,23,42,0.10), 0 2px 4px rgba(15,23,42,0.06)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)` | 浮动覆盖层：模态框、命令面板、下拉菜单、弹出框 |
+| `shadow-card` | `0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%)` | 表面静止分层 |
+| `shadow-card-hover` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%)` | 悬停时边框增强 |
+| `shadow-elevated` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%), 0 12px 30px rgba(0, 0, 0, 0.08)` | 浮层（模态/命令面板） |
 
 ### 暗色模式
 
@@ -204,28 +205,28 @@ text-rendering: optimizeLegibility;
 
 | 名称 | 值 | 用途 |
 |------|------|------|
-| `shadow-card` | `0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.20)` | 卡片静止状态 |
-| `shadow-card-hover` | `0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.20)` | 卡片悬停抬升 |
-| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.30)` | 浮动覆盖层 |
+| `shadow-card` | `0 0 0 1px color-mix(in srgb, var(--color-border), transparent 25%)` | 表面静止分层 |
+| `shadow-card-hover` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 10%)` | 悬停时边框增强 |
+| `shadow-elevated` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 6%), 0 16px 36px rgba(0, 0, 0, 0.45)` | 浮层 |
 
 ### 阴影使用方式
 
-**卡片和内容元素** 默认使用细微的 `shadow-sm`，悬停时使用 `hover:shadow-md` 实现轻微抬升效果：
-- 静止：`border border-border shadow-sm`
-- 悬停：`hover:border-border-strong hover:shadow-md`
-- 活跃/聚焦：`border-border-active`
+**卡片和内容元素** 默认应保持扁平：
+- 静止：`border border-border`
+- 悬停：`hover:border-border-strong hover:bg-muted/40`
+- 活跃/聚焦：`border-border-active` + 聚焦环
 
 **浮动覆盖层**（模态框、命令面板、下拉菜单）使用 `shadow-elevated`。
 
-**输入框和表单控件** 静止时使用 `shadow-sm`，聚焦时使用 `shadow-md`（替代旧的发光效果）。
+**输入框和表单控件** 静止时使用扁平边框，聚焦时使用统一聚焦环（不使用阴影抬升）。
 
 ### 聚焦环
 
 ```
-focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
+focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
 ```
 
-使用 `--color-ring` 以 50% 透明度的 3px 环形。
+使用带 offset 的 2px 聚焦环，视觉更接近编辑器风格。
 
 **必须** 在每个交互元素上添加：按钮、链接、输入框、标签页、侧边栏项、工具栏操作，以及任何带 `onClick` 的元素。这包括自定义交互元素 — 不仅限于基础 UI 原语。
 
@@ -239,7 +240,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 
 - **视觉效果**：浮动、屏幕居中的模态框，带模糊背景遮罩
 - **行为**：即时聚焦搜索栏。下方显示：快捷 AI 操作、导航（技能、MCP、新任务）、最近对话（来自应用存储，限制 5 条）和设置
-- **样式**：`bg-card border border-border rounded-md shadow-elevated` — 纯色背景，对话框本身不使用毛玻璃效果。背景遮罩使用 `backdrop-blur-md`。
+- **样式**：`bg-card border border-border rounded-lg shadow-elevated` — 纯色背景，对话框本身不使用毛玻璃效果。背景遮罩使用 `backdrop-blur-sm`。
 - **动画**：仅透明度淡入淡出（0.12s） — 进入/退出时无缩放或位移
 - **选中项**：仅使用 `bg-secondary` 高亮 — 无 `border-l` 强调
 - **快捷键**：在项目右侧使用 `<kbd>` 元素显示键盘提示（`⌘N`、`ESC`）
@@ -247,16 +248,16 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 
 ### 聊天消息
 
-**用户消息**：右对齐气泡卡片。使用扁平的 `bg-secondary/40`，清晰的 1px 边框 `border-border/50`，以及标准圆角 `rounded-md`。最大宽度 80%。
+**用户消息**：右对齐气泡卡片。使用 `bg-card border border-border rounded-md`。最大宽度 80%。
 
 **助手消息**：左对齐，纯文本配合 Markdown 渲染。无气泡、无边框 — `text-sm leading-[1.5] text-foreground`。最大宽度 85%。AI 标识："HIAGENT" 标签使用 `text-xs font-medium tracking-wide text-accent-purple/70 uppercase`。操作按钮（复制、重试）使用悬停显示模式：`opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150`。
 
-**AI 活跃状态**：当 AI 正在处理时，使用 `accent-purple`（`#8B5CF6`）令牌指示器 — 禁止硬编码十六进制值。标签使用 `text-accent-purple/70`，圆点使用 `bg-accent-purple`。
+**AI 活跃状态**：AI 处理中优先使用中性样式（`bg-muted border-border`），仅在强语义状态（成功/错误/警告）中使用高饱和颜色。
 
 ### 交互数据区块
 
 当 AI 生成结构化内容时，渲染为独立区块：
-- 1px 细微边框（`border-border`）配合 `shadow-sm`
+- 1px 细微边框（`border-border`）配合扁平表面样式
 - 微弱背景填充（`bg-card`）
 - 悬停状态在右上角显示工具图标（复制、编辑、删除、重新生成）
 
@@ -297,7 +298,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 1. **淡入 + 上滑**：`initial={{ opacity: 0, y: 4 }}` → `animate={{ opacity: 1, y: 0 }}`，`duration: 0.12`
 2. **子元素交错**：`staggerChildren: 0.02, delayChildren: 0` — 快速、近乎即时的网格填充
 3. **展开/折叠**：`duration: 0.15, ease: "easeOut"` — UI 装饰不使用弹簧物理
-4. **阴影抬升（悬停）**：卡片静止时使用 `shadow-sm`，悬停时使用 `hover:shadow-md` + `hover:border-border-strong`
+4. **悬停强调**：卡片通过 `hover:border-border-strong hover:bg-muted/40` 表达状态，避免阴影抬升
 5. **透明度脉冲（状态指示器）**：使用 CSS `@keyframes` 实现脉冲圆点（globals.css 中的 `pulsingDotFade`、`pulsingDotRing`）。简单连续循环优先使用 CSS 动画而非 framer-motion。
 
 ### 反模式
@@ -305,7 +306,7 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 - **禁止对内容元素使用 `scale`** — 消息、卡片、状态指示器、圆点、进入动画。缩放仅用于按钮。包括圆点上的 `scale: [1, 1.4, 1]` 脉冲和进入动画中的 `scale: 0.98` — 应使用透明度 + translateY 代替。
 - **禁止发光效果** — `box-shadow: 0 0 Xpx` 光晕、`aiGlow` 关键帧、`orbitalPulse` 动画和锥形渐变旋转边框均被禁止。使用细微阴影抬升和透明度脉冲代替。
 - **禁止渐变网格背景** — 移除动态多重渐变背景（`meshDrift`）。最多使用单一细微径向渐变。
-- **禁止毛玻璃效果** — 在输入框、卡片、状态徽章和对话框上使用 `backdrop-blur-sm bg-card/80` 被禁止。应使用纯色 `bg-card` 或 `bg-secondary`。`backdrop-blur-md` **仅**允许用于模态框遮罩背景（对话框后方的暗化层）。
+- **禁止毛玻璃效果** — 在输入框、卡片、状态徽章和对话框上使用 `backdrop-blur-sm bg-card/80` 被禁止。应使用纯色 `bg-card` 或 `bg-secondary`。`backdrop-blur-sm` **仅**允许用于模态框遮罩背景（对话框后方的暗化层）。
 - **禁止多余的进入动画** — 动效仅用于状态变化。禁止在静态标题文字上使用装饰性 `filter: blur()`。
 - **尊重 `prefers-reduced-motion`** — 用 `<MotionConfig reducedMotion="user">` 包裹应用（Framer Motion）。globals.css 中的 CSS `prefers-reduced-motion` 媒体查询不会影响 JS 驱动的 Framer Motion 动画。
 
@@ -338,7 +339,7 @@ import { MotionConfig } from "framer-motion";
 - 右侧边框：`border-r border-border`（纯色，无透明度修饰符）
 - 内部间距：展开时 `px-4`，折叠时 `px-2` — 所有区域（头部、搜索、任务列表）保持一致
 - 导航项间距：`gap-2`（图标 + 标签）— 而非 `gap-2.5`
-- 活跃指示器：纯色强调色条（3px 宽 × 16px 高：`w-[3px] h-4`），绝对定位于 `left-0`
+- 活跃指示器：中性指示条 `bg-border-strong`（3px 宽 × 16px 高：`w-[3px] h-4`），绝对定位于 `left-0`
 - 活跃项背景：`bg-sidebar-active` — 而非 `bg-secondary`
 - 悬停项背景：`hover:bg-sidebar-hover` — 而非 `hover:bg-secondary`
 - 导航图标：纯色 `h-4 w-4` Lucide 图标 — 不使用彩色气泡容器（详见图标章节）
@@ -353,7 +354,7 @@ WelcomeScreen 通过 `ChatInput` 的 `variant="welcome"` 渲染 — 单一组件
 - 边框圆角：`rounded-lg`
 - 背景：纯色 `bg-card`（无毛玻璃效果，无 `backdrop-blur`）
 - 聚焦：`border-border-active` + `shadow-md`（无发光效果，无 `box-shadow: 0 0 20px`）
-- 阴影：静止时 `shadow-sm`，聚焦时 `shadow-md`
+- 阴影：默认不使用；通过边框和聚焦环表达状态
 - Textarea 水平间距：`px-4`
 
 ### 顶栏
@@ -460,7 +461,7 @@ Lucide React (`lucide-react`)
 
 每个交互元素都必须包含：
 ```
-focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
+focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
 ```
 
 包括：按钮（含图标按钮）、侧边栏项、标签页按钮、工具栏操作，以及任何带 `onClick` 的元素。来自 `@radix-ui` 的基础 UI 原语已包含此样式 — 自定义交互元素必须显式添加。
@@ -474,6 +475,22 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 ### 悬停显示控件
 
 任何使用 `opacity-0 group-hover:opacity-100` 在悬停时显示操作的模式，必须同时包含 `group-focus-within:opacity-100`，以便键盘用户也能发现这些操作。
+
+### RWD 检查清单
+
+- **断点策略**：移动端优先；仅在信息密度需要时使用 `sm/md/lg`。
+- **宽度约束**：优先流式宽度（`w-full`、`max-w-*`），固定像素宽度仅用于明确受限的弹窗/面板。
+- **触控目标**：粗指针设备最小 44x44（已由 `globals.css` 的 coarse-pointer 媒体查询兜底）。
+- **溢出韧性**：长文件名/ID 必须 `truncate` 并提供 `title` 等回退。
+- **分栏布局**：小屏下应堆叠布局，避免在 `lg` 以下强依赖 50/50 分栏。
+
+### 无障碍复查清单
+
+- 交互控件优先使用原生 button/link；重构时避免 `role="button"` 包装器。
+- 所有可交互元素必须具备可见键盘焦点（遵循上方聚焦环规范）。
+- 悬停显隐控件必须同步支持键盘焦点显隐（`group-focus-within`）。
+- 颜色传递语义必须辅以图标或文字（`aria-label`、`title` 或可见文本）。
+- 尊重 reduced motion（`MotionConfig reducedMotion="user"` + CSS `prefers-reduced-motion`）。
 
 ### 错误页面
 
@@ -517,11 +534,11 @@ focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
 | `font-bold` 用于标题 | 使用 `font-semibold` (600) |
 | `font-serif` 用于任何 UI 元素 | 未加载衬线字体 — 全部使用 `font-sans` |
 | `scale: [1, 1.4, 1]` 用于圆点/图标 | 使用 `opacity: [0.4, 1, 0.4]` |
-| `shadow-[0_0_6px_var(--color-ai-glow)]` | 移除发光 — 使用 `shadow-sm` 或不使用 |
+| `shadow-[0_0_6px_var(--color-ai-glow)]` | 移除发光 — 使用边框强调或不使用 |
 | `backdrop-blur-sm bg-card/80` 用于输入框 | 使用纯色 `bg-card` |
 | `box-shadow: 0 0 20px var(--color-input-glow)` | 聚焦时使用 `shadow-md` |
 | `background: #FFFFFF` / `#0A0A0A` | 使用 `#F8FAFC`（冷白色）/ `#0F1117`（深墨色） |
-| `#8B5CF6`（紫色/靛蓝色） | 通过 `accent-purple` / `ai-glow` 使用 `#1B7EF2`（蓝色） |
+| 硬编码 `#818CF8` / `#8B5CF6` 紫色 | 通过 `accent-purple` / `ai-glow` 别名使用 `var(--color-focus)` |
 | `border-radius: 0–2px`（锐利） | 卡片使用 `rounded-lg` (6px)，项目使用 `rounded-md` (4px) |
 | `animation: conicSpin`、`aiGlow`、`orbitalPulse` | 已移除 — 使用 CSS `@keyframes` 透明度脉冲 |
 | `animation: meshDrift` 用于背景 | 已移除 — 使用静态径向渐变 |

@@ -27,18 +27,18 @@ const PHASE_CONFIG: Record<
 > = {
   thinking: {
     icon: Brain,
-    badgeClass: "bg-secondary border border-border text-accent-amber",
-    dotClass: "bg-accent-amber",
+    badgeClass: "bg-muted border border-border text-muted-foreground",
+    dotClass: "bg-muted-foreground",
   },
   writing: {
     icon: Pencil,
-    badgeClass: "bg-[var(--color-ai-surface)] border border-border text-accent-purple",
-    dotClass: "bg-accent-purple",
+    badgeClass: "bg-muted border border-border text-muted-foreground",
+    dotClass: "bg-muted-foreground",
   },
   using_tool: {
     icon: Wrench,
-    badgeClass: "bg-secondary border border-border text-accent-purple",
-    dotClass: "bg-accent-purple",
+    badgeClass: "bg-muted border border-border text-muted-foreground",
+    dotClass: "bg-muted-foreground",
   },
 };
 
@@ -111,7 +111,7 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
       {/* Phase badge */}
       <div className="mb-3 flex items-center gap-2 pt-1">
         <div
-          className={cn("inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-medium shadow-sm", config.badgeClass)}
+          className={cn("inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-medium", config.badgeClass)}
         >
           {activePhase === "thinking" || activePhase === "using_tool" ? (
             <motion.span

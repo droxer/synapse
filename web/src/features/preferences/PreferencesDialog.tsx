@@ -69,17 +69,17 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   onClick={() => setActiveId(id)}
                   className={cn(
                     "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-[color,background-color] duration-150 ease-out overflow-hidden mb-1",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     isActive
-                      ? "bg-accent-purple/10 text-accent-purple font-semibold"
+                      ? "bg-muted text-foreground font-semibold"
                       : "text-muted-foreground hover:bg-background hover:text-foreground",
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >
                   {isActive && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-accent-purple rounded-r-full" />
+                    <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-border-strong" />
                   )}
-                  <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-accent-purple" : "text-muted-foreground")} />
+                  <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
                   {t(labelKey)}
                 </button>
               );

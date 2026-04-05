@@ -26,10 +26,10 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
 
   return (
     <div className={cn(
-      "group flex h-full flex-col rounded-lg border bg-card p-4 shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+      "group flex h-full flex-col rounded-lg border bg-card p-4 transition-[border-color,background-color] duration-200 ease-out",
       isDisabled
         ? "border-border hover:border-border"
-        : "border-border hover:border-border-strong",
+        : "border-border hover:border-border-strong hover:bg-muted/40",
     )}>
       {/* Top row: icon + transport badge + delete */}
       <div className="flex items-start justify-between gap-2">
@@ -97,7 +97,7 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
               isDisabled
                 ? "bg-border-strong"
                 : server.status === "connected"
-                  ? "bg-accent-emerald"
+                  ? "bg-foreground"
                   : "bg-border-strong",
             )}
           />
@@ -120,16 +120,16 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
             aria-label={isDisabled ? t("mcp.enable") : t("mcp.disable")}
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               isDisabled
                 ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
-                : "bg-accent-emerald/10 text-accent-emerald hover:bg-accent-emerald/15",
+                : "border border-border bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
             )}
             onClick={() => onToggle(server.name, isDisabled)}
           >
             <span className={cn(
               "h-1.5 w-1.5 rounded-full transition-colors duration-150",
-              isDisabled ? "bg-border-strong" : "bg-accent-emerald",
+              isDisabled ? "bg-border-strong" : "bg-foreground",
             )} />
             {isDisabled ? t("mcp.disabled") : t("mcp.enabled")}
           </button>

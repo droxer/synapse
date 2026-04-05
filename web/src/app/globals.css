@@ -35,9 +35,10 @@
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
-  --color-accent-purple: #1B7EF2;
+  --color-focus: #1B7EF2;
+  --color-accent-purple: var(--color-focus);
   --color-accent-blue: #3B82F6;
-  --color-ai-glow: #1B7EF2;
+  --color-ai-glow: var(--color-focus);
 
   --color-accent: var(--color-secondary);
   --color-accent-foreground: var(--color-foreground);
@@ -91,9 +92,9 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04);
-  --shadow-card-hover: 0 2px 8px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 4px 12px rgba(0, 0, 0, 0.05);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 25%), 0 10px 30px rgba(0, 0, 0, 0.12);
 
   /* Animations — keep useful ones, remove glow/orbital */
   --animate-fade-in: fadeIn 0.3s ease-out;
@@ -187,9 +188,10 @@
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
-  --color-accent-purple: #1B7EF2;
+  --color-focus: #1B7EF2;
+  --color-accent-purple: var(--color-focus);
   --color-accent-blue: #3B82F6;
-  --color-ai-glow: #1B7EF2;
+  --color-ai-glow: var(--color-focus);
   --color-accent: var(--color-secondary);
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #18181B;
@@ -207,9 +209,9 @@
   --color-terminal-text: #1E293B;
   --color-terminal-dim: #94A3B8;
   --color-overlay: rgba(15, 23, 42, 0.5);
-  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.08), 0 1px 2px rgba(15, 23, 42, 0.05);
-  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.10), 0 2px 4px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 0 0 1px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.10), 0 2px 6px rgba(0, 0, 0, 0.06);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%), 0 12px 30px rgba(0, 0, 0, 0.08);
 }
 
 /* ─── Dark mode ─── */
@@ -239,9 +241,10 @@
   --color-accent-emerald: #34D399;
   --color-accent-amber: #D97706;
   --color-accent-rose: #F87171;
-  --color-accent-purple: #3B8EF5;
+  --color-focus: #3B8EF5;
+  --color-accent-purple: var(--color-focus);
   --color-accent-blue: #3B82F6;
-  --color-ai-glow: #3B8EF5;
+  --color-ai-glow: var(--color-focus);
   --color-accent: var(--color-secondary);
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #FAFAFA;
@@ -261,9 +264,9 @@
   --color-terminal-text: #CBD5E1;
   --color-terminal-dim: #64748B;
   --color-overlay: rgba(0, 0, 0, 0.6);
-  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.25), 0 1px 2px rgba(0, 0, 0, 0.20);
-  --shadow-card-hover: 0 4px 12px rgba(0, 0, 0, 0.35), 0 2px 4px rgba(0, 0, 0, 0.20);
-  --shadow-elevated: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 8px 24px rgba(0, 0, 0, 0.50), 0 2px 6px rgba(0, 0, 0, 0.30);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 25%);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 10%);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 6%), 0 16px 36px rgba(0, 0, 0, 0.45);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -336,6 +339,11 @@ body {
   letter-spacing: -0.011em;
   touch-action: manipulation;
 }
+
+/* Design contract:
+   - Panels/surfaces use rounded-lg.
+   - Controls (inputs, buttons, badges) use rounded-md.
+   - Focus ring uses ring-2/ring-ring/ring-offset-2/ring-offset-background. */
 
 html,
 body {

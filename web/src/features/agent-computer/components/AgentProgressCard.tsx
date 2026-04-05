@@ -237,9 +237,9 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "running") {
     return (
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-ai-surface">
-        <Icon className="h-3 w-3 text-ai-glow" />
-        <span className="absolute inset-0 rounded-md bg-ai-surface animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
+      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted">
+        <Icon className="h-3 w-3 text-muted-foreground" />
+        <span className="absolute inset-0 rounded-md bg-muted animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
       </span>
     );
   }
@@ -254,8 +254,8 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   // complete — swap category icon for a check
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent-emerald/10">
-      <Check className="h-3 w-3 text-accent-emerald" />
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-border bg-background">
+      <Check className="h-3 w-3 text-muted-foreground" />
     </span>
   );
 }
@@ -265,21 +265,21 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
   switch (state) {
     case "planning":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-accent-amber/10 px-2 py-0.5 text-xs font-medium text-accent-amber">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-ai-glow/10 px-2 py-0.5 text-xs font-medium text-ai-glow">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
     case "complete":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-accent-emerald/10 px-2 py-0.5 text-xs font-medium text-accent-emerald">
+        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
           <CircleCheck className="h-3 w-3" />
           {t("progress.stateComplete")}
         </span>
@@ -333,15 +333,15 @@ export function AgentProgressCard({
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
     >
-      {/* Progress bar — solid accent */}
+      {/* Progress bar */}
       <Progress
         value={Math.round(progressRatio * 100)}
         className="h-1 rounded-none"
         indicatorClassName={cn(
-          taskState === "complete" && "bg-accent-emerald",
+          taskState === "complete" && "bg-foreground",
           taskState === "error" && "bg-accent-rose",
-          taskState === "planning" && "bg-accent-amber",
-          (taskState === "executing" || taskState === "idle") && "bg-accent-purple",
+          taskState === "planning" && "bg-muted-foreground",
+          (taskState === "executing" || taskState === "idle") && "bg-foreground",
         )}
         aria-label={t("progress.taskProgress", { percent: Math.round(progressRatio * 100) })}
       />
@@ -352,7 +352,7 @@ export function AgentProgressCard({
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          className="group flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+          className="group flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
@@ -431,7 +431,8 @@ export function AgentProgressCard({
                         }}
                         className={cn(
                           "flex items-center gap-2.5 py-1.5 rounded-md px-1.5 -mx-1.5",
-                          isClickable && "cursor-pointer hover:bg-secondary transition-colors",
+                          isClickable && "cursor-pointer hover:bg-muted transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         )}
                         onClick={isClickable ? () => onStepClick?.(step.id) : undefined}
                         disabled={!isClickable}
@@ -451,7 +452,7 @@ export function AgentProgressCard({
                               <span
                                 className={cn(
                                   "font-semibold",
-                                  step.status === "running" && "text-ai-glow",
+                                  step.status === "running" && "text-foreground",
                                   step.status === "complete" && "text-foreground",
                                   step.status === "error" && "text-accent-rose",
                                 )}

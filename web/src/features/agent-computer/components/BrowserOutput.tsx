@@ -50,27 +50,24 @@ export function BrowserOutput({
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
 
   return (
-    <div className="mt-2.5 rounded-md border-l-2 border-l-accent-purple bg-muted px-2.5 py-1.5">
+    <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
       {/* Header */}
       <div className="mb-2 flex items-center gap-2">
-        <Monitor className="h-3.5 w-3.5 text-accent-purple" />
+        <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-xs font-medium text-foreground">
           {t("output.category.browser")}
         </span>
         {/* Status badge */}
         <span
           className={cn(
-            "inline-flex items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
-            isDone
-              ? "bg-accent-emerald/10 text-accent-emerald"
-              : "bg-accent-amber/10 text-accent-amber",
+            "inline-flex items-center rounded-full border border-border bg-background px-1.5 py-0.5 text-micro font-medium text-muted-foreground",
           )}
         >
           {isDone ? t("output.browser.done") : t("output.browser.incomplete")}
         </span>
         {/* URL pill */}
         {hostname && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 text-micro text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-micro text-muted-foreground">
             <ExternalLink className="h-2.5 w-2.5" />
             {hostname}
           </span>
@@ -93,7 +90,7 @@ export function BrowserOutput({
           <Progress
             value={progressValue}
             className="h-1.5 flex-1"
-            indicatorClassName={isDone ? "bg-accent-emerald" : "bg-accent-purple"}
+            indicatorClassName="bg-foreground"
           />
           <span className="text-micro font-mono text-muted-foreground tabular-nums">
             {t("output.browser.steps", { completed: steps, total: maxSteps })}

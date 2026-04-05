@@ -13,15 +13,15 @@ interface AssistantStateIndicatorProps {
 const PHASE_CONFIG = {
   thinking: {
     icon: Brain,
-    className: "bg-accent-amber/10 border-accent-amber/25 text-accent-amber",
+    className: "bg-muted border-border text-muted-foreground",
   },
   writing: {
     icon: Pencil,
-    className: "bg-ai-glow/10 border-ai-glow/25 text-ai-glow",
+    className: "bg-muted border-border text-muted-foreground",
   },
   using_tool: {
     icon: Wrench,
-    className: "bg-accent-purple/10 border-accent-purple/25 text-accent-purple",
+    className: "bg-muted border-border text-muted-foreground",
   },
 } as const;
 
@@ -47,7 +47,7 @@ export function AssistantStateIndicator({ phase }: AssistantStateIndicatorProps)
       transition={{ duration: 0.12, ease: "easeOut" }}
     >
       <div
-        className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-medium shadow-sm ${config.className}`}
+        className={`inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs font-medium ${config.className}`}
       >
         {phase.phase === "thinking" || phase.phase === "using_tool" ? (
           <motion.span

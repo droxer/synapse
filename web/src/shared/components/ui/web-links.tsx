@@ -26,7 +26,7 @@ function getDomain(url: string): string {
 export function WebLinks({ query, results, className, resultsLabel, searchLabel = "Search" }: WebLinksProps) {
   const defaultResultsLabel = `${results.length} result${results.length !== 1 ? "s" : ""} for`;
   return (
-    <div className={cn("rounded-md border-l-2 border-l-accent-purple bg-muted px-3 py-2", className)}>
+    <div className={cn("rounded-md border-l-2 border-l-border-strong bg-muted px-3 py-2", className)}>
       <div className="mb-2 flex items-center justify-between">
         <span className="text-xs text-muted-foreground">
           {resultsLabel ?? defaultResultsLabel}{" "}
@@ -44,7 +44,7 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
               href={r.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="flex items-start gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-xs font-medium text-user-accent group-hover:underline">

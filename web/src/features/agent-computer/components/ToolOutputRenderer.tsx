@@ -42,16 +42,16 @@ interface CategoryStyle {
 }
 
 const CATEGORY_STYLES: Record<ToolCategory, CategoryStyle> = {
-  code:    { border: "border-l-accent-emerald", icon: Terminal,  labelKey: "output.category.code" },
-  file:    { border: "border-l-user-accent",    icon: FileCode,  labelKey: "output.category.file" },
-  search:  { border: "border-l-accent-purple",  icon: Globe,     labelKey: "output.category.search" },
-  memory:   { border: "border-l-accent-amber",   icon: Database,  labelKey: "output.category.memory" },
-  browser:  { border: "border-l-accent-purple",  icon: Monitor,   labelKey: "output.category.browser" },
-  computer: { border: "border-l-accent-amber",   icon: Monitor,   labelKey: "output.category.computer" },
-  preview: { border: "border-l-accent-emerald", icon: Play,      labelKey: "output.category.preview" },
-  mcp:      { border: "border-l-user-accent",    icon: Plug,      labelKey: "output.category.mcp" },
-  agent:    { border: "border-l-accent-purple",  icon: GitFork,   labelKey: "output.category.agent" },
-  database: { border: "border-l-accent-amber",   icon: Database,  labelKey: "output.category.database" },
+  code:    { border: "border-l-border-strong", icon: Terminal,  labelKey: "output.category.code" },
+  file:    { border: "border-l-border-strong", icon: FileCode,  labelKey: "output.category.file" },
+  search:  { border: "border-l-border-strong", icon: Globe,     labelKey: "output.category.search" },
+  memory:   { border: "border-l-border-strong", icon: Database,  labelKey: "output.category.memory" },
+  browser:  { border: "border-l-border-strong", icon: Monitor,   labelKey: "output.category.browser" },
+  computer: { border: "border-l-border-strong", icon: Monitor,   labelKey: "output.category.computer" },
+  preview: { border: "border-l-border-strong", icon: Play,      labelKey: "output.category.preview" },
+  mcp:      { border: "border-l-border-strong", icon: Plug,      labelKey: "output.category.mcp" },
+  agent:    { border: "border-l-border-strong", icon: GitFork,   labelKey: "output.category.agent" },
+  database: { border: "border-l-border-strong", icon: Database,  labelKey: "output.category.database" },
   default:  { border: "border-l-border",            icon: FileText,  labelKey: "" },
 };
 
@@ -189,19 +189,19 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       <TerminalWindow title={`preview${portLabel ? ` \u2014 ${portLabel}` : ""}`} className="mt-2.5">
         {/* Command line */}
         <div className="flex gap-2">
-          <span className="text-accent-emerald">$</span>
+          <span className="text-[var(--color-terminal-text)]">$</span>
           <span className="text-[var(--color-terminal-text)]">{t("output.preview.serverStart")}</span>
         </div>
 
         {/* Output */}
-        <pre className="mt-2 whitespace-pre-wrap text-accent-emerald">{stripAnsi(output)}</pre>
+        <pre className="mt-2 whitespace-pre-wrap text-[var(--color-terminal-text)]">{stripAnsi(output)}</pre>
 
         {/* Status indicator */}
         <div className="mt-3 flex items-center gap-2 border-t border-[var(--color-terminal-border)] pt-3">
           {isActive ? (
             <>
-              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-accent-emerald" />
-              <span className="text-accent-emerald">
+              <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-terminal-text)]" />
+              <span className="text-[var(--color-terminal-text)]">
                 {t("output.preview.listening", { port: preview.port ?? "..." })}
               </span>
             </>
@@ -281,7 +281,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const results = JSON.parse(output) as Record<string, { success: boolean; summary: string; error: string | null; artifacts: string[] }>;
       const entries = Object.entries(results);
       return (
-        <div className="mt-2.5 rounded-md border-l-2 border-l-accent-purple bg-muted px-2.5 py-1.5">
+        <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
           <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
             <GitFork className="h-3 w-3" />
             {t("output.agentResults")}
@@ -290,7 +290,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             {entries.map(([agentId, result]) => (
               <div key={agentId} className="flex items-start gap-2 rounded px-2 py-1 text-sm text-muted-foreground">
                 {result.success ? (
-                  <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-accent-emerald" />
+                  <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
                   <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 )}
@@ -310,7 +310,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (toolName === "agent_receive") {
     if (output === "No pending messages." || output === "[]") {
       return (
-        <div className="mt-2.5 rounded-md border-l-2 border-l-accent-purple bg-muted px-2.5 py-1.5">
+        <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
           <div className="flex items-center gap-1 text-sm text-muted-foreground-dim">
             <MessageSquare className="h-3 w-3" />
             {t("output.noMessages")}
@@ -322,7 +322,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const messages = JSON.parse(output) as Array<{ from: string; to: string; message: string; metadata?: object }>;
       if (Array.isArray(messages)) {
         return (
-          <div className="mt-2.5 rounded-md border-l-2 border-l-accent-purple bg-muted px-2.5 py-1.5">
+          <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
             <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
               <MessageSquare className="h-3 w-3" />
               {t("output.agentMessages", { count: messages.length })}
@@ -359,7 +359,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
           const visibleRows = rows.slice(0, MAX_ROWS);
           const remaining = rows.length - MAX_ROWS;
           return (
-            <div className="mt-2.5 rounded-md border-l-2 border-l-accent-amber bg-muted px-2.5 py-1.5">
+            <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
               <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
                 <Database className="h-3 w-3" />
                 {summaryLine}
@@ -405,7 +405,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const entries: Array<{ key: string; value: string; namespace?: string }> = Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([k, v]) => ({ key: k, value: String(v) }));
       if (entries.length > 0) {
         return (
-          <div className="mt-2.5 rounded-md border-l-2 border-l-accent-amber bg-muted px-2.5 py-1.5">
+          <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
             <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
               <Database className="h-3 w-3" />
               {t("output.memoryEntries", { count: entries.length })}

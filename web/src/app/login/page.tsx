@@ -188,7 +188,7 @@ function LoginForm() {
                   type="button"
                   onClick={handleSignIn}
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,box-shadow,transform] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground transition-[color,background-color,border-color,transform] duration-200 ease-out hover:border-border-active hover:bg-secondary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   {isLoading ? (
                     <span role="status">

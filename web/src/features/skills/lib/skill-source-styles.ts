@@ -1,9 +1,9 @@
 import { Package, Globe, FolderGit2 } from "lucide-react";
 
 export const SOURCE_STYLE = {
-  bundled: { icon: Package, className: "bg-secondary text-muted-foreground" },
-  user: { icon: Globe, className: "bg-accent-emerald/10 text-accent-emerald" },
-  project: { icon: FolderGit2, className: "bg-accent-purple/10 text-accent-purple" },
+  bundled: { icon: Package, className: "border border-border bg-muted text-muted-foreground" },
+  user: { icon: Globe, className: "border border-border bg-muted text-muted-foreground" },
+  project: { icon: FolderGit2, className: "border border-border bg-muted text-muted-foreground" },
 } as const;
 
 export const SOURCE_LABEL_KEY: Record<string, string> = {

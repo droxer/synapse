@@ -59,7 +59,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-overlay backdrop-blur-md" aria-hidden="true" />
+      <div className="absolute inset-0 bg-overlay backdrop-blur-sm" aria-hidden="true" />
 
       {/* Modal */}
       <div
@@ -72,7 +72,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
         <div className="rounded-lg border border-border bg-card p-6 shadow-elevated">
           {/* Header */}
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md bg-accent-amber/10 text-accent-amber">
+            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
               <MessageCircle className="h-4 w-4" />
             </div>
             <div>
@@ -99,7 +99,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
               onChange={(e) => setValue(e.target.value)}
               placeholder={t("inputPrompt.placeholder")}
               aria-label={t("inputPrompt.ariaLabel")}
-              className="flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-[color,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-border-active focus-visible:ring-[3px] focus-visible:ring-ring/50"
+              className="flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-[color,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             />
             <Button
               type="submit"

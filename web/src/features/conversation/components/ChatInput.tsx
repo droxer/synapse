@@ -248,7 +248,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   isWelcome && "h-8 px-3",
                   !isWelcome && "h-7",
                   usePlanner
-                    ? "border border-border bg-secondary text-accent-purple hover:border-border-strong hover:shadow-sm"
+                    ? "border border-border bg-muted text-foreground hover:border-border-strong"
                     : cn(
                         "border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
                         isWelcome ? "bg-muted" : "bg-transparent",
@@ -260,7 +260,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 <span className="hidden sm:inline">{t("chat.planLabel")}</span>
                 {usePlanner && (
                   <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
-                    <span className="absolute inset-0 rounded-full bg-accent-purple" />
+                    <span className="absolute inset-0 rounded-full bg-foreground" />
                   </span>
                 )}
               </Button>
@@ -299,7 +299,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     "transition-colors duration-200 ease-out",
                     "hover:bg-destructive/10 hover:text-destructive",
                     "active:bg-destructive/15",
-                    "focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none",
                   )}
                 >
                   <Square
@@ -322,7 +322,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   className={cn(
                     "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
                     "transition-colors duration-200 ease-out",
-                    "focus-visible:ring-[3px] focus-visible:ring-ring/50 outline-none",
+                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none",
                     hasContent
                       ? "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80"
                       : "bg-muted text-placeholder cursor-default",

@@ -43,18 +43,21 @@ export function ThinkingBlock({
     : t("thinking.thoughtFor", { seconds: durationSeconds });
 
   return (
-    <div className="rounded-md border border-border bg-secondary/40 px-3 py-2">
-      {/* Header — badge + toggle */}
+    <div className="overflow-hidden rounded-lg border border-border bg-card">
+      {/* Header — same shell as PlanChecklistPanel; badge matches AssistantLoadingSkeleton */}
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
-        className="flex w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded-sm"
+        className={cn(
+          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
+          "hover:bg-muted/50",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        )}
       >
-        {/* Badge — matches AssistantLoadingSkeleton thinking phase */}
         <div
           className={cn(
-            "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-xs font-medium",
-            "bg-secondary border-border text-accent-amber",
+            "inline-flex shrink-0 items-center gap-2 rounded-md border border-border px-2.5 py-1 text-sm font-medium",
+            "bg-muted text-muted-foreground",
           )}
         >
           <motion.span
@@ -69,7 +72,7 @@ export function ThinkingBlock({
               {[0, 1, 2].map((i) => (
                 <motion.span
                   key={i}
-                  className="inline-block h-1 w-1 rounded-full bg-accent-amber"
+                  className="inline-block h-1 w-1 rounded-full bg-muted-foreground"
                   animate={shouldReduceMotion ? {} : { opacity: [0.3, 1, 0.3] }}
                   transition={{
                     duration: 1.4,
@@ -83,19 +86,17 @@ export function ThinkingBlock({
           )}
         </div>
 
-        <div className="flex-1" />
+        <div className="min-w-0 flex-1" />
 
-        {/* Chevron rotates on expand */}
         <motion.span
           animate={{ rotate: expanded ? 180 : 0 }}
           transition={{ duration: 0.15 * dur }}
-          className="text-muted-foreground-dim"
+          className="shrink-0 text-muted-foreground"
         >
-          <ChevronDown className="h-3.5 w-3.5" />
+          <ChevronDown className="h-4 w-4" />
         </motion.span>
       </button>
 
-      {/* Collapsible body */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -106,9 +107,15 @@ export function ThinkingBlock({
             transition={{ duration: 0.15 * dur, ease: [0.33, 1, 0.68, 1] }}
             className="overflow-hidden"
           >
-            <div className="mt-2 border-t border-border pt-2">
-              <div className="max-h-80 overflow-y-auto">
-                <MarkdownRenderer content={content} className="text-muted-foreground-dim" />
+            <div className="border-t border-border bg-muted/40">
+              <div className="max-h-72 overflow-y-auto px-4 py-3">
+                <div className="border-l-2 border-border pl-3">
+                  <MarkdownRenderer
+                    content={content}
+                    isStreaming={isThinking}
+                    className="markdown-reasoning"
+                  />
+                </div>
               </div>
             </div>
           </motion.div>

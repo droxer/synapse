@@ -85,8 +85,9 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 | `accent-emerald` | `#10B981` / `#34D399` | Success, running, progress |
 | `accent-amber` | `#B45309` / `#D97706` | Warning, thinking |
 | `accent-rose` | `#EF4444` / `#F87171` | Error, failure |
-| `accent-purple` | `#1B7EF2` / `#3B8EF5` | AI accent, tool execution, primary interactive accent — blue |
-| `ai-glow` | `#1B7EF2` / `#3B8EF5` | AI active state — used when AI is typing, processing, or highlighting generated text |
+| `color-focus` | `#1B7EF2` / `#3B8EF5` | Canonical interactive blue token |
+| `accent-purple` | `var(--color-focus)` | Legacy alias for interactive blue (kept for compatibility) |
+| `ai-glow` | `var(--color-focus)` | Legacy alias for AI active blue (kept for compatibility) |
 
 ### Sidebar
 
@@ -188,15 +189,15 @@ text-rendering: optimizeLegibility;
 
 ## Shadows
 
-Shadows are highly minimal, preferring crisp 1px borders (`0 0 0 1px`) over large blurred drop shadows to create flat, definitive separation. Dark mode uses pure black at higher opacity for depth.
+Shadows are now **border-forward and mostly flat**. Prefer hairline separation and subtle border shifts over hover lift.
 
 ### Light Mode
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `shadow-card` | `0 1px 3px rgba(15,23,42,0.08), 0 1px 2px rgba(15,23,42,0.05)` | Card resting state |
-| `shadow-card-hover` | `0 4px 12px rgba(15,23,42,0.10), 0 2px 4px rgba(15,23,42,0.06)` | Card hover lift |
-| `shadow-elevated` | `0 0 0 1px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.10), 0 2px 6px rgba(0,0,0,0.06)` | Floating overlays: modals, command palette, dropdowns, popovers |
+| `shadow-card` | `0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%)` | Resting surface separation |
+| `shadow-card-hover` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%)` | Hover emphasis via border strength |
+| `shadow-elevated` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%), 0 12px 30px rgba(0, 0, 0, 0.08)` | Floating overlays |
 
 ### Dark Mode
 
@@ -204,28 +205,28 @@ Shadows in dark mode rely more on border contrast (`#27272A` borders on `#09090B
 
 | Name | Value | Usage |
 |------|-------|-------|
-| `shadow-card` | `0 1px 3px rgba(0,0,0,0.25), 0 1px 2px rgba(0,0,0,0.20)` | Card resting state |
-| `shadow-card-hover` | `0 4px 12px rgba(0,0,0,0.35), 0 2px 4px rgba(0,0,0,0.20)` | Card hover lift |
-| `shadow-elevated` | `0 0 0 1px rgba(255,255,255,0.08), 0 8px 24px rgba(0,0,0,0.50), 0 2px 6px rgba(0,0,0,0.30)` | Floating overlays |
+| `shadow-card` | `0 0 0 1px color-mix(in srgb, var(--color-border), transparent 25%)` | Resting surface separation |
+| `shadow-card-hover` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 10%)` | Hover emphasis |
+| `shadow-elevated` | `0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 6%), 0 16px 36px rgba(0, 0, 0, 0.45)` | Floating overlays |
 
 ### Shadow Usage
 
-**Cards and content elements** use subtle `shadow-sm` by default with `hover:shadow-md` for a gentle lift effect:
-- Rest: `border border-border shadow-sm`
-- Hover: `hover:border-border-strong hover:shadow-md`
-- Active/focused: `border-border-active`
+**Cards and content elements** should be flat by default:
+- Rest: `border border-border`
+- Hover: `hover:border-border-strong hover:bg-muted/40`
+- Active/focused: `border-border-active` + focus ring
 
 **Floating overlays** (modals, command palette, dropdowns) use `shadow-elevated`.
 
-**Inputs and form controls** use `shadow-sm` at rest, `shadow-md` on focus (replacing the old glow effect).
+**Inputs and form controls** use flat borders at rest and the focus ring contract on focus (no shadow lift).
 
 ### Focus Ring
 
 ```
-focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
+focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
 ```
 
-3px ring using `--color-ring` at 50% opacity.
+2px ring with offset for crisp editor-style focus.
 
 **MANDATORY** on every interactive element: buttons, links, inputs, tabs, sidebar items, toolbar actions, and any element with `onClick`. This includes custom interactive elements — not just base UI primitives.
 
@@ -239,7 +240,7 @@ The central nervous system of the application. Also accessible via the TopBar se
 
 - **Visuals**: Floating, center-screen modal with blurred backdrop overlay
 - **Behavior**: Instantly focused search bar. Below: quick AI actions, navigation (Skills, MCP, New Task), recent conversations (from app store, limit 5), and settings
-- **Styling**: `bg-card border border-border rounded-md shadow-elevated` — solid background, no glassmorphism on the dialog itself. Backdrop overlay uses `backdrop-blur-md`.
+- **Styling**: `bg-card border border-border rounded-lg shadow-elevated` — solid background, no glassmorphism on the dialog itself. Backdrop overlay uses `backdrop-blur-sm`.
 - **Animation**: Opacity-only fade (0.12s) — no scale or translate on entry/exit
 - **Selected item**: `bg-secondary` highlight only — no `border-l` accent
 - **Shortcuts**: Display keyboard hints (`⌘N`, `ESC`) on the right side of items using `<kbd>` elements
@@ -247,16 +248,16 @@ The central nervous system of the application. Also accessible via the TopBar se
 
 ### Chat Messages
 
-**User messages**: Right-aligned bubble card. Styled with a flat `bg-secondary/40`, a crisp 1px border at `border-border/50`, and `rounded-md` corners. Max width 80%.
+**User messages**: Right-aligned bubble card. Styled with `bg-card border border-border rounded-md`. Max width 80%.
 
 **Assistant messages**: Left-aligned, plain text with markdown rendering. No bubble, no border — `text-sm leading-[1.5] text-foreground`. Max width 85%. AI indicator: "HIAGENT" label in `text-xs font-medium tracking-wide text-accent-purple/70 uppercase`. Action buttons (copy, retry) use hover-reveal pattern: `opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150`.
 
-**AI Active State**: When AI is processing, use `accent-purple` (`#8B5CF6`) token indicators — never hardcoded hex. Use `text-accent-purple/70` for labels, `bg-accent-purple` for dots.
+**AI Active State**: When AI is processing, prefer neutral chips (`bg-muted border-border`) and reserve color for strong semantic states only.
 
 ### Interactive Data Blocks
 
 When AI generates structured content, render as a distinct block:
-- Subtle 1px border (`border-border`) with `shadow-sm`
+- Subtle 1px border (`border-border`) with flat surface styling
 - Slight background fill (`bg-card`)
 - Hover state reveals utility icons (Copy, Edit, Delete, Regenerate) in top-right corner
 
@@ -297,7 +298,7 @@ Professional developer tools use near-instant transitions. No animation should e
 1. **Fade + Slide Up**: `initial={{ opacity: 0, y: 4 }}` → `animate={{ opacity: 1, y: 0 }}`, `duration: 0.12`
 2. **Stagger Children**: `staggerChildren: 0.02, delayChildren: 0` — fast, near-instant grid population
 3. **Expand/Collapse**: `duration: 0.15, ease: "easeOut"` — no spring physics for UI chrome
-4. **Shadow Lift (hover)**: Cards use `shadow-sm` at rest, `hover:shadow-md` + `hover:border-border-strong` on hover
+4. **Hover Emphasis**: Cards use border/background changes (`hover:border-border-strong hover:bg-muted/40`) rather than shadow lift
 5. **Opacity Pulse (status indicators)**: Use CSS `@keyframes` for pulsing dots (`pulsingDotFade`, `pulsingDotRing` in globals.css). Prefer CSS animations over framer-motion for simple continuous loops.
 
 ### Anti-Patterns
@@ -305,7 +306,7 @@ Professional developer tools use near-instant transitions. No animation should e
 - **No `scale` on content elements** — messages, cards, status indicators, dots, entry animations. Scale is for buttons only. This includes pulsing `scale: [1, 1.4, 1]` on dots, and `scale: 0.98` on entry animations — use opacity + translateY instead.
 - **No glow effects** — `box-shadow: 0 0 Xpx` glow halos, `aiGlow` keyframes, `orbitalPulse` animations, and conic-gradient spinning borders are prohibited. Use subtle shadow lift and opacity pulse instead.
 - **No gradient mesh backgrounds** — animated multi-gradient backgrounds (`meshDrift`) are removed. Use a single subtle radial gradient at most.
-- **No glassmorphism** — `backdrop-blur-sm bg-card/80` on inputs, cards, status badges, and dialogs is prohibited. Use solid `bg-card` or `bg-secondary` instead. `backdrop-blur-md` is allowed **only** on modal overlay backdrops (the dimmed layer behind the dialog).
+- **No glassmorphism** — `backdrop-blur-sm bg-card/80` on inputs, cards, status badges, and dialogs is prohibited. Use solid `bg-card` or `bg-secondary` instead. `backdrop-blur-sm` is allowed **only** on modal overlay backdrops (the dimmed layer behind the dialog).
 - **No gratuitous entrance animations** — reserve motion for state changes. Decorative `filter: blur()` on static heading words is prohibited.
 - **Respect `prefers-reduced-motion`** — wrap the app in `<MotionConfig reducedMotion="user">` (Framer Motion). The CSS `prefers-reduced-motion` media query in globals.css does NOT affect JS-driven Framer Motion animations.
 
@@ -338,7 +339,7 @@ import { MotionConfig } from "framer-motion";
 - Right-edge border: `border-r border-border` (solid, no opacity modifier)
 - Internal padding: `px-4` expanded, `px-2` collapsed — consistent across all sections (header, search, task list)
 - Nav item gaps: `gap-2` (icon + label) — not `gap-2.5`
-- Active indicator: solid `bg-accent-*` bar (3px wide × 16px tall: `w-[3px] h-4`) positioned `absolute left-0`
+- Active indicator: neutral `bg-border-strong` bar (3px wide × 16px tall: `w-[3px] h-4`) positioned `absolute left-0`
 - Active item background: `bg-sidebar-active` — not `bg-secondary`
 - Hover item background: `hover:bg-sidebar-hover` — not `hover:bg-secondary`
 - Nav icons: plain `h-4 w-4` Lucide icons — no colored bubble containers (see Icons section)
@@ -353,7 +354,7 @@ WelcomeScreen renders `ChatInput` with `variant="welcome"` — a single componen
 - Border radius: `rounded-lg`
 - Background: solid `bg-card` (no glassmorphism, no `backdrop-blur`)
 - Focus: `border-border-active` + `shadow-md` (no glow, no `box-shadow: 0 0 20px`)
-- Shadow: `shadow-sm` at rest, `shadow-md` on focus
+- Shadow: none by default; rely on border + focus ring for state clarity
 - Textarea horizontal padding: `px-4`
 
 ### TopBar
@@ -460,7 +461,7 @@ Use plain Lucide icons at `h-4 w-4` directly in nav links — **no colored bubbl
 
 Every interactive element must have:
 ```
-focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50
+focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background
 ```
 
 This includes: buttons (including icon buttons), sidebar items, tab buttons, toolbar actions, and any element with `onClick`. Base UI primitives from `@radix-ui` already include this — custom interactive elements must add it explicitly.
@@ -474,6 +475,22 @@ This includes: buttons (including icon buttons), sidebar items, tab buttons, too
 ### Hover-Only Affordances
 
 Any pattern using `opacity-0 group-hover:opacity-100` to reveal actions on hover must also include `group-focus-within:opacity-100` so keyboard users can discover the actions.
+
+### RWD Checklist
+
+- **Breakpoints**: Mobile-first defaults; use `sm/md/lg` only when required by information density.
+- **Width constraints**: Prefer fluid widths (`w-full`, `max-w-*`) over fixed pixel widths; fixed width is acceptable only for dialogs/panels with explicit constraints.
+- **Touch targets**: Minimum 44x44 on coarse pointers (already enforced in `globals.css` `@media (hover: none) and (pointer: coarse)`).
+- **Overflow resilience**: Long filenames/IDs must truncate with tooltip/title fallback; avoid horizontal overflow in cards/lists.
+- **Split panes**: At small widths, panes stack vertically; avoid hard 50/50 assumptions below `lg`.
+
+### Accessibility Review Checklist
+
+- Use native buttons/links for interactive controls; avoid `role="button"` wrappers when refactoring touched areas.
+- Ensure keyboard-visible focus for every interactive element (use the focus ring contract above).
+- Hover-revealed controls must also appear on keyboard focus (`group-focus-within`).
+- Status conveyed by color must include icon/text (`aria-label`, `title`, or visible label).
+- Respect reduced motion (`MotionConfig reducedMotion="user"` + CSS `prefers-reduced-motion` safeguards).
 
 ### Error Pages
 
@@ -517,11 +534,11 @@ These patterns have been found in the codebase and must be avoided:
 | `font-bold` on headings | Use `font-semibold` (600) |
 | `font-serif` on any UI element | Serif font is not loaded — use `font-sans` everywhere |
 | `scale: [1, 1.4, 1]` on dots/icons | Use `opacity: [0.4, 1, 0.4]` |
-| `shadow-[0_0_6px_var(--color-ai-glow)]` | Remove glow — use `shadow-sm` or nothing |
+| `shadow-[0_0_6px_var(--color-ai-glow)]` | Remove glow — use border emphasis or nothing |
 | `backdrop-blur-sm bg-card/80` on inputs | Use solid `bg-card` |
 | `box-shadow: 0 0 20px var(--color-input-glow)` | Use `shadow-md` on focus |
 | `background: #FFFFFF` / `#0A0A0A` | Use `#F8FAFC` (cool white) / `#0F1117` (deep ink) |
-| `#818CF8` (cold indigo) | Use `#8B5CF6` (warm violet) via `accent-purple` / `ai-glow` |
+| `#818CF8` / `#8B5CF6` hardcoded purple | Use `var(--color-focus)` via `accent-purple` / `ai-glow` aliases |
 | `border-radius: 0–2px` (sharp) | Use `rounded-lg` (6px) for cards, `rounded-md` (4px) for items |
 | `animation: conicSpin`, `aiGlow`, `orbitalPulse` | Removed — use CSS `@keyframes` opacity pulse |
 | `animation: meshDrift` on backgrounds | Removed — use static radial gradient |

@@ -49,7 +49,7 @@ export function TokenUsageTab() {
       {/* Aggregate summary */}
       <div className="rounded-lg border border-border bg-card p-4">
         <div className="flex items-center gap-2 mb-3">
-          <Zap className="h-4 w-4 text-accent-purple" />
+          <Zap className="h-4 w-4 text-muted-foreground" />
           <h3 className="text-sm font-semibold text-foreground">
             {t("preferences.usage.summary")}
           </h3>
@@ -60,11 +60,11 @@ export function TokenUsageTab() {
             {/* Bar */}
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full bg-accent-purple/40 transition-[width] duration-200 ease-out"
+                className="h-full bg-muted-foreground/40 transition-[width] duration-200 ease-out"
                 style={{ width: `${inputPct}%` }}
               />
               <div
-                className="h-full bg-accent-purple transition-[width] duration-200 ease-out"
+                className="h-full bg-foreground transition-[width] duration-200 ease-out"
                 style={{ width: `${outputPct}%` }}
               />
             </div>
@@ -72,14 +72,14 @@ export function TokenUsageTab() {
             {/* Legend */}
             <div className="flex items-center justify-between text-xs font-mono tabular-nums">
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-accent-purple/40" />
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
                 <span className="text-muted-foreground">{t("profile.inputTokens")}</span>
                 <span className="font-medium text-foreground">
                   {formatTokenCount(usage.total_input_tokens)}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-accent-purple" />
+                <span className="h-2 w-2 rounded-full bg-foreground" />
                 <span className="text-muted-foreground">{t("profile.outputTokens")}</span>
                 <span className="font-medium text-foreground">
                   {formatTokenCount(usage.total_output_tokens)}

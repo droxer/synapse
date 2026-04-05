@@ -4,6 +4,7 @@ import { useRef, useCallback, useState } from "react";
 import { Download, Trash2, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTranslation } from "@/i18n";
+import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/components/ui/button";
 import {
   AlertDialog,
@@ -288,160 +289,178 @@ function FileCard({
   // ── Grid card (vertical — thumbnail on top) ───────────────────────────────
   if (layout === "grid") {
     return (
-      <motion.button
-        type="button"
+      <motion.div
         className={[
-          "rounded-lg bg-card border overflow-hidden shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
+          "rounded-lg bg-card border overflow-hidden transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
           "border-l-2",
           isSelected
-            ? "ring-[3px] ring-primary border-border border-l-primary shadow-card-hover"
-            : "border-border hover:border-border-strong hover:shadow-card-hover",
-          "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+            ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-primary"
+            : "border-border hover:border-border-strong hover:bg-muted/40",
         ].join(" ")}
         style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.12, delay: Math.min(index * 0.02, 0.2) }}
-        onClick={() => onPreview(item)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter") { e.preventDefault(); onPreview(item); }
-          else if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
-        }}
       >
         {/* Thumbnail area */}
         <div className="relative">
-          <FileThumbnail item={item} layout="grid" />
-
-          {/* Controls overlay on thumbnail */}
-
-          {/* Download — top-left */}
-          {!isMultiSelectMode && (
-            <div
-              className="absolute top-2 left-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-              onClick={(e) => { e.stopPropagation(); onDownload(item); }}
-            >
-              <div className="h-6 w-6 rounded-full bg-muted flex items-center justify-center hover:bg-secondary-foreground transition-colors">
-                <Download className="w-3 h-3 text-primary-foreground" />
-              </div>
-            </div>
-          )}
-
-          {/* Selection checkbox — top-right */}
-          <div
-            className={`absolute top-2 right-2 z-10 transition-opacity ${
-              isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100 group-focus-within:opacity-100"
-            }`}
-            onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
+          <button
+            type="button"
+            data-file-card-preview="true"
+            onClick={() => onPreview(item)}
+            onKeyDown={(e) => {
+              if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
+            }}
+            className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <div
-              className={`h-6 w-6 rounded-full border-2 flex items-center justify-center transition-[color,background-color,border-color,box-shadow] duration-200 ease-out  ${
+            <FileThumbnail item={item} layout="grid" />
+          </button>
+
+            {/* Controls overlay on thumbnail */}
+
+            {/* Download — top-left */}
+            {!isMultiSelectMode && (
+              <button
+                type="button"
+                data-slot="button"
+                aria-label={`Download ${item.name}`}
+                className="absolute top-2 left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                onClick={(e) => { e.stopPropagation(); onDownload(item); }}
+              >
+                <Download className="h-3 w-3 text-foreground" />
+              </button>
+            )}
+
+            {/* Selection checkbox — top-right */}
+            <button
+              type="button"
+              data-slot="button"
+              aria-pressed={isSelected}
+              aria-label={isSelected ? `Deselect ${item.name}` : `Select ${item.name}`}
+              className={cn(
+                "absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-[color,background-color,border-color,opacity] duration-200 ease-out",
                 isSelected
-                  ? "bg-primary border-primary text-primary-foreground shadow-sm"
-                  : "border-border bg-muted hover:border-border-strong"
-              }`}
+                  ? "opacity-100 bg-primary border-primary text-primary-foreground"
+                  : "opacity-0 border-border bg-muted hover:border-border-strong group-hover:opacity-100 group-focus-within:opacity-100",
+                "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              )}
+              onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
             >
-              {isSelected && <Check className="w-3 h-3" strokeWidth={3} />}
-            </div>
-          </div>
+              {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+            </button>
         </div>
 
         {/* Info area */}
-        <div className="p-3 flex flex-col gap-1">
-          <p className="truncate text-xs font-medium text-foreground leading-snug" title={item.name}>
-            {item.name}
-          </p>
-          <div className="flex items-center gap-1.5">
-            {ext && (
-              <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
-                {ext}
-              </span>
-            )}
-            <p className="text-micro text-muted-foreground-dim truncate">
-              {sizeText}
-              {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
+        <button
+          type="button"
+          data-file-card-preview="true"
+          onClick={() => onPreview(item)}
+          onKeyDown={(e) => {
+            if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
+          }}
+          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <div className="flex flex-col gap-1">
+            <p className="truncate text-xs font-medium text-foreground leading-snug" title={item.name}>
+              {item.name}
             </p>
+            <div className="flex items-center gap-1.5">
+              {ext && (
+                <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+                  {ext}
+                </span>
+              )}
+              <p className="text-micro text-muted-foreground-dim truncate">
+                {sizeText}
+                {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
+              </p>
+            </div>
           </div>
-        </div>
-      </motion.button>
+        </button>
+      </motion.div>
     );
   }
 
   // ── List card (horizontal — thumbnail on left) ────────────────────────────
   return (
-    <motion.button
-      type="button"
+    <motion.div
       className={[
-        "rounded-lg bg-card border p-2.5 shadow-card transition-[border-color,box-shadow,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
+        "rounded-lg bg-card border p-2.5 transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l-2",
         isSelected
-          ? "ring-[3px] ring-primary border-border border-l-primary bg-primary/5"
+          ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-primary bg-muted/50"
           : "border-border hover:border-border-strong hover:bg-secondary",
-        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
       ].join(" ")}
       style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.18, delay: Math.min(index * 0.02, 0.18) }}
-      onClick={() => onPreview(item)}
-      onKeyDown={(e) => {
-        if (e.key === "Enter") { e.preventDefault(); onPreview(item); }
-        else if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
-      }}
     >
-      {/* Small thumbnail */}
-      <FileThumbnail item={item} layout="list" />
+      <button
+        type="button"
+        data-file-card-preview="true"
+        onClick={() => onPreview(item)}
+        onKeyDown={(e) => {
+          if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
+        }}
+        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      >
+        {/* Small thumbnail */}
+        <FileThumbnail item={item} layout="list" />
 
-      {/* Info */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground" title={item.name}>
-          {item.name}
-        </p>
-        <div className="flex items-center gap-1.5 mt-0.5">
-          {ext && (
-            <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
-              {ext}
-            </span>
-          )}
-          <p className="text-xs text-muted-foreground truncate">
-            {sizeText}
-            {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
+        {/* Info */}
+        <div className="flex flex-col min-w-0 flex-1">
+          <p className="truncate text-sm font-medium text-foreground" title={item.name}>
+            {item.name}
           </p>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            {ext && (
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
+                {ext}
+              </span>
+            )}
+            <p className="text-xs text-muted-foreground truncate">
+              {sizeText}
+              {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
+            </p>
+          </div>
         </div>
-      </div>
+      </button>
 
       {/* Right side controls */}
       <div className="flex items-center gap-1.5 shrink-0">
         {/* Download */}
         {!isMultiSelectMode && (
-          <div
-            className="opacity-0 group-hover:opacity-100 transition-opacity"
+          <button
+            type="button"
+            data-slot="button"
+            aria-label={`Download ${item.name}`}
+            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 h-6 w-6 rounded-full border border-muted-foreground/30 bg-background flex items-center justify-center hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={(e) => { e.stopPropagation(); onDownload(item); }}
           >
-            <div className={`h-6 w-6 rounded-full border border-muted-foreground/30 bg-background flex items-center justify-center hover:border-primary hover:${iconColor} transition-colors`}>
-              <Download className="w-3 h-3" />
-            </div>
-          </div>
+            <Download className={cn("h-3 w-3", iconColor)} />
+          </button>
         )}
 
         {/* Selection checkbox */}
-        <div
-          className={`transition-opacity ${
-            isSelected ? "opacity-100" : "opacity-20 group-hover:opacity-100"
-          }`}
+        <button
+          type="button"
+          data-slot="button"
+          aria-pressed={isSelected}
+          aria-label={isSelected ? `Deselect ${item.name}` : `Select ${item.name}`}
+          className={cn(
+            "h-5 w-5 rounded-full border flex items-center justify-center transition-[color,background-color,border-color,opacity]",
+            isSelected
+              ? "opacity-100 bg-primary border-primary text-primary-foreground"
+              : "opacity-20 border-muted-foreground/50 bg-background hover:border-primary group-hover:opacity-100 group-focus-within:opacity-100",
+            "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          )}
           onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
         >
-          <div
-            className={`h-5 w-5 rounded-full border flex items-center justify-center transition-colors ${
-              isSelected
-                ? "bg-primary border-primary text-primary-foreground"
-                : "border-muted-foreground/50 bg-background hover:border-primary"
-            }`}
-          >
-            {isSelected && <Check className="w-3 h-3" strokeWidth={3} />}
-          </div>
-        </div>
+          {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+        </button>
       </div>
-    </motion.button>
+    </motion.div>
   );
 }
 
@@ -487,7 +506,7 @@ export function ExplorerFileList({
       if (nextItem) {
         e.preventDefault();
         onSelectFile(nextItem.id);
-        const cards = containerRef.current?.querySelectorAll<HTMLElement>("button[type='button']");
+        const cards = containerRef.current?.querySelectorAll<HTMLElement>("[data-file-card-preview='true']");
         cards?.[nextIndex]?.focus();
       }
     },

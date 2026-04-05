@@ -54,8 +54,8 @@ export function SkillSelector({
           /* Active skill pill — morphs in-place to show selection */
           <div className={cn(
             "group flex items-center gap-1 rounded-lg border transition-colors",
-            "border-border bg-secondary text-accent-purple",
-            "hover:border-border-strong hover:shadow-sm",
+            "border-border bg-muted text-foreground",
+            "hover:border-border-strong",
             variant === "welcome" ? "h-8 pl-2.5 pr-1" : "h-7 pl-2 pr-0.5",
           )}>
             <PopoverTrigger asChild>
@@ -63,7 +63,7 @@ export function SkillSelector({
                 type="button"
                 className={cn(
                   "flex cursor-pointer items-center gap-1.5 text-xs font-medium outline-none",
-                  "focus-visible:ring-[3px] focus-visible:ring-ring/50 rounded",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded",
                 )}
               >
                 <Lightbulb aria-hidden="true" className="h-3.5 w-3.5" />
@@ -79,7 +79,7 @@ export function SkillSelector({
               className={cn(
                 "flex items-center justify-center rounded-md transition-colors",
                 "text-muted-foreground hover:text-foreground hover:bg-secondary",
-                "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 variant === "welcome" ? "h-6 w-6" : "h-5 w-5",
               )}
             >
@@ -97,7 +97,7 @@ export function SkillSelector({
                 aria-label={t("skills.selector.select")}
                 className={cn(
                   "h-6 w-6 text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  selectedSkill && "text-accent-purple",
+                  selectedSkill && "text-foreground",
                 )}
               >
                 <Lightbulb aria-hidden="true" className="h-3 w-3" />
@@ -110,7 +110,7 @@ export function SkillSelector({
                 aria-label={t("skills.selector.select")}
                 className={cn(
                   "gap-1.5 rounded-lg px-2.5 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  variant === "welcome" ? "h-8 px-3 bg-secondary" : "h-7 bg-secondary",
+                  variant === "welcome" ? "h-8 px-3 bg-muted" : "h-7 bg-muted",
                 )}
               >
                 <Lightbulb aria-hidden="true" className="h-3.5 w-3.5" />
@@ -123,7 +123,6 @@ export function SkillSelector({
           side="top"
           align="start"
           className="w-[min(28rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border bg-popover p-0"
-          style={{ boxShadow: "var(--shadow-elevated)" }}
         >
           {/* Search filter */}
           {skills.length > 4 && (
@@ -161,15 +160,15 @@ export function SkillSelector({
                       onClick={() => handleSelect(skill.name)}
                       className={cn(
                         "group relative flex cursor-pointer flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors",
-                        "hover:bg-secondary",
-                        "focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50",
-                        isSelected && "bg-secondary ring-1 ring-border-strong",
+                        "hover:bg-muted",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        isSelected && "bg-muted ring-1 ring-border-strong",
                       )}
                     >
                       {/* Selected indicator */}
                       {isSelected && (
                         <div className="absolute top-1.5 right-1.5">
-                          <Check aria-hidden="true" className="h-3.5 w-3.5 text-accent-purple" strokeWidth={2.5} />
+                          <Check aria-hidden="true" className="h-3.5 w-3.5 text-foreground" strokeWidth={2.5} />
                         </div>
                       )}
 
@@ -179,16 +178,13 @@ export function SkillSelector({
                           className={cn(
                             "flex h-5 w-5 shrink-0 items-center justify-center rounded transition-colors",
                             isSelected
-                              ? "bg-secondary text-accent-purple"
-                              : "bg-secondary text-muted-foreground group-hover:text-foreground",
+                              ? "bg-muted text-foreground"
+                              : "bg-muted text-muted-foreground group-hover:text-foreground",
                           )}
                         >
                           <Lightbulb aria-hidden="true" className="h-3 w-3" />
                         </div>
-                        <span className={cn(
-                          "truncate text-xs font-medium",
-                          isSelected ? "text-accent-purple" : "text-foreground",
-                        )}>
+                        <span className="truncate text-xs font-medium text-foreground">
                           {normalizeSkillName(skill.name)}
                         </span>
                       </div>

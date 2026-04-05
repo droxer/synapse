@@ -22,11 +22,11 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
         transition={{ duration: 0.12, ease: "easeOut" }}
         className="flex w-full max-w-sm flex-col items-center gap-6 text-center"
       >
-        {/* Hero — concentric signal rings */}
+        {/* Hero — simplified concentric rings */}
         <div className="relative flex h-24 w-24 items-center justify-center">
-          <div className="absolute h-24 w-24 rounded-full border border-accent-purple/15 ring-1 ring-accent-purple/8" />
-          <div className="absolute h-16 w-16 rounded-full border border-accent-purple/20" />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-purple shadow-lg shadow-accent-purple/20">
+          <div className="absolute h-24 w-24 rounded-full border border-border" />
+          <div className="absolute h-16 w-16 rounded-full border border-border-strong" />
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border">
             <ChannelProviderIcon provider="telegram" size="lg" />
           </div>
           {/* Compass point dots */}
@@ -83,9 +83,10 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
 
         {/* CTA */}
         <button
+          data-slot="button"
           type="button"
           onClick={onConfigureBot}
-          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-md bg-accent-purple px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-md shadow-accent-purple/20 transition-[background-color,box-shadow,transform] duration-200 ease-out hover:bg-accent-purple/90 hover:shadow-lg hover:shadow-accent-purple/25 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-accent-purple/40 active:scale-[0.98]"
+          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
         >
           <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-200 group-hover:translate-x-full" />
           <ChannelProviderIcon provider="telegram" size="sm" />
