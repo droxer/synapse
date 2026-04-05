@@ -83,6 +83,8 @@
   "progress.taskProgress": "任務進度：{percent}%",
   "progress.closePanel": "關閉電腦面板",
   "progress.openPanel": "開啟電腦面板",
+  "progress.agentToolsRunning": "（{count} 個工具）",
+  "progress.agentToolsComplete": "（{count} 個工具）",
 
   "computer.title": "HiAgent 的電腦",
   "computer.closePanel": "關閉面板",

@@ -83,6 +83,8 @@
   "progress.taskProgress": "Task progress: {percent}%",
   "progress.closePanel": "Close computer panel",
   "progress.openPanel": "Open computer panel",
+  "progress.agentToolsRunning": "({count} tools)",
+  "progress.agentToolsComplete": "({count} tools)",
 
   "computer.title": "HiAgent's Computer",
   "computer.closePanel": "Close panel",

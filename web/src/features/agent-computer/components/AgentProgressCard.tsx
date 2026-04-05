@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -28,7 +28,8 @@ import { Progress } from "@/shared/components/ui/progress";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
-import type { AgentEvent, TaskState, ToolCallInfo } from "@/shared/types";
+import type { AgentEvent, AgentStatus, TaskState, ToolCallInfo } from "@/shared/types";
+import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
 import { normalizeToolNameI18n, normalizeAgentName, getToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import type { ToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
@@ -37,7 +38,7 @@ import type { TFn } from "@/shared/types/i18n";
 interface AgentProgressCardProps {
   events: AgentEvent[];
   toolCalls: ToolCallInfo[];
-  agentStatuses: unknown[];
+  agentStatuses: AgentStatus[];
   taskState: TaskState;
   onClick?: () => void;
   onStepClick?: (stepId: string) => void;
@@ -55,13 +56,26 @@ interface TimelineStep {
   /** Raw tool name for category-based icon lookup */
   readonly rawToolName?: string;
   readonly status: "running" | "complete" | "error";
+  /** Sub-agent row: tool count under this agent (suffix via i18n when > 0) */
+  readonly agentToolCount?: number;
+}
+
+function agentDisplayTitle(
+  eventData: Record<string, unknown>,
+  agentId: string,
+  agentNameMap: ReadonlyMap<string, string>,
+): string {
+  const fromEvent = String(eventData.name || eventData.description || "").trim();
+  const mapped = agentNameMap.get(agentId)?.trim();
+  const base = mapped || fromEvent || "working";
+  return normalizeAgentName(base).slice(0, 55);
 }
 
 function buildSteps(
   events: AgentEvent[],
   toolCalls: ToolCallInfo[],
-  taskState: TaskState,
   t: TFn,
+  agentNameMap: ReadonlyMap<string, string>,
 ): TimelineStep[] {
   let steps: TimelineStep[] = [];
   /** Deduplicate by (api tool id + ordinal), since providers may reuse ids across turns. */
@@ -164,11 +178,12 @@ function buildSteps(
       case "agent_spawn": {
         const spawnAgentId = String(event.data.agent_id ?? event.data.id ?? "");
         const agentToolCount = toolCalls.filter((tc) => tc.agentId === spawnAgentId).length;
-        const toolSuffix = agentToolCount > 0 ? ` (${agentToolCount} tools)` : "";
+        const data = event.data as Record<string, unknown>;
         steps = [...steps, {
           id: `agent-${spawnAgentId}-${event.timestamp}`,
           kind: "agent",
-          title: normalizeAgentName(String(event.data.name || event.data.description || "working")).slice(0, 55) + toolSuffix,
+          title: agentDisplayTitle(data, spawnAgentId, agentNameMap),
+          agentToolCount: agentToolCount > 0 ? agentToolCount : undefined,
           status: "running",
         }];
         break;
@@ -177,11 +192,14 @@ function buildSteps(
       case "agent_complete": {
         const agentId = String(event.data.agent_id ?? event.data.id ?? "");
         const completedToolCount = toolCalls.filter((tc) => tc.agentId === agentId).length;
-        const completeSuffix = completedToolCount > 0 ? ` (${completedToolCount} tools)` : "";
         const newStatus: TimelineStep["status"] = event.data.error ? "error" : "complete";
         steps = steps.map((s) =>
           s.id.startsWith("agent-") && s.id.includes(agentId)
-            ? { ...s, status: newStatus, title: s.title.replace(/ \(\d+ tools\)$/, "") + completeSuffix }
+            ? {
+              ...s,
+              status: newStatus,
+              agentToolCount: completedToolCount > 0 ? completedToolCount : undefined,
+            }
             : s
         );
         break;
@@ -209,6 +227,53 @@ function buildSteps(
 
 
   return steps;
+}
+
+/** Emphasize `name` in `title` only on first occurrence; avoids split() edge cases. */
+function StepTitleLine({
+  title,
+  name,
+  statusClass,
+}: {
+  readonly title: string;
+  readonly name?: string;
+  readonly statusClass: string;
+}): ReactNode {
+  if (!name) return title;
+  const idx = title.indexOf(name);
+  if (idx === -1) return title;
+  return (
+    <>
+      {title.slice(0, idx)}
+      <span className={cn("font-semibold", statusClass)}>{name}</span>
+      {title.slice(idx + name.length)}
+    </>
+  );
+}
+
+function AgentStepTitleLine({
+  step,
+  t,
+  mainClass,
+}: {
+  readonly step: TimelineStep;
+  readonly t: TFn;
+  readonly mainClass: string;
+}): ReactNode {
+  const count = step.agentToolCount;
+  return (
+    <>
+      <span className={mainClass}>{step.title}</span>
+      {count != null && count > 0 && (
+        <span className="font-normal text-muted-foreground">
+          {" "}
+          {step.status === "running"
+            ? t("progress.agentToolsRunning", { count })
+            : t("progress.agentToolsComplete", { count })}
+        </span>
+      )}
+    </>
+  );
 }
 
 /* Category-based icon for each tool kind */
@@ -305,7 +370,7 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
 export function AgentProgressCard({
   events,
   toolCalls,
-  agentStatuses: _agentStatuses,
+  agentStatuses,
   taskState,
   onClick,
   onStepClick,
@@ -314,15 +379,26 @@ export function AgentProgressCard({
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
 
+  const agentNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const agent of agentStatuses) {
+      if (agent.name) map.set(agent.agentId, agent.name);
+    }
+    return map;
+  }, [agentStatuses]);
+
   const steps = useMemo(
-    () => buildSteps(events, toolCalls, taskState, t),
-    [events, toolCalls, taskState, t],
+    () => buildSteps(events, toolCalls, t, agentNameMap),
+    [events, toolCalls, t, agentNameMap],
   );
 
   const completedCount = steps.filter((s) => s.status === "complete").length;
   const totalCount = steps.length;
   const isRunning = taskState === "executing";
-  const progressRatio = totalCount > 0 ? completedCount / totalCount : 0;
+  const progressPercent = useMemo(
+    () => computeAgentTaskProgressPercent(taskState, completedCount, totalCount),
+    [taskState, completedCount, totalCount],
+  );
 
   const runningStepTitle = useMemo(() => {
     if (!isRunning) return undefined;
@@ -341,7 +417,7 @@ export function AgentProgressCard({
     >
       {/* Progress bar */}
       <Progress
-        value={Math.round(progressRatio * 100)}
+        value={progressPercent}
         className="h-1 rounded-none"
         indicatorClassName={cn(
           taskState === "complete" && "bg-accent-emerald",
@@ -349,7 +425,7 @@ export function AgentProgressCard({
           taskState === "planning" && "bg-muted-foreground",
           (taskState === "executing" || taskState === "idle") && "bg-foreground",
         )}
-        aria-label={t("progress.taskProgress", { percent: Math.round(progressRatio * 100) })}
+        aria-label={t("progress.taskProgress", { percent: progressPercent })}
       />
 
       {/* Unified header row */}
@@ -453,21 +529,26 @@ export function AgentProgressCard({
                             step.status === "error" && "text-accent-rose",
                           )}
                         >
-                          {step.name ? (
-                            <>
-                              {step.title.split(step.name)[0]}
-                              <span
-                                className={cn(
-                                  "font-semibold",
-                                  step.status === "running" && "text-foreground",
-                                  step.status === "complete" && "text-foreground",
-                                  step.status === "error" && "text-accent-rose",
-                                )}
-                              >
-                                {step.name}
-                              </span>
-                              {step.title.split(step.name).slice(1).join(step.name)}
-                            </>
+                          {step.kind === "agent" ? (
+                            <AgentStepTitleLine
+                              step={step}
+                              t={t}
+                              mainClass={cn(
+                                step.status === "running" && "text-foreground",
+                                step.status === "complete" && "text-foreground",
+                                step.status === "error" && "text-accent-rose",
+                              )}
+                            />
+                          ) : step.name ? (
+                            <StepTitleLine
+                              title={step.title}
+                              name={step.name}
+                              statusClass={cn(
+                                step.status === "running" && "text-foreground",
+                                step.status === "complete" && "text-foreground",
+                                step.status === "error" && "text-accent-rose",
+                              )}
+                            />
                           ) : (
                             step.title
                           )}
