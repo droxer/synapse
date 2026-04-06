@@ -24,7 +24,7 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 
 ## Desktop
 
-Optional: `HIAGENT_FRONTEND_PORT`, `HIAGENT_BACKEND_PORT`, `HIAGENT_PROJECT_DIR` (see [Desktop shell](desktop-shell.md)).
+Optional: `SYNAPSE_FRONTEND_PORT`, `SYNAPSE_BACKEND_PORT`, `SYNAPSE_PROJECT_DIR` (see [Desktop shell](desktop-shell.md)).
 
 ## Related
 

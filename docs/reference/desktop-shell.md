@@ -6,9 +6,9 @@ The desktop app lives under **`web/src-tauri/`**: **Tauri v2** wraps the same Ne
 
 ## Environment (optional)
 
-- `HIAGENT_FRONTEND_PORT`
-- `HIAGENT_BACKEND_PORT`
-- `HIAGENT_PROJECT_DIR`
+- `SYNAPSE_FRONTEND_PORT`
+- `SYNAPSE_BACKEND_PORT`
+- `SYNAPSE_PROJECT_DIR`
 
 ## Deeper documentation
 

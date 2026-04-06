@@ -374,16 +374,16 @@ class TestSkillDiscoverer:
         for s in skills:
             assert s.source_type == "bundled"
 
-    def test_hiagent_path_takes_priority_over_agents_path(self) -> None:
+    def test_synapse_path_takes_priority_over_agents_path(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = os.path.join(tmp, "project")
-            hiagent_dir = os.path.join(project, ".hiagent", "skills", "my-skill")
+            synapse_dir = os.path.join(project, ".synapse", "skills", "my-skill")
             agents_dir = os.path.join(project, ".agents", "skills", "my-skill")
-            os.makedirs(hiagent_dir)
+            os.makedirs(synapse_dir)
             os.makedirs(agents_dir)
 
-            with open(os.path.join(hiagent_dir, "SKILL.md"), "w") as f:
-                f.write("---\nname: my-skill\ndescription: From hiagent\n---\nHiAgent")
+            with open(os.path.join(synapse_dir, "SKILL.md"), "w") as f:
+                f.write("---\nname: my-skill\ndescription: From synapse\n---\nSynapse")
             with open(os.path.join(agents_dir, "SKILL.md"), "w") as f:
                 f.write("---\nname: my-skill\ndescription: From agents\n---\nAgents")
 
@@ -392,12 +392,12 @@ class TestSkillDiscoverer:
             )
             skills = discoverer.discover_all()
             skill = next(s for s in skills if s.metadata.name == "my-skill")
-            assert skill.metadata.description == "From hiagent"
+            assert skill.metadata.description == "From synapse"
 
     def test_source_type_tagging(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = os.path.join(tmp, "project")
-            proj_skill = os.path.join(project, ".hiagent", "skills", "proj-skill")
+            proj_skill = os.path.join(project, ".synapse", "skills", "proj-skill")
             os.makedirs(proj_skill)
             with open(os.path.join(proj_skill, "SKILL.md"), "w") as f:
                 f.write("---\nname: proj-skill\ndescription: Project skill\n---\nBody")
@@ -413,7 +413,7 @@ class TestSkillDiscoverer:
     def test_trust_gating_skips_project_skills(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
             project = os.path.join(tmp, "project")
-            proj_skill = os.path.join(project, ".hiagent", "skills", "untrusted")
+            proj_skill = os.path.join(project, ".synapse", "skills", "untrusted")
             os.makedirs(proj_skill)
             with open(os.path.join(proj_skill, "SKILL.md"), "w") as f:
                 f.write("---\nname: untrusted\ndescription: Untrusted\n---\nBody")

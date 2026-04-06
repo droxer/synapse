@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     ANTHROPIC_BASE_URL: str = "https://api.anthropic.com"
     TAVILY_API_KEY: str
     REDIS_URL: str = "redis://localhost:6379"
-    DATABASE_URL: str = "sqlite+aiosqlite:///./hiagent.db"
+    DATABASE_URL: str = "sqlite+aiosqlite:///./synapse.db"
     PLANNING_MODEL: str = "claude-sonnet-4-20250514"
     TASK_MODEL: str = "claude-sonnet-4-20250514"
     LITE_MODEL: str = "claude-haiku-4-5-20251001"

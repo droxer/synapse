@@ -3,17 +3,17 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="web/public/favicon-dark.svg" />
-    <img src="web/public/favicon-light.svg" width="80" height="80" alt="HiAgent logo" />
+    <img src="web/public/favicon-light.svg" width="80" height="80" alt="Synapse logo" />
   </picture>
 </p>
 
-<h1 align="center">HiAgent</h1>
+<h1 align="center">Synapse</h1>
 
-一个替你完成工作的开源 AI 智能体平台。用自然语言描述任何任务——HiAgent 自动规划、编码、浏览并在安全沙盒中交付结果，全程实时展示每一步进展。
+一个替你完成工作的开源 AI 智能体平台。用自然语言描述任何任务——Synapse 自动规划、编码、浏览并在安全沙盒中交付结果，全程实时展示每一步进展。
 
 ## 功能概览
 
-**对话驱动的任务执行** — 用户用自然语言描述任务，HiAgent 的 ReAct 引擎会自动拆解任务、选择合适的工具，并逐步执行，同时实时展示进度。
+**对话驱动的任务执行** — 用户用自然语言描述任务，Synapse 的 ReAct 引擎会自动拆解任务、选择合适的工具，并逐步执行，同时实时展示进度。
 
 **沙盒化代码执行** — 每个任务都在隔离的微型虚拟机（Boxlite）中运行。智能体可以编写和运行代码、安装软件包、查询数据库、自动化浏览器操作以及生成文件——完全不影响你的主机环境。
 
@@ -23,7 +23,7 @@
 
 **MCP 集成** — 通过 Model Context Protocol 连接外部工具。添加 MCP 服务器即可使用第三方 API 和服务扩展智能体能力。
 
-**频道集成** — 连接 Telegram 等消息平台，直接在你常用的应用中与 HiAgent 聊天。支持机器人配置、账户关联和无缝对话同步。
+**频道集成** — 连接 Telegram 等消息平台，直接在你常用的应用中与 Synapse 聊天。支持机器人配置、账户关联和无缝对话同步。
 
 **实时流式输出** — 前端实时渲染每一个步骤：LLM 推理、工具执行、代码输出、生成的产物以及子智能体进度——全部通过 Server-Sent Events 实现。
 
@@ -44,7 +44,7 @@
 - **持久化记忆** — 智能体可跨对话轮次记住上下文
 - **对话历史** — 基于 PostgreSQL 的完整持久化存储
 - **智能体评测系统** — 基于 YAML 定义的评测用例，支持编程式和 LLM 评判两种评分模式，覆盖工具调用、技能激活、子智能体生成和智能体交接
-- **频道集成** — 连接消息平台（Telegram），在你常用的应用中与 HiAgent 聊天
+- **频道集成** — 连接消息平台（Telegram），在你常用的应用中与 Synapse 聊天
 - **用户偏好** — 按用户持久化的主题（深色/浅色/系统）和语言设置
 - **深色/浅色主题**，支持国际化（英文、中文）
 - **键盘优先的交互体验** — 命令面板（Cmd+K）、响应式布局
@@ -73,7 +73,7 @@ make dev
 
 ### 桌面应用
 
-HiAgent 同时提供基于 [Tauri v2](https://v2.tauri.app/) 的原生桌面应用。它将 Web UI 封装在原生窗口中，自动管理后端和前端进程。
+Synapse 同时提供基于 [Tauri v2](https://v2.tauri.app/) 的原生桌面应用。它将 Web UI 封装在原生窗口中，自动管理后端和前端进程。
 
 ```bash
 # 开发模式
@@ -100,7 +100,7 @@ make build-desktop
 
 ## 文档
 
-- [本地部署指南](docs/zh-CN/setup.md) — 从零开始在本地运行 HiAgent 的完整步骤
+- [本地部署指南](docs/zh-CN/setup.md) — 从零开始在本地运行 Synapse 的完整步骤
 - [开发指南](docs/zh-CN/development.md) — 命令、架构、API 参考、环境变量及贡献流程
 - [桌面应用指南](docs/desktop-app.md) — Tauri 桌面应用配置、OAuth 流程及故障排除
 - [设计风格指南](docs/zh-CN/DESIGN_STYLE_GUIDE.md) — UI 组件规范、色彩系统、排版与无障碍设计

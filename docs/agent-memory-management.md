@@ -1,8 +1,8 @@
-# HiAgent agent memory management
+# Synapse agent memory management
 
 **English** | [简体中文](zh-CN/agent-memory-management.md) · [All docs](README.md)
 
-This document describes how HiAgent handles **memory** in the broad sense: what stays in the LLM context window, what is persisted to the database, and how those pieces interact during a run, across reconnects, and in channel (e.g. Telegram) flows.
+This document describes how Synapse handles **memory** in the broad sense: what stays in the LLM context window, what is persisted to the database, and how those pieces interact during a run, across reconnects, and in channel (e.g. Telegram) flows.
 
 ## Mental model: three related systems
 

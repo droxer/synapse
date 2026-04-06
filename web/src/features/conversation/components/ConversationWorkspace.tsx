@@ -216,7 +216,7 @@ export function ConversationWorkspace({
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
-                const messageKey = `${msg.role}-${msg.timestamp}-${msg.content.slice(0, 48)}`;
+                const messageKey = `${msg.role}-${msg.timestamp}`;
 
                 return (
                   <div
@@ -425,7 +425,7 @@ export function ConversationWorkspace({
           </div>
         </div>
 
-        {/* Right pane: HiAgent's Computer */}
+        {/* Right pane: Synapse's Computer */}
         {panelOpen && (
           <motion.div
             className="flex w-full flex-col md:w-1/2"

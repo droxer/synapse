@@ -29,6 +29,7 @@ interface SidebarProps {
   activeTaskId?: string | null;
   onNewTask: () => void;
   onSelectTask?: (taskId: string) => void;
+  onNavigate?: (href: string) => void;
   collapsed?: boolean;
   width?: number;
   onToggle?: () => void;
@@ -47,13 +48,14 @@ export function Sidebar({
   activeTaskId,
   onNewTask,
   onSelectTask,
+  onNavigate,
   collapsed = false,
   width = 256,
   onToggle,
   onWidthChange,
   onLoadMore,
   onDeleteTask,
-  onClose: _onClose,
+  onClose,
   isMobile = false,
   activePath,
   userMenu,
@@ -131,6 +133,17 @@ export function Sidebar({
   const handleDialogOpenChange = useCallback((open: boolean) => {
     if (!open) setTaskToDelete(null);
   }, []);
+  const createNavClickHandler = useCallback(
+    (href: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
+      if (onNavigate) {
+        e.preventDefault();
+        onNavigate(href);
+        return;
+      }
+      onClose?.();
+    },
+    [onClose, onNavigate],
+  );
 
   return (
     <aside
@@ -196,90 +209,82 @@ export function Sidebar({
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href="/channels">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className={cn(
-                      "w-full",
-                      activePath === "/channels"
-                        ? "bg-sidebar-active text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
-                    )}
-                    asChild
-                  >
-                    <span>
-                      <Radio className="h-4 w-4" />
-                    </span>
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className={cn(
+                    "w-full",
+                    activePath === "/channels"
+                      ? "bg-sidebar-active text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                  )}
+                  asChild
+                >
+                  <Link href="/channels" onClick={createNavClickHandler("/channels")}>
+                    <Radio className="h-4 w-4" />
+                  </Link>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right">{t("sidebar.channels")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href="/library">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className={cn(
-                      "w-full",
-                      activePath === "/library"
-                        ? "bg-sidebar-active text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
-                    )}
-                    asChild
-                  >
-                    <span>
-                      <FolderOpen className="h-4 w-4" />
-                    </span>
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className={cn(
+                    "w-full",
+                    activePath === "/library"
+                      ? "bg-sidebar-active text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                  )}
+                  asChild
+                >
+                  <Link href="/library" onClick={createNavClickHandler("/library")}>
+                    <FolderOpen className="h-4 w-4" />
+                  </Link>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right">{t("sidebar.library")}</TooltipContent>
             </Tooltip>
             <div className="border-t border-border mx-0.5" />
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href="/skills">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className={cn(
-                      "w-full",
-                      activePath === "/skills"
-                        ? "bg-sidebar-active text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
-                    )}
-                    asChild
-                  >
-                    <span>
-                      <Lightbulb className="h-4 w-4" />
-                    </span>
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className={cn(
+                    "w-full",
+                    activePath === "/skills"
+                      ? "bg-sidebar-active text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                  )}
+                  asChild
+                >
+                  <Link href="/skills" onClick={createNavClickHandler("/skills")}>
+                    <Lightbulb className="h-4 w-4" />
+                  </Link>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right">{t("sidebar.skills")}</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Link href="/mcp">
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className={cn(
-                      "w-full",
-                      activePath === "/mcp"
-                        ? "bg-sidebar-active text-foreground"
-                        : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
-                    )}
-                    asChild
-                  >
-                    <span>
-                      <Blocks className="h-4 w-4" />
-                    </span>
-                  </Button>
-                </Link>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className={cn(
+                    "w-full",
+                    activePath === "/mcp"
+                      ? "bg-sidebar-active text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                  )}
+                  asChild
+                >
+                  <Link href="/mcp" onClick={createNavClickHandler("/mcp")}>
+                    <Blocks className="h-4 w-4" />
+                  </Link>
+                </Button>
               </TooltipTrigger>
               <TooltipContent side="right">{t("sidebar.mcp")}</TooltipContent>
             </Tooltip>
@@ -306,6 +311,7 @@ export function Sidebar({
             </button>
             <Link
               href="/channels"
+              onClick={createNavClickHandler("/channels")}
               aria-label={t("sidebar.channels")}
               className={cn(
                 "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -322,6 +328,7 @@ export function Sidebar({
             </Link>
             <Link
               href="/library"
+              onClick={createNavClickHandler("/library")}
               aria-label={t("sidebar.library")}
               className={cn(
                 "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -339,6 +346,7 @@ export function Sidebar({
             <div className="border-t border-border" />
             <Link
               href="/skills"
+              onClick={createNavClickHandler("/skills")}
               aria-label={t("sidebar.skills")}
               className={cn(
                 "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -355,6 +363,7 @@ export function Sidebar({
             </Link>
             <Link
               href="/mcp"
+              onClick={createNavClickHandler("/mcp")}
               aria-label={t("sidebar.mcp")}
               className={cn(
                 "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

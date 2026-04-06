@@ -1,4 +1,4 @@
-# HiAgent documentation
+# Synapse documentation
 
 ## Reference shards (`reference/`)
 

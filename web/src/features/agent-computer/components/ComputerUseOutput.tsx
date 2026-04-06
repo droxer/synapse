@@ -83,7 +83,7 @@ export function ComputerUseOutput({
       {/* Header */}
       <div className="mb-1.5 flex items-center gap-2">
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-foreground">
+        <span className="text-sm font-medium text-foreground">
           {t("output.category.computer")}
         </span>
         {/* Action badge */}

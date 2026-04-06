@@ -1,15 +1,15 @@
 **English** | [简体中文](zh-CN/brand-guidelines.md)
 
-# HiAgent Brand Guidelines
+# Synapse Brand Guidelines
 
 ## Brand Identity
 
-HiAgent is an intelligent AI agent platform. The brand communicates **capability**, **warmth**, and **approachable confidence** through a warm cream-first aesthetic with organic softness, generous whitespace, and professional polish.
+Synapse is an intelligent AI agent platform. The brand communicates **capability**, **warmth**, and **approachable confidence** through a warm cream-first aesthetic with organic softness, generous whitespace, and professional polish.
 
 ## Voice & Tone
 
 - **Direct**: Short, confident statements. "What can I help you build?" not "Please describe what you'd like assistance with."
-- **Anthropomorphic but not chatty**: "HiAgent's Computer" is a branded surface name. The agent has presence but isn't overly friendly.
+- **Anthropomorphic but not chatty**: "Synapse's Computer" is a branded surface name. The agent has presence but isn't overly friendly.
 - **Technical confidence**: Assume the user is capable. Don't over-explain.
 
 ## Colors

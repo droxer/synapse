@@ -200,7 +200,7 @@ class ChannelRouter:
             await provider.send_text(
                 message.provider_chat_id,
                 "Usage: /start <token>\n\n"
-                "Generate a link token from the HiAgent web dashboard.",
+                "Generate a link token from the Synapse web dashboard.",
             )
             return
 

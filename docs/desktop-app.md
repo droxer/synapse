@@ -1,6 +1,6 @@
-# HiAgent Desktop App
+# Synapse Desktop App
 
-HiAgent Desktop wraps the existing web frontend in a [Tauri v2](https://v2.tauri.app/) native shell, giving you a standalone macOS/Windows/Linux application with no browser tab required.
+Synapse Desktop wraps the existing web frontend in a [Tauri v2](https://v2.tauri.app/) native shell, giving you a standalone macOS/Windows/Linux application with no browser tab required.
 
 ## Architecture
 
@@ -51,7 +51,7 @@ make build-desktop
 The production `.app` is output to:
 
 ```
-web/src-tauri/target/release/bundle/macos/HiAgent.app
+web/src-tauri/target/release/bundle/macos/Synapse.app
 ```
 
 ## Configuration
@@ -60,14 +60,14 @@ All settings are driven by environment variables with sensible defaults:
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `HIAGENT_FRONTEND_PORT` | `3000` | Port for the Next.js frontend |
-| `HIAGENT_BACKEND_PORT` | `8000` | Port for the Python backend |
-| `HIAGENT_PROJECT_DIR` | auto-detected | Path to the HiAgent repo root |
+| `SYNAPSE_FRONTEND_PORT` | `3000` | Port for the Next.js frontend |
+| `SYNAPSE_BACKEND_PORT` | `8000` | Port for the Python backend |
+| `SYNAPSE_PROJECT_DIR` | auto-detected | Path to the Synapse repo root |
 
 ### Custom ports
 
 ```bash
-HIAGENT_FRONTEND_PORT=4000 HIAGENT_BACKEND_PORT=9000 make desktop
+SYNAPSE_FRONTEND_PORT=4000 SYNAPSE_BACKEND_PORT=9000 make desktop
 ```
 
 ### Backend environment
@@ -105,7 +105,7 @@ Tokens are short-lived (120s) and single-use. A `desktop-token` NextAuth Credent
 
 1. **Primary**: `window.__TAURI_INTERNALS__` (available when `withGlobalTauri: true`)
 2. **Fallback 1**: `?desktop=1` URL parameter (passed from the Tauri loading page through middleware redirects)
-3. **Fallback 2**: `localStorage.getItem("hiagent-desktop")` (persisted by `DesktopModeDetector` in providers)
+3. **Fallback 2**: `localStorage.getItem("synapse-desktop")` (persisted by `DesktopModeDetector` in providers)
 
 ### Setup
 
@@ -192,7 +192,7 @@ The bundle target is set to `app` only by default. To enable DMG, change `target
 
 ### OAuth redirect mismatch
 
-Ensure your Google OAuth client has `http://localhost:<HIAGENT_FRONTEND_PORT>/api/auth/callback/google` as an authorized redirect URI.
+Ensure your Google OAuth client has `http://localhost:<SYNAPSE_FRONTEND_PORT>/api/auth/callback/google` as an authorized redirect URI.
 
 ### System browser doesn't open for OAuth
 

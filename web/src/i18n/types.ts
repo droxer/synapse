@@ -10,7 +10,7 @@ export const LOCALE_LABELS: Record<Locale, string> = {
   "zh-TW": "繁體中文",
 };
 
-export const COOKIE_NAME = "hiagent-locale";
+export const COOKIE_NAME = "synapse-locale";
 
 export type TranslationParams = Record<string, string | number>;
 

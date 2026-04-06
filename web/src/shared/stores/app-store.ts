@@ -162,7 +162,7 @@ export const useAppStore = create<AppState>()(
       },
     }),
     {
-      name: "hiagent-app-store",
+      name: "synapse-app-store",
       storage: createJSONStorage(() => localStorage),
       partialize: (state) => ({
         conversationId: state.conversationId,

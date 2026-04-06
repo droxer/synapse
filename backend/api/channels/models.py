@@ -70,7 +70,7 @@ class TelegramBotConfigModel(Base):
 
 
 class ChannelAccountModel(Base):
-    """Links an external IM account (e.g. Telegram user) to a HiAgent user."""
+    """Links an external IM account (e.g. Telegram user) to a Synapse user."""
 
     __tablename__ = "channel_accounts"
     __table_args__ = (
@@ -114,7 +114,7 @@ class ChannelAccountModel(Base):
 
 
 class ChannelSessionModel(Base):
-    """Maps an external chat (e.g. Telegram DM) to a HiAgent conversation."""
+    """Maps an external chat (e.g. Telegram DM) to a Synapse conversation."""
 
     __tablename__ = "channel_sessions"
     __table_args__ = (
@@ -186,7 +186,7 @@ class ChannelMessageLogModel(Base):
 
 
 class ChannelLinkTokenModel(Base):
-    """Short-lived token for linking an external IM account to a HiAgent user."""
+    """Short-lived token for linking an external IM account to a Synapse user."""
 
     __tablename__ = "channel_link_tokens"
     __table_args__ = (

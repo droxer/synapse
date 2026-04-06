@@ -1,7 +1,7 @@
 {
-  "productName": "HiAgent",
+  "productName": "Synapse",
   "version": "0.1.0",
-  "identifier": "com.hiagent.desktop",
+  "identifier": "com.synapse.desktop",
   "build": {
     "beforeDevCommand": "",
     "beforeBuildCommand": "",
@@ -11,7 +11,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "HiAgent",
+        "title": "Synapse",
         "width": 1280,
         "height": 860,
         "resizable": true,
@@ -41,7 +41,7 @@
     },
     "deep-link": {
       "desktop": {
-        "schemes": ["hiagent"]
+        "schemes": ["synapse"]
       }
     }
   }

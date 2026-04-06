@@ -1,4 +1,4 @@
-"""Boxlite sandbox provider — micro-VM sandbox backend for HiAgent.
+"""Boxlite sandbox provider — micro-VM sandbox backend for Synapse.
 
 Uses the Boxlite Python SDK to create hardware-isolated micro-VMs
 with separate kernels per sandbox instance. Each sandbox gets its own
@@ -34,12 +34,12 @@ from agent.sandbox.base import (
 # ---------------------------------------------------------------------------
 
 TEMPLATE_IMAGES: dict[str, str] = {
-    "default": "ghcr.io/droxer/hiagent-sandbox-default",
-    "data_science": "ghcr.io/droxer/hiagent-sandbox-data-science",
-    "browser": "ghcr.io/droxer/hiagent-sandbox-browser:v3",
+    "default": "ghcr.io/droxer/synapse-sandbox-default",
+    "data_science": "ghcr.io/droxer/synapse-sandbox-data-science",
+    "browser": "ghcr.io/droxer/synapse-sandbox-browser:v3",
 }
 
-DEFAULT_IMAGE = "ghcr.io/droxer/hiagent-sandbox-default"
+DEFAULT_IMAGE = "ghcr.io/droxer/synapse-sandbox-default"
 
 
 # ---------------------------------------------------------------------------
@@ -445,7 +445,7 @@ class BoxliteProvider(SandboxProvider):
                     "sh",
                     "-c",
                     f"echo {shlex.quote(f'export {name}={shlex.quote(value)}')} "
-                    f">> /etc/profile.d/hiagent_env.sh",
+                    f">> /etc/profile.d/synapse_env.sh",
                 )
 
         logger.info(

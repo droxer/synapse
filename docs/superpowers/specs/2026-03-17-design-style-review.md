@@ -1,4 +1,4 @@
-# Design Style Review — HiAgent Frontend
+# Design Style Review — Synapse Frontend
 
 > **Date:** 2026-03-17
 > **Scope:** Consistency audit + quality/polish critique
@@ -59,7 +59,7 @@ The design system is well-architected: a comprehensive token system in `globals.
 | TY-H1 | `WelcomeScreen.tsx:90` | H1 at 44–52px, `font-normal` | Align to 24px `font-semibold` or document hero variant |
 | TY-H2 | `ConversationWorkspace.tsx:162` | User msg `text-[15px]` — off-scale | Use `text-sm` (14px) |
 | TY-H3 | `ConversationWorkspace.tsx:212` | Assistant msg `leading-[1.7]` — spec says 1.5 | Use `leading-[1.5]` |
-| TY-H4 | `Sidebar.tsx:119` | Brand "HiAgent" uses `font-bold` (700) | Use `font-semibold` (600) |
+| TY-H4 | `Sidebar.tsx:119` | Brand "Synapse" uses `font-bold` (700) | Use `font-semibold` (600) |
 | TY-H5 | `global-error.tsx:11–23` | Missing font variables + hardcoded hex colors | Import fonts, use token classes |
 
 ### Layout & Spacing (4 findings)

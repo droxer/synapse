@@ -1,6 +1,6 @@
 # Architecture overview
 
-HiAgent is a **full-stack AI agent framework**:
+Synapse is a **full-stack AI agent framework**:
 
 - **Backend**: Python, **FastAPI**, async SQLAlchemy, Anthropic client, optional sandboxes (Boxlite, E2B, local).
 - **Frontend**: **Next.js 15** (App Router), React 19, Tailwind CSS 4, Turbopack.

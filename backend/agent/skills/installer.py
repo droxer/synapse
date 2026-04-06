@@ -47,7 +47,7 @@ class SkillInstaller:
 
     def __init__(self, install_dir: str | None = None) -> None:
         self._install_dir = install_dir or os.path.join(
-            str(Path.home()), ".hiagent", "skills"
+            str(Path.home()), ".synapse", "skills"
         )
         os.makedirs(self._install_dir, exist_ok=True)
 

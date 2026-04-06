@@ -41,11 +41,11 @@ build-web:
 	cd web && npm run build
 
 # Resolve the full image name with optional version tag
-# e.g. browser -> ghcr.io/droxer/hiagent-sandbox-browser:v3
-sandbox_image = $(SANDBOX_REGISTRY)/hiagent-sandbox-$(1)$(if $(SANDBOX_TAGS_$(1)),:$(SANDBOX_TAGS_$(1)),)
+# e.g. browser -> ghcr.io/droxer/synapse-sandbox-browser:v3
+sandbox_image = $(SANDBOX_REGISTRY)/synapse-sandbox-$(1)$(if $(SANDBOX_TAGS_$(1)),:$(SANDBOX_TAGS_$(1)),)
 
 # Local tag for the base image (used as default BASE_IMAGE arg in derived Dockerfiles)
-SANDBOX_BASE_LOCAL_TAG := hiagent-sandbox-base
+SANDBOX_BASE_LOCAL_TAG := synapse-sandbox-base
 
 # Build sandbox Docker images (from container/ folder)
 # Usage: make build-sandbox [SANDBOX=browser]

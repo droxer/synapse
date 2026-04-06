@@ -86,7 +86,7 @@ uv run alembic revision --autogenerate -m "description"  # Create migration
 ## Architecture
 
 ```
-HiAgent/
+Synapse/
 ├── backend/
 │   ├── api/                  # FastAPI application
 │   │   ├── main.py           # App factory, startup, shared state init
@@ -438,7 +438,7 @@ allowed_tools:
 ...methodology content...
 ```
 
-- **Discovery** — Scans `~/.hiagent/skills/` (bundled), `./skills/` (project), `./hiagent-skills/` (imported)
+- **Discovery** — Scans `~/.synapse/skills/` (bundled), `./skills/` (project), `./synapse-skills/` (imported)
 - **Matching** — LLM-driven selection from the skill catalog (explicit name → LLM pick → keyword overlap fallback). Configurable model via `SKILL_SELECTOR_MODEL`.
 - **Activation** — Best-match skill prompt injected into orchestrator; agent restricted to allowed tools
 - **Installation** — Clone from GitHub via `SkillInstaller`
@@ -502,7 +502,7 @@ Required in `backend/.env` (see `backend/.env.example`):
 
 ### LLM Provider
 
-HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Configure via `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY`.
+Synapse works with any LLM provider that exposes an Anthropic-compatible API. Configure via `ANTHROPIC_BASE_URL` and `ANTHROPIC_API_KEY`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|

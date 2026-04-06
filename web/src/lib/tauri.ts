@@ -18,7 +18,7 @@ export function isTauri(): boolean {
 
   // Fallback 2: localStorage flag persisted by DesktopModeDetector
   try {
-    return localStorage.getItem("hiagent-desktop") === "1";
+    return localStorage.getItem("synapse-desktop") === "1";
   } catch {
     return false;
   }

@@ -86,7 +86,7 @@ uv run alembic revision --autogenerate -m "description"  # 创建迁移
 ## 架构
 
 ```
-HiAgent/
+Synapse/
 ├── backend/
 │   ├── api/                  # FastAPI 应用
 │   │   ├── main.py           # 应用工厂、启动流程、共享状态初始化
@@ -437,7 +437,7 @@ allowed_tools:
 ...方法论内容...
 ```
 
-- **发现** — 扫描 `~/.hiagent/skills/`（内置）、`./skills/`（项目级）、`./hiagent-skills/`（导入的）
+- **发现** — 扫描 `~/.synapse/skills/`（内置）、`./skills/`（项目级）、`./synapse-skills/`（导入的）
 - **匹配** — LLM 驱动的技能目录选择（显式名称 → LLM 选取 → 关键词重叠兜底）。可通过 `SKILL_SELECTOR_MODEL` 配置模型。
 - **激活** — 最佳匹配的技能提示注入编排器；智能体被限制为允许的工具
 - **安装** — 通过 `SkillInstaller` 从 GitHub 克隆
@@ -499,7 +499,7 @@ allowed_tools:
 
 ### LLM 提供者
 
-HiAgent 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。通过 `ANTHROPIC_BASE_URL` 和 `ANTHROPIC_API_KEY` 进行配置。
+Synapse 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。通过 `ANTHROPIC_BASE_URL` 和 `ANTHROPIC_API_KEY` 进行配置。
 
 | 变量 | 默认值 | 描述 |
 |------|--------|------|

@@ -1,4 +1,4 @@
-"""Bridge between MCP tools and HiAgent's tool system."""
+"""Bridge between MCP tools and Synapse's tool system."""
 
 from __future__ import annotations
 

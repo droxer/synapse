@@ -4,8 +4,8 @@ import { Providers } from "./providers";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HiAgent",
-  description: "HiAgent - Intelligent AI Agent Platform",
+  title: "Synapse",
+  description: "Synapse - Intelligent AI Agent Platform",
   icons: {
     icon: [
       { url: "/favicon-light.svg", type: "image/svg+xml", media: "(prefers-color-scheme: light)" },

@@ -60,6 +60,13 @@ export function AppSidebar() {
     if (pathname !== "/") router.push("/");
   }, [conversationId, pathname, switchConversation, closeSidebar, router]);
 
+  const handleSidebarNavigate = useCallback((href: string) => {
+    closeSidebar();
+    if (pathname !== href) {
+      router.push(href);
+    }
+  }, [closeSidebar, pathname, router]);
+
   const isCollapsed = isMobile ? false : sidebarCollapsed;
 
   const sidebar = (
@@ -68,6 +75,7 @@ export function AppSidebar() {
       activeTaskId={conversationId}
       onNewTask={handleNewConversation}
       onSelectTask={handleSelectConversation}
+      onNavigate={handleSidebarNavigate}
       collapsed={isCollapsed}
       width={isMobile ? 256 : sidebarWidth}
       onToggle={isMobile ? undefined : toggleSidebar}

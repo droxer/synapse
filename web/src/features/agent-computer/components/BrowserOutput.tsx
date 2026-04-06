@@ -8,7 +8,7 @@ import { MarkdownRenderer } from "@/shared/components";
 import { ImageOutput } from "@/shared/components/ui/image-output";
 import { Progress } from "@/shared/components/ui/progress";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
-import { PROSE_CLASSES } from "../lib/format-tools";
+import { PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES } from "../lib/format-tools";
 import type { BrowserMetadata } from "@/shared/types";
 
 const COLLAPSE_THRESHOLD = 500;
@@ -54,7 +54,7 @@ export function BrowserOutput({
       {/* Header */}
       <div className="mb-2 flex items-center gap-2">
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-xs font-medium text-foreground">
+        <span className="text-sm font-medium text-foreground">
           {t("output.category.browser")}
         </span>
         {/* Status badge */}
@@ -100,7 +100,7 @@ export function BrowserOutput({
 
       {/* Markdown body */}
       <div className={PROSE_CLASSES}>
-        <MarkdownRenderer content={displayText} />
+        <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
         {isLong && !expanded && (
           <span className="text-muted-foreground-dim">...</span>
         )}

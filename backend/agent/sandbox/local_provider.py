@@ -22,7 +22,7 @@ from agent.sandbox.base import (
     SandboxSession,
 )
 
-_DEFAULT_WORKDIR = "/tmp/hiagent-workspace"
+_DEFAULT_WORKDIR = "/tmp/synapse-workspace"
 _SANDBOX_WORKSPACE_DIR = "/workspace"
 
 

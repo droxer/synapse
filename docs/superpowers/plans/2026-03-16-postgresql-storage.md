@@ -80,7 +80,7 @@ asyncio_mode = "auto"
 
 - [ ] **Step 2: Install dependencies**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv sync`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv sync`
 Expected: Successful install, no errors.
 
 - [ ] **Step 3: Commit**
@@ -103,7 +103,7 @@ git commit -m "chore: add sqlalchemy, asyncpg, alembic dependencies"
 In `backend/config/settings.py`, add after the `REDIS_URL` field:
 
 ```python
-DATABASE_URL: str = "postgresql+asyncpg://ha:ha@localhost:5432/hiagent"
+DATABASE_URL: str = "postgresql+asyncpg://ha:ha@localhost:5432/synapse"
 ```
 
 - [ ] **Step 2: Add DATABASE_URL to .env and .env.example**
@@ -111,13 +111,13 @@ DATABASE_URL: str = "postgresql+asyncpg://ha:ha@localhost:5432/hiagent"
 Add to `backend/.env` (local only, not committed):
 
 ```
-DATABASE_URL=postgresql+asyncpg://ha:ha@localhost:5432/hiagent
+DATABASE_URL=postgresql+asyncpg://ha:ha@localhost:5432/synapse
 ```
 
 Add to `backend/.env.example` (committed):
 
 ```
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/hiagent
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/synapse
 ```
 
 - [ ] **Step 3: Commit**
@@ -226,7 +226,7 @@ class TestAgentRunRecord:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_schemas.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_schemas.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'agent.state.schemas'`
 
 - [ ] **Step 3: Write the implementation**
@@ -298,7 +298,7 @@ class AgentRunRecord:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_schemas.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_schemas.py -v`
 Expected: All 4 tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -453,7 +453,7 @@ class AgentRunModel(Base):
 
 - [ ] **Step 2: Verify models import correctly**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run python -c "from agent.state.models import Base, ConversationModel, MessageModel, EventModel, AgentRunModel; print('OK')"`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run python -c "from agent.state.models import Base, ConversationModel, MessageModel, EventModel, AgentRunModel; print('OK')"`
 Expected: `OK`
 
 - [ ] **Step 3: Commit**
@@ -486,12 +486,12 @@ from agent.state.database import get_engine, get_session_factory
 def test_get_engine_returns_async_engine() -> None:
     from sqlalchemy.ext.asyncio import AsyncEngine
 
-    engine = get_engine("postgresql+asyncpg://ha:ha@localhost:5432/hiagent")
+    engine = get_engine("postgresql+asyncpg://ha:ha@localhost:5432/synapse")
     assert isinstance(engine, AsyncEngine)
 
 
 def test_get_session_factory_returns_callable() -> None:
-    engine = get_engine("postgresql+asyncpg://ha:ha@localhost:5432/hiagent")
+    engine = get_engine("postgresql+asyncpg://ha:ha@localhost:5432/synapse")
     factory = get_session_factory(engine)
     assert callable(factory)
 
@@ -503,7 +503,7 @@ def test_get_engine_invalid_url_raises() -> None:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_database.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_database.py -v`
 Expected: FAIL with `ModuleNotFoundError`
 
 - [ ] **Step 3: Write the implementation**
@@ -601,7 +601,7 @@ async def get_session(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_database.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_database.py -v`
 Expected: All 3 tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -640,7 +640,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from agent.state.models import Base
 from agent.state.repository import ConversationRepository
 
-TEST_DB_URL = "postgresql+asyncpg://ha:ha@localhost:5432/hiagent_test"
+TEST_DB_URL = "postgresql+asyncpg://ha:ha@localhost:5432/synapse_test"
 
 
 @pytest_asyncio.fixture
@@ -765,7 +765,7 @@ class TestEvents:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_repository.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_repository.py -v`
 Expected: FAIL with `ImportError` (ConversationRepository doesn't exist yet with new signature)
 
 - [ ] **Step 3: Write the implementation**
@@ -988,12 +988,12 @@ class ConversationRepository:
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_repository.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_repository.py -v`
 Expected: All tests PASS.
 
-Note: This requires a running PostgreSQL with a `hiagent_test` database. Create it first if needed:
+Note: This requires a running PostgreSQL with a `synapse_test` database. Create it first if needed:
 ```bash
-createdb -U ha hiagent_test
+createdb -U ha synapse_test
 ```
 
 - [ ] **Step 5: Commit**
@@ -1015,7 +1015,7 @@ git commit -m "feat: rewrite repository for PostgreSQL with async SQLAlchemy"
 
 - [ ] **Step 1: Initialize Alembic scaffold**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run alembic init migrations`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run alembic init migrations`
 
 This creates `alembic.ini` and `migrations/` directory with template files.
 
@@ -1024,7 +1024,7 @@ This creates `alembic.ini` and `migrations/` directory with template files.
 In `backend/alembic.ini`, replace the `sqlalchemy.url` line with a placeholder (we'll read it from settings at runtime):
 
 ```ini
-sqlalchemy.url = postgresql+asyncpg://ha:ha@localhost:5432/hiagent
+sqlalchemy.url = postgresql+asyncpg://ha:ha@localhost:5432/synapse
 ```
 
 - [ ] **Step 3: Rewrite migrations/env.py for async support**
@@ -1256,14 +1256,14 @@ def downgrade() -> None:
 - [ ] **Step 5: Run the migration**
 
 ```bash
-cd /Users/feihe/Workspace/HiAgent/backend && createdb -U ha hiagent 2>/dev/null; uv run alembic upgrade head
+cd /Users/feihe/Workspace/Synapse/backend && createdb -U ha synapse 2>/dev/null; uv run alembic upgrade head
 ```
 
 Expected: Migration applies successfully. Tables created.
 
 - [ ] **Step 6: Verify tables exist**
 
-Run: `psql -U ha -d hiagent -c "\dt"`
+Run: `psql -U ha -d synapse -c "\dt"`
 Expected: Lists `conversations`, `messages`, `events`, `agent_runs` tables.
 
 - [ ] **Step 7: Commit**
@@ -1378,7 +1378,7 @@ async def test_db_failure_does_not_raise() -> None:
 
 - [ ] **Step 2: Run test to verify it fails**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_db_subscriber.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_db_subscriber.py -v`
 Expected: FAIL with `ModuleNotFoundError`
 
 - [ ] **Step 3: Write the implementation**
@@ -1520,7 +1520,7 @@ def create_db_subscriber(
 
 - [ ] **Step 4: Run test to verify it passes**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest tests/test_db_subscriber.py -v`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && uv run pytest tests/test_db_subscriber.py -v`
 Expected: All 4 tests PASS.
 
 - [ ] **Step 5: Commit**
@@ -1686,7 +1686,7 @@ Add after the existing endpoints, before the `return application` line:
 
 - [ ] **Step 7: Verify the app starts**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/backend && timeout 5 uv run python -m api.main 2>&1 || true`
+Run: `cd /Users/feihe/Workspace/Synapse/backend && timeout 5 uv run python -m api.main 2>&1 || true`
 Expected: App starts, logs `database_connection_verified`. May timeout after 5s — that's fine.
 
 - [ ] **Step 8: Commit**
@@ -1918,7 +1918,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
 - [ ] **Step 2: Verify build**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm run build`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm run build`
 Expected: Build succeeds.
 
 - [ ] **Step 3: Commit**
@@ -1965,7 +1965,7 @@ Replace the `<ScrollArea>` section (the task list area) with a version that dete
 
 - [ ] **Step 2: Verify build**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm run build`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm run build`
 Expected: Build succeeds.
 
 - [ ] **Step 3: Commit**
@@ -2025,7 +2025,7 @@ export function ConversationSidebar() {
 
 - [ ] **Step 2: Verify build**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm run build`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm run build`
 Expected: Build succeeds.
 
 - [ ] **Step 3: Commit**
@@ -2097,7 +2097,7 @@ Also remove the `toggleSidebar` import from `useAppStore` at the top.
 
 - [ ] **Step 3: Verify build**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm run build`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm run build`
 Expected: Build succeeds. (If any other components read `conversationHistory` or `sidebarCollapsed` from context, they need to be updated to use `useAppStore` directly — check build errors.)
 
 - [ ] **Step 4: Commit**
@@ -2114,13 +2114,13 @@ git commit -m "refactor: remove redundant conversationHistory from context, use 
 ### Task 14: Delete old SQLite file and update __init__.py
 
 **Files:**
-- Delete: `backend/hiagent.db` (if exists)
+- Delete: `backend/synapse.db` (if exists)
 - Modify: `backend/agent/state/__init__.py`
 
 - [ ] **Step 1: Remove SQLite database file if it exists**
 
 ```bash
-rm -f /Users/feihe/Workspace/HiAgent/backend/hiagent.db
+rm -f /Users/feihe/Workspace/Synapse/backend/synapse.db
 ```
 
 - [ ] **Step 2: Update __init__.py to export new modules**
@@ -2145,13 +2145,13 @@ git commit -m "chore: clean up SQLite artifacts and update state module"
 - [ ] **Step 1: Ensure PostgreSQL is running and database exists**
 
 ```bash
-createdb -U ha hiagent 2>/dev/null; echo "DB ready"
+createdb -U ha synapse 2>/dev/null; echo "DB ready"
 ```
 
 - [ ] **Step 2: Run migrations**
 
 ```bash
-cd /Users/feihe/Workspace/HiAgent/backend && uv run alembic upgrade head
+cd /Users/feihe/Workspace/Synapse/backend && uv run alembic upgrade head
 ```
 
 Expected: Migration applies (or is already at head).
@@ -2159,14 +2159,14 @@ Expected: Migration applies (or is already at head).
 - [ ] **Step 3: Run all backend tests**
 
 ```bash
-cd /Users/feihe/Workspace/HiAgent/backend && uv run pytest -v
+cd /Users/feihe/Workspace/Synapse/backend && uv run pytest -v
 ```
 
 Expected: All tests pass.
 
 - [ ] **Step 4: Start the backend and verify new endpoints**
 
-Start: `cd /Users/feihe/Workspace/HiAgent && make backend`
+Start: `cd /Users/feihe/Workspace/Synapse && make backend`
 
 In another terminal:
 ```bash
@@ -2179,7 +2179,7 @@ curl -s http://localhost:8000/conversations | python3 -m json.tool
 - [ ] **Step 5: Build the frontend**
 
 ```bash
-cd /Users/feihe/Workspace/HiAgent/web && npm run build
+cd /Users/feihe/Workspace/Synapse/web && npm run build
 ```
 
 Expected: Build succeeds.

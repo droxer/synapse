@@ -154,8 +154,8 @@ function LoginForm() {
               className=" text-center"
               style={{ animationFillMode: "both" }}
             >
-              <h1 className="text-3xl font-semibold tracking-[-0.04em] leading-tight text-foreground">
-                Welcome to HiAgent
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-[-0.04em] leading-tight text-foreground">
+                Welcome to Synapse
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
                 Sign in to continue

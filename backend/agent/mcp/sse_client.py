@@ -133,7 +133,7 @@ class MCPSSEClient:
             {
                 "protocolVersion": MCP_PROTOCOL_VERSION,
                 "capabilities": {},
-                "clientInfo": {"name": "hiagent", "version": "0.1.0"},
+                "clientInfo": {"name": "synapse", "version": "0.1.0"},
             },
         )
         await self._legacy_send_notification("notifications/initialized", {})
@@ -212,7 +212,7 @@ class MCPSSEClient:
             {
                 "protocolVersion": MCP_PROTOCOL_VERSION,
                 "capabilities": {},
-                "clientInfo": {"name": "hiagent", "version": "0.1.0"},
+                "clientInfo": {"name": "synapse", "version": "0.1.0"},
             },
         )
         if not result:

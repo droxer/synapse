@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add agent-initiated handoff capability to HiAgent's multi-agent system. A sub-agent can hand off control to a new specialist agent mid-execution, transferring its conversation history and context. The planner is unaware of handoffs — they are internal to the SubAgentManager.
+Add agent-initiated handoff capability to Synapse's multi-agent system. A sub-agent can hand off control to a new specialist agent mid-execution, transferring its conversation history and context. The planner is unaware of handoffs — they are internal to the SubAgentManager.
 
 ## Motivation
 

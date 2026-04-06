@@ -192,7 +192,7 @@ function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
         let message: ChatMessage = {
           role: "assistant",
           content,
-          timestamp: event.timestamp,
+          timestamp: streamingTimestamp > 0 ? streamingTimestamp : event.timestamp,
           ...(thinkingContent ? { thinkingContent } : {}),
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
         };

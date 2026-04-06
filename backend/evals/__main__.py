@@ -11,7 +11,7 @@ from pathlib import Path
 def _parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         prog="evals",
-        description="Run HiAgent agent evaluations",
+        description="Run Synapse agent evaluations",
     )
     parser.add_argument(
         "--cases-dir",

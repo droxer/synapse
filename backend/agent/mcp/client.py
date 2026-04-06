@@ -93,7 +93,7 @@ class MCPStdioClient:
             {
                 "protocolVersion": MCP_PROTOCOL_VERSION,
                 "capabilities": {},
-                "clientInfo": {"name": "hiagent", "version": "0.1.0"},
+                "clientInfo": {"name": "synapse", "version": "0.1.0"},
             },
         )
         # Send initialized notification

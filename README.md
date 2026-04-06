@@ -1,19 +1,19 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="web/public/favicon-dark.svg" />
-    <img src="web/public/favicon-light.svg" width="80" height="80" alt="HiAgent logo" />
+    <img src="web/public/favicon-light.svg" width="80" height="80" alt="Synapse logo" />
   </picture>
 </p>
 
-<h1 align="center">HiAgent</h1>
+<h1 align="center">Synapse</h1>
 
 <p align="center"><strong>English</strong> | <a href="README.zh-CN.md">简体中文</a></p>
 
-An open-source AI agent platform that does the work for you. Describe any task in plain language — HiAgent plans, codes, browses, and delivers results in a secure sandbox, streaming every step in real time.
+An open-source AI agent platform that does the work for you. Describe any task in plain language — Synapse plans, codes, browses, and delivers results in a secure sandbox, streaming every step in real time.
 
 ## What It Does
 
-**Chat-driven task execution** — Users describe tasks in plain language. HiAgent's ReAct engine breaks them down, selects the right tools, and executes step-by-step while streaming progress in real time.
+**Chat-driven task execution** — Users describe tasks in plain language. Synapse's ReAct engine breaks them down, selects the right tools, and executes step-by-step while streaming progress in real time.
 
 **Sandboxed code execution** — Every task runs in an isolated micro-VM (Boxlite). Agents can write and run code, install packages, query databases, automate browsers, and generate files — without touching your host machine.
 
@@ -23,7 +23,7 @@ An open-source AI agent platform that does the work for you. Describe any task i
 
 **MCP integration** — Connect external tools via the Model Context Protocol. Add MCP servers to extend agent capabilities with third-party APIs and services.
 
-**Channel integrations** — Connect messaging platforms like Telegram to chat with HiAgent directly from your favorite apps. Supports bot configuration, account linking, and seamless conversation sync.
+**Channel integrations** — Connect messaging platforms like Telegram to chat with Synapse directly from your favorite apps. Supports bot configuration, account linking, and seamless conversation sync.
 
 **Real-time streaming** — The frontend renders every step as it happens: LLM reasoning, tool execution, code output, generated artifacts, and sub-agent progress — all via Server-Sent Events.
 
@@ -54,7 +54,7 @@ An open-source AI agent platform that does the work for you. Describe any task i
 - **Persistent memory** — Agents remember context across conversation turns
 - **Conversation history** — Full persistence with PostgreSQL
 - **Agent evaluation system** — YAML-defined eval cases with programmatic and LLM-as-judge grading, covering tool use, skill invocation, sub-agent spawning, and agent handoff
-- **Channel integrations** — Connect messaging platforms (Telegram) to chat with HiAgent from your favorite apps
+- **Channel integrations** — Connect messaging platforms (Telegram) to chat with Synapse from your favorite apps
 - **User preferences** — Persistent theme (dark/light/system) and locale settings per user
 - **Dark/light theme** with internationalization (English, Chinese)
 - **Keyboard-first UX** — Command palette (Cmd+K), responsive layout
@@ -83,7 +83,7 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ### Desktop App
 
-HiAgent also ships as a native desktop app built with [Tauri v2](https://v2.tauri.app/). It wraps the same web UI in a native window with automatic backend/frontend process management.
+Synapse also ships as a native desktop app built with [Tauri v2](https://v2.tauri.app/). It wraps the same web UI in a native window with automatic backend/frontend process management.
 
 ```bash
 # Dev mode
@@ -110,7 +110,7 @@ See [Desktop App Guide](docs/desktop-app.md) for configuration and troubleshooti
 
 ## Documentation
 
-- [Local Setup Guide](docs/setup.md) — Step-by-step instructions to get HiAgent running on your machine
+- [Local Setup Guide](docs/setup.md) — Step-by-step instructions to get Synapse running on your machine
 - [Development Guide](docs/development.md) — Commands, architecture, API reference, environment variables, and contribution workflow
 - [Desktop App Guide](docs/desktop-app.md) — Tauri desktop app setup, configuration, OAuth flow, and troubleshooting
 - [Design Style Guide](docs/DESIGN_STYLE_GUIDE.md) — UI component patterns, color system, typography, and accessibility

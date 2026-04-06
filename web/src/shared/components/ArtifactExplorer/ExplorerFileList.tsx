@@ -366,7 +366,7 @@ function FileCard({
             </p>
             <div className="flex items-center gap-1.5">
               {ext && (
-                <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-[9px] uppercase tracking-wide text-muted-foreground">
+                <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-micro uppercase tracking-wide text-muted-foreground">
                   {ext}
                 </span>
               )}

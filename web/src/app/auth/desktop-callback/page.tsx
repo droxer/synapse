@@ -76,7 +76,7 @@ function CallbackContent() {
       {done && (
         <>
           <p className="text-sm text-muted-foreground">
-            Sign in successful! Return to the HiAgent desktop app.
+            Sign in successful! Return to the Synapse desktop app.
           </p>
           <p className="text-xs text-muted-foreground-dim">
             You can close this browser tab.

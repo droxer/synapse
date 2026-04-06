@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Trash2, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
@@ -18,21 +19,41 @@ interface SkillCardProps {
 
 export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
   const { t } = useTranslation();
+  const router = useRouter();
   const config = SOURCE_STYLE[skill.source_type] ?? SOURCE_STYLE.bundled;
   const Icon = config.icon;
   const labelKey = SOURCE_LABEL_KEY[skill.source_type] ?? SOURCE_LABEL_KEY.bundled;
   const showDelete = skill.source_type !== "bundled" && onDelete;
   const isDisabled = skill.enabled === false;
+  const skillHref = `/skills/${encodeURIComponent(skill.name)}`;
 
   return (
-    <Link
-      href={`/skills/${encodeURIComponent(skill.name)}`}
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label={normalizeSkillName(skill.name)}
       className={cn(
         "group flex h-full cursor-pointer flex-col rounded-lg border bg-card p-4 transition-[border-color,background-color] duration-200 ease-out",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         isDisabled
           ? "border-border hover:border-border"
           : "border-border hover:border-border-strong hover:bg-muted/40",
       )}
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest('[data-skill-interactive="true"]')) {
+          return;
+        }
+        router.push(skillHref);
+      }}
+      onKeyDown={(event) => {
+        const isActivationKey = event.key === "Enter" || event.key === " ";
+        if (!isActivationKey) {
+          return;
+        }
+        event.preventDefault();
+        router.push(skillHref);
+      }}
     >
       {/* Top row: icon + badge + optional delete */}
       <div className="flex items-start justify-between gap-2">
@@ -61,6 +82,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
             <Button
               variant="ghost"
               size="icon-xs"
+              data-skill-interactive="true"
               aria-label={`${t("skills.uninstall")} ${normalizeSkillName(skill.name)}`}
               className={cn(
                 "shrink-0 text-transparent transition-colors",
@@ -70,7 +92,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                onDelete(skill.name);
+                onDelete?.(skill.name);
               }}
             >
               <Trash2 aria-hidden="true" className="h-3 w-3" />
@@ -107,6 +129,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
         {onToggle && (
           <button
             type="button"
+            data-skill-interactive="true"
             role="switch"
             aria-checked={!isDisabled}
             aria-label={isDisabled ? t("skills.enable") : t("skills.disable")}
@@ -120,7 +143,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              onToggle(skill.name, isDisabled);
+              onToggle?.(skill.name, isDisabled);
             }}
           >
             <span className={cn(
@@ -131,6 +154,14 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
           </button>
         )}
       </div>
-    </Link>
+      <Link
+        href={skillHref}
+        data-skill-interactive="true"
+        className="sr-only"
+        tabIndex={-1}
+      >
+        {normalizeSkillName(skill.name)}
+      </Link>
+    </div>
   );
 }

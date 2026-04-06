@@ -117,7 +117,7 @@ export function MemoryTab() {
                 </span>
                 <span
                   className={cn(
-                    "inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full w-fit",
+                    "inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
                     entry.scope === "global"
                       ? "border border-border bg-muted text-foreground"
                       : "bg-secondary text-muted-foreground",

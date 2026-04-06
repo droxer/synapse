@@ -2,7 +2,7 @@
 
 # Local Setup Guide
 
-Step-by-step instructions to get HiAgent running on your machine.
+Step-by-step instructions to get Synapse running on your machine.
 
 ---
 
@@ -32,8 +32,8 @@ uv --version         # any recent version
 ## 1. Clone the Repository
 
 ```bash
-git clone https://github.com/droxer/HiAgent.git
-cd HiAgent
+git clone https://github.com/droxer/Synapse.git
+cd Synapse
 ```
 
 ---
@@ -79,12 +79,12 @@ TAVILY_API_KEY=tvly-...
 # SANDBOX_PROVIDER=local        # Use if you don't have Docker
 
 # Optional — database (remove or leave empty to skip persistence)
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/hiagent
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/synapse
 ```
 
 ### LLM Provider
 
-HiAgent works with any LLM provider that exposes an Anthropic-compatible API. Set `ANTHROPIC_BASE_URL` to point to your provider and `ANTHROPIC_API_KEY` to the corresponding key.
+Synapse works with any LLM provider that exposes an Anthropic-compatible API. Set `ANTHROPIC_BASE_URL` to point to your provider and `ANTHROPIC_API_KEY` to the corresponding key.
 
 | Provider | `ANTHROPIC_BASE_URL` | Notes |
 |----------|---------------------|-------|
@@ -128,7 +128,7 @@ The webhook URL will be: `{CHANNELS_WEBHOOK_BASE_URL}/api/channels/telegram/webh
 **Setting up Telegram:**
 1. Create a bot via [@BotFather](https://t.me/botfather) on Telegram
 2. Copy the bot token and configure it in the Channels page
-3. HiAgent will automatically set up the webhook
+3. Synapse will automatically set up the webhook
 
 ### Sandbox Providers
 
@@ -149,13 +149,13 @@ If you don't have Docker installed, set `SANDBOX_PROVIDER=local` to run code as 
 If you want conversation persistence, create a PostgreSQL database:
 
 ```bash
-createdb hiagent
+createdb synapse
 ```
 
 Make sure `DATABASE_URL` in `backend/.env` points to it:
 
 ```
-DATABASE_URL=postgresql+asyncpg://localhost:5432/hiagent
+DATABASE_URL=postgresql+asyncpg://localhost:5432/synapse
 ```
 
 Then run migrations:
@@ -203,15 +203,15 @@ make build-sandbox
 ```
 
 This builds three images:
-- `hiagent-sandbox-default` — Python, Node.js, git
-- `hiagent-sandbox-data-science` — pandas, numpy, matplotlib
-- `hiagent-sandbox-browser` — Playwright + Chromium
+- `synapse-sandbox-default` — Python, Node.js, git
+- `synapse-sandbox-data-science` — pandas, numpy, matplotlib
+- `synapse-sandbox-browser` — Playwright + Chromium
 
 ---
 
 ## 7. Desktop App (Optional)
 
-HiAgent also ships as a native desktop app built with Tauri v2. It wraps the same web UI in a native window.
+Synapse also ships as a native desktop app built with Tauri v2. It wraps the same web UI in a native window.
 
 ```bash
 # Dev mode — opens Tauri window with hot reload
@@ -228,7 +228,7 @@ See [Desktop App Guide](../desktop-app.md) for details.
 ## Project Structure
 
 ```
-HiAgent/
+Synapse/
 ├── backend/           # Python/FastAPI backend
 │   ├── api/           # Routes, middleware, auth, app factory
 │   ├── agent/         # Agent runtime, tools, sandbox, skills, memory

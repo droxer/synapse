@@ -23,4 +23,4 @@ async def health_check(
     # Verify database connectivity
     await session.execute(text("SELECT 1"))
 
-    return {"status": "healthy", "service": "hiagent-api"}
+    return {"status": "healthy", "service": "synapse-api"}

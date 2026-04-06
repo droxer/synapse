@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Transform the HiAgent UI from warm-light editorial to a dark-mode-first, keyboard-driven interface per the new design guide.
+**Goal:** Transform the Synapse UI from warm-light editorial to a dark-mode-first, keyboard-driven interface per the new design guide.
 
 **Architecture:** Update CSS theme tokens for dark palette, swap fonts to Inter + JetBrains Mono, add Command Palette (Cmd+K), replace chat bubbles with flowing text, replace all spinners with shimmer animations, add AI glow state, and convert processing logs to terminal-style monospace format.
 
@@ -45,7 +45,7 @@ Key changes:
 - [ ] **Step 2: Update markdown prose styles for dark mode**
 - [ ] **Step 3: Verify build compiles**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm run build`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm run build`
 
 ### Task 3: Swap Fonts to Inter + JetBrains Mono
 
@@ -135,7 +135,7 @@ Tool call entries should display as:
 
 - [ ] **Step 1: Install cmdk**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm install cmdk`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm install cmdk`
 
 ### Task 11: Create Command Palette Component
 
@@ -161,4 +161,4 @@ Features:
 - [ ] **Step 3: Verify keyboard shortcut works**
 - [ ] **Step 4: Verify build compiles**
 
-Run: `cd /Users/feihe/Workspace/HiAgent/web && npm run build`
+Run: `cd /Users/feihe/Workspace/Synapse/web && npm run build`

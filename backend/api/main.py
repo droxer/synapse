@@ -171,7 +171,7 @@ def _create_app() -> FastAPI:
         await db_engine.dispose()
         logger.info("database_engine_disposed")
 
-    application = FastAPI(title="HiAgent", version="0.1.0", lifespan=_lifespan)
+    application = FastAPI(title="Synapse", version="0.1.0", lifespan=_lifespan)
 
     # Store AppState for dependency injection
     application.state.app_state = app_state

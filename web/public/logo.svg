@@ -29,9 +29,11 @@
     </linearGradient>
   </defs>
   <rect width="128" height="128" rx="28" fill="url(#logo-bg)" />
-  <rect x="30" y="30" width="20" height="68" rx="10" fill="var(--logo-glyph)" opacity="0.95" />
-  <rect x="78" y="30" width="20" height="68" rx="10" fill="var(--logo-glyph)" opacity="0.95" />
-  <rect x="40" y="52" width="48" height="16" rx="8" fill="var(--logo-glyph)" opacity="0.95" />
-  <circle cx="88" cy="30" r="10" fill="url(#logo-accent)" />
-  <circle cx="88" cy="30" r="4" fill="var(--logo-glyph)" opacity="0.9" />
+  <rect x="26" y="24" width="76" height="18" rx="9" fill="var(--logo-glyph)" opacity="0.95" />
+  <rect x="84" y="33" width="18" height="30" rx="9" fill="var(--logo-glyph)" opacity="0.95" />
+  <rect x="26" y="54" width="76" height="18" rx="9" fill="var(--logo-glyph)" opacity="0.95" />
+  <rect x="26" y="63" width="18" height="30" rx="9" fill="var(--logo-glyph)" opacity="0.95" />
+  <rect x="26" y="86" width="76" height="18" rx="9" fill="var(--logo-glyph)" opacity="0.95" />
+  <circle cx="95" cy="24" r="9" fill="url(#logo-accent)" />
+  <circle cx="95" cy="24" r="3.5" fill="var(--logo-glyph)" opacity="0.9" />
 </svg>

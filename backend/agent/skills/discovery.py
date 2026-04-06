@@ -20,9 +20,9 @@ class SkillDiscoverer:
     """Scans ordered filesystem paths for SKILL.md files.
 
     Path priority (first found wins):
-    1. {project}/.hiagent/skills/   (project, client-specific)
+    1. {project}/.synapse/skills/   (project, client-specific)
     2. {project}/.agents/skills/    (project, cross-client)
-    3. ~/.hiagent/skills/           (user, client-specific)
+    3. ~/.synapse/skills/           (user, client-specific)
     4. ~/.agents/skills/            (user, cross-client)
     5. {bundled_dir}                (system)
     """
@@ -77,7 +77,7 @@ def _build_search_paths(
 
     if project_dir:
         if trust_project:
-            paths.append((os.path.join(project_dir, ".hiagent", "skills"), "project"))
+            paths.append((os.path.join(project_dir, ".synapse", "skills"), "project"))
             paths.append((os.path.join(project_dir, ".agents", "skills"), "project"))
         else:
             logger.warning(
@@ -85,7 +85,7 @@ def _build_search_paths(
                 project_dir,
             )
 
-    paths.append((os.path.join(home, ".hiagent", "skills"), "user"))
+    paths.append((os.path.join(home, ".synapse", "skills"), "user"))
     paths.append((os.path.join(home, ".agents", "skills"), "user"))
 
     if bundled_dir:

@@ -13,7 +13,7 @@ function DesktopModeDetector() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("desktop") === "1") {
-      localStorage.setItem("hiagent-desktop", "1");
+      localStorage.setItem("synapse-desktop", "1");
     }
   }, []);
   return null;

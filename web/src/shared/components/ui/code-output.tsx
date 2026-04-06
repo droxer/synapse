@@ -9,6 +9,7 @@ import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { ExpandToggle } from "./expand-toggle";
 
 const COLLAPSE_THRESHOLD = 500;
+const CODE_OUTPUT_MARKDOWN_CLASSES = "[&_pre]:!text-sm [&_code]:!text-sm";
 
 interface CodeOutputProps {
   readonly output: string;
@@ -74,7 +75,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
 
       {/* Content — rendered via MarkdownRenderer for syntax highlighting */}
       <div className="code-output-content [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-0">
-        <MarkdownRenderer content={fenced} />
+        <MarkdownRenderer content={fenced} className={CODE_OUTPUT_MARKDOWN_CLASSES} />
         {isLong && !expanded && (
           <span className="font-mono text-xs text-muted-foreground-dim">{"\n..."}</span>
         )}

@@ -55,7 +55,7 @@ pub fn run() {
             let deep_link_handle = app.handle().clone();
             let deep_link_url = frontend_url.clone();
 
-            // Handle deep link callbacks (e.g. hiagent://auth/callback)
+            // Handle deep link callbacks (e.g. synapse://auth/callback)
             app.listen("deep-link://new-url", move |_event: tauri::Event| {
                 log::info!("Deep link received, reloading webview");
                 if let Some(window) = deep_link_handle.get_webview_window("main") {
@@ -107,5 +107,5 @@ pub fn run() {
             }
         })
         .run(tauri::generate_context!())
-        .expect("error while running HiAgent Desktop");
+        .expect("error while running Synapse Desktop");
 }

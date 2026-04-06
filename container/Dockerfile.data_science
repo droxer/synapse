@@ -1,4 +1,4 @@
-ARG BASE_IMAGE=hiagent-sandbox-base
+ARG BASE_IMAGE=synapse-sandbox-base
 FROM ${BASE_IMAGE}
 
 # Data science Python packages

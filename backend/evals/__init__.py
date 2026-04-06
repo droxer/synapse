@@ -1,4 +1,4 @@
-"""Agent evaluation system for HiAgent."""
+"""Agent evaluation system for Synapse."""
 
 from evals.models import (
     AgentHandoffRecord,

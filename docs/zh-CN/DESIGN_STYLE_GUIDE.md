@@ -1,6 +1,6 @@
 [English](../DESIGN_STYLE_GUIDE.md) | **简体中文**
 
-# HiAgent 设计风格指南
+# Synapse 设计风格指南
 
 > 简洁、精准、以内容为中心的 AI 界面，拥有充裕的留白和技术清晰感。
 

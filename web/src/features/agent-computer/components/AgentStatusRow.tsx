@@ -101,16 +101,16 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-5 border-l border-border bg-muted rounded-md pl-3 py-1 space-y-1 font-mono text-sm">
+            <div className="ml-5 space-y-1 rounded-md border-l border-border bg-muted pl-3 py-1">
               {toolCalls.map((tc) => (
                 <div key={tc.id}>
                   <div className="flex items-start gap-2 py-1">
                     <ToolStatusIcon tc={tc} />
-                    <span className="text-foreground text-xs">
+                    <span className="text-sm text-foreground">
                       {normalizeToolName(tc.name)}
                     </span>
                     {tc.output === undefined && (
-                      <span className="text-ai-glow text-xs">
+                      <span className="text-sm text-ai-glow">
                         {t("computer.running")}
                       </span>
                     )}

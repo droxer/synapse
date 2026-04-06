@@ -592,7 +592,7 @@ pre, code {
 .markdown-reasoning {
   line-height: 1.6;
   word-wrap: break-word;
-  font-size: 0.875rem; /* text-sm */
+  font-size: var(--text-sm);
   color: var(--color-muted-foreground);
   opacity: 0.9;
 }
@@ -617,10 +617,6 @@ pre, code {
   opacity: 0.8;
 }
 
-.markdown-reasoning h1 { font-size: 1.1em; }
-.markdown-reasoning h2 { font-size: 1.05em; }
-.markdown-reasoning h3 { font-size: 1em; }
-
 .markdown-reasoning ul,
 .markdown-reasoning ol {
   margin: 0.5em 0;
@@ -638,7 +634,6 @@ pre, code {
   border: 1px solid var(--color-border);
   border-radius: 0.375rem;
   padding: 0.75em 1em;
-  font-size: 0.85em;
 }
 
 .markdown-reasoning code {
@@ -649,7 +644,6 @@ pre, code {
   background: var(--color-muted);
   border-radius: 0.25rem;
   padding: 0.15em 0.3em;
-  font-size: 0.9em;
 }
 
 .markdown-reasoning a {

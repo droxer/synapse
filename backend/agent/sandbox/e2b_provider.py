@@ -1,4 +1,4 @@
-"""E2B cloud sandbox provider for HiAgent.
+"""E2B cloud sandbox provider for Synapse.
 
 Uses the E2B SDK to create cloud-hosted sandbox environments.
 The E2B SDK is synchronous, so all calls are wrapped in
@@ -32,9 +32,9 @@ from agent.sandbox.base import (
 # ---------------------------------------------------------------------------
 
 TEMPLATE_IDS: dict[str, str] = {
-    "default": "hiagent-default",
-    "data_science": "hiagent-data-science",
-    "browser": "hiagent-browser",
+    "default": "synapse-default",
+    "data_science": "synapse-data-science",
+    "browser": "synapse-browser",
 }
 
 
@@ -71,7 +71,7 @@ class E2BSession:
 
     Implements the ``SandboxSession`` protocol. Wraps the E2B
     ``Sandbox`` instance to provide a consistent interface with
-    the rest of HiAgent. All synchronous E2B SDK calls are dispatched
+    the rest of Synapse. All synchronous E2B SDK calls are dispatched
     via ``asyncio.to_thread``.
     """
 

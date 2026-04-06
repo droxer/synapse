@@ -1,6 +1,6 @@
 # Design system
 
-HiAgent uses a **Sharp & Focused** design language — tight radii, dense chrome, Geist Mono in UI labels, and a single blue accent. Think Cursor / VS Code aesthetic, not rounded-app aesthetic.
+Synapse uses a **Sharp & Focused** design language — tight radii, dense chrome, Geist Mono in UI labels, and a single blue accent. Think Cursor / VS Code aesthetic, not rounded-app aesthetic.
 
 All tokens live in `web/src/app/globals.css` (`@theme` block for Tailwind registration, `:root` for light mode, `.dark` for dark mode overrides).
 

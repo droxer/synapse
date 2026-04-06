@@ -165,7 +165,7 @@ If PG becomes unreachable mid-conversation, the subscriber logs the error but do
 Add to `config/settings.py`:
 
 ```python
-DATABASE_URL: str = "postgresql+asyncpg://ha:ha@localhost:5432/hiagent"
+DATABASE_URL: str = "postgresql+asyncpg://ha:ha@localhost:5432/synapse"
 ```
 
 ## Alembic Setup
@@ -215,7 +215,7 @@ New file `src/shared/api/conversations.ts`:
 
 - `backend/agent/state/models.py` — old SQLite frozen dataclasses (replaced by ORM models + schemas)
 - `backend/agent/state/repository.py` — old SQLite repository (rewritten for PostgreSQL)
-- `hiagent.db` — SQLite database file (no migration path, was unused)
+- `synapse.db` — SQLite database file (no migration path, was unused)
 
 ## Dependencies
 

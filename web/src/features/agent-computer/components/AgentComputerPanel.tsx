@@ -449,7 +449,7 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "activity" ? 0 : -1}
             onClick={() => setActiveTab("activity")}
             className={cn(
-              "flex items-center gap-1.5 rounded-t-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-t-md px-2.5 py-1.5 text-sm font-medium transition-colors",
               activeTab === "activity"
                 ? "border-b-2 border-foreground text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -467,7 +467,7 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "files" ? 0 : -1}
             onClick={() => setActiveTab("files")}
             className={cn(
-              "flex items-center gap-1.5 rounded-t-md px-2.5 py-1.5 text-xs font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-t-md px-2.5 py-1.5 text-sm font-medium transition-colors",
               activeTab === "files"
                 ? "border-b-2 border-foreground text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -522,7 +522,7 @@ export function AgentComputerPanel({
             )}
 
             {/* Unified timeline: tool calls and agent status rows interleaved by timestamp */}
-            <div className="space-y-2 font-mono text-sm">
+            <div className="space-y-2">
               {timelineItems.map((item) =>
                 item.kind === "agent" ? (
                   <div key={`agent-${item.agent.agentId}`} data-step-id={`agent-${item.agent.agentId}`}>
@@ -559,7 +559,7 @@ export function AgentComputerPanel({
                     {/* Log line */}
                     <div
                       className={cn(
-                        "flex items-start gap-2 rounded-md px-1.5 py-1.5",
+                        "flex items-start gap-2 rounded-md px-1.5 py-1.5 text-sm",
                         item.toolCall.output !== undefined && item.toolCall.success !== false && "bg-accent-emerald/5",
                       )}
                     >

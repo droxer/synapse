@@ -27,7 +27,7 @@ import { CodeOutput } from "@/shared/components/ui/code-output";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
 import { BrowserOutput } from "./BrowserOutput";
 import { ComputerUseOutput } from "./ComputerUseOutput";
-import { PROSE_CLASSES } from "../lib/format-tools";
+import { PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES } from "../lib/format-tools";
 import { CODE_TOOLS } from "../lib/tool-constants";
 import { getToolCategory, type ToolCategory } from "../lib/tool-constants";
 import type { BrowserMetadata, ComputerUseMetadata } from "@/shared/types";
@@ -280,9 +280,9 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     try {
       const results = JSON.parse(output) as Record<string, { success: boolean; summary: string; error: string | null; artifacts: string[] }>;
       const entries = Object.entries(results);
-      return (
-        <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-          <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
+        return (
+          <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
+          <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
             <GitFork className="h-3 w-3" />
             {t("output.agentResults")}
           </div>
@@ -311,7 +311,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     if (output === "No pending messages." || output === "[]") {
       return (
         <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-          <div className="flex items-center gap-1 text-sm text-muted-foreground-dim">
+          <div className="flex items-center gap-1 text-sm font-medium text-foreground">
             <MessageSquare className="h-3 w-3" />
             {t("output.noMessages")}
           </div>
@@ -323,7 +323,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       if (Array.isArray(messages)) {
         return (
           <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-            <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
+            <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
               <MessageSquare className="h-3 w-3" />
               {t("output.agentMessages", { count: messages.length })}
             </div>
@@ -360,7 +360,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
           const remaining = rows.length - MAX_ROWS;
           return (
             <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-              <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
+              <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
                 <Database className="h-3 w-3" />
                 {summaryLine}
               </div>
@@ -369,7 +369,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                   <thead>
                     <tr className="border-b border-border">
                       {columns.map((col) => (
-                        <th key={col} className="whitespace-nowrap px-2 py-1 font-medium text-muted-foreground">{col}</th>
+                        <th key={col} className="whitespace-nowrap px-2 py-1 text-xs font-medium text-muted-foreground">{col}</th>
                       ))}
                     </tr>
                   </thead>
@@ -406,7 +406,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       if (entries.length > 0) {
         return (
           <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-            <div className="mb-1.5 flex items-center gap-1 text-micro text-muted-foreground-dim">
+            <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
               <Database className="h-3 w-3" />
               {t("output.memoryEntries", { count: entries.length })}
             </div>
@@ -434,12 +434,12 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (success === false) {
     return (
       <div className="mt-2.5 rounded-md border-l-2 border-l-destructive bg-destructive/5 px-2.5 py-1.5">
-        <div className="mb-1.5 flex items-center gap-1 text-micro text-destructive">
+        <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-destructive">
           <CircleX className="h-3 w-3" />
           {t("output.toolFailed")}
         </div>
         <div className={PROSE_CLASSES}>
-          <MarkdownRenderer content={displayText} />
+          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
           {isLong && !expanded && (
             <span className="text-muted-foreground-dim">...</span>
           )}
@@ -454,7 +454,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     <div className={cn("mt-2.5 rounded-md border-l-2 bg-muted px-2.5 py-1.5", style.border)}>
       <div className="mb-1.5 flex items-center justify-end">
         {style.labelKey && (
-          <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
+          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
             <CategoryIcon className="h-3 w-3" />
             {t(style.labelKey)}
           </span>
@@ -462,7 +462,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       </div>
 
       <div className={PROSE_CLASSES}>
-        <MarkdownRenderer content={displayText} />
+        <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
         {isLong && !expanded && (
           <span className="text-muted-foreground-dim">...</span>
         )}

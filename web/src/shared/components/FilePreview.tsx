@@ -123,7 +123,7 @@ async function convertXlsxToHtml(url: string): Promise<string> {
     const tableHtml = XLSX.utils.sheet_to_html(sheet, { id: `sheet-${sheetName}` });
     parts.push(
       `<div style="margin-bottom:1.5em;">` +
-        `<h3 style="font-size:14px;font-weight:600;margin-bottom:8px;">${sheetName}</h3>` +
+        `<h3 class="sheet-title">${sheetName}</h3>` +
         tableHtml +
       `</div>`,
     );
@@ -138,14 +138,15 @@ async function convertXlsxToHtml(url: string): Promise<string> {
 const OFFICE_IFRAME_STYLES = `
 <style>
   body {
-    font-family: var(--font-geist, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif);
+    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif);
     padding: 24px 32px;
     margin: 0;
     color: var(--color-foreground, #0f172a);
     background: var(--color-background, #f8fafc);
     line-height: 1.6;
-    font-size: 14px;
+    font-size: 0.875rem;
   }
+  .sheet-title { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
   /* mammoth docx styles */
   h1 { font-size: 1.6em; margin: 0.8em 0 0.4em; }
   h2 { font-size: 1.3em; margin: 0.8em 0 0.4em; }
@@ -156,7 +157,7 @@ const OFFICE_IFRAME_STYLES = `
   table {
     border-collapse: collapse;
     width: 100%;
-    font-size: 13px;
+    font-size: 0.75rem;
   }
   th, td {
     border: 1px solid var(--color-border, #e2e8f0);

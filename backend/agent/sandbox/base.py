@@ -1,4 +1,4 @@
-"""Sandbox provider abstraction layer for HiAgent.
+"""Sandbox provider abstraction layer for Synapse.
 
 Defines the core types and protocols for creating, managing, and
 interacting with sandboxed execution environments.

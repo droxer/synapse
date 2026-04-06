@@ -2,7 +2,7 @@
 
 # 本地部署指南
 
-按照以下步骤在本地运行 HiAgent。
+按照以下步骤在本地运行 Synapse。
 
 ---
 
@@ -32,8 +32,8 @@ uv --version         # 任意近期版本
 ## 1. 克隆仓库
 
 ```bash
-git clone https://github.com/droxer/HiAgent.git
-cd HiAgent
+git clone https://github.com/droxer/Synapse.git
+cd Synapse
 ```
 
 ---
@@ -79,12 +79,12 @@ TAVILY_API_KEY=tvly-...
 # SANDBOX_PROVIDER=local        # 未安装 Docker 时使用
 
 # 可选 — 数据库（留空或删除则跳过持久化）
-DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/hiagent
+DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/synapse
 ```
 
 ### LLM 提供者
 
-HiAgent 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。设置 `ANTHROPIC_BASE_URL` 指向你的提供者地址，`ANTHROPIC_API_KEY` 设置为对应的密钥即可。
+Synapse 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。设置 `ANTHROPIC_BASE_URL` 指向你的提供者地址，`ANTHROPIC_API_KEY` 设置为对应的密钥即可。
 
 | 提供者 | `ANTHROPIC_BASE_URL` | 说明 |
 |--------|---------------------|------|
@@ -128,7 +128,7 @@ Webhook URL 格式为：`{CHANNELS_WEBHOOK_BASE_URL}/api/channels/telegram/webho
 **设置 Telegram：**
 1. 在 Telegram 上通过 [@BotFather](https://t.me/botfather) 创建机器人
 2. 复制机器人令牌并在频道页面进行配置
-3. HiAgent 将自动设置 webhook
+3. Synapse 将自动设置 webhook
 
 ### 沙盒提供者
 
@@ -149,13 +149,13 @@ Webhook URL 格式为：`{CHANNELS_WEBHOOK_BASE_URL}/api/channels/telegram/webho
 如需对话持久化，先创建 PostgreSQL 数据库：
 
 ```bash
-createdb hiagent
+createdb synapse
 ```
 
 确保 `backend/.env` 中的 `DATABASE_URL` 指向该数据库：
 
 ```
-DATABASE_URL=postgresql+asyncpg://localhost:5432/hiagent
+DATABASE_URL=postgresql+asyncpg://localhost:5432/synapse
 ```
 
 然后执行迁移：
@@ -203,15 +203,15 @@ make build-sandbox
 ```
 
 将构建三个镜像：
-- `hiagent-sandbox-default` — Python、Node.js、git
-- `hiagent-sandbox-data-science` — pandas、numpy、matplotlib
-- `hiagent-sandbox-browser` — Playwright + Chromium
+- `synapse-sandbox-default` — Python、Node.js、git
+- `synapse-sandbox-data-science` — pandas、numpy、matplotlib
+- `synapse-sandbox-browser` — Playwright + Chromium
 
 ---
 
 ## 7. 桌面应用（可选）
 
-HiAgent 还提供基于 Tauri v2 的原生桌面应用。它将 Web UI 封装在原生窗口中。
+Synapse 还提供基于 Tauri v2 的原生桌面应用。它将 Web UI 封装在原生窗口中。
 
 ```bash
 # 开发模式 — 打开 Tauri 窗口并支持热重载
@@ -228,7 +228,7 @@ make build-desktop
 ## 项目结构
 
 ```
-HiAgent/
+Synapse/
 ├── backend/           # Python/FastAPI 后端
 │   ├── api/           # 路由、中间件、认证、应用工厂
 │   ├── agent/         # 智能体运行时、工具、沙盒、技能、记忆

@@ -1,6 +1,6 @@
 **English** | [简体中文](zh-CN/DESIGN_STYLE_GUIDE.md)
 
-# HiAgent Design Style Guide
+# Synapse Design Style Guide
 
 > Clean, precise, content-focused AI interface with generous whitespace and technical clarity.
 

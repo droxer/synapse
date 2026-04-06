@@ -50,7 +50,7 @@ export default function MainLayout({
             <Menu className="h-5 w-5" />
           </button>
           <span className="text-sm font-semibold tracking-tight text-foreground">
-            HiAgent
+            Synapse
           </span>
         </div>
       )}

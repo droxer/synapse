@@ -90,14 +90,14 @@ export function FileContentViewer({
       const parts = splitFrontmatter(content);
       if (parts) {
         const combined = `\`\`\`yaml\n${parts.yaml}\n\`\`\`\n\n${parts.body}`;
-        return <MarkdownRenderer content={combined} className="prose dark:prose-invert max-w-none break-words" />;
+        return <MarkdownRenderer content={combined} className="max-w-none break-words" />;
       }
-      return <MarkdownRenderer content={content} className="prose dark:prose-invert max-w-none break-words" />;
+      return <MarkdownRenderer content={content} className="max-w-none break-words" />;
     }
 
     // Regular markdown
     if (isMarkdown(path)) {
-      return <MarkdownRenderer content={content} className="prose dark:prose-invert max-w-none break-words" />;
+      return <MarkdownRenderer content={content} className="max-w-none break-words" />;
     }
 
     // Code files — render through MarkdownRenderer for syntax highlighting
@@ -106,7 +106,7 @@ export function FileContentViewer({
     if (lang) {
       const fenced = `\`\`\`${lang}\n${content}\n\`\`\``;
       return (
-        <div className="file-viewer-code [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:p-4">
+        <div className="file-viewer-code [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-4">
           <MarkdownRenderer content={fenced} />
         </div>
       );
