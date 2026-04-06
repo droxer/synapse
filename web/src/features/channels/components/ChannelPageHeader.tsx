@@ -22,7 +22,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
       {/* Left: title + live badge */}
       <div className="flex items-center gap-2">
         <Radio className="h-4 w-4 text-[#2AABEE]" />
-        <h1 className="text-sm font-semibold tracking-tight text-foreground">Channels</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Channels</h1>
         {telegramConfigured && (
           <span className="flex items-center gap-1 rounded-full bg-accent-emerald/10 px-1.5 py-0.5 text-micro font-medium text-accent-emerald ring-1 ring-accent-emerald/20">
             <span className="relative flex h-1.5 w-1.5">

@@ -22,7 +22,7 @@ export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear 
         onChange={(e: ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
         placeholder={placeholder}
         aria-label={placeholder}
-        className="w-32 bg-transparent text-xs text-foreground placeholder:text-muted-foreground-dim outline-none"
+        className="w-32 bg-transparent text-sm text-foreground placeholder:text-muted-foreground-dim outline-none"
       />
       {value && (
         <button

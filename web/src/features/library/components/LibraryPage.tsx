@@ -93,7 +93,7 @@ export function LibraryPage() {
               <Library aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                 {t("library.title")}
               </h1>
               {isLoading && !statsLine ? (

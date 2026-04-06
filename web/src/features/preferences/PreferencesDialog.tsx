@@ -57,7 +57,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
             className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary p-3"
             aria-label={t("preferences.title")}
           >
-            <p className="px-3 pb-3 pt-4 text-micro font-semibold uppercase tracking-widest text-muted-foreground-dim">
+            <p className="label-mono px-3 pb-3 pt-4 text-muted-foreground-dim">
               {t("preferences.title")}
             </p>
             {MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => {

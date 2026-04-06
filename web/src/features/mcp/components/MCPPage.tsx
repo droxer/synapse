@@ -118,7 +118,7 @@ export function MCPPage() {
               <Blocks className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                 {t("mcp.title")}
               </h1>
               <p className="text-xs text-muted-foreground">
@@ -154,7 +154,7 @@ export function MCPPage() {
 
           {/* Section header with search + add */}
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-medium text-muted-foreground">
+            <h2 className="text-lg font-medium text-muted-foreground">
               {t("mcp.mcpServers")}
             </h2>
             <div className="flex-1" />

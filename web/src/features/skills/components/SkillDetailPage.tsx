@@ -127,7 +127,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-lg font-semibold tracking-tight text-foreground">
+            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
               {normalizeSkillName(skill.name)}
             </h1>
             {skill.description && (

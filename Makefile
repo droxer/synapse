@@ -2,7 +2,7 @@ SANDBOX_REGISTRY := ghcr.io/droxer
 SANDBOX_BASE_IMAGE := base
 SANDBOX_IMAGES := default data_science browser
 
-# Image version tags (override with SANDBOX_TAG=vX)
+# Image version tags (override with SANDBOX_TAGS_<name>=vX)
 SANDBOX_TAGS_base :=
 SANDBOX_TAGS_default :=
 SANDBOX_TAGS_data_science :=
@@ -46,7 +46,8 @@ generate-favicons:
 
 # Resolve the full image name with optional version tag
 # e.g. browser -> ghcr.io/droxer/synapse-sandbox-browser:v3
-sandbox_image = $(SANDBOX_REGISTRY)/synapse-sandbox-$(1)$(if $(SANDBOX_TAGS_$(1)),:$(SANDBOX_TAGS_$(1)),)
+sandbox_suffix = $(subst _,-,$(1))
+sandbox_image = $(SANDBOX_REGISTRY)/synapse-sandbox-$(call sandbox_suffix,$(1))$(if $(SANDBOX_TAGS_$(1)),:$(SANDBOX_TAGS_$(1)),)
 
 # Local tag for the base image (used as default BASE_IMAGE arg in derived Dockerfiles)
 SANDBOX_BASE_LOCAL_TAG := synapse-sandbox-base
@@ -56,9 +57,18 @@ SANDBOX_BASE_LOCAL_TAG := synapse-sandbox-base
 # Base image is always built first when building all images.
 build-sandbox:
 ifdef SANDBOX
+ifeq ($(SANDBOX),$(SANDBOX_BASE_IMAGE))
+	docker build -t $(call sandbox_image,$(SANDBOX_BASE_IMAGE)) \
+		-t $(SANDBOX_BASE_LOCAL_TAG) \
+		-f container/Dockerfile.$(SANDBOX_BASE_IMAGE) container
+else
+	docker build -t $(call sandbox_image,$(SANDBOX_BASE_IMAGE)) \
+		-t $(SANDBOX_BASE_LOCAL_TAG) \
+		-f container/Dockerfile.$(SANDBOX_BASE_IMAGE) container
 	docker build -t $(call sandbox_image,$(SANDBOX)) \
 		--build-arg BASE_IMAGE=$(SANDBOX_BASE_LOCAL_TAG) \
 		-f container/Dockerfile.$(SANDBOX) container
+endif
 else
 	docker build -t $(call sandbox_image,$(SANDBOX_BASE_IMAGE)) \
 		-t $(SANDBOX_BASE_LOCAL_TAG) \
@@ -71,6 +81,22 @@ endif
 # Push sandbox Docker images to GHCR
 # Usage: make push-sandbox [SANDBOX=browser]
 push-sandbox:
+ifdef SANDBOX
+	@echo "Pushing sandbox image to:"
+	@echo "  $(call sandbox_image,$(SANDBOX))"
+	@if printf '%s\n' "$(call sandbox_image,$(SANDBOX))" | rg -q 'data_science'; then \
+		echo "ERROR: underscore image name detected in push target"; \
+		exit 1; \
+	fi
+else
+	@echo "Pushing sandbox images to:"
+	@echo "  $(call sandbox_image,$(SANDBOX_BASE_IMAGE))"
+	@$(foreach img,$(SANDBOX_IMAGES),echo "  $(call sandbox_image,$(img))";)
+	@if printf '%s\n' "$(call sandbox_image,$(SANDBOX_BASE_IMAGE)) $(foreach img,$(SANDBOX_IMAGES),$(call sandbox_image,$(img)))" | rg -q 'data_science'; then \
+		echo "ERROR: underscore image name detected in push target"; \
+		exit 1; \
+	fi
+endif
 ifdef SANDBOX
 	docker push $(call sandbox_image,$(SANDBOX))
 else

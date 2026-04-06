@@ -243,7 +243,7 @@ export function SkillsPage() {
               <Lightbulb aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight text-foreground">
+              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
                 {t("skills.title")}
               </h1>
               <p className="text-xs text-muted-foreground">
@@ -273,7 +273,7 @@ export function SkillsPage() {
 
           {/* Section header with search + install */}
           <div className="flex items-center gap-3">
-            <h2 className="text-base font-medium text-muted-foreground">
+            <h2 className="text-lg font-medium text-muted-foreground">
               {t("skills.agentSkills")}
             </h2>
             <div className="flex-1" />
