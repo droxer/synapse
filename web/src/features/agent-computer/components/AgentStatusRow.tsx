@@ -73,7 +73,7 @@ export function AgentStatusRow({
           )}
         </span>
         {hasTools && (
-          <span className="text-xs font-mono text-muted-foreground tabular-nums">
+          <span className="text-micro font-mono text-muted-foreground tabular-nums">
             {toolCalls.filter((tc) => tc.output !== undefined).length}/{toolCalls.length}
           </span>
         )}

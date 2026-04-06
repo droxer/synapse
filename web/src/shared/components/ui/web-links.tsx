@@ -1,5 +1,6 @@
 import { Globe, ExternalLink } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useTranslation } from "@/i18n";
 
 export interface WebLink {
   readonly title: string;
@@ -23,23 +24,27 @@ function getDomain(url: string): string {
   }
 }
 
-export function WebLinks({ query, results, className, resultsLabel, searchLabel = "Search" }: WebLinksProps) {
-  const defaultResultsLabel = `${results.length} result${results.length !== 1 ? "s" : ""} for`;
+export function WebLinks({ query, results, className, resultsLabel, searchLabel }: WebLinksProps) {
+  const { t } = useTranslation();
+  const defaultResultsLabel = t(results.length === 1 ? "output.searchResult" : "output.searchResults", {
+    count: results.length,
+  });
+  const resolvedSearchLabel = searchLabel ?? t("output.searchLabel");
   return (
-    <div className={cn("rounded-md border-l-2 border-l-border-strong bg-muted px-3 py-2", className)}>
-      <div className="mb-2 flex items-center justify-between">
-        <span className="text-xs text-muted-foreground">
+    <div className={cn("rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5", className)}>
+      <div className="mb-1.5 flex items-center justify-between">
+        <span className="text-micro text-muted-foreground">
           {resultsLabel ?? defaultResultsLabel}{" "}
-          <span className="font-medium text-foreground">&ldquo;{query}&rdquo;</span>
+          <span className="font-medium text-foreground">{`"${query}"`}</span>
         </span>
         <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
           <Globe className="h-3 w-3" />
-          {searchLabel}
+          {resolvedSearchLabel}
         </span>
       </div>
-      <ul className="space-y-2">
+      <ul className="space-y-1.5">
         {results.map((r) => (
-          <li key={r.url} className="group rounded-md px-2 py-1.5 transition-colors hover:bg-muted">
+          <li key={r.url} className="group rounded-md px-2 py-1 transition-colors hover:bg-background/60">
             <a
               href={r.url}
               target="_blank"
@@ -47,7 +52,7 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
               className="flex items-start gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             >
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-user-accent group-hover:underline">
+                <p className="text-sm font-medium text-user-accent group-hover:underline">
                   {r.title || getDomain(r.url)}
                 </p>
                 <p className="text-micro text-muted-foreground-dim">{getDomain(r.url)}</p>

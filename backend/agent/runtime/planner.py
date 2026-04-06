@@ -8,7 +8,12 @@ from typing import Any, Protocol
 
 from loguru import logger
 
-from agent.llm.client import AnthropicClient, LLMResponse
+from agent.llm.client import (
+    AnthropicClient,
+    LLMResponse,
+    format_llm_failure,
+    is_content_policy_error,
+)
 from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
@@ -333,9 +338,11 @@ class PlannerOrchestrator:
                 f"Exceeded maximum iterations ({self._max_iterations})",
             )
 
-        response = await self._call_llm(state, tools, model, effective_prompt)
-        if response is None:
-            return state.mark_error("LLM call failed")
+        response, llm_error = await self._call_llm(
+            state, tools, model, effective_prompt
+        )
+        if llm_error is not None:
+            return state.mark_error(llm_error)
 
         await self._emit_llm_response(state, response)
 
@@ -473,8 +480,8 @@ class PlannerOrchestrator:
         tools: list[dict[str, Any]],
         model: str,
         system_prompt: str | None = None,
-    ) -> LLMResponse | None:
-        """Call the LLM with streaming and return the response, or None on failure."""
+    ) -> tuple[LLMResponse | None, str | None]:
+        """Call the LLM with streaming and return the response or an error."""
         try:
 
             async def _on_text_delta(delta: str) -> None:
@@ -484,16 +491,17 @@ class PlannerOrchestrator:
                     iteration=state.iteration,
                 )
 
-            return await self._client.create_message_stream(
+            response = await self._client.create_message_stream(
                 system=system_prompt or self._system_prompt,
                 messages=list(state.messages),
                 tools=tools if tools else None,
                 model=model,
                 on_text_delta=_on_text_delta,
             )
+            return response, None
         except Exception as exc:
             logger.exception("llm_call_failed_planning model={} error={}", model, exc)
-            return None
+            return None, format_llm_failure(exc)
 
     async def _emit_llm_response(
         self,
@@ -518,6 +526,9 @@ class PlannerOrchestrator:
             err_msg = state.error
             retryable = "LLM call failed" in err_msg
             code = "llm_error" if retryable else "agent_error"
+            if is_content_policy_error(err_msg):
+                code = "content_policy"
+                retryable = False
             if "maximum iterations" in err_msg.lower():
                 code = "max_iterations"
                 retryable = False

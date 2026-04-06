@@ -8,7 +8,13 @@ import { MarkdownRenderer } from "@/shared/components";
 import { ImageOutput } from "@/shared/components/ui/image-output";
 import { Progress } from "@/shared/components/ui/progress";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
-import { PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES } from "../lib/format-tools";
+import {
+  PROSE_CLASSES,
+  TOOL_OUTPUT_MARKDOWN_CLASSES,
+  OUTPUT_CARD_BASE_CLASSES,
+  OUTPUT_HEADER_ROW_CLASSES,
+  OUTPUT_HEADER_LABEL_CLASSES,
+} from "../lib/format-tools";
 import type { BrowserMetadata } from "@/shared/types";
 
 const COLLAPSE_THRESHOLD = 500;
@@ -50,11 +56,11 @@ export function BrowserOutput({
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
 
   return (
-    <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
+    <div className={OUTPUT_CARD_BASE_CLASSES}>
       {/* Header */}
-      <div className="mb-2 flex items-center gap-2">
+      <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "mb-2")}>
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">
+        <span className={OUTPUT_HEADER_LABEL_CLASSES}>
           {t("output.category.browser")}
         </span>
         {/* Status badge */}
@@ -67,7 +73,7 @@ export function BrowserOutput({
         </span>
         {/* URL pill */}
         {hostname && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-micro text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-micro text-muted-foreground-dim">
             <ExternalLink className="h-2.5 w-2.5" />
             {hostname}
           </span>

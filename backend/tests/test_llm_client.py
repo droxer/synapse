@@ -1,6 +1,13 @@
 import json
 
-from agent.llm.client import _extract_tool_calls
+import anthropic
+import httpx
+
+from agent.llm.client import (
+    _extract_tool_calls,
+    format_llm_failure,
+    is_content_policy_error,
+)
 
 
 class _ToolUseBlock:
@@ -37,3 +44,29 @@ def test_extract_tool_calls_merges_partial_input_with_arguments() -> None:
 
     assert len(calls) == 1
     assert calls[0].input == args
+
+
+def test_format_llm_failure_normalizes_content_policy_rejection() -> None:
+    payload = {
+        "error": {
+            "message": "Input data may contain inappropriate content.",
+            "type": "data_inspection_failed",
+            "code": "data_inspection_failed",
+        }
+    }
+    request = httpx.Request(
+        "POST", "https://dashscope.aliyuncs.com/apps/anthropic/v1/messages"
+    )
+    response = httpx.Response(400, request=request, json=payload)
+    exc = anthropic.BadRequestError(
+        "Error code: 400 - data_inspection_failed",
+        response=response,
+        body=payload,
+    )
+
+    message = format_llm_failure(exc)
+
+    assert is_content_policy_error(exc) is True
+    assert is_content_policy_error(message) is True
+    assert message.startswith("LLM content policy rejection:")
+    assert "content inspection" in message

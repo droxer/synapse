@@ -8,7 +8,11 @@ from typing import Any
 
 from loguru import logger
 
-from agent.llm.client import AnthropicClient
+from agent.llm.client import (
+    AnthropicClient,
+    format_llm_failure,
+    is_content_policy_error,
+)
 from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.memory.store import PersistentMemoryStore
 from agent.runtime.helpers import (
@@ -379,6 +383,9 @@ class AgentOrchestrator:
             err_msg = self._state.error
             retryable = "LLM call failed" in err_msg
             code = "llm_error" if retryable else "agent_error"
+            if is_content_policy_error(err_msg):
+                code = "content_policy"
+                retryable = False
             if "maximum iterations" in err_msg.lower():
                 code = "max_iterations"
                 retryable = False
@@ -591,7 +598,7 @@ class AgentOrchestrator:
             )
         except Exception as exc:
             logger.error("llm_call_failed model={} error={}", llm_model, exc)
-            return state.mark_error(f"LLM call failed: {exc}")
+            return state.mark_error(format_llm_failure(exc))
 
         logger.info(
             "llm_response model={} stop_reason={} tool_calls={} input_tokens={} output_tokens={}",

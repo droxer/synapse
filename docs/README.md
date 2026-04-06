@@ -31,6 +31,7 @@ Concise guides for agents and developers. Root navigation: **`AGENTS.md`** and *
 | [setup.md](setup.md) | Environment setup |
 | [desktop-app.md](desktop-app.md) | Desktop packaging and architecture |
 | [DESIGN_STYLE_GUIDE.md](DESIGN_STYLE_GUIDE.md) | UI conventions |
+| [frontend-typography-review-2026-04-06.md](frontend-typography-review-2026-04-06.md) | Frontend typography audit + normalization plan |
 | [brand-guidelines.md](brand-guidelines.md) | Brand |
 
 ## 简体中文

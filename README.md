@@ -1,8 +1,5 @@
 <p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="web/public/favicon-dark.svg" />
-    <img src="web/public/favicon-light.svg" width="80" height="80" alt="Synapse logo" />
-  </picture>
+  <img src="web/public/logo.svg" width="112" alt="Synapse logo" />
 </p>
 
 <h1 align="center">Synapse</h1>

@@ -4,6 +4,11 @@ import { Monitor } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { ImageOutput } from "@/shared/components/ui/image-output";
+import {
+  OUTPUT_CARD_BASE_CLASSES,
+  OUTPUT_HEADER_LABEL_CLASSES,
+  OUTPUT_HEADER_ROW_CLASSES,
+} from "../lib/format-tools";
 import type { ComputerUseMetadata } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
@@ -79,11 +84,11 @@ export function ComputerUseOutput({
   const action = computerUseMetadata?.action;
 
   return (
-    <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
+    <div className={OUTPUT_CARD_BASE_CLASSES}>
       {/* Header */}
-      <div className="mb-1.5 flex items-center gap-2">
+      <div className={OUTPUT_HEADER_ROW_CLASSES}>
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">
+        <span className={OUTPUT_HEADER_LABEL_CLASSES}>
           {t("output.category.computer")}
         </span>
         {/* Action badge */}

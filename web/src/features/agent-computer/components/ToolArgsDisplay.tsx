@@ -107,7 +107,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
   return (
     <div
       className={cn(
-        "rounded-md border-l-2 border-border bg-muted font-mono",
+        "rounded-md border-l-2 border-border bg-muted",
         compact ? "px-2 py-1 text-micro" : "px-2.5 py-1.5 text-xs",
       )}
     >
@@ -133,7 +133,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
           return (
             <div key={key} className="contents">
               {/* Key */}
-              <span className="select-none text-muted-foreground whitespace-nowrap pt-px">
+              <span className="select-none whitespace-nowrap pt-px text-micro text-muted-foreground-dim">
                 {normalizeArgKey(key, t)}
               </span>
 
@@ -142,7 +142,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                 {isMultiline ? (
                   <pre
                     className={cn(
-                      "whitespace-pre-wrap break-all text-foreground",
+                      "whitespace-pre-wrap break-all font-mono text-foreground",
                       compact ? "text-micro" : "text-xs",
                     )}
                   >
@@ -155,8 +155,8 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                   <span
                     className={
                       value
-                        ? "text-accent-emerald"
-                        : "text-accent-rose"
+                        ? "text-micro text-accent-emerald"
+                        : "text-micro text-accent-rose"
                     }
                   >
                     {String(value)}

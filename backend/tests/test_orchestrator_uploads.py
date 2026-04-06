@@ -8,7 +8,7 @@ from typing import Any
 
 import pytest
 
-from agent.llm.client import LLMResponse, TokenUsage
+from agent.llm.client import LLMContentPolicyError, LLMResponse, TokenUsage
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.sandbox.base import ExecResult
 from agent.skills.loader import SkillRegistry
@@ -22,6 +22,7 @@ class _FakeClaudeClient:
     def __init__(self) -> None:
         self.calls = 0
         self.last_messages: list[dict[str, Any]] | None = None
+        self.default_model = "test-model"
 
     async def create_message_stream(
         self,
@@ -54,6 +55,23 @@ class _RecordingObserver:
     async def compact(self, messages, system_prompt=""):
         self.compact_calls.append((messages, system_prompt))
         return messages
+
+
+class _RejectingClaudeClient:
+    default_model = "kimi-k2.5"
+
+    async def create_message_stream(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]] | None = None,
+        on_text_delta: Any | None = None,
+        thinking_budget: int = 0,
+    ) -> LLMResponse:
+        raise LLMContentPolicyError(
+            "provider rejected recent tool output during content inspection"
+        )
 
 
 class _FakeSession:
@@ -233,6 +251,35 @@ async def test_successful_upload_advertises_verified_paths_only() -> None:
     text_blocks = [block["text"] for block in content if block.get("type") == "text"]
     assert text_blocks
     assert "/home/user/uploads/report.csv" in text_blocks[0]
+
+
+@pytest.mark.asyncio
+async def test_content_policy_failure_emits_non_retryable_task_error() -> None:
+    emitter = EventEmitter()
+    events: list[tuple[EventType, dict[str, Any]]] = []
+
+    async def _collect(event: Any) -> None:
+        events.append((event.type, event.data))
+
+    emitter.subscribe(_collect)
+
+    orchestrator = AgentOrchestrator(
+        claude_client=_RejectingClaudeClient(),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=_FakeExecutor(session=_FakeSession()),  # type: ignore[arg-type]
+        event_emitter=emitter,
+        system_prompt="test",
+    )
+
+    result = await orchestrator.run("inspect this page")
+
+    assert result.startswith("Error: LLM content policy rejection:")
+    assert any(
+        event_type == EventType.TASK_ERROR
+        and data.get("code") == "content_policy"
+        and data.get("retryable") is False
+        for event_type, data in events
+    )
 
 
 @pytest.mark.asyncio

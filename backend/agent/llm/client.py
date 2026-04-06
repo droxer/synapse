@@ -12,6 +12,106 @@ from loguru import logger
 
 # Maximum number of retry attempts for transient API errors
 _MAX_RETRIES = 3
+_CONTENT_POLICY_ERROR_PREFIX = "LLM content policy rejection: "
+_CONTENT_POLICY_ERROR_SUMMARY = (
+    "Model provider rejected the request because the prompt or recent tool "
+    "output triggered content inspection."
+)
+
+
+class LLMContentPolicyError(RuntimeError):
+    """Raised when the provider rejects a request due to content inspection."""
+
+
+def _flatten_payload_strings(value: Any) -> list[str]:
+    """Collect string leaves from nested error payloads."""
+    if isinstance(value, str):
+        return [value]
+    if isinstance(value, dict):
+        parts: list[str] = []
+        for nested in value.values():
+            parts.extend(_flatten_payload_strings(nested))
+        return parts
+    if isinstance(value, list | tuple):
+        parts: list[str] = []
+        for nested in value:
+            parts.extend(_flatten_payload_strings(nested))
+        return parts
+    return []
+
+
+def _extract_error_payload(exc: Exception) -> Any | None:
+    """Return a structured provider error payload when one is available."""
+    body = getattr(exc, "body", None)
+    if body is not None:
+        return body
+
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+
+    try:
+        return response.json()
+    except Exception:
+        return None
+
+
+def _extract_content_policy_detail(exc: Exception) -> str | None:
+    """Return a short provider detail string for moderation rejections."""
+    payload = _extract_error_payload(exc)
+    candidates = _flatten_payload_strings(payload) if payload is not None else []
+    candidates.append(str(exc))
+
+    matched = [
+        text.strip()
+        for text in candidates
+        if isinstance(text, str)
+        and (
+            "data_inspection_failed" in text.lower()
+            or "inappropriate content" in text.lower()
+        )
+    ]
+    if not matched:
+        return None
+
+    detail = matched[0]
+    return detail[:240]
+
+
+def is_content_policy_error(error: Exception | str) -> bool:
+    """Return True when a provider rejected the request for policy reasons."""
+    if isinstance(error, str):
+        return error.startswith(_CONTENT_POLICY_ERROR_PREFIX)
+
+    if isinstance(error, LLMContentPolicyError):
+        return True
+
+    if not isinstance(error, anthropic.APIStatusError | anthropic.BadRequestError):
+        return False
+
+    status_code = getattr(
+        error,
+        "status_code",
+        getattr(getattr(error, "response", None), "status_code", None),
+    )
+    if status_code != 400:
+        return False
+
+    return _extract_content_policy_detail(error) is not None
+
+
+def format_llm_failure(exc: Exception) -> str:
+    """Convert provider exceptions into stable runtime-facing messages."""
+    if is_content_policy_error(exc):
+        detail = _extract_content_policy_detail(exc)
+        if detail:
+            return (
+                f"{_CONTENT_POLICY_ERROR_PREFIX}{_CONTENT_POLICY_ERROR_SUMMARY} "
+                f"Provider detail: {detail}"
+            )
+        return f"{_CONTENT_POLICY_ERROR_PREFIX}{_CONTENT_POLICY_ERROR_SUMMARY}"
+
+    return f"LLM call failed: {exc}"
 
 
 @dataclass(frozen=True)

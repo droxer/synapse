@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import {
   Terminal,
   Globe,
@@ -27,7 +27,14 @@ import { CodeOutput } from "@/shared/components/ui/code-output";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
 import { BrowserOutput } from "./BrowserOutput";
 import { ComputerUseOutput } from "./ComputerUseOutput";
-import { PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES } from "../lib/format-tools";
+import {
+  PROSE_CLASSES,
+  TOOL_OUTPUT_MARKDOWN_CLASSES,
+  OUTPUT_CARD_BASE_CLASSES,
+  OUTPUT_HEADER_LABEL_CLASSES,
+  OUTPUT_HEADER_ROW_CLASSES,
+  OUTPUT_META_TEXT_CLASSES,
+} from "../lib/format-tools";
 import { CODE_TOOLS } from "../lib/tool-constants";
 import { getToolCategory, type ToolCategory } from "../lib/tool-constants";
 import type { BrowserMetadata, ComputerUseMetadata } from "@/shared/types";
@@ -147,6 +154,27 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
 
   const displayText = isLong && !expanded ? resolvedOutput.slice(0, COLLAPSE_THRESHOLD) : resolvedOutput;
+  const selectedRenderer =
+    isImage ? "image" :
+    isHtml ? "html" :
+    (category === "search" && toolName === "web_search") ? "web-search" :
+    category === "preview" ? "preview-terminal" :
+    toolName === "shell_exec" ? "shell-terminal" :
+    isCode ? "code-output" :
+    (category === "computer" && (toolName === "computer_action" || toolName === "computer_screenshot")) ? "computer-output" :
+    (category === "browser" && toolName === "browser_use") ? "browser-output" :
+    toolName === "agent_wait" ? "agent-wait" :
+    toolName === "agent_receive" ? "agent-receive" :
+    toolName === "database_query" ? "database-query" :
+    (category === "memory" && (toolName === "memory_search" || toolName === "memory_list")) ? "memory" :
+    success === false ? "error-markdown" :
+    "generic-markdown";
+
+  useEffect(() => {
+    // #region agent log
+    fetch("http://127.0.0.1:7800/ingest/f3cbd1e5-6b99-4559-90b9-9eaeb44e6deb", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "157ac9" }, body: JSON.stringify({ sessionId: "157ac9", runId: "initial", hypothesisId: "H4", location: "ToolOutputRenderer.tsx:renderer-selection", message: "Resolved tool output renderer branch", data: { toolName, category, contentType: contentType ?? null, success: success ?? null, selectedRenderer, outputLength: output.length }, timestamp: Date.now() }) }).catch(() => {});
+    // #endregion
+  }, [category, contentType, output.length, selectedRenderer, success, toolName]);
 
   // Image artifact rendering
   if (isImage) {
@@ -173,6 +201,11 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         <WebLinks
           query={searchData.query}
           results={searchData.results}
+          resultsLabel={t(
+            searchData.results.length === 1 ? "output.searchResult" : "output.searchResults",
+            { count: searchData.results.length },
+          )}
+          searchLabel={t("output.searchLabel")}
           className="mt-2.5"
         />
       );
@@ -281,10 +314,10 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const results = JSON.parse(output) as Record<string, { success: boolean; summary: string; error: string | null; artifacts: string[] }>;
       const entries = Object.entries(results);
         return (
-          <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-          <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+          <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
             <GitFork className="h-3 w-3" />
-            {t("output.agentResults")}
+            <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentResults")}</span>
           </div>
           <div className="space-y-1">
             {entries.map(([agentId, result]) => (
@@ -294,7 +327,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                 ) : (
                   <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                 )}
-                <span className="shrink-0 font-mono text-xs text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
+                <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
                 <span className="min-w-0 break-words">{result.error ?? result.summary}</span>
               </div>
             ))}
@@ -310,10 +343,10 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (toolName === "agent_receive") {
     if (output === "No pending messages." || output === "[]") {
       return (
-        <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-          <div className="flex items-center gap-1 text-sm font-medium text-foreground">
+        <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
             <MessageSquare className="h-3 w-3" />
-            {t("output.noMessages")}
+            <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.noMessages")}</span>
           </div>
         </div>
       );
@@ -322,15 +355,15 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const messages = JSON.parse(output) as Array<{ from: string; to: string; message: string; metadata?: object }>;
       if (Array.isArray(messages)) {
         return (
-          <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-            <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+          <div className={OUTPUT_CARD_BASE_CLASSES}>
+            <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <MessageSquare className="h-3 w-3" />
-              {t("output.agentMessages", { count: messages.length })}
+              <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentMessages", { count: messages.length })}</span>
             </div>
             <div className="space-y-1.5">
               {messages.map((msg, i) => (
                 <div key={i} className="rounded border border-border bg-background px-2.5 py-1.5 text-sm">
-                  <div className="mb-0.5 text-xs text-muted-foreground-dim">
+                  <div className="mb-0.5 text-micro text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
                   <div className="text-muted-foreground">{msg.message}</div>
@@ -359,17 +392,17 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
           const visibleRows = rows.slice(0, MAX_ROWS);
           const remaining = rows.length - MAX_ROWS;
           return (
-            <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-              <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+            <div className={OUTPUT_CARD_BASE_CLASSES}>
+              <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
                 <Database className="h-3 w-3" />
-                {summaryLine}
+                <span className={OUTPUT_HEADER_LABEL_CLASSES}>{summaryLine}</span>
               </div>
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border">
                       {columns.map((col) => (
-                        <th key={col} className="whitespace-nowrap px-2 py-1 text-xs font-medium text-muted-foreground">{col}</th>
+                        <th key={col} className="whitespace-nowrap px-2 py-1 text-micro font-medium text-muted-foreground-dim">{col}</th>
                       ))}
                     </tr>
                   </thead>
@@ -385,7 +418,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                 </table>
               </div>
               {remaining > 0 && (
-                <div className="mt-1.5 text-xs text-muted-foreground-dim">
+                <div className={cn("mt-1.5", OUTPUT_META_TEXT_CLASSES)}>
                   {t("output.dbQueryMore", { count: remaining })}
                 </div>
               )}
@@ -405,10 +438,10 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const entries: Array<{ key: string; value: string; namespace?: string }> = Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([k, v]) => ({ key: k, value: String(v) }));
       if (entries.length > 0) {
         return (
-          <div className="mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5">
-            <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-foreground">
+          <div className={OUTPUT_CARD_BASE_CLASSES}>
+            <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <Database className="h-3 w-3" />
-              {t("output.memoryEntries", { count: entries.length })}
+              <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.memoryEntries", { count: entries.length })}</span>
             </div>
             <div className="space-y-0.5">
               {entries.map((entry, i) => {
@@ -416,7 +449,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                 const value = typeof entry.value === "string" ? entry.value : JSON.stringify(entry.value);
                 return (
                   <div key={i} className="flex gap-2 px-2 py-0.5 text-sm">
-                    <span className="shrink-0 font-mono text-xs text-muted-foreground-dim">{label}</span>
+                    <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{label}</span>
                     <span className="text-muted-foreground">{value.length > 80 ? `${value.slice(0, 80)}...` : value}</span>
                   </div>
                 );
@@ -454,7 +487,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     <div className={cn("mt-2.5 rounded-md border-l-2 bg-muted px-2.5 py-1.5", style.border)}>
       <div className="mb-1.5 flex items-center justify-end">
         {style.labelKey && (
-          <span className="flex items-center gap-1 text-sm font-medium text-foreground">
+          <span className="flex items-center gap-1 text-micro font-medium text-muted-foreground-dim">
             <CategoryIcon className="h-3 w-3" />
             {t(style.labelKey)}
           </span>

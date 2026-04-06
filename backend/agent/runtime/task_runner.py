@@ -7,7 +7,7 @@ import time
 from dataclasses import asdict, dataclass, replace
 from typing import Any, Literal
 
-from agent.llm.client import AnthropicClient
+from agent.llm.client import AnthropicClient, format_llm_failure
 from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
@@ -350,7 +350,7 @@ class TaskAgentRunner:
             )
         except Exception as exc:
             logger.error("llm_call_failed model={} error={}", llm_model, exc)
-            return state.mark_error(f"LLM call failed: {exc}")
+            return state.mark_error(format_llm_failure(exc))
 
         state = apply_response_to_state(state, response)
         self._input_tokens += response.usage.input_tokens

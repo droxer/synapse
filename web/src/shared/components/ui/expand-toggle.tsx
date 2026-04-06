@@ -1,6 +1,7 @@
 "use client";
 
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { useTranslation } from "@/i18n";
 
 interface ExpandToggleProps {
   readonly expanded: boolean;
@@ -9,7 +10,11 @@ interface ExpandToggleProps {
   readonly showMoreLabel?: string;
 }
 
-export function ExpandToggle({ expanded, onToggle, showLessLabel = "Show less", showMoreLabel = "Show more" }: ExpandToggleProps) {
+export function ExpandToggle({ expanded, onToggle, showLessLabel, showMoreLabel }: ExpandToggleProps) {
+  const { t } = useTranslation();
+  const resolvedShowLess = showLessLabel ?? t("a11y.showLess");
+  const resolvedShowMore = showMoreLabel ?? t("a11y.showMore");
+
   return (
     <button
       type="button"
@@ -19,12 +24,12 @@ export function ExpandToggle({ expanded, onToggle, showLessLabel = "Show less", 
       {expanded ? (
         <>
           <ChevronUp className="h-3 w-3" />
-          {showLessLabel}
+          {resolvedShowLess}
         </>
       ) : (
         <>
           <ChevronDown className="h-3 w-3" />
-          {showMoreLabel}
+          {resolvedShowMore}
         </>
       )}
     </button>
