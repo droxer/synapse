@@ -7,7 +7,7 @@
  * Keep mono only for IDs/counters/code payloads.
  */
 /** Tool / panel markdown: body tone + spacing; links and code use MarkdownRenderer defaults. */
-export const PROSE_CLASSES = "text-sm leading-relaxed text-muted-foreground";
+export const PROSE_CLASSES = "text-sm leading-normal text-muted-foreground";
 export const TOOL_OUTPUT_MARKDOWN_CLASSES = "";
 export const OUTPUT_CARD_BASE_CLASSES = "mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5";
 export const OUTPUT_HEADER_ROW_CLASSES = "mb-1.5 flex items-center gap-2";

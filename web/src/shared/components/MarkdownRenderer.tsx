@@ -35,12 +35,13 @@ function CopyButton({ text }: { text: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 hover:text-foreground transition-colors p-1"
+      className="flex items-center gap-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label="Copy code"
       title="Copy code"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-accent-emerald" /> : <Copy className="h-3.5 w-3.5" />}
       <span className="sr-only">Copy</span>
     </button>
   );
@@ -61,7 +62,7 @@ const components: Components = {
     const codeString = extractText(children);
 
     return (
-      <div className="relative my-4 rounded-lg border bg-muted/50 overflow-hidden not-prose">
+      <div className="relative my-4 rounded-xl border bg-muted/50 overflow-hidden not-prose">
         <div className="flex items-center justify-between px-4 py-1.5 border-b bg-muted text-sm text-muted-foreground font-mono">
           <span>{language}</span>
           <CopyButton text={codeString} />
@@ -117,7 +118,7 @@ const components: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-accent-purple underline underline-offset-2 hover:text-accent-purple/80"
+        className="text-focus underline underline-offset-2 hover:text-focus/80"
       >
         {children}
       </a>
@@ -139,7 +140,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   return (
     <div
       className={cn(
-        "markdown-body font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-relaxed prose-pre:p-0",
+        "markdown-body font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-normal prose-pre:p-0",
         "prose-p:text-current prose-headings:text-current prose-li:text-current prose-strong:text-current prose-li:marker:text-current",
         isStreaming && "streaming-active",
         className
