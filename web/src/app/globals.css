@@ -650,10 +650,9 @@ pre, code {
 }
 
 .markdown-reasoning a {
-  color: var(--color-foreground);
+  color: var(--color-focus);
   text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
+  text-underline-offset: 2px;
 }
 
 .markdown-reasoning.streaming-active:empty::after,
