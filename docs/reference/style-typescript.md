@@ -26,4 +26,5 @@ Prefer `async` / `await` with `try` / `catch`. Components should handle loading 
 ## Related
 
 - [Frontend layout](frontend-layout.md)
+- [Design system](design-system.md)
 - [Makefile commands](commands.md)

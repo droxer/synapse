@@ -16,21 +16,21 @@
   --color-destructive: #EF4444;
   --color-border: #E4E4E7;
   --color-input: #E4E4E7;
-  --color-ring: #18181B;
+  --color-ring: #1B7EF2;
   --color-card: #FFFFFF;
   --color-card-foreground: #09090B;
   --color-popover: #FFFFFF;
   --color-popover-foreground: #09090B;
   --radius-sm: 0.125rem;
-  --radius-md: 0.25rem;
-  --radius-lg: 0.375rem;
-  --radius-xl: 0.5rem;
+  --radius-md: 0.1875rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.375rem;
   --radius-2xl: 0.5rem;
 
-  --color-border-strong: #CBD5E1;
-  --color-border-active: #94A3B8;
-  --color-placeholder: #94A3B8;
-  --color-muted-foreground-dim: #94A3B8;
+  --color-border-strong: #D4D4D8;
+  --color-border-active: #A1A1AA;
+  --color-placeholder: #A1A1AA;
+  --color-muted-foreground-dim: #A1A1AA;
 
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
@@ -161,8 +161,8 @@
   --animate-modal-in: modalIn 0.15s ease-out;
 
   @keyframes glowPulse {
-    0%, 100% { box-shadow: 0 0 20px rgba(108, 58, 237, 0.18), 0 0 8px rgba(108, 58, 237, 0.10); }
-    50%       { box-shadow: 0 0 32px rgba(108, 58, 237, 0.34), 0 0 16px rgba(108, 58, 237, 0.18); }
+    0%, 100% { box-shadow: 0 0 20px rgba(27, 126, 242, 0.18), 0 0 8px rgba(27, 126, 242, 0.10); }
+    50%       { box-shadow: 0 0 32px rgba(27, 126, 242, 0.34), 0 0 16px rgba(27, 126, 242, 0.18); }
   }
 }
 
@@ -181,15 +181,15 @@
   --color-destructive: #EF4444;
   --color-border: #E4E4E7;
   --color-input: #E4E4E7;
-  --color-ring: #18181B;
+  --color-ring: #1B7EF2;
   --color-card: #FFFFFF;
   --color-card-foreground: #09090B;
   --color-popover: #FFFFFF;
   --color-popover-foreground: #09090B;
-  --color-border-strong: #CBD5E1;
-  --color-border-active: #94A3B8;
-  --color-placeholder: #94A3B8;
-  --color-muted-foreground-dim: #94A3B8;
+  --color-border-strong: #D4D4D8;
+  --color-border-active: #A1A1AA;
+  --color-placeholder: #A1A1AA;
+  --color-muted-foreground-dim: #A1A1AA;
   --color-accent-emerald: #10B981;
   --color-accent-amber: #B45309;
   --color-accent-rose: #EF4444;
@@ -240,7 +240,7 @@
   --color-destructive: #F87171;
   --color-border: #3E3E42;
   --color-input: #3E3E42;
-  --color-ring: #E2E8F0;
+  --color-ring: #3B8EF5;
   --color-card: #252526;
   --color-card-foreground: #FAFAFA;
   --color-popover: #252526;
@@ -308,6 +308,14 @@
 @utility text-caption {
   font-size: var(--font-size-caption);
   line-height: var(--font-size-caption--line-height);
+}
+
+@utility label-mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro);
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 @utility pb-safe {

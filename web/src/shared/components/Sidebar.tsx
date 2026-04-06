@@ -308,15 +308,12 @@ export function Sidebar({
               href="/channels"
               aria-label={t("sidebar.channels")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/channels"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
-              {activePath === "/channels" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
-              )}
               <Radio className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
                 activePath === "/channels" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
@@ -327,15 +324,12 @@ export function Sidebar({
               href="/library"
               aria-label={t("sidebar.library")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/library"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
-              {activePath === "/library" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
-              )}
               <FolderOpen className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
                 activePath === "/library" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
@@ -347,15 +341,12 @@ export function Sidebar({
               href="/skills"
               aria-label={t("sidebar.skills")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/skills"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
-              {activePath === "/skills" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
-              )}
               <Lightbulb className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
                 activePath === "/skills" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
@@ -366,15 +357,12 @@ export function Sidebar({
               href="/mcp"
               aria-label={t("sidebar.mcp")}
               className={cn(
-                "group relative flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/mcp"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
               )}
             >
-              {activePath === "/mcp" && (
-                <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" aria-hidden="true" />
-              )}
               <Blocks className={cn(
                 "h-4 w-4 shrink-0 transition-colors duration-200",
                 activePath === "/mcp" ? "text-foreground" : "text-muted-foreground group-hover:text-foreground",
@@ -392,7 +380,7 @@ export function Sidebar({
       {!collapsed && (
         <div className="flex items-center gap-2 px-4 pb-1 pt-2.5">
           <span className="h-px w-3 shrink-0 bg-border-strong" aria-hidden="true" />
-          <span className="text-micro font-semibold uppercase tracking-widest text-muted-foreground-dim whitespace-nowrap">
+          <span className="label-mono text-muted-foreground-dim whitespace-nowrap">
             {t("sidebar.recentTasks")}
           </span>
           <span className="h-px flex-1 bg-border" aria-hidden="true" />
@@ -422,7 +410,7 @@ export function Sidebar({
                     >
                       <div className={cn(
                         "h-1.5 w-1.5 shrink-0 rounded-md transition-colors duration-200",
-                        isActive ? "bg-foreground" : "bg-border-strong",
+                        isActive ? "bg-focus" : "bg-border-strong",
                       )} />
                     </button>
                   </TooltipTrigger>
@@ -442,10 +430,6 @@ export function Sidebar({
                       isActive && "bg-sidebar-active",
                     )}
                   >
-                    {/* Active indicator bar */}
-                    {isActive && (
-                      <div className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-md bg-border-strong" />
-                    )}
                     <span
                       title={task.title}
                       className={cn(

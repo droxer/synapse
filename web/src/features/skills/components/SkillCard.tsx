@@ -38,7 +38,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       <div className="flex items-start justify-between gap-2">
         <div className={cn(
           "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200",
-          isDisabled ? "bg-secondary" : "bg-secondary",
+          isDisabled ? "bg-secondary" : "bg-secondary group-hover:bg-muted",
         )}>
           <Lightbulb aria-hidden="true" className={cn(
             "h-4 w-4 transition-colors duration-200",
@@ -49,7 +49,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
           <Badge
             variant="secondary"
             className={cn(
-              "text-micro font-medium px-1.5 py-0 shrink-0 transition-opacity duration-200",
+              "font-mono text-micro font-medium px-1.5 py-0 shrink-0 transition-opacity duration-200",
               isDisabled && "opacity-60",
               config.className,
             )}

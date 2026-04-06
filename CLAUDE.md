@@ -20,6 +20,7 @@ Navigation map for **Claude Code** (claude.ai/code) in this repository. Detailed
 | -------------------- | -------------------------------------------------------------------------- |
 | Python / FastAPI     | `[docs/reference/style-python.md](docs/reference/style-python.md)`         |
 | TypeScript / Next.js | `[docs/reference/style-typescript.md](docs/reference/style-typescript.md)` |
+| Design system (tokens, radii, colors, typography) | `[docs/reference/design-system.md](docs/reference/design-system.md)` |
 
 
 ## Architecture and layout
