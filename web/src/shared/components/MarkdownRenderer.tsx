@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, useEffect, useRef, isValidElement, type ReactNode } from "react";
+import { memo, useState, useCallback, isValidElement, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -35,12 +35,13 @@ function CopyButton({ text }: { text: string }) {
 
   return (
     <button
+      type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 hover:text-foreground transition-colors p-1"
+      className="flex items-center gap-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label="Copy code"
       title="Copy code"
     >
-      {copied ? <Check className="h-3.5 w-3.5 text-green-500" /> : <Copy className="h-3.5 w-3.5" />}
+      {copied ? <Check className="h-3.5 w-3.5 text-accent-emerald" /> : <Copy className="h-3.5 w-3.5" />}
       <span className="sr-only">Copy</span>
     </button>
   );
@@ -61,7 +62,7 @@ const components: Components = {
     const codeString = extractText(children);
 
     return (
-      <div className="relative my-4 rounded-lg border bg-muted/50 overflow-hidden not-prose">
+      <div className="relative my-4 rounded-xl border bg-muted/50 overflow-hidden not-prose">
         <div className="flex items-center justify-between px-4 py-1.5 border-b bg-muted text-sm text-muted-foreground font-mono">
           <span>{language}</span>
           <CopyButton text={codeString} />
@@ -117,7 +118,7 @@ const components: Components = {
         href={href}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-primary underline underline-offset-2 hover:text-primary/80"
+        className="text-focus underline underline-offset-2 hover:text-focus/80"
       >
         {children}
       </a>
@@ -136,36 +137,10 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   className,
   isStreaming,
 }: MarkdownRendererProps) {
-  const rootRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const root = rootRef.current;
-    if (!root) return;
-    const firstParagraph = root.querySelector("p");
-    const firstPre = root.querySelector("pre");
-    const firstInlineCode = root.querySelector("p code");
-    const firstCodeBlockCode = root.querySelector("pre code");
-    const firstCodeHeader = root.querySelector("div.not-prose > div");
-    const getMetrics = (element: Element | null) => {
-      if (!(element instanceof HTMLElement)) return null;
-      const style = window.getComputedStyle(element);
-      return {
-        className: element.className,
-        fontSize: style.fontSize,
-        lineHeight: style.lineHeight,
-        fontFamily: style.fontFamily,
-      };
-    };
-    // #region agent log
-    fetch("http://127.0.0.1:7800/ingest/f3cbd1e5-6b99-4559-90b9-9eaeb44e6deb", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "157ac9" }, body: JSON.stringify({ sessionId: "157ac9", runId: "initial", hypothesisId: "H1", location: "MarkdownRenderer.tsx:render-metrics", message: "Captured markdown typography metrics", data: { rootClassName: root.className, extraClassName: className ?? "", paragraph: getMetrics(firstParagraph), pre: getMetrics(firstPre), inlineCode: getMetrics(firstInlineCode), codeBlockCode: getMetrics(firstCodeBlockCode), codeHeader: getMetrics(firstCodeHeader), isStreaming: Boolean(isStreaming) }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [className, content, isStreaming]);
-
   return (
     <div
-      ref={rootRef}
       className={cn(
-        "markdown-body font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-relaxed prose-pre:p-0",
+        "markdown-body font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-normal prose-pre:p-0",
         "prose-p:text-current prose-headings:text-current prose-li:text-current prose-strong:text-current prose-li:marker:text-current",
         isStreaming && "streaming-active",
         className

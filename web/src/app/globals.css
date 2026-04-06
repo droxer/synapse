@@ -369,7 +369,7 @@ body {
 }
 
 /* Design contract:
-   - Panels/surfaces use rounded-lg.
+   - Panels/surfaces use rounded-xl (see docs/reference/design-system.md).
    - Controls (inputs, buttons, badges) use rounded-md.
    - Focus ring uses ring-2/ring-ring/ring-offset-2/ring-offset-background. */
 
@@ -635,7 +635,7 @@ pre, code {
   margin: 0.5em 0;
   background: var(--color-background);
   border: 1px solid var(--color-border);
-  border-radius: 0.375rem;
+  border-radius: var(--radius-lg);
   padding: 0.75em 1em;
 }
 
@@ -645,15 +645,8 @@ pre, code {
 
 .markdown-reasoning :not(pre) > code {
   background: var(--color-muted);
-  border-radius: 0.25rem;
+  border-radius: var(--radius-md);
   padding: 0.15em 0.3em;
-}
-
-.markdown-reasoning a {
-  color: var(--color-foreground);
-  text-decoration: underline;
-  text-decoration-style: dotted;
-  text-underline-offset: 3px;
 }
 
 .markdown-reasoning.streaming-active:empty::after,
@@ -663,8 +656,8 @@ pre, code {
   vertical-align: baseline;
   width: 0.5em;
   height: 1em;
-  background-color: var(--color-muted-foreground);
+  background-color: var(--color-ai-glow);
   margin-left: 0.25em;
-  border-radius: 1px;
+  border-radius: var(--radius-sm);
   animation: blink-cursor 1.5s ease-in-out infinite;
 }

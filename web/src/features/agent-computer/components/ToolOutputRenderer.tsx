@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback } from "react";
 import {
   Terminal,
   Globe,
@@ -154,27 +154,6 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
 
   const displayText = isLong && !expanded ? resolvedOutput.slice(0, COLLAPSE_THRESHOLD) : resolvedOutput;
-  const selectedRenderer =
-    isImage ? "image" :
-    isHtml ? "html" :
-    (category === "search" && toolName === "web_search") ? "web-search" :
-    category === "preview" ? "preview-terminal" :
-    toolName === "shell_exec" ? "shell-terminal" :
-    isCode ? "code-output" :
-    (category === "computer" && (toolName === "computer_action" || toolName === "computer_screenshot")) ? "computer-output" :
-    (category === "browser" && toolName === "browser_use") ? "browser-output" :
-    toolName === "agent_wait" ? "agent-wait" :
-    toolName === "agent_receive" ? "agent-receive" :
-    toolName === "database_query" ? "database-query" :
-    (category === "memory" && (toolName === "memory_search" || toolName === "memory_list")) ? "memory" :
-    success === false ? "error-markdown" :
-    "generic-markdown";
-
-  useEffect(() => {
-    // #region agent log
-    fetch("http://127.0.0.1:7800/ingest/f3cbd1e5-6b99-4559-90b9-9eaeb44e6deb", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "157ac9" }, body: JSON.stringify({ sessionId: "157ac9", runId: "initial", hypothesisId: "H4", location: "ToolOutputRenderer.tsx:renderer-selection", message: "Resolved tool output renderer branch", data: { toolName, category, contentType: contentType ?? null, success: success ?? null, selectedRenderer, outputLength: output.length }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [category, contentType, output.length, selectedRenderer, success, toolName]);
 
   // Image artifact rendering
   if (isImage) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
@@ -28,8 +28,6 @@ export function TerminalWindow({ title, children, className, copyText }: Termina
   const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const titleRef = useRef<HTMLSpanElement>(null);
-
   const handleCopy = useCallback(async () => {
     const text = copyText ?? bodyRef.current?.textContent ?? "";
     try {
@@ -41,30 +39,11 @@ export function TerminalWindow({ title, children, className, copyText }: Termina
     }
   }, [copyText]);
 
-  useEffect(() => {
-    const body = bodyRef.current;
-    const titleElement = titleRef.current;
-    const firstPre = body?.querySelector("pre") ?? null;
-    const getMetrics = (element: Element | null) => {
-      if (!(element instanceof HTMLElement)) return null;
-      const style = window.getComputedStyle(element);
-      return {
-        className: element.className,
-        fontSize: style.fontSize,
-        lineHeight: style.lineHeight,
-        fontFamily: style.fontFamily,
-      };
-    };
-    // #region agent log
-    fetch("http://127.0.0.1:7800/ingest/f3cbd1e5-6b99-4559-90b9-9eaeb44e6deb", { method: "POST", headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "157ac9" }, body: JSON.stringify({ sessionId: "157ac9", runId: "initial", hypothesisId: "H2", location: "terminal-window.tsx:render-metrics", message: "Captured terminal typography metrics", data: { title, className: className ?? "", titleMetrics: getMetrics(titleElement), bodyMetrics: getMetrics(body), firstPreMetrics: getMetrics(firstPre) }, timestamp: Date.now() }) }).catch(() => {});
-    // #endregion
-  }, [className, title, children]);
-
   return (
     <div className={cn("overflow-hidden rounded-md border border-[var(--color-terminal-border)]", className)}>
       {/* Title bar */}
       <div className="flex items-center justify-between border-b border-[var(--color-terminal-border)] bg-[var(--color-terminal-surface)] px-3 py-2">
-        <span ref={titleRef} className="font-mono text-sm text-[var(--color-terminal-dim)]">
+        <span className="font-mono text-sm text-[var(--color-terminal-dim)]">
           {title}
         </span>
         <button
