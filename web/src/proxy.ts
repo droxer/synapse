@@ -49,6 +49,6 @@ export default auth((req) => {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|favicon-16.png|favicon-32.png|favicon-dark-16.png|favicon-dark-32.png|favicon-light.svg|favicon-dark.svg|apple-touch-icon.png|apple-touch-icon-dark.png).*)",
+    "/((?!_next/static|_next/image|favicon.ico|favicon-16.png|favicon-32.png|favicon-dark-16.png|favicon-dark-32.png|favicon-light.svg|favicon-dark.svg|apple-touch-icon.png|apple-touch-icon-dark.png|icon-192.png|icon-512.png|site.webmanifest).*)",
   ],
 };

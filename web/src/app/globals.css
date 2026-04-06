@@ -63,11 +63,12 @@
   --color-terminal-border: #E4E4E7;
   --color-terminal-text: #27272A;
   --color-terminal-dim: #94A3B8;
-  --color-logo-bg-start: var(--color-focus);
-  --color-logo-bg-end: var(--color-accent-blue);
-  --color-logo-glyph: var(--color-primary-foreground);
-  --color-logo-node-start: #DBEAFE;
-  --color-logo-node-end: #BFDBFE;
+  --logo-black: #0A0A0A;
+  --logo-white: #FFFFFF;
+  --logo-neutral-700: #2B2B2B;
+  --logo-neutral-300: #D9D9D9;
+  --logo-bg: var(--logo-black);
+  --logo-glyph: var(--logo-white);
 
   /* Profile ring colors — registered in @theme so Tailwind utilities work */
   --ring-profile: var(--color-profile-ring);
@@ -213,11 +214,12 @@
   --color-terminal-border: #E4E4E7;
   --color-terminal-text: #27272A;
   --color-terminal-dim: #94A3B8;
-  --color-logo-bg-start: var(--color-focus);
-  --color-logo-bg-end: var(--color-accent-blue);
-  --color-logo-glyph: var(--color-primary-foreground);
-  --color-logo-node-start: #DBEAFE;
-  --color-logo-node-end: #BFDBFE;
+  --logo-black: #0A0A0A;
+  --logo-white: #FFFFFF;
+  --logo-neutral-700: #2B2B2B;
+  --logo-neutral-300: #D9D9D9;
+  --logo-bg: var(--logo-black);
+  --logo-glyph: var(--logo-white);
   --color-overlay: rgba(24, 24, 27, 0.45);
   --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%);
   --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%);
@@ -275,11 +277,12 @@
   --color-terminal-border: #3E3E42;
   --color-terminal-text: #CBD5E1;
   --color-terminal-dim: #71717A;
-  --color-logo-bg-start: var(--color-focus);
-  --color-logo-bg-end: #60A5FA;
-  --color-logo-glyph: var(--color-primary);
-  --color-logo-node-start: #E0F2FE;
-  --color-logo-node-end: #BAE6FD;
+  --logo-black: #0A0A0A;
+  --logo-white: #FFFFFF;
+  --logo-neutral-700: #2B2B2B;
+  --logo-neutral-300: #D9D9D9;
+  --logo-bg: var(--logo-white);
+  --logo-glyph: var(--logo-black);
   --color-overlay: rgba(0, 0, 0, 0.5);
   --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 20%);
   --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 8%);

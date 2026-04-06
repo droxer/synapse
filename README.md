@@ -35,13 +35,15 @@ An open-source AI agent platform that does the work for you. Describe any task i
 
 ## Brand Assets
 
-- **Theme-adaptive logo**: `web/public/logo.svg` uses light/dark color treatment via `prefers-color-scheme`.
-- **App logo component**: `web/src/shared/components/Logo.tsx` maps logo colors to semantic design tokens in `web/src/app/globals.css`.
+- **Theme-adaptive logo**: `web/public/logo.svg` uses strict monochrome lockups via `prefers-color-scheme`.
+- **App logo component**: `web/src/shared/components/Logo.tsx` uses monochrome tokens from `web/src/app/globals.css` (`--logo-black`, `--logo-white`, `--logo-neutral-700`, `--logo-neutral-300`).
 - **Favicon variants**:
-  - SVG: `web/public/favicon-light.svg`, `web/public/favicon-dark.svg`
-  - PNG/ICO: `web/public/favicon-16.png`, `web/public/favicon-32.png`, `web/public/favicon.ico`, plus dark PNG variants
-  - Apple touch icons: `web/public/apple-touch-icon.png` and `web/public/apple-touch-icon-dark.png`
-- **Metadata wiring**: `web/src/app/layout.tsx` serves light/dark icon variants using Next.js `icons` entries with `media`.
+  - SVG: `web/public/favicon-light.svg`, `web/public/favicon-dark.svg` (monochrome)
+  - PNG/ICO: `web/public/favicon-16.png`, `web/public/favicon-32.png`, `web/public/favicon.ico`, plus dark PNG variants (`favicon-dark-16.png`, `favicon-dark-32.png`)
+  - Apple touch icons: `web/public/apple-touch-icon.png`, `web/public/apple-touch-icon-dark.png`
+  - PWA icons: `web/public/icon-192.png`, `web/public/icon-512.png`
+- **Metadata wiring**: `web/src/app/layout.tsx` serves light/dark favicon SVG variants using Next.js `icons` entries with `media`.
+- **Monochrome usage rules**: `docs/logo-monochrome-spec.md`
 
 ## Features
 

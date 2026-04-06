@@ -8,7 +8,7 @@ SANDBOX_TAGS_default :=
 SANDBOX_TAGS_data_science :=
 SANDBOX_TAGS_browser := v3
 
-.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals pre-commit lint-web desktop build-desktop
+.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals pre-commit lint-web desktop build-desktop generate-favicons
 
 # Start both backend and web concurrently
 dev: install
@@ -39,6 +39,10 @@ migrate:
 # Production build
 build-web:
 	cd web && npm run build
+
+# Generate favicon/icon assets from SVG sources
+generate-favicons:
+	cd backend && uv run --with pillow python ../web/scripts/generate_favicons.py
 
 # Resolve the full image name with optional version tag
 # e.g. browser -> ghcr.io/droxer/synapse-sandbox-browser:v3

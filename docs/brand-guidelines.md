@@ -185,5 +185,10 @@ All card-like containers use:
 ## Logo & Favicon
 
 - Master logo: `public/logo.png`
-- All favicon variants (`favicon.ico`, `favicon-16.png`, `favicon-32.png`, `icon-192.png`, `icon-512.png`, `apple-touch-icon.png`) should be generated from the master logo
-- PWA manifest colors: `theme_color: "#1C1917"`, `background_color: "#FAF9F6"`
+- Favicon variants:
+  - `web/public/favicon-light.svg`, `web/public/favicon-dark.svg`
+  - `web/public/favicon-16.png`, `web/public/favicon-32.png`, `web/public/favicon.ico`
+  - `web/public/apple-touch-icon.png`, `web/public/apple-touch-icon-dark.png`
+  - `web/public/icon-192.png`, `web/public/icon-512.png`
+- PWA manifest colors: `theme_color: "#0A0A0A"`, `background_color: "#FFFFFF"`
+- Monochrome lockups, clear space, and misuse rules: `docs/logo-monochrome-spec.md`

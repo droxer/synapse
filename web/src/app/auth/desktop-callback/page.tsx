@@ -62,7 +62,7 @@ function CallbackContent() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-      <Logo size={48} className="rounded-lg" />
+      <Logo size={48} tone="auto" className="rounded-lg" />
       {status === "loading" && (
         <>
           <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />

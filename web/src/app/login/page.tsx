@@ -146,7 +146,7 @@ function LoginForm() {
               className="rounded-xl"
               style={{ animation: "fadeIn 0.5s ease-out both, glowPulse 3s ease-in-out 0.5s infinite" }}
             >
-              <Logo size={64} className="rounded-xl" />
+              <Logo size={64} tone="auto" className="rounded-xl" />
             </div>
 
             {/* Title block */}
