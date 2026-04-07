@@ -13,6 +13,7 @@ from agent.runtime.task_runner import (
     TaskAgentConfig,
     TaskAgentRunner,
 )
+from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.local.task_complete import TaskComplete
 from agent.tools.meta.handoff import AgentHandoff
@@ -85,6 +86,7 @@ class SubAgentManager:
         max_concurrent: int = 5,
         max_total: int = 20,
         max_iterations: int = 50,
+        skill_registry: SkillRegistry | None = None,
     ) -> None:
         if max_concurrent < 1:
             raise ValueError("max_concurrent must be at least 1")
@@ -100,6 +102,7 @@ class SubAgentManager:
         self._max_concurrent = max_concurrent
         self._max_total = max_total
         self._max_iterations = max_iterations
+        self._skill_registry = skill_registry
 
         self._message_bus = AgentMessageBus()
         self._agents: dict[str, asyncio.Task[AgentResult]] = {}
@@ -121,6 +124,13 @@ class SubAgentManager:
         """
         if self.total_spawned >= self._max_total:
             raise RuntimeError(f"Maximum total agents reached ({self._max_total})")
+
+        unknown_dependencies = sorted(
+            dep_id for dep_id in config.depends_on if dep_id not in self._configs
+        )
+        if unknown_dependencies:
+            unknown = ", ".join(unknown_dependencies)
+            raise RuntimeError(f"Unknown dependency agent_id(s): {unknown}")
 
         settings = get_settings()
         if settings.AGENT_GLOBAL_TOKEN_BUDGET > 0:
@@ -458,6 +468,7 @@ class SubAgentManager:
                 tool_executor=executor,
                 event_emitter=self._emitter,
                 max_iterations=self._max_iterations,
+                skill_registry=self._skill_registry,
             )
             callback_target[0] = runner
             handoff_target[0] = runner

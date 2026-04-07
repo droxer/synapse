@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     MCP_SERVERS: str = ""  # JSON-encoded list of MCP server configs, or empty
     SKILLS_ENABLED: bool = True  # Enable/disable the agent skills system
     SKILLS_REGISTRY_URL: str = "https://api.agentskills.io"  # Remote skill registry
-    SKILLS_TRUST_PROJECT: bool = True  # When False, project-level skills are skipped
+    SKILLS_TRUST_PROJECT: bool = False  # When True, project-level skills are loaded (supply-chain risk: untrusted repos can inject instructions)
     ENVIRONMENT: str = "development"  # "development" or "production"
     RATE_LIMIT_PER_MINUTE: int = 30
 

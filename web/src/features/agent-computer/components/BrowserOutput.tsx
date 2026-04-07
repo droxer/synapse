@@ -18,6 +18,7 @@ import {
 import type { BrowserMetadata } from "@/shared/types";
 
 const COLLAPSE_THRESHOLD = 500;
+const ELLIPSIS = "…";
 
 interface BrowserOutputProps {
   readonly output: string;
@@ -106,9 +107,13 @@ export function BrowserOutput({
 
       {/* Markdown body */}
       <div className={PROSE_CLASSES}>
-        <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
+        {displayText.trim().length > 0 ? (
+          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
+        ) : (
+          <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+        )}
         {isLong && !expanded && (
-          <span className="text-muted-foreground-dim">...</span>
+          <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
         )}
       </div>
 

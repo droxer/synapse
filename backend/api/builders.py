@@ -219,10 +219,43 @@ def _build_base_registry(
     return registry
 
 
+def _build_planner_registry(
+    event_emitter: EventEmitter,
+    on_complete: Any,
+    persistent_store: PersistentMemoryStore | None = None,
+    skill_registry: SkillRegistry | None = None,
+) -> ToolRegistry:
+    """Build the planner-only registry without sandbox execution tools."""
+    settings = get_settings()
+    memory: dict[str, str] = {}
+
+    registry = ToolRegistry()
+    registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
+    registry = registry.register(WebFetch())
+    registry = registry.register(MessageUser(event_emitter=event_emitter))
+    registry = registry.register(AskUser(event_emitter=event_emitter))
+    registry = registry.register(TaskComplete(on_complete=on_complete))
+    registry = registry.register(
+        MemoryStore(store=memory, persistent_store=persistent_store)
+    )
+    registry = registry.register(
+        MemoryRecall(store=memory, persistent_store=persistent_store)
+    )
+    registry = registry.register(
+        MemoryList(store=memory, persistent_store=persistent_store)
+    )
+
+    if skill_registry is not None and settings.SKILLS_ENABLED:
+        registry = registry.register(ActivateSkill(skill_registry=skill_registry))
+
+    return registry
+
+
 def _build_sub_agent_registry_factory(
     event_emitter: EventEmitter,
     sandbox_provider: SandboxProvider,
     mcp_state: MCPState,
+    skill_registry: SkillRegistry | None = None,
 ) -> Callable[[], ToolRegistry]:
     """Factory that produces fully-populated registries for sub-agents (C1 fix)."""
 
@@ -284,6 +317,9 @@ def _build_sub_agent_registry_factory(
         # Merge MCP tools if available
         if mcp_state.registry is not None:
             registry = registry.merge(mcp_state.registry)
+
+        if skill_registry is not None and settings.SKILLS_ENABLED:
+            registry = registry.register(ActivateSkill(skill_registry=skill_registry))
 
         return registry
 
@@ -436,7 +472,10 @@ def _build_planner_orchestrator(
     sub_agent_manager = SubAgentManager(
         claude_client=claude_client,
         tool_registry_factory=_build_sub_agent_registry_factory(
-            event_emitter, sandbox_provider, resolved_mcp_state
+            event_emitter,
+            sandbox_provider,
+            resolved_mcp_state,
+            skill_registry if settings.SKILLS_ENABLED else None,
         ),
         tool_executor_factory=lambda reg: ToolExecutor(
             registry=reg,
@@ -447,24 +486,19 @@ def _build_planner_orchestrator(
         max_concurrent=settings.MAX_CONCURRENT_AGENTS,
         max_total=settings.MAX_TOTAL_AGENTS,
         max_iterations=settings.MAX_AGENT_ITERATIONS,
+        skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
     )
 
-    artifact_manager = ArtifactManager(storage_backend=storage_backend)
-    base_registry = _build_base_registry(
+    planner_registry = _build_planner_registry(
         event_emitter,
         callback_holder,
-        sandbox_provider,
-        storage_backend,
-        resolved_mcp_state,
-        artifact_manager,
         persistent_store,
         skill_registry,
     )
     executor = ToolExecutor(
-        registry=base_registry,
+        registry=planner_registry,
         sandbox_provider=sandbox_provider,
         event_emitter=event_emitter,
-        artifact_manager=artifact_manager,
         conversation_id=conversation_id,
     )
 
@@ -484,7 +518,7 @@ def _build_planner_orchestrator(
 
     orchestrator = PlannerOrchestrator(
         claude_client=claude_client,
-        tool_registry=base_registry,
+        tool_registry=planner_registry,
         tool_executor=executor,
         event_emitter=event_emitter,
         sub_agent_manager=sub_agent_manager,

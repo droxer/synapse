@@ -34,15 +34,29 @@ from config.settings import get_settings
 # ---------------------------------------------------------------------------
 
 _MCP_BLOCKED_ENV_VARS = {
+    # Standard UNIX process-injection vectors
     "PATH",
     "LD_PRELOAD",
     "LD_LIBRARY_PATH",
+    # macOS dynamic-linker equivalents of LD_PRELOAD
+    "DYLD_INSERT_LIBRARIES",
+    "DYLD_LIBRARY_PATH",
+    # Language-specific startup hooks that execute arbitrary code
     "PYTHONPATH",
+    "PYTHONSTARTUP",
+    "PYTHONUSERSITE",
     "NODE_PATH",
+    # Node --require / --import flags smuggled via environment
+    "NODE_OPTIONS",
+    # Miscellaneous identity variables that should come from the process owner
     "HOME",
     "USER",
 }
 
+# NOTE: This whitelist is a UX guardrail, not a security boundary.  Both
+# ``python``/``python3`` and ``node``/``npx``/``uvx`` can execute arbitrary
+# code once spawned, so the list prevents *accidental* use of system
+# executables (bash, curl, rm …) rather than preventing intentional misuse.
 _ALLOWED_MCP_COMMANDS = {"npx", "uvx", "node", "python", "python3"}
 
 router = APIRouter(prefix="/mcp", dependencies=common_dependencies)
@@ -274,7 +288,7 @@ async def add_server(
             status_code=409, detail=f"Server '{request.name}' already exists"
         )
 
-    # Validate stdio-specific constraints.
+    # Validate transport-specific constraints.
     if request.transport == "stdio":
         command_basename = os.path.basename(request.command)
         if command_basename not in _ALLOWED_MCP_COMMANDS:
@@ -282,6 +296,15 @@ async def add_server(
                 status_code=403,
                 detail=f"Command '{command_basename}' is not in the allowed MCP commands: {sorted(_ALLOWED_MCP_COMMANDS)}",
             )
+    elif request.transport == "sse":
+        # Validate the SSE URL to prevent SSRF attacks.
+        from agent.skills.installer import _validate_https_url, _validate_not_internal
+
+        try:
+            _validate_https_url(request.url)
+            _validate_not_internal(request.url)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     # Filter blocked environment variables
     sanitized_env = {

@@ -142,6 +142,8 @@ class SkillRegistry:
         if not self._skills:
             return ""
 
+        import html as _html
+
         lines = [
             "\n<available_skills>",
             "When a task matches a skill's description, call the activate_skill tool",
@@ -151,8 +153,10 @@ class SkillRegistry:
         for skill in self._skills:
             meta = skill.metadata
             lines.append("<skill>")
-            lines.append(f"  <name>{meta.name}</name>")
-            lines.append(f"  <description>{meta.description}</description>")
+            lines.append(f"  <name>{_html.escape(meta.name)}</name>")
+            lines.append(
+                f"  <description>{_html.escape(meta.description)}</description>"
+            )
             lines.append("</skill>")
 
         lines.append("</available_skills>")

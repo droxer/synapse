@@ -20,6 +20,8 @@ from api.events import EventEmitter
 
 
 class _RecordingClient:
+    default_model = "claude-test"
+
     def __init__(self) -> None:
         self.last_tools: list[dict[str, Any]] | None = None
 

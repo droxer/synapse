@@ -26,6 +26,7 @@ export const EVENT_TYPES = [
   "conversation_title",
   "skill_activated",
   "plan_created",
+  "loop_guard_nudge",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
@@ -50,21 +51,17 @@ export interface LLMResponseEventData extends GenericEventData {
 }
 
 export interface ToolCallEventData extends GenericEventData {
+  /** Canonical fields emitted by the backend. */
   readonly tool_id?: string;
-  readonly id?: string;
-  readonly name?: string;
   readonly tool_name?: string;
-  readonly input?: Record<string, unknown>;
   readonly tool_input?: Record<string, unknown>;
-  readonly arguments?: Record<string, unknown>;
   readonly agent_id?: string;
 }
 
 export interface ToolResultEventData extends GenericEventData {
   readonly tool_id?: string;
-  readonly id?: string;
-  readonly output?: string;
-  readonly result?: string;
+  readonly output?: unknown;
+  readonly result?: unknown;
   readonly success?: boolean;
   readonly content_type?: string;
   readonly artifact_ids?: string[];
@@ -108,6 +105,16 @@ export interface PlanCreatedEventData extends GenericEventData {
   readonly steps?: Array<{ readonly name?: string; readonly description?: string }>;
 }
 
+export interface SkillActivatedEventData extends GenericEventData {
+  readonly name?: string;
+  readonly source?: "explicit" | "auto" | "mid_turn";
+}
+
+export interface LoopGuardNudgeEventData extends GenericEventData {
+  readonly iteration?: number;
+  readonly repeated_signature?: string;
+}
+
 export type AgentEventDataByType = {
   task_start: GenericEventData;
   task_complete: GenericEventData;
@@ -134,8 +141,9 @@ export type AgentEventDataByType = {
   code_result: GenericEventData;
   artifact_created: ArtifactCreatedEventData;
   conversation_title: GenericEventData;
-  skill_activated: GenericEventData;
+  skill_activated: SkillActivatedEventData;
   plan_created: PlanCreatedEventData;
+  loop_guard_nudge: LoopGuardNudgeEventData;
 };
 
 export type AgentEvent = {

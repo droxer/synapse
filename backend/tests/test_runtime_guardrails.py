@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 from dataclasses import dataclass
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock
 
@@ -25,6 +26,7 @@ from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolRe
 from agent.tools.executor import ToolExecutor
 from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.registry import ToolRegistry
+from api.builders import _build_planner_registry
 from api.events import EventEmitter
 from api.models import FileAttachment
 
@@ -302,6 +304,31 @@ async def test_planner_skill_filter_excludes_unlisted_mcp_tools() -> None:
     assert "demo_server__lookup_docs" not in tool_names
 
 
+def test_planner_registry_excludes_sandbox_tools(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            TAVILY_API_KEY="test-key",
+            SKILLS_ENABLED=True,
+        ),
+    )
+
+    registry = _build_planner_registry(
+        event_emitter=EventEmitter(),
+        on_complete=AsyncMock(),
+        skill_registry=_build_skill_registry(),
+    )
+
+    tool_names = {tool.name for tool in registry.list_tools()}
+    assert "web_search" in tool_names
+    assert "user_ask" in tool_names
+    assert "activate_skill" in tool_names
+    assert "shell_exec" not in tool_names
+    assert "file_read" not in tool_names
+    assert "code_run" not in tool_names
+    assert "browser_navigate" not in tool_names
+
+
 @pytest.mark.asyncio
 async def test_planner_resets_skill_selected_template_on_next_turn() -> None:
     client = _PlannerClient()
@@ -437,3 +464,74 @@ async def test_planner_applies_mid_turn_skill_activation_constraints() -> None:
         "web_search",
     }
     assert client.tool_batches[1] == {"activate_skill", "web_search"}
+
+
+@pytest.mark.asyncio
+async def test_planner_builder_registry_keeps_skill_filtering_without_sandbox_tools(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            TAVILY_API_KEY="test-key",
+            SKILLS_ENABLED=True,
+        ),
+    )
+    monkeypatch.setattr(
+        "agent.runtime.planner.get_settings",
+        lambda: SimpleNamespace(
+            COMPACT_FULL_INTERACTIONS=5,
+            COMPACT_FULL_DIALOGUE_TURNS=5,
+            COMPACT_TOKEN_BUDGET=150_000,
+            COMPACT_SUMMARY_MODEL="",
+            PLANNING_MODEL="claude-test",
+            LITE_MODEL="claude-lite-test",
+            SKILL_SELECTOR_MODEL="",
+        ),
+    )
+
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = _build_planner_registry(
+        event_emitter=EventEmitter(),
+        on_complete=AsyncMock(),
+        skill_registry=_build_skill_registry(),
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    await planner.run("help me plan")
+
+    assert "shell_exec" not in client.tool_batches[0]
+    assert "file_read" not in client.tool_batches[0]
+    assert client.tool_batches[1] == {
+        "activate_skill",
+        "user_message",
+        "web_fetch",
+        "web_search",
+    }

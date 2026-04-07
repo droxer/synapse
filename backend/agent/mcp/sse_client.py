@@ -405,8 +405,26 @@ class MCPSSEClient:
         if event_type == "endpoint":
             endpoint = data.strip()
             if endpoint.startswith("/"):
+                # Relative path — resolve against the base URL (safe).
                 self._legacy_endpoint = f"{self._url}{endpoint}"
             else:
+                # Absolute URL — only accept if it shares the same origin as
+                # self._url to prevent a malicious server from redirecting POST
+                # traffic to an arbitrary internal or external host.
+                from urllib.parse import urlparse as _urlparse
+
+                given = _urlparse(endpoint)
+                base = _urlparse(self._url)
+                if given.scheme != base.scheme or given.netloc != base.netloc:
+                    logger.warning(
+                        "mcp_legacy_endpoint_rejected server={} endpoint={} "
+                        "(origin mismatch — expected {}://{})",
+                        self._server_name,
+                        endpoint,
+                        base.scheme,
+                        base.netloc,
+                    )
+                    return
                 self._legacy_endpoint = endpoint
             self._legacy_endpoint_ready.set()
             return

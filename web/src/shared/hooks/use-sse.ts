@@ -27,6 +27,35 @@ function isEventType(value: unknown): value is EventType {
   return typeof value === "string" && EVENT_TYPE_SET.has(value);
 }
 
+function normalizeEventText(value: unknown): string | undefined {
+  if (value === undefined || value === null) return undefined;
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+interface ReconnectGuardInput {
+  readonly isStopped: boolean;
+  readonly retryCount: number;
+  readonly maxRetries: number;
+  readonly hasPendingTimer: boolean;
+}
+
+export function shouldScheduleReconnect({
+  isStopped,
+  retryCount,
+  maxRetries,
+  hasPendingTimer,
+}: ReconnectGuardInput): boolean {
+  if (isStopped) return false;
+  if (retryCount >= maxRetries) return false;
+  if (hasPendingTimer) return false;
+  return true;
+}
+
 function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): AgentEventDataByType[K] {
   const data = isRecord(raw) ? raw : {};
 
@@ -75,8 +104,8 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
       ...data,
       tool_id: typeof data.tool_id === "string" ? data.tool_id : undefined,
       id: typeof data.id === "string" ? data.id : undefined,
-      output: typeof data.output === "string" ? data.output : undefined,
-      result: typeof data.result === "string" ? data.result : undefined,
+      output: normalizeEventText(data.output),
+      result: normalizeEventText(data.result),
       success: typeof data.success === "boolean" ? data.success : undefined,
       content_type: typeof data.content_type === "string" ? data.content_type : undefined,
       artifact_ids: Array.isArray(data.artifact_ids)
@@ -170,9 +199,16 @@ export function useSSE(conversationId: string | null, isLive = true) {
       es.onerror = () => {
         setIsConnected(false);
 
-        // Don't retry if the conversation already finished
-        if (stoppedRef.current) return;
-        if (retryCountRef.current >= MAX_RETRIES) return;
+        if (
+          !shouldScheduleReconnect({
+            isStopped: stoppedRef.current,
+            retryCount: retryCountRef.current,
+            maxRetries: MAX_RETRIES,
+            hasPendingTimer: retryTimerRef.current !== null,
+          })
+        ) {
+          return;
+        }
 
         const delay = Math.min(
           BASE_DELAY_MS * Math.pow(2, retryCountRef.current),

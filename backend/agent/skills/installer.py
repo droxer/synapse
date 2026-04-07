@@ -150,7 +150,9 @@ class SkillInstaller:
 
             content = b"".join(chunks)
 
-        is_zip = url.endswith(".zip")
+        # Detect zip by magic bytes (PK signature) rather than URL extension,
+        # so a server cannot trick us by serving a zip at a .md URL or vice versa.
+        is_zip = content[:2] == b"PK"
 
         # Content-type validation for non-zip downloads
         if not is_zip:
@@ -338,10 +340,12 @@ def _validate_https_url(url: str) -> None:
 def _validate_not_internal(url: str) -> None:
     """Reject URLs pointing to internal/metadata services (SSRF prevention)."""
     parsed = urlparse(url)
-    hostname = parsed.hostname or ""
+    hostname = (parsed.hostname or "").lower().strip("[]")  # strip IPv6 brackets
+
     if hostname in _BLOCKED_HOSTS:
         raise ValueError(f"URL points to a blocked internal host: {hostname}")
-    # Block private IP ranges (10.x, 172.16-31.x, 192.168.x)
+
+    # Block IPv4 private ranges (10.x, 172.16-31.x, 192.168.x)
     if hostname.startswith(("10.", "192.168.")):
         raise ValueError(f"URL points to a private IP address: {hostname}")
     if hostname.startswith("172."):
@@ -350,6 +354,25 @@ def _validate_not_internal(url: str) -> None:
             second_octet = int(parts[1])
             if 16 <= second_octet <= 31:
                 raise ValueError(f"URL points to a private IP address: {hostname}")
+
+    # Block RFC 6598 shared address space (100.64.0.0/10)
+    if hostname.startswith("100."):
+        parts = hostname.split(".")
+        if len(parts) >= 2 and parts[1].isdigit():
+            second_octet = int(parts[1])
+            if 64 <= second_octet <= 127:
+                raise ValueError(f"URL points to a shared address space IP: {hostname}")
+
+    # Block IPv6 loopback/link-local/unique-local
+    ipv6_blocked_prefixes = (
+        "::1",  # loopback
+        "fe80:",  # link-local
+        "fc",  # unique local fc00::/7
+        "fd",  # unique local fd00::/7
+        "::ffff:",  # IPv4-mapped (::ffff:10.x, ::ffff:127.x, etc.)
+    )
+    if any(hostname.startswith(p) for p in ipv6_blocked_prefixes):
+        raise ValueError(f"URL points to a blocked IPv6 address: {hostname}")
 
 
 def _safe_extract_zip(archive_path: str, extract_dir: str) -> None:

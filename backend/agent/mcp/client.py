@@ -87,17 +87,22 @@ class MCPStdioClient:
         self._reader_task = asyncio.create_task(self._read_responses())
         self._stderr_task = asyncio.create_task(self._drain_stderr())
 
-        # Initialize the MCP connection
-        await self._send_request(
-            "initialize",
-            {
-                "protocolVersion": MCP_PROTOCOL_VERSION,
-                "capabilities": {},
-                "clientInfo": {"name": "synapse", "version": "0.1.0"},
-            },
-        )
-        # Send initialized notification
-        await self._send_notification("notifications/initialized", {})
+        # Initialize the MCP connection; clean up on failure so we don't leak
+        # the subprocess and background tasks.
+        try:
+            await self._send_request(
+                "initialize",
+                {
+                    "protocolVersion": MCP_PROTOCOL_VERSION,
+                    "capabilities": {},
+                    "clientInfo": {"name": "synapse", "version": "0.1.0"},
+                },
+            )
+            # Send initialized notification
+            await self._send_notification("notifications/initialized", {})
+        except Exception:
+            await self.close()
+            raise
         logger.info("mcp_connected server={}", self._server_name)
 
     async def list_tools(self) -> tuple[MCPToolSchema, ...]:
@@ -231,6 +236,13 @@ class MCPStdioClient:
                         future.set_exception(RuntimeError(f"MCP error: {msg['error']}"))
                     else:
                         future.set_result(msg.get("result", {}))
+                elif req_id is None and "method" in msg:
+                    # Server-initiated notification (no id) — log at debug level.
+                    logger.debug(
+                        "mcp_notification server={} method={}",
+                        self._server_name,
+                        msg.get("method"),
+                    )
         except asyncio.CancelledError:
             pass
         except Exception as exc:

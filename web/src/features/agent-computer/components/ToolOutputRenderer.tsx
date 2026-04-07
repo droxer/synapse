@@ -41,6 +41,7 @@ import type { BrowserMetadata, ComputerUseMetadata } from "@/shared/types";
 
 /** Max chars to show before collapsing */
 const COLLAPSE_THRESHOLD = 500;
+const ELLIPSIS = "…";
 
 interface CategoryStyle {
   readonly border: string;
@@ -236,7 +237,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         <pre className="whitespace-pre-wrap text-[var(--color-terminal-text)]">
           {stripAnsi(displayText)}
           {isLong && !expanded && (
-            <span className="text-[var(--color-terminal-dim)]">{"\n..."}</span>
+            <span className="text-[var(--color-terminal-dim)]">{`\n${ELLIPSIS}`}</span>
           )}
         </pre>
 
@@ -345,7 +346,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                   <div className="mb-0.5 text-micro text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
-                  <div className="text-muted-foreground">{msg.message}</div>
+                  <div className="min-w-0 break-words text-muted-foreground">{msg.message}</div>
                 </div>
               ))}
             </div>
@@ -389,7 +390,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                     {visibleRows.map((row, i) => (
                       <tr key={i} className={cn("border-b border-border", i % 2 === 1 && "bg-background")}>
                         {columns.map((col) => (
-                          <td key={col} className="whitespace-nowrap px-2 py-1 text-muted-foreground">{String(row[col] ?? "")}</td>
+                          <td key={col} className="px-2 py-1 text-muted-foreground break-words">{String(row[col] ?? "")}</td>
                         ))}
                       </tr>
                     ))}
@@ -429,7 +430,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                 return (
                   <div key={i} className="flex gap-2 px-2 py-0.5 text-sm">
                     <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{label}</span>
-                    <span className="text-muted-foreground">{value.length > 80 ? `${value.slice(0, 80)}...` : value}</span>
+                    <span className="min-w-0 break-words text-muted-foreground">{value.length > 80 ? `${value.slice(0, 80)}${ELLIPSIS}` : value}</span>
                   </div>
                 );
               })}
@@ -453,10 +454,11 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         <div className={PROSE_CLASSES}>
           <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
           {isLong && !expanded && (
-            <span className="text-muted-foreground-dim">...</span>
+            <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
           )}
         </div>
         {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+        <p className="mt-1 text-xs text-muted-foreground">{t("conversation.retry")}</p>
       </div>
     );
   }
@@ -476,7 +478,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       <div className={PROSE_CLASSES}>
         <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
         {isLong && !expanded && (
-          <span className="text-muted-foreground-dim">...</span>
+          <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
         )}
       </div>
 

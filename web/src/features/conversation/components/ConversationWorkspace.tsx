@@ -12,6 +12,7 @@ import { ChatInput } from "@/features/conversation";
 import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
+import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import type {
@@ -79,6 +80,7 @@ export function ConversationWorkspace({
 }: ConversationWorkspaceProps) {
   const { t } = useTranslation();
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const activityCountRef = useRef(0);
   const [panelOpen, setPanelOpen] = useState(false);
   const autoOpenedRef = useRef(false);
   const [copied, setCopied] = useState(false);
@@ -92,11 +94,33 @@ export function ConversationWorkspace({
   }, []);
 
   useEffect(() => {
-    chatScrollRef.current?.scrollTo({
-      top: chatScrollRef.current.scrollHeight,
+    activityCountRef.current = 0;
+  }, [conversationId]);
+
+  useEffect(() => {
+    const el = chatScrollRef.current;
+    if (!el) return;
+
+    const activityCount = messages.length + events.length + toolCalls.length;
+    const prevCount = activityCountRef.current;
+    activityCountRef.current = activityCount;
+
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
+    if (
+      !shouldAutoScrollToBottom({
+        previousActivityCount: prevCount,
+        nextActivityCount: activityCount,
+        distanceFromBottom,
+      })
+    ) {
+      return;
+    }
+
+    el.scrollTo({
+      top: el.scrollHeight,
       behavior: "smooth",
     });
-  }, [messages, events, toolCalls]);
+  }, [messages.length, events.length, toolCalls.length]);
 
   const getImageUrlsForMessage = useCallback(
     (msg: ChatMessage): string[] => {
@@ -216,7 +240,7 @@ export function ConversationWorkspace({
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
-                const messageKey = `${msg.role}-${msg.timestamp}`;
+                const messageKey = `${msg.role}-${msg.timestamp}-${i}`;
 
                 return (
                   <div

@@ -531,7 +531,7 @@ def _build_conversation_metrics_response(
                 tool_call_counts[tool_name] = tool_call_counts.get(tool_name, 0) + 1
 
         elif etype == "agent_complete":
-            agent_name = data.get("agent_name", "")
+            agent_name = data.get("agent_name") or data.get("agent_id") or ""
             if agent_name:
                 per_agent_metrics[agent_name] = data.get("metrics", {})
 

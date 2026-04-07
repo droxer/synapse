@@ -138,7 +138,7 @@ class TestBuildConversationMetricsResponse:
             _make_event(
                 "agent_complete",
                 {
-                    "agent_name": "task-agent-1",
+                    "agent_name": "research step",
                     "metrics": {
                         "total_input_tokens": 500,
                         "total_output_tokens": 250,
@@ -151,8 +151,8 @@ class TestBuildConversationMetricsResponse:
         ]
         result = _build_conversation_metrics_response(conv_id, events)
 
-        assert "task-agent-1" in result.per_agent_metrics
-        assert result.per_agent_metrics["task-agent-1"] == {
+        assert "research step" in result.per_agent_metrics
+        assert result.per_agent_metrics["research step"] == {
             "total_input_tokens": 500,
             "total_output_tokens": 250,
             "iterations": 3,
@@ -205,6 +205,24 @@ class TestBuildConversationMetricsResponse:
 
         assert "agent-x" in result.per_agent_metrics
         assert result.per_agent_metrics["agent-x"] == {}
+
+    def test_uses_agent_id_fallback_when_agent_name_missing(self) -> None:
+        conv_id = str(uuid.uuid4())
+        cid = uuid.UUID(conv_id)
+        events = [
+            _make_event(
+                "agent_complete",
+                {
+                    "agent_id": "agent-fallback",
+                    "metrics": {"iterations": 4},
+                },
+                conversation_id=cid,
+                event_id=1,
+            ),
+        ]
+        result = _build_conversation_metrics_response(conv_id, events)
+
+        assert result.per_agent_metrics["agent-fallback"] == {"iterations": 4}
 
     def test_mixed_events_are_aggregated_correctly(self) -> None:
         conv_id = str(uuid.uuid4())

@@ -21,6 +21,7 @@ from agent.runtime.helpers import (
 )
 from agent.runtime.observer import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
+from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.task_runner import TaskAgentConfig
@@ -249,8 +250,12 @@ class PlannerOrchestrator:
 
             # Filter tools by allowed_tools
             if matched.metadata.allowed_tools:
-                allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-                effective_registry = effective_registry.filter_by_names(allowed)
+                allowed_names, allowed_tags = split_allowed_tools(
+                    matched.metadata.allowed_tools
+                )
+                effective_registry = effective_registry.filter_by_names_or_tags(
+                    allowed_names, allowed_tags
+                )
 
         uploaded_paths: tuple[str, ...] = ()
         if attachments:
@@ -463,8 +468,12 @@ class PlannerOrchestrator:
             )
 
         if skill.metadata.allowed_tools:
-            allowed = set(skill.metadata.allowed_tools) | {"activate_skill"}
-            updated_registry = updated_registry.filter_by_names(allowed)
+            allowed_names, allowed_tags = split_allowed_tools(
+                skill.metadata.allowed_tools
+            )
+            updated_registry = updated_registry.filter_by_names_or_tags(
+                allowed_names, allowed_tags
+            )
 
         tools = updated_registry.to_anthropic_tools()
         await self._emitter.emit(

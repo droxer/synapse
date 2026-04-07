@@ -1,9 +1,11 @@
 "use client";
 
+import { useCallback, useState } from "react";
 import { Monitor } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { ImageOutput } from "@/shared/components/ui/image-output";
+import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
 import {
   OUTPUT_CARD_BASE_CLASSES,
   OUTPUT_HEADER_LABEL_CLASSES,
@@ -11,6 +13,9 @@ import {
 } from "../lib/format-tools";
 import type { ComputerUseMetadata } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
+
+const COLLAPSE_THRESHOLD = 500;
+const ELLIPSIS = "…";
 
 function formatActionDescription(
   meta: ComputerUseMetadata | undefined,
@@ -72,16 +77,22 @@ interface ComputerUseOutputProps {
 }
 
 export function ComputerUseOutput({
+  output,
   computerUseMetadata,
   toolName,
   conversationId,
   artifactIds,
 }: ComputerUseOutputProps) {
   const { t } = useTranslation();
+  const [expanded, setExpanded] = useState(false);
+  const handleToggle = useCallback(() => setExpanded((prev) => !prev), []);
 
   const description = formatActionDescription(computerUseMetadata, toolName, t);
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
   const action = computerUseMetadata?.action;
+  const isLong = output.length > COLLAPSE_THRESHOLD;
+  const displayText = isLong && !expanded ? output.slice(0, COLLAPSE_THRESHOLD) : output;
+  const hasOutputText = displayText.trim().length > 0;
 
   return (
     <div className={OUTPUT_CARD_BASE_CLASSES}>
@@ -110,6 +121,21 @@ export function ComputerUseOutput({
           artifactIds={artifactIds}
           className="mb-1"
         />
+      )}
+
+      {!hasScreenshot && hasOutputText && (
+        <pre className="mb-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+          {displayText}
+          {isLong && !expanded && ELLIPSIS}
+        </pre>
+      )}
+
+      {!hasScreenshot && !hasOutputText && (
+        <p className="text-xs text-muted-foreground">{t("conversation.waiting")}</p>
+      )}
+
+      {!hasScreenshot && isLong && (
+        <ExpandToggle expanded={expanded} onToggle={handleToggle} />
       )}
     </div>
   );

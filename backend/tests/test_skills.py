@@ -388,7 +388,9 @@ class TestSkillDiscoverer:
                 f.write("---\nname: my-skill\ndescription: From agents\n---\nAgents")
 
             discoverer = SkillDiscoverer(
-                project_dir=project, bundled_dir=os.path.join(tmp, "empty")
+                project_dir=project,
+                bundled_dir=os.path.join(tmp, "empty"),
+                trust_project=True,
             )
             skills = discoverer.discover_all()
             skill = next(s for s in skills if s.metadata.name == "my-skill")
@@ -403,7 +405,9 @@ class TestSkillDiscoverer:
                 f.write("---\nname: proj-skill\ndescription: Project skill\n---\nBody")
 
             discoverer = SkillDiscoverer(
-                project_dir=project, bundled_dir=os.path.join(tmp, "empty")
+                project_dir=project,
+                bundled_dir=os.path.join(tmp, "empty"),
+                trust_project=True,
             )
             skills = discoverer.discover_all()
             skill = next((s for s in skills if s.metadata.name == "proj-skill"), None)

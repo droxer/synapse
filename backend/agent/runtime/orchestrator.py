@@ -25,6 +25,7 @@ from agent.runtime.message_chain import (
     tool_calls_fingerprint,
 )
 from agent.runtime.observer import Observer, compaction_summary_for_persistence
+from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.turn_attachments import (
@@ -339,15 +340,21 @@ class AgentOrchestrator:
         )
         self._state = replace(self._state, completed=False, error=None, iteration=0)
 
-        # Filter tools to skill's allowed set (if specified)
+        # Filter tools to skill's allowed set (if specified).
+        # Entries containing ":" are treated as registry tags (e.g.
+        # "mcp_server:my-server"); all others are plain tool names.
         effective_registry = self._registry
         if (
             self._auto_injected_skill is not None
             and matched is not None
             and matched.metadata.allowed_tools
         ):
-            allowed = set(matched.metadata.allowed_tools) | {"activate_skill"}
-            effective_registry = self._registry.filter_by_names(allowed)
+            allowed_names, allowed_tags = split_allowed_tools(
+                matched.metadata.allowed_tools
+            )
+            effective_registry = self._registry.filter_by_names_or_tags(
+                allowed_names, allowed_tags
+            )
 
         tools = effective_registry.to_anthropic_tools()
 
@@ -513,8 +520,12 @@ class AgentOrchestrator:
 
         # Filter tools by allowed_tools if specified
         if skill.metadata.allowed_tools:
-            allowed = set(skill.metadata.allowed_tools) | {"activate_skill"}
-            updated_registry = updated_registry.filter_by_names(allowed)
+            allowed_names, allowed_tags = split_allowed_tools(
+                skill.metadata.allowed_tools
+            )
+            updated_registry = updated_registry.filter_by_names_or_tags(
+                allowed_names, allowed_tags
+            )
 
         tools = updated_registry.to_anthropic_tools()
 
@@ -579,7 +590,7 @@ class AgentOrchestrator:
                 f"Exceeded maximum iterations ({self._max_iterations})",
             )
 
-        llm_model = self._client.default_model
+        llm_model = getattr(self._client, "default_model", "<unknown>")
         try:
 
             async def _on_text_delta(delta: str) -> None:

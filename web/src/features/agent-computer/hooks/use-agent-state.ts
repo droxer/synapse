@@ -63,7 +63,17 @@ function appendUnique<T>(source: readonly T[] | undefined, additions: readonly T
   return [...source, ...additions];
 }
 
-function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
+function toDisplayText(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
   const messages: ChatMessage[] = [];
   const artifacts: ArtifactInfo[] = [];
   const reasoningSteps: string[] = [];
@@ -179,12 +189,12 @@ function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
     } else if (event.type === "llm_response") {
       assistantPhase = { phase: "idle" };
       isStreaming = false;
-      const responseText = String(event.data.text ?? event.data.content ?? event.data.message ?? "");
+      const responseText = toDisplayText(event.data.text ?? event.data.content ?? event.data.message);
       if (responseText.length > 0) {
         reasoningSteps.push(responseText);
       }
 
-      const rawText = String(event.data.text ?? "");
+      const rawText = responseText;
       if (rawText) {
         const { thinking: inlineThinking, content } = splitThinkTag(rawText);
         const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
@@ -257,7 +267,7 @@ function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
 
         toolCallMap.set(rowId, {
           ...existing,
-          output: String(event.data.output ?? event.data.result ?? ""),
+          output: toDisplayText(event.data.output ?? event.data.result),
           success: event.data.success !== false,
           contentType: event.data.content_type ? String(event.data.content_type) : undefined,
           artifactIds: Array.isArray(event.data.artifact_ids) ? event.data.artifact_ids : undefined,
@@ -301,7 +311,7 @@ function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
         if (existing) {
           toolCallMap.set(targetId, {
             ...existing,
-            output: String(event.data.output ?? event.data.result ?? ""),
+            output: toDisplayText(event.data.output ?? event.data.result),
             success: event.data.success !== false,
             contentType: event.data.content_type ? String(event.data.content_type) : "text/plain",
           });

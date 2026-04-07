@@ -15,6 +15,10 @@ from agent.runtime.helpers import (
 )
 from agent.runtime.observer import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
+from agent.runtime.skill_install import install_skill_dependencies_for_turn
+from agent.runtime.skill_runtime import split_allowed_tools
+from agent.runtime.skill_selector import select_skill_for_message
+from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
@@ -123,6 +127,7 @@ class TaskAgentRunner:
         event_emitter: EventEmitter,
         max_iterations: int = 50,
         observer: Observer | None = None,
+        skill_registry: SkillRegistry | None = None,
     ) -> None:
         if not agent_id:
             raise ValueError("agent_id must not be empty")
@@ -137,6 +142,7 @@ class TaskAgentRunner:
         self._executor = tool_executor
         self._emitter = event_emitter
         self._max_iterations = max_iterations
+        self._skill_registry = skill_registry
         self._observer = observer or Observer(
             max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
             max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
@@ -145,6 +151,8 @@ class TaskAgentRunner:
             summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
         )
         self._system_prompt = _build_system_prompt(config)
+        self._turn_base_prompt = self._system_prompt
+        self._auto_injected_skill: str | None = None
         self._task_complete_summary: str | None = None
         self._handoff_request: HandoffRequest | None = None
         self._artifact_ids: list[str] = []
@@ -275,6 +283,7 @@ class TaskAgentRunner:
             EventType.AGENT_COMPLETE,
             {
                 "agent_id": self._agent_id,
+                "agent_name": self._config.name or self._agent_id,
                 "success": success,
                 "error": error,
                 "failure_mode": failure_mode,
@@ -291,12 +300,83 @@ class TaskAgentRunner:
         state = AgentState().add_message(
             {"role": "user", "content": self._config.task_description},
         )
-        tools = self._registry.to_anthropic_tools()
+        effective_prompt = self._system_prompt
+        effective_registry = self._registry
+        self._auto_injected_skill = None
+
+        matched = await select_skill_for_message(
+            user_message=self._config.task_description,
+            selected_skills=(),
+            skill_registry=self._skill_registry,
+            client=self._client,
+            model=settings.SKILL_SELECTOR_MODEL or settings.LITE_MODEL,
+        )
+        if matched is not None:
+            self._auto_injected_skill = matched.metadata.name
+            effective_prompt = (
+                self._system_prompt
+                + f'\n\n<skill_content name="{matched.metadata.name}">\n'
+                + matched.instructions
+                + "\n</skill_content>"
+            )
+            self._turn_base_prompt = self._system_prompt
+            await self._emitter.emit(
+                EventType.SKILL_ACTIVATED,
+                {"name": matched.metadata.name, "source": "auto"},
+            )
+
+            from agent.tools.local.activate_skill import ActivateSkill
+
+            effective_registry = effective_registry.replace_tool(
+                ActivateSkill(
+                    skill_registry=self._skill_registry,
+                    active_skill_name=matched.metadata.name,
+                )
+            )
+
+            if matched.metadata.sandbox_template:
+                self._executor.set_sandbox_template(matched.metadata.sandbox_template)
+                logger.info(
+                    "task_runner_skill_sandbox_template name={} template={}",
+                    matched.metadata.name,
+                    matched.metadata.sandbox_template,
+                )
+
+            if matched.metadata.dependencies:
+                await install_skill_dependencies_for_turn(
+                    self._executor,
+                    matched.metadata.dependencies,
+                    self._emitter,
+                    context="task_runner",
+                )
+
+            if matched.metadata.allowed_tools:
+                allowed_names, allowed_tags = split_allowed_tools(
+                    matched.metadata.allowed_tools
+                )
+                effective_registry = effective_registry.filter_by_names_or_tags(
+                    allowed_names, allowed_tags
+                )
+
+        tools = effective_registry.to_anthropic_tools()
 
         while not state.completed and state.error is None:
             state = state.increment_iteration()
             self._iterations = state.iteration
-            state = await self._run_iteration(state, tools, settings)
+            state = await self._run_iteration(
+                state,
+                tools,
+                settings,
+                effective_prompt,
+            )
+
+            updated = await self._check_mid_turn_skill_activation(
+                state,
+                effective_prompt,
+                effective_registry,
+            )
+            if updated is not None:
+                effective_prompt, effective_registry, tools = updated
 
         if state.error:
             raise RuntimeError(state.error)
@@ -308,13 +388,14 @@ class TaskAgentRunner:
         state: AgentState,
         tools: list[dict[str, Any]],
         settings: Settings,
+        system_prompt: str,
     ) -> AgentState:
         """Run a single iteration of the task agent loop."""
         # Compact history before the LLM call if needed
-        if self._observer.should_compact(state.messages, self._system_prompt):
+        if self._observer.should_compact(state.messages, system_prompt):
             compacted = await self._observer.compact(
                 state.messages,
-                self._system_prompt,
+                system_prompt,
             )
             self._context_compaction_count += 1
             await self._emitter.emit(
@@ -342,7 +423,7 @@ class TaskAgentRunner:
                 )
 
             response = await self._client.create_message_stream(
-                system=self._system_prompt,
+                system=system_prompt,
                 messages=list(state.messages),
                 tools=tools if tools else None,
                 model=llm_model,
@@ -391,3 +472,117 @@ class TaskAgentRunner:
             return state.mark_completed("Handing off to specialist agent.")
 
         return state
+
+    async def _check_mid_turn_skill_activation(
+        self,
+        state: AgentState,
+        current_prompt: str,
+        current_registry: ToolRegistry,
+    ) -> tuple[str, ToolRegistry, list[dict[str, Any]]] | None:
+        """Detect successful mid-turn skill activation and apply constraints."""
+        del current_prompt
+        if self._skill_registry is None:
+            return None
+
+        last_assistant = None
+        for msg in reversed(state.messages):
+            if msg.get("role") == "assistant":
+                last_assistant = msg
+                break
+
+        if last_assistant is None:
+            return None
+
+        content = last_assistant.get("content")
+        if not isinstance(content, list):
+            return None
+
+        activated_name: str | None = None
+        tool_id: str | None = None
+        for block in content:
+            if not isinstance(block, dict) or block.get("type") != "tool_use":
+                continue
+            block_name = block.get("name")
+            if block_name == "activate_skill":
+                skill_input = block.get("input", {})
+                activated_name = skill_input.get("name")
+                tool_id = block.get("id")
+                break
+            if (
+                isinstance(block_name, str)
+                and self._skill_registry.find_by_name(block_name) is not None
+            ):
+                activated_name = block_name
+                tool_id = block.get("id")
+                break
+
+        if not activated_name or activated_name == self._auto_injected_skill:
+            return None
+
+        if tool_id is not None:
+            for msg in state.messages:
+                if msg.get("role") != "user":
+                    continue
+                msg_content = msg.get("content")
+                if not isinstance(msg_content, list):
+                    continue
+                for block in msg_content:
+                    if (
+                        isinstance(block, dict)
+                        and block.get("type") == "tool_result"
+                        and block.get("tool_use_id") == tool_id
+                        and block.get("is_error") is True
+                    ):
+                        return None
+
+        skill = self._skill_registry.find_by_name(activated_name)
+        if skill is None:
+            return None
+
+        self._auto_injected_skill = skill.metadata.name
+        effective_prompt = (
+            self._turn_base_prompt
+            + f'\n\n<skill_content name="{skill.metadata.name}">\n'
+            + skill.instructions
+            + "\n</skill_content>"
+        )
+
+        from agent.tools.local.activate_skill import ActivateSkill
+
+        updated_registry = current_registry.replace_tool(
+            ActivateSkill(
+                skill_registry=self._skill_registry,
+                active_skill_name=skill.metadata.name,
+            )
+        )
+
+        if skill.metadata.sandbox_template:
+            self._executor.set_sandbox_template(skill.metadata.sandbox_template)
+            logger.info(
+                "task_runner_mid_turn_skill_sandbox_template name={} template={}",
+                skill.metadata.name,
+                skill.metadata.sandbox_template,
+            )
+
+        if skill.metadata.dependencies:
+            await install_skill_dependencies_for_turn(
+                self._executor,
+                skill.metadata.dependencies,
+                self._emitter,
+                context="task_runner_mid_turn",
+            )
+
+        if skill.metadata.allowed_tools:
+            allowed_names, allowed_tags = split_allowed_tools(
+                skill.metadata.allowed_tools
+            )
+            updated_registry = updated_registry.filter_by_names_or_tags(
+                allowed_names, allowed_tags
+            )
+
+        await self._emitter.emit(
+            EventType.SKILL_ACTIVATED,
+            {"name": skill.metadata.name, "source": "mid_turn"},
+        )
+        logger.info("task_runner_mid_turn_skill_activated name={}", skill.metadata.name)
+        return effective_prompt, updated_registry, updated_registry.to_anthropic_tools()

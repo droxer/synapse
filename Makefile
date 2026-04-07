@@ -8,7 +8,7 @@ SANDBOX_TAGS_default :=
 SANDBOX_TAGS_data_science :=
 SANDBOX_TAGS_browser := v3
 
-.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals pre-commit lint-web desktop build-desktop generate-favicons
+.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals pre-commit lint-web test-web desktop build-desktop generate-favicons
 
 # Start both backend and web concurrently
 dev: install
@@ -107,6 +107,10 @@ lint:
 # Lint web
 lint-web:
 	cd web && npx eslint src/
+
+# Run web tests
+test-web:
+	cd web && npm test
 
 # Format backend
 format:

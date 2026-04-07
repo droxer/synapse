@@ -31,7 +31,7 @@ class SkillDiscoverer:
         self,
         project_dir: str | None = None,
         bundled_dir: str | None = None,
-        trust_project: bool = True,
+        trust_project: bool = False,
     ) -> None:
         self._search_paths = _build_search_paths(
             project_dir, bundled_dir, trust_project
@@ -120,7 +120,11 @@ def _scan_directory(root: str, depth: int = 0) -> list[SkillContent]:
                 logger.error("Failed to parse {}: {}", full_path, exc)
             continue
 
-        if os.path.isdir(full_path) and entry not in _SKIP_DIRS:
+        if (
+            os.path.isdir(full_path)
+            and not os.path.islink(full_path)
+            and entry not in _SKIP_DIRS
+        ):
             results.extend(_scan_directory(full_path, depth + 1))
 
     return results

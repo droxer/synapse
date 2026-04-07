@@ -60,6 +60,31 @@ interface TimelineStep {
   readonly agentToolCount?: number;
 }
 
+interface ToolCallIndexes {
+  readonly byToolUseId: ReadonlyMap<string, readonly ToolCallInfo[]>;
+  readonly countByAgentId: ReadonlyMap<string, number>;
+}
+
+export function buildToolCallIndexes(toolCalls: readonly ToolCallInfo[]): ToolCallIndexes {
+  const byToolUseId = new Map<string, ToolCallInfo[]>();
+  const countByAgentId = new Map<string, number>();
+
+  for (const toolCall of toolCalls) {
+    const existingForId = byToolUseId.get(toolCall.toolUseId);
+    if (existingForId) {
+      existingForId.push(toolCall);
+    } else {
+      byToolUseId.set(toolCall.toolUseId, [toolCall]);
+    }
+
+    if (toolCall.agentId) {
+      countByAgentId.set(toolCall.agentId, (countByAgentId.get(toolCall.agentId) ?? 0) + 1);
+    }
+  }
+
+  return { byToolUseId, countByAgentId };
+}
+
 function agentDisplayTitle(
   eventData: Record<string, unknown>,
   agentId: string,
@@ -71,9 +96,9 @@ function agentDisplayTitle(
   return normalizeAgentName(base).slice(0, 55);
 }
 
-function buildSteps(
+export function buildSteps(
   events: AgentEvent[],
-  toolCalls: ToolCallInfo[],
+  indexes: ToolCallIndexes,
   t: TFn,
   agentNameMap: ReadonlyMap<string, string>,
 ): TimelineStep[] {
@@ -102,7 +127,7 @@ function buildSteps(
         const dedupeKey = `${apiToolId}#${ord}`;
         if (!seenToolCalls.has(dedupeKey)) {
           seenToolCalls.add(dedupeKey);
-          const sameApiCalls = toolCalls.filter((t) => t.toolUseId === apiToolId);
+          const sameApiCalls = indexes.byToolUseId.get(apiToolId) ?? [];
           const tc = sameApiCalls[ord];
           const isSkill = toolName === "activate_skill" || toolName === "load_skill";
           const input = (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>;
@@ -177,7 +202,7 @@ function buildSteps(
 
       case "agent_spawn": {
         const spawnAgentId = String(event.data.agent_id ?? event.data.id ?? "");
-        const agentToolCount = toolCalls.filter((tc) => tc.agentId === spawnAgentId).length;
+        const agentToolCount = indexes.countByAgentId.get(spawnAgentId) ?? 0;
         const data = event.data as Record<string, unknown>;
         steps = [...steps, {
           id: `agent-${spawnAgentId}-${event.timestamp}`,
@@ -191,7 +216,7 @@ function buildSteps(
 
       case "agent_complete": {
         const agentId = String(event.data.agent_id ?? event.data.id ?? "");
-        const completedToolCount = toolCalls.filter((tc) => tc.agentId === agentId).length;
+        const completedToolCount = indexes.countByAgentId.get(agentId) ?? 0;
         const newStatus: TimelineStep["status"] = event.data.error ? "error" : "complete";
         steps = steps.map((s) =>
           s.id.startsWith("agent-") && s.id.includes(agentId)
@@ -227,6 +252,10 @@ function buildSteps(
 
 
   return steps;
+}
+
+export function isTimelineStepActionable(stepId: string): boolean {
+  return stepId.startsWith("tool-") || stepId.startsWith("agent-");
 }
 
 /** Emphasize `name` in `title` only on first occurrence; avoids split() edge cases. */
@@ -378,6 +407,7 @@ export function AgentProgressCard({
 }: AgentProgressCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
+  const toolIndexes = useMemo(() => buildToolCallIndexes(toolCalls), [toolCalls]);
 
   const agentNameMap = useMemo(() => {
     const map = new Map<string, string>();
@@ -388,8 +418,8 @@ export function AgentProgressCard({
   }, [agentStatuses]);
 
   const steps = useMemo(
-    () => buildSteps(events, toolCalls, t, agentNameMap),
-    [events, toolCalls, t, agentNameMap],
+    () => buildSteps(events, toolIndexes, t, agentNameMap),
+    [events, toolIndexes, t, agentNameMap],
   );
 
   const completedCount = steps.filter((s) => s.status === "complete").length;
@@ -407,6 +437,16 @@ export function AgentProgressCard({
   }, [steps, isRunning]);
 
   if (totalCount === 0) return null;
+  const taskStateAnnouncement =
+    taskState === "planning"
+      ? t("progress.statePlanning")
+      : taskState === "executing"
+        ? t("progress.stateExecuting")
+        : taskState === "complete"
+          ? t("progress.stateComplete")
+          : taskState === "error"
+            ? t("progress.stateError")
+            : t("computer.statusIdle");
 
   return (
     <motion.div
@@ -430,6 +470,9 @@ export function AgentProgressCard({
 
       {/* Unified header row */}
       <div className="flex items-center gap-3 px-4 py-3">
+        <div role="status" aria-live="polite" className="sr-only">
+          {runningStepTitle ? `${taskStateAnnouncement}: ${runningStepTitle}` : taskStateAnnouncement}
+        </div>
         {/* Left: clickable title area — toggles expand/collapse */}
         <button
           type="button"
@@ -499,27 +542,16 @@ export function AgentProgressCard({
               <div className="max-h-60 overflow-y-auto font-mono text-sm">
                 <div className="space-y-1.5">
                   {steps.map((step, index) => {
-                    const isClickable = step.id.startsWith("tool-") || step.id.startsWith("agent-");
-                    return (
-                      <motion.button
-                        type="button"
-                        key={step.id}
-                        initial={{ opacity: 0, y: 4 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          delay: index * 0.015,
-                          duration: 0.12,
-                          ease: "easeOut",
-                        }}
-                        className={cn(
-                          "flex items-center gap-2.5 py-1.5 rounded-md px-1.5 -mx-1.5",
-                          isClickable && "cursor-pointer hover:bg-muted transition-colors",
-                          step.status === "complete" && "bg-accent-emerald/5",
-                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-                        )}
-                        onClick={isClickable ? () => onStepClick?.(step.id) : undefined}
-                        disabled={!isClickable}
-                      >
+                    const isClickable = isTimelineStepActionable(step.id);
+                    const rowClassName = cn(
+                      "flex items-center gap-2.5 py-1.5 rounded-md px-1.5 -mx-1.5",
+                      isClickable && "cursor-pointer hover:bg-muted transition-colors",
+                      step.status === "complete" && "bg-accent-emerald/5",
+                      isClickable &&
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    );
+                    const rowContent = (
+                      <>
                         <StepIcon step={step} />
                         <span
                           className={cn(
@@ -553,7 +585,38 @@ export function AgentProgressCard({
                             step.title
                           )}
                         </span>
+                      </>
+                    );
+                    return isClickable ? (
+                      <motion.button
+                        type="button"
+                        key={step.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: index * 0.015,
+                          duration: 0.12,
+                          ease: "easeOut",
+                        }}
+                        className={rowClassName}
+                        onClick={() => onStepClick?.(step.id)}
+                      >
+                        {rowContent}
                       </motion.button>
+                    ) : (
+                      <motion.div
+                        key={step.id}
+                        initial={{ opacity: 0, y: 4 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{
+                          delay: index * 0.015,
+                          duration: 0.12,
+                          ease: "easeOut",
+                        }}
+                        className={rowClassName}
+                      >
+                        {rowContent}
+                      </motion.div>
                     );
                   })}
                 </div>

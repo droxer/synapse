@@ -409,6 +409,7 @@ class TestSubAgentSpawnLimits:
         monkeypatch.setattr(
             "api.builders.get_settings",
             lambda: SimpleNamespace(
+                TAVILY_API_KEY="test-key",
                 MAX_CONCURRENT_AGENTS=7,
                 MAX_TOTAL_AGENTS=30,
                 MAX_AGENT_ITERATIONS=60,
@@ -422,6 +423,10 @@ class TestSubAgentSpawnLimits:
         )
         monkeypatch.setattr(
             "api.builders._build_base_registry",
+            lambda *args, **kwargs: ToolRegistry(),
+        )
+        monkeypatch.setattr(
+            "api.builders._build_planner_registry",
             lambda *args, **kwargs: ToolRegistry(),
         )
         monkeypatch.setattr(
@@ -459,6 +464,7 @@ class TestSubAgentSpawnLimits:
         monkeypatch.setattr(
             "api.builders.get_settings",
             lambda: SimpleNamespace(
+                TAVILY_API_KEY="test-key",
                 MAX_CONCURRENT_AGENTS=7,
                 MAX_TOTAL_AGENTS=30,
                 MAX_AGENT_ITERATIONS=60,
@@ -472,6 +478,10 @@ class TestSubAgentSpawnLimits:
         )
         monkeypatch.setattr(
             "api.builders._build_base_registry",
+            lambda *args, **kwargs: ToolRegistry(),
+        )
+        monkeypatch.setattr(
+            "api.builders._build_planner_registry",
             lambda *args, **kwargs: ToolRegistry(),
         )
         monkeypatch.setattr(
@@ -596,6 +606,23 @@ class TestSubAgentSpawnLimits:
         assert second_agent
 
         await manager.cleanup()
+
+    @pytest.mark.asyncio
+    async def test_spawn_rejects_unknown_dependency_ids(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        with pytest.raises(RuntimeError, match="Unknown dependency agent_id"):
+            await manager.spawn(
+                TaskAgentConfig(
+                    task_description="child",
+                    depends_on=("missing-agent",),
+                )
+            )
 
 
 class TestDependencyFailurePolicy:
