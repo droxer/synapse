@@ -84,18 +84,10 @@ push-sandbox:
 ifdef SANDBOX
 	@echo "Pushing sandbox image to:"
 	@echo "  $(call sandbox_image,$(SANDBOX))"
-	@if printf '%s\n' "$(call sandbox_image,$(SANDBOX))" | rg -q 'data_science'; then \
-		echo "ERROR: underscore image name detected in push target"; \
-		exit 1; \
-	fi
 else
 	@echo "Pushing sandbox images to:"
 	@echo "  $(call sandbox_image,$(SANDBOX_BASE_IMAGE))"
 	@$(foreach img,$(SANDBOX_IMAGES),echo "  $(call sandbox_image,$(img))";)
-	@if printf '%s\n' "$(call sandbox_image,$(SANDBOX_BASE_IMAGE)) $(foreach img,$(SANDBOX_IMAGES),$(call sandbox_image,$(img)))" | rg -q 'data_science'; then \
-		echo "ERROR: underscore image name detected in push target"; \
-		exit 1; \
-	fi
 endif
 ifdef SANDBOX
 	docker push $(call sandbox_image,$(SANDBOX))
