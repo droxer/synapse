@@ -15,12 +15,12 @@ export function ImageOutput({ output, conversationId, artifactIds, className }: 
   const looksLikeUri = output.startsWith("data:") || output.startsWith("http");
 
   return (
-    <div className={cn("rounded-md border-l-2 border-l-focus bg-muted px-2.5 py-1.5", className)}>
-      <div className="mb-1.5 flex items-center gap-1.5 text-micro text-muted-foreground-dim">
+    <div className={cn("rounded-md border border-border/70 bg-muted/50 px-3 py-2", className)}>
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <ImageIcon className="h-3 w-3" />
         <span>{t("output.imageOutput")}</span>
       </div>
-      <div className="flex flex-col items-center gap-3 rounded border border-border bg-background p-2">
+      <div className="flex flex-col items-center gap-3 rounded border border-border bg-background p-2.5">
         {hasArtifacts ? (
           artifactIds.map((aid) => (
             <img

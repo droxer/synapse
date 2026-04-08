@@ -33,7 +33,6 @@ import {
   OUTPUT_CARD_BASE_CLASSES,
   OUTPUT_HEADER_LABEL_CLASSES,
   OUTPUT_HEADER_ROW_CLASSES,
-  OUTPUT_META_TEXT_CLASSES,
 } from "../lib/format-tools";
 import { CODE_TOOLS } from "../lib/tool-constants";
 import { getToolCategory, type ToolCategory } from "../lib/tool-constants";
@@ -163,14 +162,14 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         output={output}
         conversationId={conversationId}
         artifactIds={artifactIds}
-        className="mt-2.5"
+        className="mt-2"
       />
     );
   }
 
   // HTML content rendering
   if (isHtml) {
-    return <HtmlOutput output={output} className="mt-2.5" />;
+    return <HtmlOutput output={output} className="mt-2" />;
   }
 
   // Web search results — show clean clickable links
@@ -186,7 +185,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             { count: searchData.results.length },
           )}
           searchLabel={t("output.searchLabel")}
-          className="mt-2.5"
+          className="mt-2"
         />
       );
     }
@@ -199,7 +198,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     const portLabel = preview.port ? `:${preview.port}` : "";
 
     return (
-      <TerminalWindow title={`preview${portLabel ? ` \u2014 ${portLabel}` : ""}`} className="mt-2.5">
+      <TerminalWindow title={`preview${portLabel ? ` \u2014 ${portLabel}` : ""}`} className="mt-2">
         {/* Command line */}
         <div className="flex gap-2">
           <span className="text-[var(--color-terminal-text)]">$</span>
@@ -232,7 +231,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   // Shell exec — terminal-style renderer
   if (toolName === "shell_exec") {
     return (
-      <TerminalWindow title={t("output.shell.title")} className="mt-2.5" copyText={stripAnsi(output)}>
+      <TerminalWindow title={t("output.shell.title")} className="mt-2" copyText={stripAnsi(output)}>
         {/* Output */}
         <pre className="whitespace-pre-wrap text-[var(--color-terminal-text)]">
           {stripAnsi(displayText)}
@@ -258,7 +257,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         icon={style.icon}
         label={style.labelKey ? t(style.labelKey) : ""}
         language={contentTypeToLang(contentType)}
-        className="mt-2.5"
+        className="mt-2"
       />
     );
   }
@@ -301,7 +300,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
           </div>
           <div className="space-y-1">
             {entries.map(([agentId, result]) => (
-              <div key={agentId} className="flex items-start gap-2 rounded px-2 py-1 text-sm text-muted-foreground">
+              <div key={agentId} className="flex items-start gap-2.5 rounded px-2 py-1 text-sm text-muted-foreground">
                 {result.success ? (
                   <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
@@ -342,7 +341,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             </div>
             <div className="space-y-1.5">
               {messages.map((msg, i) => (
-                <div key={i} className="rounded border border-border bg-background px-2.5 py-1.5 text-sm">
+                <div key={i} className="rounded border border-border/70 bg-background/80 px-2.5 py-1.5 text-sm">
                   <div className="mb-0.5 text-micro text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
@@ -368,9 +367,6 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         const rows = JSON.parse(jsonPart) as Record<string, unknown>[];
         if (Array.isArray(rows) && rows.length > 0) {
           const columns = Object.keys(rows[0]);
-          const MAX_ROWS = 20;
-          const visibleRows = rows.slice(0, MAX_ROWS);
-          const remaining = rows.length - MAX_ROWS;
           return (
             <div className={OUTPUT_CARD_BASE_CLASSES}>
               <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
@@ -387,7 +383,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                     </tr>
                   </thead>
                   <tbody>
-                    {visibleRows.map((row, i) => (
+                    {rows.map((row, i) => (
                       <tr key={i} className={cn("border-b border-border", i % 2 === 1 && "bg-background")}>
                         {columns.map((col) => (
                           <td key={col} className="px-2 py-1 text-muted-foreground break-words">{String(row[col] ?? "")}</td>
@@ -397,11 +393,6 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                   </tbody>
                 </table>
               </div>
-              {remaining > 0 && (
-                <div className={cn("mt-1.5", OUTPUT_META_TEXT_CLASSES)}>
-                  {t("output.dbQueryMore", { count: remaining })}
-                </div>
-              )}
             </div>
           );
         }
@@ -446,7 +437,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   // Failed tool call — show error output with distinct styling
   if (success === false) {
     return (
-      <div className="mt-2.5 rounded-md border-l-2 border-l-destructive bg-destructive/5 px-2.5 py-1.5">
+      <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2">
         <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-destructive">
           <CircleX className="h-3 w-3" />
           {t("output.toolFailed")}
@@ -465,8 +456,8 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
 
   // Category-aware rendering for all other tools (markdown fallback)
   return (
-    <div className={cn("mt-2.5 rounded-md border-l-2 bg-muted px-2.5 py-1.5", style.border)}>
-      <div className="mb-1.5 flex items-center justify-end">
+    <div className={cn("mt-2 rounded-md border bg-muted/50 px-3 py-2", style.border)}>
+      <div className="mb-1.5 flex items-center">
         {style.labelKey && (
           <span className="flex items-center gap-1 text-micro font-medium text-muted-foreground-dim">
             <CategoryIcon className="h-3 w-3" />

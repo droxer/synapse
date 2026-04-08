@@ -7,11 +7,11 @@
  * Keep mono only for IDs/counters/code payloads.
  */
 /** Tool / panel markdown: body tone + spacing; links and code use MarkdownRenderer defaults. */
-export const PROSE_CLASSES = "text-sm leading-normal text-muted-foreground";
+export const PROSE_CLASSES = "text-sm leading-relaxed text-muted-foreground";
 export const TOOL_OUTPUT_MARKDOWN_CLASSES = "";
-export const OUTPUT_CARD_BASE_CLASSES = "mt-2.5 rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5";
-export const OUTPUT_HEADER_ROW_CLASSES = "mb-1.5 flex items-center gap-2";
-export const OUTPUT_HEADER_LABEL_CLASSES = "text-sm font-medium text-foreground";
+export const OUTPUT_CARD_BASE_CLASSES = "mt-2 rounded-md border border-border/70 bg-muted/50 px-3 py-2";
+export const OUTPUT_HEADER_ROW_CLASSES = "mb-1.5 flex items-center gap-1.5";
+export const OUTPUT_HEADER_LABEL_CLASSES = "text-xs font-medium text-muted-foreground";
 export const OUTPUT_META_TEXT_CLASSES = "text-micro text-muted-foreground-dim";
 
 export function formatInput(input: Record<string, unknown>): string {

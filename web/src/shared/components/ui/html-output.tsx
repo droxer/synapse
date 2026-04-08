@@ -23,8 +23,8 @@ export function HtmlOutput({ output, className, label }: HtmlOutputProps) {
   const resolvedLabel = label ?? t("a11y.htmlOutput");
 
   return (
-    <div className={cn("rounded-md border-l-2 border-l-border-strong bg-muted px-2.5 py-1.5", className)}>
-      <div className="mb-1.5 flex items-center gap-1.5 text-micro text-muted-foreground-dim">
+    <div className={cn("rounded-md border border-border/70 bg-muted/50 px-3 py-2", className)}>
+      <div className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
         <FileText className="h-3 w-3" />
         <span>{resolvedLabel}</span>
       </div>
@@ -34,7 +34,11 @@ export function HtmlOutput({ output, className, label }: HtmlOutputProps) {
           {isLong && !expanded && "..."}
         </pre>
       </div>
-      {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+      {isLong && (
+        <div className="mt-2">
+          <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+        </div>
+      )}
     </div>
   );
 }

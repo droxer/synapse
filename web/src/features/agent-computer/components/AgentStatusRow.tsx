@@ -47,9 +47,9 @@ export function AgentStatusRow({
         onClick={() => hasTools && setExpanded((prev) => !prev)}
         aria-label={hasTools ? (expanded ? t("a11y.collapse") : t("a11y.expand")) : undefined}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          "bg-secondary",
-          hasTools && "cursor-pointer hover:bg-muted",
+          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "bg-secondary/70",
+          hasTools && "cursor-pointer hover:bg-muted/70",
           !hasTools && "cursor-default",
         )}
       >
@@ -86,7 +86,7 @@ export function AgentStatusRow({
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
           </motion.span>
         )}
-        <span className={cn("ml-auto font-mono text-micro", isDark ? "text-[var(--color-terminal-dim)]" : "text-muted-foreground")}>
+        <span className={cn("ml-auto font-mono text-micro", isDark ? "text-[var(--color-terminal-dim)]" : "text-muted-foreground-dim")}>
           {agent.agentId.slice(0, 8)}
         </span>
       </button>
@@ -101,27 +101,27 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-5 space-y-1 rounded-md border-l border-border bg-muted pl-3 py-1">
+            <div className="ml-4 mt-1 space-y-1 rounded-md border-l border-border/80 pl-3">
               {toolCalls.map((tc) => (
                 <div key={tc.id}>
-                  <div className="flex items-start gap-2 py-1">
+                  <div className="flex items-start gap-2.5 py-1">
                     <ToolStatusIcon tc={tc} />
                     <span className="text-sm text-foreground">
                       {normalizeToolName(tc.name)}
                     </span>
                     {tc.output === undefined && (
-                      <span className="text-sm text-ai-glow">
+                      <span className="text-sm text-muted-foreground">
                         {t("computer.running")}
                       </span>
                     )}
                   </div>
                   {Object.keys(tc.input).length > 0 && (
-                    <div className="ml-5 mb-0.5">
+                    <div className="ml-4 mb-0.5">
                       <ToolArgsDisplay input={tc.input} compact />
                     </div>
                   )}
                   {tc.output !== undefined && (
-                    <div className="ml-5 mb-1">
+                    <div className="ml-4 mb-1">
                       <ToolOutputRenderer
                         output={tc.output}
                         toolName={tc.name}

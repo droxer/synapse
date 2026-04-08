@@ -43,7 +43,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
   }, [language, displayText]);
 
   return (
-    <div className={cn("rounded-md border-l-2 border-l-border-strong bg-muted px-3 py-2", className)}>
+    <div className={cn("rounded-md border border-border/70 bg-muted/50 px-3 py-2", className)}>
       {/* Header row: copy button (left) + category label (right) */}
       <div className="mb-1.5 flex items-center justify-between">
         <button
@@ -66,7 +66,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
         </button>
 
         {Icon && label && (
-          <span className="flex items-center gap-1 text-micro text-muted-foreground-dim">
+          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
             <Icon className="h-3 w-3" />
             {label}
           </span>
@@ -81,7 +81,11 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
         )}
       </div>
 
-      {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+      {isLong && (
+        <div className="mt-2">
+          <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+        </div>
+      )}
     </div>
   );
 }

@@ -526,7 +526,7 @@ export function AgentProgressCard({
           </button>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="truncate text-xl font-semibold tracking-tight text-foreground">{t("progress.title")}</span>
+              <span className="truncate text-base font-semibold tracking-tight text-foreground">{t("progress.title")}</span>
               <TaskStateBadge state={taskState} t={t} />
             </div>
             <p className="truncate text-sm text-muted-foreground">{cardStatusLine}</p>
@@ -556,8 +556,8 @@ export function AgentProgressCard({
       <div className="px-4 pb-4">
         <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
           <div className="mb-2.5 flex items-center justify-between gap-2">
-            <span className="text-xl font-semibold tracking-tight text-foreground">{t("progress.taskProgressLabel")}</span>
-            <span className="tabular-nums font-mono text-sm font-medium text-muted-foreground">{completedCount}/{totalCount}</span>
+            <span className="text-base font-semibold tracking-tight text-foreground">{t("progress.taskProgressLabel")}</span>
+            <span className="tabular-nums font-mono text-xs font-medium text-muted-foreground">{completedCount}/{totalCount}</span>
           </div>
 
           <Progress

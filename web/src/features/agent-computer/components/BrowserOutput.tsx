@@ -117,7 +117,11 @@ export function BrowserOutput({
         )}
       </div>
 
-      {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+      {isLong && (
+        <div className="mt-2">
+          <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+        </div>
+      )}
     </div>
   );
 }

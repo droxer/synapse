@@ -50,7 +50,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
   const role = String(tc.input.role ?? "");
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-muted px-3 py-2">
+    <div className="ml-5 mb-1.5 rounded-md border border-border/70 bg-muted/50 px-2.5 py-2">
       <div className="flex items-center gap-2">
         <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">{agentName}</span>
@@ -61,7 +61,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
         )}
       </div>
       {taskDesc && (
-        <p className="mt-1 ml-5.5 text-xs text-muted-foreground leading-relaxed">
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {taskDesc.length > 200 ? taskDesc.slice(0, 197) + "..." : taskDesc}
         </p>
       )}
@@ -75,7 +75,7 @@ function WaitForAgentsDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallIn
   const waitingAll = agentIds.length === 0;
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-muted px-3 py-2">
+    <div className="ml-5 mb-1.5 rounded-md border border-border/70 bg-muted/50 px-2.5 py-2">
       <div className="flex items-center gap-2">
         <Clock className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">
@@ -85,7 +85,7 @@ function WaitForAgentsDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallIn
         </span>
       </div>
       {!waitingAll && (
-        <div className="mt-1 ml-5.5 flex flex-wrap gap-1.5">
+        <div className="mt-1 flex flex-wrap gap-1.5">
           {agentIds.map((id) => (
             <span
               key={id}
@@ -107,7 +107,7 @@ function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
   const isBroadcast = targetId === "all";
 
   return (
-    <div className="ml-6 mb-1 rounded-md border border-border bg-muted px-3 py-2">
+    <div className="ml-5 mb-1.5 rounded-md border border-border/70 bg-muted/50 px-2.5 py-2">
       <div className="flex items-center gap-2">
         <MessageSquare className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">
@@ -117,7 +117,7 @@ function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
         </span>
       </div>
       {message && (
-        <p className="mt-1 ml-5.5 text-xs text-muted-foreground leading-relaxed">
+        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
           {message.length > 200 ? message.slice(0, 197) + "..." : message}
         </p>
       )}
@@ -134,7 +134,7 @@ function ThinkingPreview({ text }: { readonly text: string }) {
   const shown = expanded || !isLong ? text : text.slice(0, THINKING_PREVIEW_LENGTH);
 
   return (
-    <div className="ml-6 mb-1.5 border-l-2 border-border-strong pl-2 py-0.5">
+    <div className="ml-5 mb-1.5 border-l border-border-strong pl-2 py-0.5">
       <span className="text-xs italic text-muted-foreground leading-relaxed">
         {shown}
         {isLong && !expanded && "..."}
@@ -420,7 +420,7 @@ export function AgentComputerPanel({
     <div className="flex h-full flex-col bg-background">
       {/* ── Header with tabs ── */}
       <div className="shrink-0 border-b border-border">
-        <div className="flex items-center justify-between px-4 pt-3 pb-0">
+        <div className="flex items-center justify-between px-4 pt-2.5 pb-0">
           <span className="text-base font-semibold tracking-tight text-foreground">
             {t("computer.title")}
           </span>
@@ -522,7 +522,7 @@ export function AgentComputerPanel({
             )}
 
             {/* Unified timeline: tool calls and agent status rows interleaved by timestamp */}
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {timelineItems.map((item) =>
                 item.kind === "agent" ? (
                   <div key={`agent-${item.agent.agentId}`} data-step-id={`agent-${item.agent.agentId}`}>
@@ -559,8 +559,7 @@ export function AgentComputerPanel({
                     {/* Log line */}
                     <div
                       className={cn(
-                        "flex items-start gap-2 rounded-md px-1.5 py-1.5 text-sm",
-                        item.toolCall.output !== undefined && item.toolCall.success !== false && "bg-accent-emerald/5",
+                        "flex items-start gap-2.5 rounded-md px-2 py-1.5 text-sm",
                       )}
                     >
                       <StatusIcon tc={item.toolCall} />
@@ -605,7 +604,7 @@ export function AgentComputerPanel({
                         </>
                       )}
                       {item.toolCall.output !== undefined && item.toolCall.success !== false && (
-                        <span className="ml-auto rounded-full border border-accent-emerald/20 bg-accent-emerald/10 px-1.5 py-0.5 text-micro font-medium text-accent-emerald">
+                        <span className="ml-auto rounded-full border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
                           {t("computer.statusDone")}
                         </span>
                       )}
@@ -618,14 +617,14 @@ export function AgentComputerPanel({
 
                     {/* Args detail box — skip for browser_use, computer_use, and agent_spawn (have custom displays) */}
                     {Object.keys(item.toolCall.input).length > 0 && item.toolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(item.toolCall.name) && !AGENT_META_TOOLS.has(item.toolCall.name) && (
-                      <div className="ml-6 mb-2">
+                      <div className="ml-5 mt-1 mb-1">
                         <ToolArgsDisplay input={item.toolCall.input} />
                       </div>
                     )}
 
                     {/* Output (collapsible) */}
                     {item.toolCall.output !== undefined && (
-                      <div className="ml-6 mb-2">
+                      <div className="ml-5 mt-1 mb-1">
                         <ToolOutputRenderer
                           output={item.toolCall.output}
                           toolName={item.toolCall.name}
@@ -646,7 +645,7 @@ export function AgentComputerPanel({
           </div>
 
           {/* ── Consolidated status bar ── */}
-          <div className="flex shrink-0 items-center gap-3 border-t border-border px-4 py-2">
+          <div className="flex shrink-0 items-center gap-2.5 border-t border-border px-4 py-2">
             <Progress
               value={progressValue}
               className="flex-1 h-1"
