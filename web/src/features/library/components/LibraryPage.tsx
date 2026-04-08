@@ -1,15 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { motion } from "framer-motion";
-import { Library } from "lucide-react";
+import { Library, LayoutGrid, List } from "lucide-react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/button";
+import { cn } from "@/shared/lib/utils";
 import { ArtifactExplorer } from "@/shared/components/ArtifactExplorer";
 import { GRID_COLS_CLASS } from "@/shared/components/ArtifactExplorer/ExplorerFileList";
 import { useTranslation } from "@/i18n";
 import { useLibrary } from "../hooks/use-library";
+import type { ViewMode } from "../types";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -21,6 +23,16 @@ function formatBytes(bytes: number): string {
   const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
   const value = bytes / Math.pow(1024, i);
   return `${i === 0 ? value.toFixed(0) : value.toFixed(1)} ${units[i]}`;
+}
+
+function readStoredViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem("library:viewMode");
+    if (stored === "list" || stored === "grid") return stored;
+  } catch {
+    // localStorage unavailable (SSR, private browsing)
+  }
+  return "grid";
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +65,16 @@ export function LibraryPage() {
   const { t } = useTranslation();
   const { groups, isLoading, error, filter, setFilter, loadMore, hasMore } = useLibrary();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+
+  const handleSetViewMode = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("library:viewMode", mode);
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
 
   const stats = useMemo(() => {
     const totalFiles = groups.reduce((sum, g) => sum + g.artifacts.length, 0);
@@ -118,7 +140,7 @@ export function LibraryPage() {
 
           {/* Filter bar */}
           {groups.length > 0 || filter ? (
-            <div className="flex shrink-0 items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2">
               <div className="flex-1" />
               <SearchInput
                 value={filter}
@@ -126,6 +148,36 @@ export function LibraryPage() {
                 placeholder={t("library.filterPlaceholder")}
                 clearLabel={t("library.clearFilter")}
               />
+              <div className="flex items-center gap-1 ml-1">
+                <button
+                  type="button"
+                  aria-label={t("library.viewGrid")}
+                  aria-pressed={viewMode === "grid"}
+                  onClick={() => handleSetViewMode("grid")}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                    viewMode === "grid"
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                  )}
+                >
+                  <LayoutGrid aria-hidden="true" className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label={t("library.viewList")}
+                  aria-pressed={viewMode === "list"}
+                  onClick={() => handleSetViewMode("list")}
+                  className={cn(
+                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
+                    viewMode === "list"
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
+                  )}
+                >
+                  <List aria-hidden="true" className="h-4 w-4" />
+                </button>
+              </div>
             </div>
           ) : null}
 
@@ -138,7 +190,7 @@ export function LibraryPage() {
             </div>
           ) : (
             <div className="flex-1 overflow-hidden">
-              <ArtifactExplorer mode="page" groups={groups} />
+              <ArtifactExplorer mode="page" groups={groups} viewMode={viewMode} />
             </div>
           )}
 

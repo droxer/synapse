@@ -42,7 +42,7 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
       >
         {/* Heading — single fade-in (Hero type scale per design guide) */}
         <motion.h1
-          className="mb-8 text-center font-sans text-2xl font-semibold leading-[1.1] tracking-[-0.04em] text-foreground sm:text-4xl"
+          className="heading-display mb-8 text-center text-foreground"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.12, ease: "easeOut" }}

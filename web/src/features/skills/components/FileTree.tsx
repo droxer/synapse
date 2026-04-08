@@ -166,7 +166,7 @@ function TreeNode({
         aria-expanded={isDir ? expanded : undefined}
         onClick={handleClick}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left font-mono text-xs",
+          "flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left font-sans text-xs",
           "hover:bg-secondary transition-colors",
           isSelected && "bg-secondary text-foreground",
           !isSelected && "text-muted-foreground",

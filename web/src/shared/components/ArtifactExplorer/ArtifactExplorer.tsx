@@ -13,7 +13,7 @@ import {
 } from "./artifactExplorerUtils";
 import { useArtifactExplorer } from "./useArtifactExplorer";
 import type { ArtifactExplorerItem, ConversationNode } from "./artifactExplorerUtils";
-import type { LibraryGroup } from "@/features/library/types";
+import type { LibraryGroup, ViewMode } from "@/features/library/types";
 import type { ArtifactInfo } from "@/shared/types";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,8 @@ export interface ArtifactExplorerProps {
   /** Page mode: pass library groups */
   readonly groups?: readonly LibraryGroup[];
   readonly mode: "panel" | "page";
+  /** Page mode only: controls grid vs list layout. Defaults to "grid". */
+  readonly viewMode?: ViewMode;
 }
 
 // ---------------------------------------------------------------------------
@@ -38,6 +40,7 @@ export function ArtifactExplorer({
   conversationId,
   groups,
   mode,
+  viewMode = "grid",
 }: ArtifactExplorerProps) {
   const { t } = useTranslation();
 
@@ -205,6 +208,7 @@ export function ArtifactExplorer({
           onSelectAll={selectAll}
           onDeleteSelected={handleDeleteSelected}
           mode={mode}
+          viewMode={viewMode}
         />
       </div>
       <ArtifactPreviewDialog

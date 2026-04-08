@@ -24,6 +24,7 @@ import {
   fileCategoryBorderColor,
 } from "@/features/agent-computer/lib/artifact-helpers";
 import type { ArtifactExplorerItem, ConversationNode } from "./artifactExplorerUtils";
+import { ExplorerListRow } from "./ExplorerListRow";
 
 // Exported so LibraryPage skeleton can mirror the same grid layout
 export const GRID_COLS_CLASS = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
@@ -250,6 +251,8 @@ export interface ExplorerFileListProps {
   onSelectAll: (ids: readonly string[]) => void;
   onDeleteSelected: () => void;
   mode: "panel" | "page";
+  /** Page mode only: "grid" (default) or "list" */
+  viewMode?: "grid" | "list";
 }
 
 // ---------------------------------------------------------------------------
@@ -479,6 +482,7 @@ export function ExplorerFileList({
   onToggleSelection,
   onDeleteSelected,
   mode,
+  viewMode = "grid",
 }: ExplorerFileListProps) {
   const { t, locale } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -550,6 +554,46 @@ export function ExplorerFileList({
                 onDownload={onDownload}
               />
             ))}
+          </div>
+        ) : viewMode === "list" ? (
+          <div>
+            {groups?.map((group) => {
+              const groupItems = items.filter((item) => item.conversationId === group.id);
+              if (groupItems.length === 0) return null;
+
+              const { relative: groupDate, absolute: groupAbsDate } = formatRelativeDate(group.createdAt, locale);
+
+              return (
+                <div key={group.id} className="mb-8 last:mb-0">
+                  <div className="flex items-center gap-3 mb-3 mt-8 first:mt-0 pb-3 border-b border-border">
+                    <h3 className="text-sm font-semibold text-foreground truncate flex-1">
+                      {group.title}
+                    </h3>
+                    <span className="shrink-0 text-xs text-muted-foreground">
+                      {t(groupItems.length === 1 ? "library.statsFile" : "library.statsFiles", { count: groupItems.length })}
+                    </span>
+                    <span className="shrink-0 text-xs text-muted-foreground-dim" title={groupAbsDate}>
+                      {groupDate}
+                    </span>
+                  </div>
+                  <div className="flex flex-col rounded-lg border border-border overflow-hidden">
+                    {groupItems.map((item, i) => (
+                      <ExplorerListRow
+                        key={item.id}
+                        item={item}
+                        index={i}
+                        isSelected={selectedIds.has(item.id)}
+                        isMultiSelectMode={isMultiSelectMode}
+                        onPreview={onPreview}
+                        onToggleSelection={onToggleSelection}
+                        onDownload={onDownload}
+                        hideConversationLabel
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         ) : (
           <div>

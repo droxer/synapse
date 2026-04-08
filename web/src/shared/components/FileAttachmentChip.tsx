@@ -15,14 +15,14 @@ interface FileAttachmentChipProps {
 export function FileAttachmentChip({ name, size, previewUrl, onRemove }: FileAttachmentChipProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground font-mono">
+    <div className="flex items-center gap-2 rounded-md border border-border bg-secondary px-2.5 py-1.5 text-xs text-foreground">
       {previewUrl ? (
         <img src={previewUrl} alt={name} className="h-8 w-8 rounded object-cover" />
       ) : (
         <Paperclip className="h-3.5 w-3.5 text-muted-foreground" />
       )}
-      <span className="max-w-[120px] truncate">{name}</span>
-      <span className="text-muted-foreground">{formatFileSize(size)}</span>
+      <span className="max-w-[120px] truncate font-medium">{name}</span>
+      <span className="tabular-nums text-muted-foreground">{formatFileSize(size)}</span>
       {onRemove && (
         <Button
           type="button"

@@ -137,13 +137,18 @@ async function convertXlsxToHtml(url: string): Promise<string> {
 
 const OFFICE_IFRAME_STYLES = `
 <style>
+  :root {
+    color-scheme: light;
+  }
+
   body {
-    font-family: var(--font-sans, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif);
+    /* Avoid remote @import in each srcDoc iframe; prefer fast local modern UI stacks. */
+    font-family: "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
     padding: 24px 32px;
     margin: 0;
     color: var(--color-foreground, #0f172a);
     background: var(--color-background, #f8fafc);
-    line-height: 1.6;
+    line-height: 1.5;
     font-size: 0.875rem;
   }
   .sheet-title { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
@@ -158,6 +163,7 @@ const OFFICE_IFRAME_STYLES = `
     border-collapse: collapse;
     width: 100%;
     font-size: 0.75rem;
+    font-variant-numeric: tabular-nums;
   }
   th, td {
     border: 1px solid var(--color-border, #e2e8f0);
