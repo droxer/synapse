@@ -5,8 +5,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
-  PanelRightOpen,
-  PanelRightClose,
   CircleCheck,
   CircleX,
   Lightbulb,
@@ -65,6 +63,20 @@ interface ToolCallIndexes {
   readonly countByAgentId: ReadonlyMap<string, number>;
 }
 
+const SEARCH_LIKE_TOOLS = new Set([
+  "web_search",
+  "file_search",
+  "memory_search",
+  "browser_use",
+]);
+
+const PARSE_LIKE_TOOLS = new Set([
+  "web_fetch",
+  "document_read",
+  "file_read",
+  "database_query",
+]);
+
 export function buildToolCallIndexes(toolCalls: readonly ToolCallInfo[]): ToolCallIndexes {
   const byToolUseId = new Map<string, ToolCallInfo[]>();
   const countByAgentId = new Map<string, number>();
@@ -94,6 +106,50 @@ function agentDisplayTitle(
   const mapped = agentNameMap.get(agentId)?.trim();
   const base = mapped || fromEvent || "working";
   return normalizeAgentName(base).slice(0, 55);
+}
+
+function truncateRuntimeValue(value: string, maxLength = 48): string {
+  const compact = value.trim().replace(/\s+/g, " ");
+  if (!compact) return "";
+  if (compact.length <= maxLength) return compact;
+  return `${compact.slice(0, maxLength - 3)}...`;
+}
+
+function extractHostname(url: unknown): string | undefined {
+  if (typeof url !== "string" || !url.trim()) return undefined;
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return undefined;
+  }
+}
+
+function firstInputValue(input: Record<string, unknown>, keys: readonly string[]): string | undefined {
+  for (const key of keys) {
+    const raw = input[key];
+    if (typeof raw === "string" && raw.trim()) {
+      return truncateRuntimeValue(raw);
+    }
+  }
+  return undefined;
+}
+
+function resolveSearchTarget(input: Record<string, unknown>, fallback: string, t: TFn): string {
+  const fromUrl = extractHostname(input.url);
+  if (fromUrl) return fromUrl;
+  const value =
+    firstInputValue(input, ["query", "pattern", "task", "target", "keyword", "text"]) ??
+    truncateRuntimeValue(fallback);
+  return value || t("progress.runtimeUnknown");
+}
+
+function resolveParseTarget(input: Record<string, unknown>, fallback: string, t: TFn): string {
+  const fromUrl = extractHostname(input.url);
+  if (fromUrl) return fromUrl;
+  const value =
+    firstInputValue(input, ["path", "filePath", "filename", "query", "task", "target", "url"]) ??
+    truncateRuntimeValue(fallback);
+  return value || t("progress.runtimeUnknown");
 }
 
 export function buildSteps(
@@ -131,8 +187,6 @@ export function buildSteps(
           const tc = sameApiCalls[ord];
           const isSkill = toolName === "activate_skill" || toolName === "load_skill";
           const input = (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>;
-          const isBrowser = toolName === "browser_use";
-
           // Build display name and step title
           let displayName: string;
           let stepTitle: string;
@@ -152,29 +206,25 @@ export function buildSteps(
               displayName = t("output.category.computer");
               stepTitle = t("progress.desktopAction", { action: action.replace(/_/g, " ") + coords });
             }
-          } else if (isBrowser) {
-            // Browser: "Browsing www.taobao.com" or "Browsing: task text"
-            let target = "";
-            if (typeof input.url === "string") {
-              try { target = new URL(String(input.url)).hostname; } catch { /* ignore */ }
-            }
-            if (!target && typeof input.task === "string") {
-              const taskStr = String(input.task);
-              target = taskStr.length > 40 ? taskStr.slice(0, 37) + "..." : taskStr;
-            }
-            displayName = target || "web";
-            stepTitle = t("progress.browsing", { target: displayName });
-            // Append step count for completed browser_use
-            if (tc?.output !== undefined && tc.browserMetadata?.steps) {
-              stepTitle += ` (${t("progress.browsingSteps", { count: tc.browserMetadata.steps })})`;
-            }
           } else {
+            const normalizedToolName = normalizeToolNameI18n(toolName, t);
             displayName = isSkill
               ? normalizeSkillName(String(input.name ?? "skill"))
-              : normalizeToolNameI18n(toolName, t);
-            stepTitle = isSkill
-              ? t("progress.loadingSkill", { name: displayName })
-              : t("progress.usingTool", { name: displayName });
+              : normalizedToolName;
+
+            if (isSkill) {
+              stepTitle = t("progress.loadingSkills", { name: displayName });
+            } else if (SEARCH_LIKE_TOOLS.has(toolName)) {
+              const target = resolveSearchTarget(input, normalizedToolName, t);
+              displayName = target;
+              stepTitle = t("progress.searchingTarget", { target });
+            } else if (PARSE_LIKE_TOOLS.has(toolName)) {
+              const target = resolveParseTarget(input, normalizedToolName, t);
+              displayName = target;
+              stepTitle = t("progress.parsingContent", { target });
+            } else {
+              stepTitle = t("progress.usingTool", { name: displayName });
+            }
           }
 
           steps = [...steps, {
@@ -337,25 +387,25 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "running") {
     return (
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted">
-        <Icon className="h-3 w-3 text-muted-foreground" />
-        <span className="absolute inset-0 rounded-md bg-muted animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
+      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
+        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
+        <span className="absolute inset-0 rounded-full bg-muted animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
       </span>
     );
   }
 
   if (step.status === "error") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-destructive/5">
-        <CircleX className="h-3 w-3 text-accent-rose" />
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
+        <CircleX className="h-3.5 w-3.5 text-accent-rose" />
       </span>
     );
   }
 
-  // complete — swap category icon for a check
+  // complete
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-md border border-accent-emerald/30 bg-accent-emerald/10">
-      <Check className="h-3 w-3 text-accent-emerald" />
+    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
+      <Check className="h-3.5 w-3.5 text-accent-emerald" />
     </span>
   );
 }
@@ -447,106 +497,100 @@ export function AgentProgressCard({
           : taskState === "error"
             ? t("progress.stateError")
             : t("computer.statusIdle");
+  const cardStatusLine = runningStepTitle
+    ? t("progress.headerStatusWithAction", { action: runningStepTitle })
+    : t("progress.headerStatus", { state: taskStateAnnouncement });
 
   return (
     <motion.div
-      className="overflow-hidden rounded-lg border border-border bg-card hover:border-border-strong transition-colors"
+      className="overflow-hidden rounded-2xl border border-border/70 bg-card/90"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
     >
-      {/* Progress bar */}
-      <Progress
-        value={progressPercent}
-        className="h-1 rounded-none"
-        indicatorClassName={cn(
-          taskState === "complete" && "bg-accent-emerald",
-          taskState === "error" && "bg-accent-rose",
-          taskState === "planning" && "bg-muted-foreground",
-          (taskState === "executing" || taskState === "idle") && "bg-foreground",
-        )}
-        aria-label={t("progress.taskProgress", { percent: progressPercent })}
-      />
-
-      {/* Unified header row */}
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-start justify-between gap-3 px-4 py-3.5">
         <div role="status" aria-live="polite" className="sr-only">
           {runningStepTitle ? `${taskStateAnnouncement}: ${runningStepTitle}` : taskStateAnnouncement}
         </div>
-        {/* Left: clickable title area — toggles expand/collapse */}
-        <button
-          type="button"
-          onClick={() => setExpanded((prev) => !prev)}
-          className="group flex flex-1 min-w-0 items-center gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <div className="flex-1 min-w-0">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          <button
+            type="button"
+            aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
+            onClick={(e) => {
+              e.stopPropagation();
+              onClick?.();
+            }}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            <Monitor className="h-4 w-4" />
+          </button>
+          <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span className="text-base font-semibold tracking-tight text-foreground">
-                {t("progress.title")}
-              </span>
+              <span className="truncate text-xl font-semibold tracking-tight text-foreground">{t("progress.title")}</span>
               <TaskStateBadge state={taskState} t={t} />
             </div>
-            {runningStepTitle && (
-              <div
-                role="status"
-                aria-live="polite"
-                className="truncate text-sm text-muted-foreground"
-              >
-                {runningStepTitle}
-              </div>
-            )}
+            <p className="truncate text-sm text-muted-foreground">{cardStatusLine}</p>
           </div>
-          <span className="tabular-nums font-mono text-xs font-medium text-muted-foreground">
-            {completedCount}/{totalCount}
-          </span>
-          <motion.span
-            animate={{ rotate: expanded ? 180 : 0 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="flex items-center"
-          >
-            <ChevronDown className="h-3.5 w-3.5 text-muted-foreground group-hover:text-foreground transition-colors" />
-          </motion.span>
-        </button>
+        </div>
 
-        {/* Right: panel toggle icon — opens/closes AgentComputerPanel */}
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
-          onClick={(e) => {
-            e.stopPropagation();
-            onClick?.();
-          }}
-          className="text-muted-foreground hover:text-foreground shrink-0"
-        >
-          {panelOpen ? (
-            <PanelRightClose className="h-4 w-4" />
-          ) : (
-            <PanelRightOpen className="h-4 w-4" />
-          )}
-        </Button>
+        <div className="flex shrink-0 items-center">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
+            onClick={() => setExpanded((prev) => !prev)}
+            className="text-muted-foreground hover:text-foreground"
+          >
+            <motion.span
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex items-center"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </motion.span>
+          </Button>
+        </div>
       </div>
 
-      {/* Collapsible timeline — dot status indicators */}
-      <AnimatePresence>
-        {expanded && (
-          <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="overflow-hidden"
-          >
-            <div className="px-4 pb-3">
-              <div className="max-h-60 overflow-y-auto font-mono text-sm">
-                <div className="space-y-1.5">
+      <div className="px-4 pb-4">
+        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
+          <div className="mb-2.5 flex items-center justify-between gap-2">
+            <span className="text-xl font-semibold tracking-tight text-foreground">{t("progress.taskProgressLabel")}</span>
+            <span className="tabular-nums font-mono text-sm font-medium text-muted-foreground">{completedCount}/{totalCount}</span>
+          </div>
+
+          <Progress
+            value={progressPercent}
+            className="h-1.5 rounded-full bg-background/50"
+            indicatorClassName={cn(
+              taskState === "complete" && "bg-accent-emerald",
+              taskState === "error" && "bg-accent-rose",
+              taskState === "planning" && "bg-muted-foreground",
+              (taskState === "executing" || taskState === "idle") && "bg-foreground",
+            )}
+            aria-label={t("progress.taskProgress", { percent: progressPercent })}
+          />
+
+          {runningStepTitle && (
+            <p className="mt-2 truncate text-sm text-muted-foreground">{runningStepTitle}</p>
+          )}
+
+          <AnimatePresence>
+            {expanded && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: "auto", opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                transition={{ duration: 0.15, ease: "easeOut" }}
+                className="overflow-hidden"
+              >
+                <div className="mt-3 max-h-60 space-y-1.5 overflow-y-auto font-mono text-sm">
                   {steps.map((step, index) => {
                     const isClickable = isTimelineStepActionable(step.id);
                     const rowClassName = cn(
-                      "flex items-center gap-2.5 py-1.5 rounded-md px-1.5 -mx-1.5",
-                      isClickable && "cursor-pointer hover:bg-muted transition-colors",
-                      step.status === "complete" && "bg-accent-emerald/5",
+                      "flex items-start gap-2.5 rounded-md px-1.5 py-1.5",
+                      isClickable && "cursor-pointer hover:bg-muted/60 transition-colors",
                       isClickable &&
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     );
@@ -620,11 +664,11 @@ export function AgentProgressCard({
                     );
                   })}
                 </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+      </div>
     </motion.div>
   );
 }
