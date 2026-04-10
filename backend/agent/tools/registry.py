@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from typing import Any
 
 from agent.tools.base import (
@@ -108,6 +109,14 @@ class ToolRegistry:
 
     # -- Serialisation helpers ----------------------------------------------
 
+    def _json_safe(self, value: Any) -> Any:
+        """Normalize nested mapping/sequence values to JSON-serializable types."""
+        if isinstance(value, Mapping):
+            return {str(key): self._json_safe(nested) for key, nested in value.items()}
+        if isinstance(value, list | tuple):
+            return [self._json_safe(item) for item in value]
+        return value
+
     def to_anthropic_tools(self) -> list[dict[str, Any]]:
         """Convert all tools to Anthropic API format."""
         results: list[dict[str, Any]] = []
@@ -117,7 +126,7 @@ class ToolRegistry:
                 {
                     "name": defn.name,
                     "description": defn.description,
-                    "input_schema": defn.input_schema,
+                    "input_schema": self._json_safe(defn.input_schema),
                 }
             )
         return results

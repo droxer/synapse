@@ -8,9 +8,9 @@ import { cn } from "@/shared/lib/utils";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { SOURCE_STYLE, SOURCE_LABEL_KEY } from "@/features/skills/lib/skill-source-styles";
 import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
-import { Badge } from "@/shared/components/ui/badge";
 import { useTranslation } from "@/i18n";
 import { Skeleton } from "@/shared/components/ui/skeleton";
+import { EVENT_ROW_BASE_CLASSES } from "../lib/format-tools";
 import type { ToolCallInfo } from "@/shared/types";
 
 /* ── helpers ── */
@@ -93,23 +93,22 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
     >
       <div
         className={cn(
-          "group relative overflow-hidden rounded-lg border border-l-2 transition-colors duration-200",
+          "group relative overflow-hidden border-l transition-colors duration-200",
+          EVENT_ROW_BASE_CLASSES,
           isError
-            ? "border-destructive/20 border-l-destructive bg-destructive/5"
-            : isComplete
-              ? "border-border border-l-border-strong bg-muted"
-              : "border-border border-l-border-strong bg-muted",
+            ? "border-destructive border-l-destructive bg-destructive/5"
+            : "border-l-border",
         )}
       >
         {/* Main content */}
-        <div className="flex items-start gap-3 px-3.5 py-2.5">
+        <div className="flex items-start gap-2.5 px-3 py-2.5">
           {/* Icon container */}
           <div
             role="img"
             aria-label={isComplete ? (isError ? t("skills.activity.skillFailed") : t("skills.activity.skillLoaded")) : t("skills.activity.skillLoading")}
             className={cn(
               "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-              isError ? "bg-destructive/5" : "bg-background border border-border",
+              isError ? "bg-destructive/5" : "bg-muted/15",
             )}
           >
             {isComplete ? (
@@ -133,7 +132,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
           <div className="min-w-0 flex-1">
             {/* Row 1: Name + status + source badge */}
             <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold tracking-tight text-foreground">
+              <span className="text-sm font-medium text-foreground">
                 {displayName}
               </span>
 
@@ -143,26 +142,23 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <Badge
-                    variant="secondary"
-                    className="gap-1 rounded-full border border-border bg-background px-1.5 py-0.5 text-micro font-medium text-muted-foreground"
-                  >
+                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
                     <Check className="h-2.5 w-2.5" />
                     {t("skills.activity.loaded")}
-                  </Badge>
+                  </span>
                 </motion.div>
               )}
 
               {!isComplete && (
-                <Badge variant="secondary" className="rounded-full border border-border bg-background px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+                <span className="rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
                   {t("skills.activity.loading")}
-                </Badge>
+                </span>
               )}
 
               {isError && (
-                <Badge variant="secondary" className="rounded-full border-0 bg-destructive/5 px-1.5 py-0.5 text-micro font-medium text-accent-rose">
+                <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-micro font-medium text-accent-rose">
                   {t("skills.activity.failed")}
-                </Badge>
+                </span>
               )}
 
               {/* Source type badge — skeleton while loading, real badge when ready */}
@@ -173,12 +169,9 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   transition={{ duration: 0.12 }}
                   className="ml-auto shrink-0"
                 >
-                  <Badge
-                    variant="secondary"
-                    className={cn("border-0 px-1.5 py-0 text-micro font-medium", sourceStyle.className)}
-                  >
+                  <span className={cn("rounded-md px-1.5 py-0 text-micro font-medium", sourceStyle.className)}>
                     {t(sourceLabelKey)}
-                  </Badge>
+                  </span>
                 </motion.div>
               ) : showSkeleton ? (
                 <span className="ml-auto shrink-0">
@@ -197,7 +190,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.12 }}
-                className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground"
+                className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground"
               >
                 {skillMeta.description}
               </motion.p>
@@ -209,7 +202,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2 }}
-                className="mt-1.5 flex items-center gap-3"
+              className="mt-1.5 flex items-center gap-2.5"
               >
                 {lineCount > 0 && (
                   <span className="font-mono text-micro text-muted-foreground-dim">

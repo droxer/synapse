@@ -159,7 +159,7 @@ export function Sidebar({
         <div className="flex items-center gap-2">
           <Logo size={28} tone="auto" className="rounded-md" />
           {!collapsed && (
-            <span className="text-sm font-medium text-foreground whitespace-nowrap">
+            <span className="brand-wordmark whitespace-nowrap">
               {t("sidebar.brand")}
             </span>
           )}
@@ -247,7 +247,7 @@ export function Sidebar({
               </TooltipTrigger>
               <TooltipContent side="right">{t("sidebar.library")}</TooltipContent>
             </Tooltip>
-            <div className="border-t border-border mx-0.5" />
+            <div role="separator" aria-hidden="true" className="my-1" />
             <Tooltip>
               <TooltipTrigger asChild>
                 <Button
@@ -343,7 +343,7 @@ export function Sidebar({
               )} />
               {t("sidebar.library")}
             </Link>
-            <div className="border-t border-border" />
+            <div role="separator" aria-hidden="true" className="my-1 mx-2.5 h-px bg-border" />
             <Link
               href="/skills"
               onClick={createNavClickHandler("/skills")}
@@ -382,8 +382,8 @@ export function Sidebar({
         )}
       </div>
 
-      {/* Separator between nav actions and task list */}
-      <div className={cn("border-t border-border", collapsed ? "mx-2" : "mx-4")} />
+      {/* Spacing between nav actions and task list */}
+      <div className={cn("h-2", collapsed ? "mx-2" : "mx-4")} />
 
       {/* Task list */}
       {!collapsed && (
@@ -476,7 +476,7 @@ export function Sidebar({
       {/* Footer: user profile card (includes theme/language controls) */}
       <div
         className={cn(
-          "shrink-0 border-t border-border",
+          "shrink-0",
           collapsed
             ? "flex flex-col items-center gap-1 px-2 py-2"
             : "px-4 py-2.5",

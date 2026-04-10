@@ -67,24 +67,24 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
         role="dialog"
         aria-modal="true"
         aria-labelledby="input-prompt-title"
-        className="relative z-10 mx-4 w-full max-w-lg animate-modal-in"
+        className="relative z-10 mx-4 w-full max-w-xl animate-modal-in"
       >
-        <div className="rounded-lg border border-border bg-card p-6 shadow-elevated">
+        <div className="rounded-xl border border-border bg-background p-5 shadow-card sm:p-6">
           {/* Header */}
           <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-md border border-border bg-muted text-muted-foreground">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">
               <MessageCircle className="h-4 w-4" />
             </div>
             <div>
               <h3 id="input-prompt-title" className="text-base font-semibold text-foreground">
                 {t("inputPrompt.title")}
               </h3>
-              <p className="text-caption text-muted-foreground">{t("inputPrompt.subtitle")}</p>
+              <p className="text-xs text-muted-foreground">{t("inputPrompt.subtitle")}</p>
             </div>
           </div>
 
           {/* Question */}
-          <div className="mb-5 rounded-md border border-border bg-muted p-4">
+          <div className="mb-4 rounded-lg border border-border bg-secondary p-4">
             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
               {question}
             </p>
@@ -99,12 +99,12 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
               onChange={(e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
               placeholder={t("inputPrompt.placeholder")}
               aria-label={t("inputPrompt.ariaLabel")}
-              className="flex-1 rounded-md border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-[color,background-color,border-color,box-shadow] duration-200 ease-out focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-[color,background-color,border-color,box-shadow] duration-150 ease-out focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             />
             <Button
               type="submit"
               disabled={!value.trim()}
-              className="gap-2"
+              className="h-10 gap-2 rounded-lg"
             >
               <Send className="h-4 w-4" />
               {t("inputPrompt.send")}

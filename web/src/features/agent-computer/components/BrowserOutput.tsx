@@ -5,7 +5,6 @@ import { Monitor, ExternalLink } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { MarkdownRenderer } from "@/shared/components";
-import { ImageOutput } from "@/shared/components/ui/image-output";
 import { Progress } from "@/shared/components/ui/progress";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
 import {
@@ -14,10 +13,10 @@ import {
   OUTPUT_CARD_BASE_CLASSES,
   OUTPUT_HEADER_ROW_CLASSES,
   OUTPUT_HEADER_LABEL_CLASSES,
+  OUTPUT_COLLAPSE_THRESHOLD,
 } from "../lib/format-tools";
 import type { BrowserMetadata } from "@/shared/types";
 
-const COLLAPSE_THRESHOLD = 500;
 const ELLIPSIS = "…";
 
 interface BrowserOutputProps {
@@ -43,10 +42,10 @@ export function BrowserOutput({
 }: BrowserOutputProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
-  const isLong = output.length > COLLAPSE_THRESHOLD;
+  const isLong = output.length > OUTPUT_COLLAPSE_THRESHOLD;
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
 
-  const displayText = isLong && !expanded ? output.slice(0, COLLAPSE_THRESHOLD) : output;
+  const displayText = isLong && !expanded ? output.slice(0, OUTPUT_COLLAPSE_THRESHOLD) : output;
 
   const steps = browserMetadata?.steps ?? 0;
   const maxSteps = browserMetadata?.maxSteps ?? 0;
@@ -57,24 +56,18 @@ export function BrowserOutput({
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
 
   return (
-    <div className={OUTPUT_CARD_BASE_CLASSES}>
+    <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-l border-l-focus")}>
       {/* Header */}
       <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "mb-2")}>
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
         <span className={OUTPUT_HEADER_LABEL_CLASSES}>
           {t("output.category.browser")}
         </span>
-        {/* Status badge */}
-        <span
-          className={cn(
-            "inline-flex items-center rounded-full border border-border bg-background px-1.5 py-0.5 text-micro font-medium text-muted-foreground",
-          )}
-        >
+        <span className="text-micro text-muted-foreground-dim">
           {isDone ? t("output.browser.done") : t("output.browser.incomplete")}
         </span>
-        {/* URL pill */}
         {hostname && (
-          <span className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-micro text-muted-foreground-dim">
+          <span className="ml-auto inline-flex items-center gap-1 text-micro text-muted-foreground-dim">
             <ExternalLink className="h-2.5 w-2.5" />
             {hostname}
           </span>
@@ -83,22 +76,27 @@ export function BrowserOutput({
 
       {/* Screenshot */}
       {hasScreenshot && (
-        <ImageOutput
-          output=""
-          conversationId={conversationId}
-          artifactIds={artifactIds}
-          className="mb-2"
-        />
+        <div className="mb-2 rounded-md bg-muted/10 p-1.5">
+          <div className="flex flex-col items-center gap-2">
+            {artifactIds.map((aid) => (
+              <img
+                key={aid}
+                src={`/api/conversations/${conversationId}/artifacts/${aid}`}
+                alt={t("output.generatedImage")}
+                className="max-h-80 rounded-md bg-background object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+                }}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {/* Step progress */}
       {maxSteps > 0 && (
         <div className="mb-2 flex items-center gap-2">
-          <Progress
-            value={progressValue}
-            className="h-1.5 flex-1"
-            indicatorClassName="bg-foreground"
-          />
+          <Progress value={progressValue} className="h-1.5 flex-1" indicatorClassName="bg-focus" />
           <span className="text-micro font-mono text-muted-foreground tabular-nums">
             {t("output.browser.steps", { completed: steps, total: maxSteps })}
           </span>

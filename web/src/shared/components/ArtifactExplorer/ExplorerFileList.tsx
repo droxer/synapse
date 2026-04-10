@@ -297,7 +297,7 @@ function FileCard({
           "rounded-lg bg-card border overflow-hidden transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
           "border-l-2",
           isSelected
-            ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-primary"
+            ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-border-strong"
             : "border-border hover:border-border-strong hover:bg-muted/40",
         ].join(" ")}
         style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
@@ -343,7 +343,7 @@ function FileCard({
               className={cn(
                 "absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-[color,background-color,border-color,opacity] duration-200 ease-out",
                 isSelected
-                  ? "opacity-100 bg-primary border-primary text-primary-foreground"
+                  ? "opacity-100 bg-primary border-border-strong text-primary-foreground"
                   : "opacity-0 border-border bg-muted hover:border-border-strong group-hover:opacity-100 group-focus-within:opacity-100",
                 "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               )}
@@ -391,7 +391,7 @@ function FileCard({
         "rounded-lg bg-card border p-2.5 transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l-2",
         isSelected
-          ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-primary bg-muted/50"
+          ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-border-strong bg-muted/50"
           : "border-border hover:border-border-strong hover:bg-secondary",
       ].join(" ")}
       style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
@@ -438,7 +438,7 @@ function FileCard({
             type="button"
             data-slot="button"
             aria-label={`Download ${item.name}`}
-            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 h-6 w-6 rounded-full border border-muted-foreground/30 bg-background flex items-center justify-center hover:border-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 h-6 w-6 rounded-full border border-border bg-background flex items-center justify-center hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={(e) => { e.stopPropagation(); onDownload(item); }}
           >
             <Download className={cn("h-3 w-3", iconColor)} />
@@ -454,8 +454,8 @@ function FileCard({
           className={cn(
             "h-5 w-5 rounded-full border flex items-center justify-center transition-[color,background-color,border-color,opacity]",
             isSelected
-              ? "opacity-100 bg-primary border-primary text-primary-foreground"
-              : "opacity-20 border-muted-foreground/50 bg-background hover:border-primary group-hover:opacity-100 group-focus-within:opacity-100",
+              ? "opacity-100 bg-primary border-border-strong text-primary-foreground"
+              : "opacity-20 border-border bg-background hover:border-border-strong group-hover:opacity-100 group-focus-within:opacity-100",
             "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
           )}
           onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}

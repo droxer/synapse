@@ -29,6 +29,13 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   const [usePlanner, setUsePlanner] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const attachedFilesRef = useRef<AttachedFile[]>([]);
+
+  const revokePreviewUrls = useCallback((files: AttachedFile[]) => {
+    files.forEach((entry) => {
+      if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl);
+    });
+  }, []);
 
   const resetHeight = useCallback(() => {
     const el = textareaRef.current;
@@ -58,14 +65,16 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
     });
   }, []);
 
+  useEffect(() => {
+    attachedFilesRef.current = attachedFiles;
+  }, [attachedFiles]);
+
   // Cleanup URLs on unmount
   useEffect(() => {
     return () => {
-      attachedFiles.forEach((f) => {
-        if (f.previewUrl) URL.revokeObjectURL(f.previewUrl);
-      });
+      revokePreviewUrls(attachedFilesRef.current);
     };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [revokePreviewUrls]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,6 +84,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
     const files = attachedFiles.length > 0 ? attachedFiles.map((f) => f.file) : undefined;
     const skills = selectedSkill ? [selectedSkill] : undefined;
     onSendMessage(trimmed || t("chat.defaultFileMessage"), files, skills, usePlanner || undefined);
+    revokePreviewUrls(attachedFiles);
     setInput("");
     setAttachedFiles([]);
     setSelectedSkill(null);
@@ -82,7 +92,8 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+    if (e.nativeEvent.isComposing) return;
+    if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSubmit(e);
     }
@@ -151,9 +162,9 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "relative rounded-md border border-border bg-background shadow-[inset_0_1px_4px_rgba(0,0,0,0.02)] transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+            "relative rounded-md border border-transparent bg-secondary/35 transition-[border-color,box-shadow,background-color] duration-200 ease-out",
             isFocused
-              ? "border-focus ring-1 ring-focus/20"
+              ? "border-border-active bg-background"
               : "",
             isDragOver && "border-dashed border-border-active bg-secondary",
           )}
@@ -265,71 +276,54 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 )}
               </Button>
 
-              {!isWelcome && (
-                <span
-                  className={cn(
-                    "ml-1 hidden sm:inline-flex text-xs text-muted-foreground select-none transition-opacity duration-150",
-                    hasContent && !isAgentRunning ? "opacity-100" : "opacity-0",
-                  )}
-                >
-                  <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">Enter</kbd>
-                  <span className="mx-1 text-muted-foreground">{t("chat.enterToSend")}</span>
-                  <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">Shift+Enter</kbd>
-                  <span className="ml-1 text-muted-foreground">{t("chat.shiftEnterNewLine")}</span>
-                </span>
-              )}
             </div>
 
             {/* Right: send / cancel */}
             <AnimatePresence mode="wait">
               {isAgentRunning ? (
-                <motion.button
+                <motion.div
                   key="cancel"
-                  type="button"
-                  data-slot="button"
-                  onClick={onCancel}
-                  aria-label={t("chat.cancelExecution")}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
-                  className={cn(
-                    "group flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
-                    "bg-muted text-muted-foreground",
-                    "transition-colors duration-200 ease-out",
-                    "hover:bg-destructive/10 hover:text-destructive",
-                    "active:bg-destructive/15",
-                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none",
-                  )}
                 >
-                  <Square
-                    className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110"
-                    fill="currentColor"
-                    strokeWidth={0}
-                  />
-                </motion.button>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="secondary"
+                    onClick={onCancel}
+                    aria-label={t("chat.cancelExecution")}
+                    className="group h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:bg-destructive/15"
+                  >
+                    <Square
+                      className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110"
+                      fill="currentColor"
+                      strokeWidth={0}
+                    />
+                  </Button>
+                </motion.div>
               ) : (
-                <motion.button
+                <motion.div
                   key="send"
-                  type="submit"
-                  data-slot="button"
-                  disabled={disabled || !hasContent}
-                  aria-label={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                   initial={{ opacity: 0 }}
                   animate={{ opacity: hasContent ? 1 : 0.4 }}
                   exit={{ opacity: 0 }}
                   transition={{ duration: 0.15 }}
-                  className={cn(
-                    "flex h-9 w-9 shrink-0 items-center justify-center rounded-md",
-                    "transition-colors duration-200 ease-out",
-                    "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background outline-none",
-                    hasContent
-                      ? "bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80"
-                      : "bg-muted text-placeholder cursor-default",
-                  )}
                 >
-                  <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
-                </motion.button>
+                  <Button
+                    type="submit"
+                    size="icon"
+                    disabled={disabled || !hasContent}
+                    aria-label={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
+                    className={cn(
+                      "h-9 w-9",
+                      !hasContent && "bg-muted text-placeholder hover:bg-muted",
+                    )}
+                  >
+                    <ArrowUp className="h-4 w-4" strokeWidth={2.5} />
+                  </Button>
+                </motion.div>
               )}
             </AnimatePresence>
           </div>

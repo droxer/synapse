@@ -127,20 +127,12 @@ function LoginForm() {
   };
 
   return (
-    <div className="welcome-radial-bg relative flex min-h-screen items-center justify-center px-4">
+    <div className="relative flex min-h-screen items-center justify-center px-4">
       <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-40" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-sm">
         {/* Card */}
         <div className="relative overflow-hidden rounded-xl border border-border bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
-          {/* Brand gradient top strip */}
-          <div
-            className="absolute inset-x-0 top-0 h-0.5 rounded-t-xl"
-            style={{ background: "linear-gradient(90deg, var(--color-accent-purple), var(--color-accent-emerald))" }}
-            aria-hidden="true"
-          />
-          {/* Faint inner dot-grid */}
-          <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-[0.18]" aria-hidden="true" />
-          <div className="relative z-10 flex flex-col items-center gap-6">
+          <div className="flex flex-col items-center gap-6">
             {/* Logo with animated glow */}
             <div
               className="rounded-xl"
@@ -150,10 +142,7 @@ function LoginForm() {
             </div>
 
             {/* Title block */}
-            <div
-              className=" text-center"
-              style={{ animationFillMode: "both" }}
-            >
+            <div className="text-center">
               <h1 className="heading-display text-foreground">
                 Welcome to Synapse
               </h1>
@@ -166,8 +155,7 @@ function LoginForm() {
             {error && (
               <div
                 role="alert"
-                className="flex w-full items-start gap-2 rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive "
-                style={{ animationFillMode: "both" }}
+                className="flex w-full items-start gap-2 rounded-lg border border-destructive bg-destructive/10 px-4 py-3 text-sm text-destructive"
               >
                 <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
                 <span>
@@ -180,10 +168,7 @@ function LoginForm() {
 
             {/* Google sign in button */}
             {!waitingForBrowser && (
-              <div
-                className="w-full "
-                style={{ animationFillMode: "both" }}
-              >
+              <div className="w-full">
                 <button
                   type="button"
                   onClick={handleSignIn}
@@ -227,7 +212,7 @@ function LoginForm() {
 
             {/* Desktop: waiting for browser auth */}
             {waitingForBrowser && (
-              <div className="flex w-full flex-col items-center gap-2 text-center ">
+              <div className="flex w-full flex-col items-center gap-2 text-center">
                 <span role="status">
                   <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
                   <span className="sr-only">Waiting for browser authentication...</span>
@@ -241,10 +226,7 @@ function LoginForm() {
         </div>
 
         {/* Footer flourish */}
-        <p
-          className="mt-6 text-center text-xs text-muted-foreground-dim "
-          style={{ animationFillMode: "both" }}
-        >
+        <p className="mt-6 text-center text-xs text-muted-foreground-dim">
           <span>Secure</span>
           <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
           <span>Private</span>
@@ -260,7 +242,7 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="welcome-radial-bg relative flex min-h-screen items-center justify-center" role="status">
+        <div className="relative flex min-h-screen items-center justify-center" role="status">
           <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-40" aria-hidden="true" />
           <div className="relative z-10 h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
           <span className="sr-only">Loading...</span>

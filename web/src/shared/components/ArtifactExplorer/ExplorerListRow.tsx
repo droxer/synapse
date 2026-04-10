@@ -87,7 +87,7 @@ export function ExplorerListRow({
         "flex items-center gap-3 px-3 border-b border-border last:border-b-0",
         "border-l-2 transition-colors duration-150 ease-out group relative",
         isSelected
-          ? "bg-secondary/70 border-l-primary"
+          ? "bg-secondary/70 border-l-border-strong"
           : "hover:bg-secondary/50",
       )}
       style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
@@ -104,7 +104,7 @@ export function ExplorerListRow({
         className={cn(
           "shrink-0 flex h-5 w-5 items-center justify-center rounded-full border-2 transition-[color,background-color,border-color,opacity] duration-200",
           isSelected
-            ? "opacity-100 bg-primary border-primary text-primary-foreground"
+            ? "opacity-100 bg-primary border-border-strong text-primary-foreground"
             : "opacity-0 border-border bg-muted hover:border-border-strong group-hover:opacity-100",
           "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}

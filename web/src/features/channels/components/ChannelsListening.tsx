@@ -15,15 +15,15 @@ export function ChannelsListening() {
         {/* Sonar radar animation */}
         <div className="relative flex h-24 w-24 items-center justify-center">
           <span
-            className="absolute h-24 w-24 rounded-full border border-accent-purple/15"
+            className="absolute h-24 w-24 rounded-full border border-focus"
             style={{ animation: "pulsingDotRing 2.5s ease-out infinite 0s" }}
           />
           <span
-            className="absolute h-20 w-20 rounded-full border border-accent-purple/20"
+            className="absolute h-20 w-20 rounded-full border border-focus"
             style={{ animation: "pulsingDotRing 2.5s ease-out infinite 0.6s" }}
           />
           <span
-            className="absolute h-14 w-14 rounded-full border border-accent-purple/30"
+            className="absolute h-14 w-14 rounded-full border border-focus"
             style={{ animation: "pulsingDotRing 2.5s ease-out infinite 1.2s" }}
           />
           <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-purple shadow-lg shadow-accent-purple/20">

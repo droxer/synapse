@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, isValidElement, type ReactNode } from "react";
+import { memo, useState, useCallback, isValidElement, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -37,7 +37,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 rounded-md p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="flex items-center gap-1 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       aria-label="Copy code"
       title="Copy code"
     >
@@ -62,12 +62,12 @@ const components: Components = {
     const codeString = extractText(children);
 
     return (
-      <div className="relative my-4 rounded-xl border bg-muted/50 overflow-hidden not-prose">
-        <div className="flex items-center justify-between px-4 py-1.5 border-b bg-muted text-sm text-muted-foreground font-mono">
+      <div className="relative my-4 overflow-hidden rounded-2xl border border-border-strong bg-muted/35 not-prose shadow-card">
+        <div className="flex items-center justify-between border-b border-border-strong bg-muted/45 px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
           <span>{language}</span>
           <CopyButton text={codeString} />
         </div>
-        <pre className="p-4 overflow-x-auto text-sm font-mono bg-transparent m-0 border-none">
+        <pre className="p-4 overflow-x-auto text-[length:var(--md-code-font-size,var(--text-sm))] font-mono bg-transparent m-0 border-none">
           {children}
         </pre>
       </div>
@@ -78,7 +78,7 @@ const components: Components = {
     if (isInline) {
       return (
         <code
-          className="rounded-md border border-border/70 bg-muted px-1.5 py-0.5 text-sm font-mono text-foreground"
+          className="rounded-lg border border-border-strong bg-muted/65 px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
           {...props}
         >
           {children}
@@ -130,17 +130,24 @@ interface MarkdownRendererProps {
   content: string;
   className?: string;
   isStreaming?: boolean;
+  compactCode?: boolean;
 }
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   className,
   isStreaming,
+  compactCode = false,
 }: MarkdownRendererProps) {
+  const markdownVars = compactCode
+    ? ({ "--md-code-font-size": "var(--text-xs)" } as CSSProperties)
+    : undefined;
+
   return (
     <div
+      style={markdownVars}
       className={cn(
-        "markdown-body font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-normal prose-pre:p-0",
+        "markdown-body conversation-markdown font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-normal prose-pre:p-0",
         "prose-p:text-current prose-headings:text-current prose-li:text-current prose-strong:text-current prose-li:marker:text-current",
         isStreaming && "streaming-active",
         className

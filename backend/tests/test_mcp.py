@@ -242,6 +242,27 @@ class TestMCPBridgedTool:
         assert not result.success
         assert result.error == "not found"
 
+    def test_registry_export_normalizes_mappingproxy_input_schema(self) -> None:
+        schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema=types.MappingProxyType(
+                {
+                    "type": "object",
+                    "properties": {"q": {"type": "string"}},
+                    "required": ("q",),
+                }
+            ),
+            server_name="srv",
+        )
+        registry = ToolRegistry().register(MCPBridgedTool(schema, client=None))  # type: ignore[arg-type]
+
+        tools = registry.to_anthropic_tools()
+
+        assert isinstance(tools[0]["input_schema"], dict)
+        assert tools[0]["input_schema"]["required"] == ["q"]
+        json.dumps(tools)
+
 
 # ---------------------------------------------------------------------------
 # MCPStdioClient

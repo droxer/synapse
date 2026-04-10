@@ -18,7 +18,7 @@ export function ErrorBanner({ message, onDismiss, variant = "default", dismissLa
     <motion.div
       role="alert"
       className={cn(
-        "flex items-center gap-2 border border-destructive/20 bg-destructive/5",
+        "flex items-center gap-2 border border-destructive bg-destructive/5",
         isCompact
           ? "rounded-md px-3 py-2"
           : "rounded-lg px-4 py-2.5",

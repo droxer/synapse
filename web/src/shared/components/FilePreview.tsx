@@ -142,8 +142,8 @@ const OFFICE_IFRAME_STYLES = `
   }
 
   body {
-    /* Avoid remote @import in each srcDoc iframe; prefer fast local modern UI stacks. */
-    font-family: "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
+    /* Mirror app sans contract without relying on remote font imports inside srcDoc iframes. */
+    font-family: var(--font-geist, "Inter"), var(--font-noto-sans-sc, "PingFang SC"), var(--font-noto-sans-tc, "Noto Sans CJK TC"), "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
     padding: 24px 32px;
     margin: 0;
     color: var(--color-foreground, #0f172a);
@@ -166,7 +166,7 @@ const OFFICE_IFRAME_STYLES = `
     font-variant-numeric: tabular-nums;
   }
   th, td {
-    border: 1px solid var(--color-border, #e2e8f0);
+    border: 1px solid var(--color-border, #e4e4e7);
     padding: 6px 10px;
     text-align: left;
     white-space: nowrap;

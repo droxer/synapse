@@ -254,6 +254,7 @@ async def _handle_channel_message(
         session_record = await repo.find_active_session(db, account.id)
 
     is_first_turn = False
+    emitter_for_turn: EventEmitter | None = None
     if session_record is None:
         is_first_turn = True
         conv_uuid = uuid.uuid4()
@@ -340,18 +341,7 @@ async def _handle_channel_message(
                 bot_config_id=bot_config_id,
             )
 
-        responder = ChannelResponder(
-            provider=provider,
-            chat_id=message.provider_chat_id,
-            channel_repo=repo,
-            session_factory=state.db_session_factory,
-            channel_session_id=session_record.id,
-            conversation_id=conv_uuid,
-            emitter=emitter,
-            storage_backend=state.storage_backend,
-            on_ask_user=channel_router.register_pending_prompt,
-        )
-        emitter.subscribe(responder)
+        emitter_for_turn = emitter
     else:
         conv_uuid = session_record.conversation_id
         conversation_id_str = str(conv_uuid)
@@ -367,18 +357,7 @@ async def _handle_channel_message(
                 )
                 return
 
-        responder = ChannelResponder(
-            provider=provider,
-            chat_id=message.provider_chat_id,
-            channel_repo=repo,
-            session_factory=state.db_session_factory,
-            channel_session_id=session_record.id,
-            conversation_id=conv_uuid,
-            emitter=entry.emitter,
-            storage_backend=state.storage_backend,
-            on_ask_user=channel_router.register_pending_prompt,
-        )
-        entry.emitter.subscribe(responder)
+        emitter_for_turn = entry.emitter
 
     persistent_store = PersistentMemoryStore(
         session_factory=state.db_session_factory,
@@ -419,8 +398,15 @@ async def _handle_channel_message(
         return
 
     if channel_router.has_pending_prompt(conv_uuid):
-        request_id, callback = channel_router._pending_prompts.pop(conv_uuid)  # noqa: SLF001
-        if callable(callback) and message.text:
+        request_id, callback = channel_router._pending_prompts[conv_uuid]  # noqa: SLF001
+        if not message.text:
+            await provider.send_text(
+                message.provider_chat_id,
+                "Please reply with text to continue.",
+            )
+            return
+        if callable(callback):
+            channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
             callback(message.text)
             await entry.emitter.emit(
                 EventType.USER_RESPONSE,
@@ -432,6 +418,26 @@ async def _handle_channel_message(
                 request_id,
             )
             return
+        logger.warning(
+            "channel_ask_user_invalid_callback conv={} request={}",
+            conv_uuid,
+            request_id,
+        )
+        channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
+
+    assert emitter_for_turn is not None
+    responder = ChannelResponder(
+        provider=provider,
+        chat_id=message.provider_chat_id,
+        channel_repo=repo,
+        session_factory=state.db_session_factory,
+        channel_session_id=session_record.id,
+        conversation_id=conv_uuid,
+        emitter=emitter_for_turn,
+        storage_backend=state.storage_backend,
+        on_ask_user=channel_router.register_pending_prompt,
+    )
+    emitter_for_turn.subscribe(responder)
 
     attachments: tuple[FileAttachment, ...] = ()
     if message.file_id:

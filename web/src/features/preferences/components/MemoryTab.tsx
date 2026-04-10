@@ -51,7 +51,7 @@ export function MemoryTab() {
             {t("preferences.memory.title")}
           </h3>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-caption text-muted-foreground">
           {t("preferences.memory.description")}
         </p>
       </div>
@@ -104,13 +104,13 @@ export function MemoryTab() {
                   )}
                 >
                 <span
-                  className="truncate font-mono text-xs font-medium text-foreground"
+                  className="truncate font-mono text-caption font-medium text-foreground"
                   title={entry.key}
                 >
                   {entry.key}
                 </span>
                 <span
-                  className="truncate text-xs text-muted-foreground"
+                  className="truncate text-caption text-muted-foreground"
                   title={entry.value}
                 >
                   {truncateValue(entry.value)}
@@ -127,7 +127,7 @@ export function MemoryTab() {
                     ? t("preferences.memory.global")
                     : t("preferences.memory.conversation")}
                 </span>
-                <span className="text-right text-xs text-muted-foreground">
+                <span className="text-right text-caption text-muted-foreground">
                   {formatRelativeTime(entry.updated_at)}
                 </span>
                 <Button
@@ -157,7 +157,7 @@ export function MemoryTab() {
             <ChevronLeft className="mr-1 h-3.5 w-3.5" />
             {t("preferences.memory.previous")}
           </Button>
-          <span className="text-xs text-muted-foreground">
+          <span className="text-caption text-muted-foreground">
             {t("preferences.memory.page", {
               current: page + 1,
               total: totalPages,

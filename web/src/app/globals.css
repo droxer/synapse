@@ -21,13 +21,13 @@
   --color-card-foreground: #09090B;
   --color-popover: #FFFFFF;
   --color-popover-foreground: #09090B;
-  --radius-sm: 0.125rem;
-  --radius-md: 0.1875rem;
-  --radius-lg: 0.25rem;
-  --radius-xl: 0.375rem;
-  --radius-2xl: 0.5rem;
+  --radius-sm: 0.25rem;
+  --radius-md: 0.375rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 
-  --color-border-strong: #D4D4D8;
+  --color-border-strong: #DDDEE4;
   --color-border-active: #A1A1AA;
   --color-placeholder: #A1A1AA;
   --color-muted-foreground-dim: #A1A1AA;
@@ -50,7 +50,7 @@
   --color-input-glow: rgba(27, 126, 242, 0.08);
   --color-overlay: rgba(24, 24, 27, 0.45);
 
-  --color-sidebar-bg: #F5F5F6;
+  --color-sidebar-bg: #FFFFFF;
   --color-sidebar-active: #E4E4E7;
   --color-sidebar-hover: #EBEBEC;
   --color-sidebar-foreground-muted: #71717A;
@@ -78,6 +78,7 @@
   --font-sans: var(--font-geist), var(--font-noto-sans-sc), var(--font-noto-sans-tc), "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  --font-brand-family: var(--font-brand), "Eurostile", "Bank Gothic", "Rajdhani", var(--font-sans);
 
   /* Type scale */
   --text-xs: 0.75rem;      /* 12px */
@@ -100,9 +101,9 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%), 0 12px 30px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 45%);
+  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 35%);
+  --shadow-elevated: 0 10px 26px rgba(0, 0, 0, 0.09), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 30%);
 
   /* Animations — keep useful ones, remove glow/orbital */
   --animate-fade-in: fadeIn 0.3s ease-out;
@@ -189,7 +190,7 @@
   --color-card-foreground: #09090B;
   --color-popover: #FFFFFF;
   --color-popover-foreground: #09090B;
-  --color-border-strong: #D4D4D8;
+  --color-border-strong: #DDDEE4;
   --color-border-active: #A1A1AA;
   --color-placeholder: #A1A1AA;
   --color-muted-foreground-dim: #A1A1AA;
@@ -207,7 +208,7 @@
   --color-ai-surface: rgba(27, 126, 242, 0.05);
   --color-ai-border: rgba(27, 126, 242, 0.12);
   --color-input-glow: rgba(27, 126, 242, 0.08);
-  --color-sidebar-bg: #F5F5F6;
+  --color-sidebar-bg: #FFFFFF;
   --color-sidebar-active: #E4E4E7;
   --color-sidebar-hover: #EBEBEC;
   --color-sidebar-foreground-muted: #71717A;
@@ -223,9 +224,9 @@
   --logo-bg: var(--logo-black);
   --logo-glyph: var(--logo-white);
   --color-overlay: rgba(24, 24, 27, 0.45);
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 35%);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%), 0 12px 30px rgba(0, 0, 0, 0.08);
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 45%);
+  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 35%);
+  --shadow-elevated: 0 10px 26px rgba(0, 0, 0, 0.09), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 30%);
 }
 
 /* ─── Dark mode ─── */
@@ -249,7 +250,7 @@
   --color-card-foreground: #FAFAFA;
   --color-popover: #252526;
   --color-popover-foreground: #FAFAFA;
-  --color-border-strong: #4E4E52;
+  --color-border-strong: #47474C;
   --color-border-active: #71717A;
   --color-placeholder: #71717A;
   --color-muted-foreground-dim: #71717A;
@@ -268,7 +269,7 @@
   --color-ai-border: rgba(59, 142, 245, 0.12);
   --color-input-glow: rgba(59, 142, 245, 0.12);
   /* Sidebar chrome — lifted panel vs main #1E1E1E (matches Cursor-style side bar) */
-  --color-sidebar-bg: #2D2D30;
+  --color-sidebar-bg: #1E1E1E;
   --color-sidebar-active: #3E3E45;
   --color-sidebar-hover: #35353C;
   --color-sidebar-foreground-muted: #A1A1AA;
@@ -286,9 +287,9 @@
   --logo-bg: var(--logo-white);
   --logo-glyph: var(--logo-black);
   --color-overlay: rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 20%);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 8%);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 4%), 0 16px 36px rgba(0, 0, 0, 0.35);
+  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.16), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 26%);
+  --shadow-card-hover: 0 8px 22px rgba(0, 0, 0, 0.28), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%);
+  --shadow-elevated: 0 18px 42px rgba(0, 0, 0, 0.42), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 12%);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -332,6 +333,22 @@
   text-wrap: balance;
 }
 
+@utility brand-wordmark {
+  font-family: var(--font-brand-family);
+  font-size: 0.8rem;
+  font-weight: 600;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--color-foreground), var(--color-focus) 18%);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--color-focus), transparent 88%);
+}
+
+.dark .brand-wordmark {
+  color: color-mix(in srgb, var(--color-foreground), var(--color-focus) 32%);
+  text-shadow: 0 0 14px color-mix(in srgb, var(--color-focus), transparent 76%);
+}
+
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
@@ -346,7 +363,11 @@
   --tw-prose-body: currentColor;
 }
 
-/* ─── Typography ─── */
+/* ─── Typography ───
+   Contract:
+   - Body defaults to text-sm (14px) for dense, readable UI copy.
+   - Section headings in product surfaces should prefer text-lg unless intentionally compact.
+   - Metadata should use text-micro (10px) or text-caption (12px), not ad hoc sizes. */
 
 h1, h2, h3, h4, h5, h6,
 p, span, input, textarea, label, li, td {
@@ -381,7 +402,7 @@ body {
 
 /* Design contract:
    - Panels/surfaces use rounded-xl (see docs/reference/design-system.md).
-   - Controls (inputs, buttons, badges) use rounded-md.
+   - Controls (inputs, buttons, badges) use rounded-lg.
    - Focus ring uses ring-2/ring-ring/ring-offset-2/ring-offset-background. */
 
 html,
@@ -518,20 +539,6 @@ pre, code {
   font-weight: 700;
 }
 
-/* ─── Welcome screen radial background ─── */
-
-.welcome-radial-bg {
-  background:
-    radial-gradient(ellipse 55% 40% at 50% 40%, rgba(27, 126, 242, 0.10) 0%, transparent 65%),
-    radial-gradient(ellipse 80% 55% at 50% 60%, rgba(250, 245, 230, 0.06) 0%, transparent 70%);
-}
-
-.dark .welcome-radial-bg {
-  background:
-    radial-gradient(ellipse 55% 40% at 50% 40%, rgba(59, 142, 245, 0.13) 0%, transparent 65%),
-    radial-gradient(ellipse 80% 55% at 50% 60%, rgba(30, 27, 50, 0.18) 0%, transparent 70%);
-}
-
 /* ─── Dot-grid texture overlay ─── */
 
 @utility dot-grid-bg {
@@ -600,6 +607,47 @@ pre, code {
   margin-left: 0.25em;
   border-radius: 2px;
   animation: blink-cursor 1.5s ease-in-out infinite;
+}
+
+/* ─── Conversation response surface (Cursor-style) ─── */
+.conversation-assistant-message {
+  padding-left: 0.875rem;
+}
+
+.conversation-response-body {
+  color: var(--color-foreground);
+}
+
+.conversation-markdown {
+  line-height: var(--lh-relaxed);
+}
+
+.conversation-markdown :where(p, ul, ol, blockquote, pre, table) {
+  margin-top: 0.8rem;
+  margin-bottom: 0.8rem;
+}
+
+.conversation-markdown :where(h1, h2, h3, h4) {
+  margin-top: 1.1rem;
+  margin-bottom: 0.55rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.conversation-markdown blockquote {
+  margin-left: 0;
+  border-left: 2px solid color-mix(in srgb, var(--color-focus), transparent 65%);
+  padding-left: 0.8rem;
+  color: var(--color-muted-foreground);
+}
+
+.conversation-markdown ul,
+.conversation-markdown ol {
+  padding-left: 1.3rem;
+}
+
+.conversation-markdown li::marker {
+  color: var(--color-muted-foreground);
 }
 
 /* ─── Markdown Reasoning (for Thinking Blocks) ─── */

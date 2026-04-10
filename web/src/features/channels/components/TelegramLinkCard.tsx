@@ -126,8 +126,8 @@ function TelegramConfigModal({
         <div className="relative flex items-center gap-3.5 px-6 py-4 border-b border-border overflow-hidden">
           <ChannelProviderIcon provider="telegram" size="lg" className="relative rounded-xl ring-1 ring-border" />
           <div className="relative flex-1 min-w-0">
-            <h2 className="text-base font-semibold tracking-tight text-foreground">Telegram Integration</h2>
-            <p className="text-xs text-muted-foreground truncate">
+            <h2 className="text-lg font-semibold tracking-tight text-foreground">Telegram Integration</h2>
+            <p className="text-caption text-muted-foreground truncate">
               Configure your bot and link your account.
             </p>
           </div>
@@ -144,7 +144,7 @@ function TelegramConfigModal({
         <div className="relative px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto w-full">
 
           {error && (
-            <div className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-sm text-destructive">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="leading-snug">{error}</span>
             </div>
@@ -240,7 +240,7 @@ function TelegramConfigModal({
               </div>
 
               {status.last_error && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive/20 bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-sm text-destructive">
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{status.last_error}</span>
                 </div>
@@ -308,7 +308,7 @@ function TelegramConfigModal({
                   type="button"
                   onClick={onDeleteBot}
                   disabled={actionLoading}
-                  className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
+                  className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-destructive hover:bg-secondary hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
                 >
                   Disable Bot
                 </button>
@@ -377,7 +377,7 @@ function TelegramConfigModal({
                 type="button"
                 onClick={onUnlink}
                 disabled={actionLoading}
-                className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:bg-destructive/5 hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
+                className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50"
               >
                 Unlink
               </button>

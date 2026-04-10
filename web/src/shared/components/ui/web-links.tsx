@@ -31,7 +31,7 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
   });
   const resolvedSearchLabel = searchLabel ?? t("output.searchLabel");
   return (
-    <div className={cn("rounded-md border border-border/70 bg-muted/50 px-3 py-2", className)}>
+    <div className={cn("rounded-md border border-border-strong bg-muted/50 px-3 py-2", className)}>
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="text-xs text-muted-foreground">
           {resultsLabel ?? defaultResultsLabel}{" "}

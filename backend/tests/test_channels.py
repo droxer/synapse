@@ -4,9 +4,11 @@ Covers ChannelRepository (DB CRUD), TelegramProvider (parse/verify),
 and InboundMessage defaults.
 """
 
+import asyncio
 import hashlib
 import hmac as hmac_mod
 import uuid
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -15,11 +17,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker
 
 import api.channels.models  # noqa: F401  — register channel ORM models with Base
 from agent.memory.store import PersistentMemoryStore
-from agent.state.models import ConversationModel, UserModel
+from agent.state.models import ConversationModel, MessageModel, UserModel
 from api.channels.provider import TelegramProvider
 from api.channels.repository import ChannelRepository
 from api.channels.router import ChannelRouter
 from api.channels.schemas import InboundMessage
+from api.events import EventEmitter
+from api.models import ConversationEntry
+from api.routes import channels as channels_routes
 
 
 # ---------------------------------------------------------------------------
@@ -241,6 +246,50 @@ class TestChannelSession:
         assert active is not None
         assert active.id == second.id
         assert active.id != first.id
+
+    @pytest.mark.asyncio
+    async def test_list_channel_conversations_returns_latest_message_preview(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        user = await _make_user(session)
+        convo = await _make_conversation(session, user)
+        account = await repo.create_account(
+            session,
+            user_id=user.id,
+            provider="telegram",
+            provider_user_id="tg_510",
+            provider_chat_id="chat_510",
+            display_name="Latest Preview",
+        )
+        await repo.create_session(
+            session,
+            channel_account_id=account.id,
+            conversation_id=convo.id,
+            provider="telegram",
+            provider_chat_id="chat_510",
+        )
+
+        session.add(
+            MessageModel(
+                id=uuid.uuid4(),
+                conversation_id=convo.id,
+                role="assistant",
+                content={"text": "older reply"},
+            )
+        )
+        session.add(
+            MessageModel(
+                id=uuid.uuid4(),
+                conversation_id=convo.id,
+                role="assistant",
+                content={"text": "latest reply"},
+            )
+        )
+        await session.commit()
+
+        records = await repo.list_channel_conversations(session, user.id)
+        assert len(records) == 1
+        assert records[0].last_message == "latest reply"
 
 
 class TestMessageDedup:
@@ -715,12 +764,17 @@ class _StubProvider:
 
     def __init__(self) -> None:
         self.messages: list[str] = []
+        self.downloaded_file_ids: list[str] = []
 
     async def send_text(
         self, chat_id: str, text: str, reply_to: str | None = None
     ) -> str:
         self.messages.append(text)
         return "stub-msg-id"
+
+    async def download_file(self, file_id: str) -> tuple[bytes, str, str]:
+        self.downloaded_file_ids.append(file_id)
+        return b"file", "file.bin", "application/octet-stream"
 
 
 class TestChannelRouterStartCommand:
@@ -874,3 +928,211 @@ class TestChannelRouterMemoryCommands:
 
         remaining = await store.list_active_facts(limit=10)
         assert remaining == []
+
+
+async def _build_existing_channel_context(
+    repo: ChannelRepository, session: AsyncSession
+) -> tuple[
+    SimpleNamespace,
+    ChannelRouter,
+    _StubProvider,
+    ConversationEntry,
+    InboundMessage,
+    uuid.UUID,
+]:
+    user = await _make_user(session)
+    convo = await _make_conversation(session, user)
+    bot_config = await repo.upsert_telegram_bot_config(
+        session,
+        user_id=user.id,
+        bot_token="123456:ABC",
+        bot_username="route_bot",
+        bot_user_id=f"bot_{uuid.uuid4().hex[:8]}",
+        webhook_secret=f"route-secret-{uuid.uuid4().hex[:6]}",
+        webhook_status="active",
+    )
+    account = await repo.create_account(
+        session,
+        user_id=user.id,
+        provider="telegram",
+        provider_user_id=f"tg_route_{uuid.uuid4().hex[:6]}",
+        provider_chat_id=f"chat_route_{uuid.uuid4().hex[:6]}",
+        display_name="Route User",
+        bot_config_id=bot_config.id,
+    )
+    session_record = await repo.create_session(
+        session,
+        channel_account_id=account.id,
+        conversation_id=convo.id,
+        provider="telegram",
+        provider_chat_id=account.provider_chat_id,
+        bot_config_id=bot_config.id,
+    )
+
+    emitter = EventEmitter()
+    entry = ConversationEntry(
+        emitter=emitter,
+        event_queue=asyncio.Queue(),
+        orchestrator=MagicMock(),
+        executor=MagicMock(),
+        pending_callbacks={},
+    )
+    state = SimpleNamespace(
+        db_session_factory=async_sessionmaker(
+            bind=session.bind, expire_on_commit=False
+        ),
+        conversations={str(convo.id): entry},
+        storage_backend=None,
+    )
+    provider = _StubProvider()
+    router = ChannelRouter(channel_repo=repo, session_factory=state.db_session_factory)
+    message = InboundMessage(
+        provider="telegram",
+        provider_user_id=account.provider_user_id,
+        provider_chat_id=account.provider_chat_id,
+        provider_message_id=f"m_{uuid.uuid4().hex[:8]}",
+        text="hello",
+        display_name=account.display_name,
+    )
+
+    assert session_record.id is not None
+    return state, router, provider, entry, message, bot_config.id
+
+
+class TestChannelRouteMessageHandling:
+    @pytest.mark.asyncio
+    async def test_duplicate_inbound_does_not_subscribe_responder(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        (
+            state,
+            router,
+            provider,
+            entry,
+            message,
+            bot_config_id,
+        ) = await _build_existing_channel_context(repo, session)
+        channels_routes._channel_repo = repo  # noqa: SLF001
+
+        # Seed dedupe log to simulate Telegram webhook retry.
+        active_session = next(iter(state.conversations.values()))
+        async with state.db_session_factory() as db:
+            account = await repo.find_account_by_provider(
+                db,
+                message.provider,
+                message.provider_user_id,
+                bot_config_id=bot_config_id,
+            )
+            assert account is not None
+            session_record = await repo.find_active_session(db, account.id)
+            assert session_record is not None
+            await repo.log_message(
+                db,
+                channel_session_id=session_record.id,
+                direction="inbound",
+                provider_message_id=message.provider_message_id,
+                content_preview=message.text,
+            )
+
+        before = len(entry.emitter._subscribers)  # noqa: SLF001
+        await channels_routes._handle_channel_message(  # noqa: SLF001
+            state,
+            router,
+            provider,
+            message,
+            bot_config_id=bot_config_id,
+        )
+        after = len(entry.emitter._subscribers)  # noqa: SLF001
+        assert before == 0
+        assert after == 0
+        assert active_session is not None
+
+    @pytest.mark.asyncio
+    async def test_pending_prompt_text_response_does_not_add_extra_responder(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        (
+            state,
+            router,
+            provider,
+            entry,
+            message,
+            bot_config_id,
+        ) = await _build_existing_channel_context(repo, session)
+        channels_routes._channel_repo = repo  # noqa: SLF001
+        captured: list[str] = []
+
+        def _callback(text: str) -> None:
+            captured.append(text)
+
+        convo_id = uuid.UUID(next(iter(state.conversations.keys())))
+        router.register_pending_prompt(convo_id, "req_1", _callback)
+        message = InboundMessage(
+            **{
+                **message.__dict__,
+                "provider_message_id": f"m_{uuid.uuid4().hex[:8]}",
+                "text": "my answer",
+            }
+        )
+
+        before = len(entry.emitter._subscribers)  # noqa: SLF001
+        await channels_routes._handle_channel_message(  # noqa: SLF001
+            state,
+            router,
+            provider,
+            message,
+            bot_config_id=bot_config_id,
+        )
+        after = len(entry.emitter._subscribers)  # noqa: SLF001
+
+        assert captured == ["my answer"]
+        assert router.has_pending_prompt(convo_id) is False
+        assert before == 0
+        assert after == 0
+
+    @pytest.mark.asyncio
+    async def test_pending_prompt_non_text_keeps_prompt(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        (
+            state,
+            router,
+            provider,
+            entry,
+            message,
+            bot_config_id,
+        ) = await _build_existing_channel_context(repo, session)
+        channels_routes._channel_repo = repo  # noqa: SLF001
+        captured: list[str] = []
+
+        def _callback(text: str) -> None:
+            captured.append(text)
+
+        convo_id = uuid.UUID(next(iter(state.conversations.keys())))
+        router.register_pending_prompt(convo_id, "req_2", _callback)
+        message = InboundMessage(
+            **{
+                **message.__dict__,
+                "provider_message_id": f"m_{uuid.uuid4().hex[:8]}",
+                "text": None,
+                "file_id": "file_1",
+            }
+        )
+
+        before = len(entry.emitter._subscribers)  # noqa: SLF001
+        await channels_routes._handle_channel_message(  # noqa: SLF001
+            state,
+            router,
+            provider,
+            message,
+            bot_config_id=bot_config_id,
+        )
+        after = len(entry.emitter._subscribers)  # noqa: SLF001
+
+        assert captured == []
+        assert router.has_pending_prompt(convo_id) is True
+        assert provider.messages
+        assert "reply with text" in provider.messages[-1].lower()
+        assert provider.downloaded_file_ids == []
+        assert before == 0
+        assert after == 0

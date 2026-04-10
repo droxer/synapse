@@ -415,28 +415,28 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
   switch (state) {
     case "planning":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+        <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
     case "complete":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full border border-accent-emerald/30 bg-accent-emerald/10 px-2 py-0.5 text-xs font-medium text-accent-emerald">
+        <span className="inline-flex items-center gap-1 rounded-md bg-accent-emerald/10 px-1.5 py-0.5 text-micro font-medium text-accent-emerald">
           <CircleCheck className="h-3 w-3 text-accent-emerald" />
           {t("progress.stateComplete")}
         </span>
       );
     case "error":
       return (
-        <span className="inline-flex items-center gap-1 rounded-full bg-accent-rose/10 px-2 py-0.5 text-xs font-medium text-accent-rose">
+        <span className="inline-flex items-center gap-1 rounded-md bg-accent-rose/10 px-1.5 py-0.5 text-micro font-medium text-accent-rose">
           <CircleX className="h-3 w-3" />
           {t("progress.stateError")}
         </span>
@@ -497,43 +497,33 @@ export function AgentProgressCard({
           : taskState === "error"
             ? t("progress.stateError")
             : t("computer.statusIdle");
-  const cardStatusLine = runningStepTitle
-    ? t("progress.headerStatusWithAction", { action: runningStepTitle })
-    : t("progress.headerStatus", { state: taskStateAnnouncement });
-
   return (
     <motion.div
-      className="overflow-hidden rounded-2xl border border-border/70 bg-card/90"
+      className="overflow-hidden rounded-xl border border-border-strong bg-background"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
     >
-      <div className="flex items-start justify-between gap-3 px-4 py-3.5">
-        <div role="status" aria-live="polite" className="sr-only">
-          {runningStepTitle ? `${taskStateAnnouncement}: ${runningStepTitle}` : taskStateAnnouncement}
-        </div>
-        <div className="flex min-w-0 flex-1 items-start gap-3">
+      <div role="status" aria-live="polite" className="sr-only">
+        {runningStepTitle ? `${taskStateAnnouncement}: ${runningStepTitle}` : taskStateAnnouncement}
+      </div>
+
+      {/* Header */}
+      <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
           <button
             type="button"
             aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
-            onClick={(e) => {
-              e.stopPropagation();
-              onClick?.();
-            }}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-border bg-muted/40 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
-            <Monitor className="h-4 w-4" />
+            <Monitor className="h-3.5 w-3.5" />
           </button>
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2">
-              <span className="truncate text-base font-semibold tracking-tight text-foreground">{t("progress.title")}</span>
-              <TaskStateBadge state={taskState} t={t} />
-            </div>
-            <p className="truncate text-sm text-muted-foreground">{cardStatusLine}</p>
-          </div>
+          <span className="truncate text-sm font-semibold tracking-tight text-foreground">{t("progress.title")}</span>
+          <TaskStateBadge state={taskState} t={t} />
         </div>
-
-        <div className="flex shrink-0 items-center">
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="tabular-nums font-mono text-caption font-medium text-muted-foreground">{completedCount}/{totalCount}</span>
           <Button
             type="button"
             variant="ghost"
@@ -553,44 +543,35 @@ export function AgentProgressCard({
         </div>
       </div>
 
-      <div className="px-4 pb-4">
-        <div className="rounded-xl border border-border/60 bg-muted/20 p-3">
-          <div className="mb-2.5 flex items-center justify-between gap-2">
-            <span className="text-base font-semibold tracking-tight text-foreground">{t("progress.taskProgressLabel")}</span>
-            <span className="tabular-nums font-mono text-xs font-medium text-muted-foreground">{completedCount}/{totalCount}</span>
-          </div>
-
-          <Progress
-            value={progressPercent}
-            className="h-1.5 rounded-full bg-background/50"
-            indicatorClassName={cn(
-              taskState === "complete" && "bg-accent-emerald",
-              taskState === "error" && "bg-accent-rose",
-              taskState === "planning" && "bg-muted-foreground",
-              (taskState === "executing" || taskState === "idle") && "bg-foreground",
-            )}
-            aria-label={t("progress.taskProgress", { percent: progressPercent })}
-          />
-
-          {runningStepTitle && (
-            <p className="mt-2 truncate text-sm text-muted-foreground">{runningStepTitle}</p>
+      {/* Progress bar */}
+      <div className="px-4 pb-3">
+        <Progress
+          value={progressPercent}
+          className="h-1 rounded-full bg-border/50"
+          indicatorClassName={cn(
+            taskState === "complete" && "bg-accent-emerald",
+            taskState === "error" && "bg-accent-rose",
+            taskState === "planning" && "bg-muted-foreground",
+            (taskState === "executing" || taskState === "idle") && "bg-foreground",
           )}
+          aria-label={t("progress.taskProgress", { percent: progressPercent })}
+        />
 
-          <AnimatePresence>
-            {expanded && (
-              <motion.div
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: "auto", opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.15, ease: "easeOut" }}
-                className="overflow-hidden"
-              >
-                <div className="mt-3 max-h-60 space-y-1.5 overflow-y-auto font-mono text-sm">
+        <AnimatePresence>
+          {expanded && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="overflow-hidden"
+            >
+              <div className="mt-2.5 max-h-60 space-y-0.5 overflow-y-auto text-sm">
                   {steps.map((step, index) => {
                     const isClickable = isTimelineStepActionable(step.id);
                     const rowClassName = cn(
                       "flex items-start gap-2.5 rounded-md px-1.5 py-1.5",
-                      isClickable && "cursor-pointer hover:bg-muted/60 transition-colors",
+                      isClickable && "cursor-pointer transition-colors hover:bg-muted/20",
                       isClickable &&
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     );
@@ -667,7 +648,6 @@ export function AgentProgressCard({
               </motion.div>
             )}
           </AnimatePresence>
-        </div>
       </div>
     </motion.div>
   );

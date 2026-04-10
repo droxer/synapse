@@ -14,6 +14,9 @@ import {
   CircleCheck,
   CircleX,
   MessageSquare,
+  Braces,
+  Copy,
+  Check,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
@@ -33,33 +36,33 @@ import {
   OUTPUT_CARD_BASE_CLASSES,
   OUTPUT_HEADER_LABEL_CLASSES,
   OUTPUT_HEADER_ROW_CLASSES,
+  OUTPUT_COLLAPSE_THRESHOLD,
 } from "../lib/format-tools";
 import { CODE_TOOLS } from "../lib/tool-constants";
 import { getToolCategory, type ToolCategory } from "../lib/tool-constants";
 import type { BrowserMetadata, ComputerUseMetadata } from "@/shared/types";
 
-/** Max chars to show before collapsing */
-const COLLAPSE_THRESHOLD = 500;
 const ELLIPSIS = "…";
 
 interface CategoryStyle {
   readonly border: string;
+  readonly badge: string;
   readonly icon: LucideIcon;
   readonly labelKey: string;
 }
 
 const CATEGORY_STYLES: Record<ToolCategory, CategoryStyle> = {
-  code:    { border: "border-l-border-strong", icon: Terminal,  labelKey: "output.category.code" },
-  file:    { border: "border-l-border-strong", icon: FileCode,  labelKey: "output.category.file" },
-  search:  { border: "border-l-border-strong", icon: Globe,     labelKey: "output.category.search" },
-  memory:   { border: "border-l-border-strong", icon: Database,  labelKey: "output.category.memory" },
-  browser:  { border: "border-l-border-strong", icon: Monitor,   labelKey: "output.category.browser" },
-  computer: { border: "border-l-border-strong", icon: Monitor,   labelKey: "output.category.computer" },
-  preview: { border: "border-l-border-strong", icon: Play,      labelKey: "output.category.preview" },
-  mcp:      { border: "border-l-border-strong", icon: Plug,      labelKey: "output.category.mcp" },
-  agent:    { border: "border-l-border-strong", icon: GitFork,   labelKey: "output.category.agent" },
-  database: { border: "border-l-border-strong", icon: Database,  labelKey: "output.category.database" },
-  default:  { border: "border-l-border",            icon: FileText,  labelKey: "" },
+  code: { border: "border-l border-l-focus", badge: "bg-focus/10 text-focus", icon: Terminal, labelKey: "output.category.code" },
+  file: { border: "border-l border-l-border-strong", badge: "bg-muted/60 text-foreground", icon: FileCode, labelKey: "output.category.file" },
+  search: { border: "border-l border-l-accent-emerald", badge: "bg-accent-emerald/10 text-accent-emerald", icon: Globe, labelKey: "output.category.search" },
+  memory: { border: "border-l border-l-accent-amber", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.memory" },
+  browser: { border: "border-l border-l-focus", badge: "bg-focus/10 text-focus", icon: Globe, labelKey: "output.category.browser" },
+  computer: { border: "border-l border-l-border-active", badge: "bg-muted/60 text-foreground", icon: Monitor, labelKey: "output.category.computer" },
+  preview: { border: "border-l border-l-border-active", badge: "bg-muted/60 text-foreground", icon: Play, labelKey: "output.category.preview" },
+  mcp: { border: "border-l border-l-accent-amber", badge: "bg-accent-amber/10 text-accent-amber", icon: Plug, labelKey: "output.category.mcp" },
+  agent: { border: "border-l border-l-accent-emerald", badge: "bg-accent-emerald/10 text-accent-emerald", icon: GitFork, labelKey: "output.category.agent" },
+  database: { border: "border-l border-l-accent-amber", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.database" },
+  default: { border: "border-l border-l-border", badge: "bg-muted/60 text-muted-foreground", icon: FileText, labelKey: "" },
 };
 
 interface SearchPayload {
@@ -141,8 +144,9 @@ interface ToolOutputRendererProps {
 export function ToolOutputRenderer({ output, toolName, success, contentType, conversationId, artifactIds, browserMetadata, computerUseMetadata, agentNameMap }: ToolOutputRendererProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const [copiedJson, setCopiedJson] = useState(false);
   const resolvedOutput = toolName === "task_complete" ? t("output.taskMarkedComplete") : output;
-  const isLong = resolvedOutput.length > COLLAPSE_THRESHOLD;
+  const isLong = resolvedOutput.length > OUTPUT_COLLAPSE_THRESHOLD;
   const isCode = CODE_TOOLS.has(toolName) || contentType?.startsWith("text/x-") || contentType?.startsWith("text/javascript");
   const isImage = contentType?.startsWith("image/");
   const isHtml = contentType === "text/html";
@@ -152,8 +156,17 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   const CategoryIcon = style.icon;
 
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
+  const handleJsonCopy = useCallback(async (text: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedJson(true);
+      setTimeout(() => setCopiedJson(false), 1500);
+    } catch {
+      // Clipboard denied — ignore
+    }
+  }, []);
 
-  const displayText = isLong && !expanded ? resolvedOutput.slice(0, COLLAPSE_THRESHOLD) : resolvedOutput;
+  const displayText = isLong && !expanded ? resolvedOutput.slice(0, OUTPUT_COLLAPSE_THRESHOLD) : resolvedOutput;
 
   // Image artifact rendering
   if (isImage) {
@@ -209,7 +222,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         <pre className="mt-2 whitespace-pre-wrap text-[var(--color-terminal-text)]">{stripAnsi(output)}</pre>
 
         {/* Status indicator */}
-        <div className="mt-3 flex items-center gap-2 border-t border-[var(--color-terminal-border)] pt-3">
+        <div className="mt-3 flex items-center gap-2 border-t border-terminal-border pt-3">
           {isActive ? (
             <>
               <span className="inline-flex h-2.5 w-2.5 rounded-full bg-[var(--color-terminal-text)]" />
@@ -241,11 +254,60 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         </pre>
 
         {isLong && (
-          <div className="mt-2 border-t border-[var(--color-terminal-border)] pt-2">
+          <div className="mt-2 border-t border-terminal-border pt-2">
             <ExpandToggle expanded={expanded} onToggle={handleToggle} />
           </div>
         )}
       </TerminalWindow>
+    );
+  }
+
+  const parsedJson = (() => {
+    if (
+      contentType === "application/json" ||
+      resolvedOutput.startsWith("{") ||
+      resolvedOutput.startsWith("[")
+    ) {
+      try {
+        return JSON.parse(resolvedOutput);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  })();
+
+  if (parsedJson && category !== "search" && toolName !== "database_query" && toolName !== "agent_wait" && toolName !== "agent_receive" && !(category === "memory" && (toolName === "memory_search" || toolName === "memory_list"))) {
+    const prettyJson = JSON.stringify(parsedJson, null, 2);
+    const isLongJson = prettyJson.length > OUTPUT_COLLAPSE_THRESHOLD;
+    const displayJson = isLongJson && !expanded ? prettyJson.slice(0, OUTPUT_COLLAPSE_THRESHOLD) : prettyJson;
+    return (
+      <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "justify-between")}>
+          <span className="flex items-center gap-1.5">
+            <Braces className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className={OUTPUT_HEADER_LABEL_CLASSES}>
+              {style.labelKey ? t(style.labelKey) : "Structured output"}
+            </span>
+          </span>
+          <button
+            type="button"
+            onClick={() => handleJsonCopy(prettyJson)}
+            aria-label={copiedJson ? t("output.copied") : t("output.copyToClipboard")}
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          >
+            {copiedJson ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+            {copiedJson ? t("output.copied") : t("output.copy")}
+          </button>
+        </div>
+        <div className="rounded-md bg-muted/10 px-2 py-1.5">
+          <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-muted-foreground">
+            {displayJson}
+            {isLongJson && !expanded && ELLIPSIS}
+          </pre>
+        </div>
+        {isLongJson && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+      </div>
     );
   }
 
@@ -293,14 +355,14 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const results = JSON.parse(output) as Record<string, { success: boolean; summary: string; error: string | null; artifacts: string[] }>;
       const entries = Object.entries(results);
         return (
-          <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
           <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
             <GitFork className="h-3 w-3" />
             <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentResults")}</span>
           </div>
           <div className="space-y-1">
             {entries.map(([agentId, result]) => (
-              <div key={agentId} className="flex items-start gap-2.5 rounded px-2 py-1 text-sm text-muted-foreground">
+              <div key={agentId} className="flex items-start gap-2.5 rounded-lg px-2 py-1 text-sm text-muted-foreground">
                 {result.success ? (
                   <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                 ) : (
@@ -322,7 +384,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (toolName === "agent_receive") {
     if (output === "No pending messages." || output === "[]") {
       return (
-        <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
           <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
             <MessageSquare className="h-3 w-3" />
             <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.noMessages")}</span>
@@ -334,14 +396,14 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const messages = JSON.parse(output) as Array<{ from: string; to: string; message: string; metadata?: object }>;
       if (Array.isArray(messages)) {
         return (
-          <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
             <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <MessageSquare className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentMessages", { count: messages.length })}</span>
             </div>
             <div className="space-y-1.5">
               {messages.map((msg, i) => (
-                <div key={i} className="rounded border border-border/70 bg-background/80 px-2.5 py-1.5 text-sm">
+                <div key={i} className="rounded-md bg-muted/10 px-2 py-1.5 text-sm">
                   <div className="mb-0.5 text-micro text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
@@ -368,7 +430,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         if (Array.isArray(rows) && rows.length > 0) {
           const columns = Object.keys(rows[0]);
           return (
-            <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
               <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
                 <Database className="h-3 w-3" />
                 <span className={OUTPUT_HEADER_LABEL_CLASSES}>{summaryLine}</span>
@@ -409,7 +471,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const entries: Array<{ key: string; value: string; namespace?: string }> = Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([k, v]) => ({ key: k, value: String(v) }));
       if (entries.length > 0) {
         return (
-          <div className={OUTPUT_CARD_BASE_CLASSES}>
+          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
             <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <Database className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.memoryEntries", { count: entries.length })}</span>
@@ -437,13 +499,13 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   // Failed tool call — show error output with distinct styling
   if (success === false) {
     return (
-      <div className="mt-2 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2">
+      <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-destructive bg-destructive/5")}>
         <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-destructive">
           <CircleX className="h-3 w-3" />
           {t("output.toolFailed")}
         </div>
         <div className={PROSE_CLASSES}>
-          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
+          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
           {isLong && !expanded && (
             <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
           )}
@@ -456,18 +518,18 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
 
   // Category-aware rendering for all other tools (markdown fallback)
   return (
-    <div className={cn("mt-2 rounded-md border bg-muted/50 px-3 py-2", style.border)}>
-      <div className="mb-1.5 flex items-center">
-        {style.labelKey && (
-          <span className="flex items-center gap-1 text-micro font-medium text-muted-foreground-dim">
-            <CategoryIcon className="h-3 w-3" />
+    <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+      {style.labelKey && (
+        <div className="mb-1.5 flex items-center gap-1.5">
+          <CategoryIcon className="h-3 w-3 text-muted-foreground" />
+          <span className="text-micro font-medium text-muted-foreground">
             {t(style.labelKey)}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className={PROSE_CLASSES}>
-        <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
+          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
         {isLong && !expanded && (
           <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
         )}

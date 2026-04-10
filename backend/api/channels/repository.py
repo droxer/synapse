@@ -11,7 +11,7 @@ import secrets
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import select, update
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from agent.state.models import ConversationModel, MessageModel
 from api.channels.models import (
@@ -516,6 +516,18 @@ class ChannelRepository:
 
         Results are ordered by conversation recency (most recently updated first).
         """
+        latest_message_subquery = select(
+            MessageModel.conversation_id.label("conversation_id"),
+            MessageModel.content.label("content"),
+            MessageModel.created_at.label("created_at"),
+            func.row_number()
+            .over(
+                partition_by=MessageModel.conversation_id,
+                order_by=MessageModel.created_at.desc(),
+            )
+            .label("rn"),
+        ).subquery()
+
         stmt = (
             select(ChannelSessionModel, ChannelAccountModel, ConversationModel)
             .join(
@@ -526,33 +538,43 @@ class ChannelRepository:
                 ConversationModel,
                 ChannelSessionModel.conversation_id == ConversationModel.id,
             )
+            .outerjoin(
+                latest_message_subquery,
+                and_(
+                    latest_message_subquery.c.conversation_id == ConversationModel.id,
+                    latest_message_subquery.c.rn == 1,
+                ),
+            )
             .where(ChannelAccountModel.user_id == user_id)
             .order_by(ConversationModel.updated_at.desc())
         )
-        result = await session.execute(stmt)
+        result = await session.execute(
+            stmt.add_columns(
+                latest_message_subquery.c.content,
+                latest_message_subquery.c.created_at,
+            )
+        )
         rows = result.all()
 
         records = []
-        for channel_session, account, conversation in rows:
-            # Fetch last message preview (most recent message for this conversation)
-            msg_stmt = (
-                select(MessageModel)
-                .where(MessageModel.conversation_id == conversation.id)
-                .order_by(MessageModel.created_at.desc())
-                .limit(1)
-            )
-            msg_result = await session.execute(msg_stmt)
-            last_msg = msg_result.scalar_one_or_none()
-
+        for (
+            channel_session,
+            account,
+            conversation,
+            last_content,
+            last_created_at,
+        ) in rows:
             last_message: str | None = None
             last_message_at = None
-            if last_msg is not None:
-                content = last_msg.content
+            if last_content is not None:
+                content = last_content
                 if isinstance(content, dict) and "text" in content:
                     last_message = str(content["text"])[:100]
                 elif isinstance(content, dict):
                     last_message = str(next(iter(content.values()), ""))[:100]
-                last_message_at = last_msg.created_at
+                else:
+                    last_message = str(content)[:100]
+                last_message_at = last_created_at
 
             records.append(
                 ChannelConversationRecord(

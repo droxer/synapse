@@ -38,8 +38,8 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
 
         {/* Heading */}
         <div className="space-y-1.5">
-          <h2 className="text-base font-semibold tracking-tight text-foreground">Connect Telegram</h2>
-          <p className="text-xs leading-relaxed text-muted-foreground max-w-[18rem] mx-auto">
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">Connect Telegram</h2>
+          <p className="text-caption leading-relaxed text-muted-foreground max-w-[18rem] mx-auto">
             Route Telegram conversations directly into your AI agent.
           </p>
         </div>
@@ -74,7 +74,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
                   <p className={`text-sm font-medium leading-tight ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
                     {step.label}
                   </p>
-                  <p className="text-xs text-muted-foreground-dim leading-normal mt-0.5">{step.sub}</p>
+                  <p className="text-caption text-muted-foreground-dim leading-normal mt-0.5">{step.sub}</p>
                 </div>
               </div>
             );

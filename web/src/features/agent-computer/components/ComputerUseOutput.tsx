@@ -4,17 +4,16 @@ import { useCallback, useState } from "react";
 import { Monitor } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
-import { ImageOutput } from "@/shared/components/ui/image-output";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
 import {
   OUTPUT_CARD_BASE_CLASSES,
   OUTPUT_HEADER_LABEL_CLASSES,
   OUTPUT_HEADER_ROW_CLASSES,
+  OUTPUT_COLLAPSE_THRESHOLD,
 } from "../lib/format-tools";
 import type { ComputerUseMetadata } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
-const COLLAPSE_THRESHOLD = 500;
 const ELLIPSIS = "…";
 
 function formatActionDescription(
@@ -90,48 +89,54 @@ export function ComputerUseOutput({
   const description = formatActionDescription(computerUseMetadata, toolName, t);
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
   const action = computerUseMetadata?.action;
-  const isLong = output.length > COLLAPSE_THRESHOLD;
-  const displayText = isLong && !expanded ? output.slice(0, COLLAPSE_THRESHOLD) : output;
+  const isLong = output.length > OUTPUT_COLLAPSE_THRESHOLD;
+  const displayText = isLong && !expanded ? output.slice(0, OUTPUT_COLLAPSE_THRESHOLD) : output;
   const hasOutputText = displayText.trim().length > 0;
 
   return (
-    <div className={OUTPUT_CARD_BASE_CLASSES}>
+    <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-l border-l-border-active")}>
       {/* Header */}
       <div className={OUTPUT_HEADER_ROW_CLASSES}>
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
         <span className={OUTPUT_HEADER_LABEL_CLASSES}>
           {t("output.category.computer")}
         </span>
-        {/* Action badge */}
-        <span className={cn(
-          "inline-flex items-center rounded-full border border-border bg-background px-1.5 py-0.5 text-micro font-medium text-muted-foreground",
-        )}>
+        <span className="text-micro text-muted-foreground-dim">
           {actionLabel(action)}
         </span>
       </div>
 
       {/* Action description */}
-      <p className="mb-1.5 text-sm text-muted-foreground">{description}</p>
+      <p className="mb-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
 
       {/* Screenshot thumbnail */}
       {hasScreenshot && (
-        <ImageOutput
-          output=""
-          conversationId={conversationId}
-          artifactIds={artifactIds}
-          className="mb-1"
-        />
+        <div className="mb-2 rounded-md bg-muted/10 p-1.5">
+          <div className="flex flex-col items-center gap-2">
+            {artifactIds.map((aid) => (
+              <img
+                key={aid}
+                src={`/api/conversations/${conversationId}/artifacts/${aid}`}
+                alt={t("output.generatedImage")}
+                className="max-h-80 rounded-md bg-background object-contain"
+                onError={(e) => {
+                  (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
+                }}
+              />
+            ))}
+          </div>
+        </div>
       )}
 
       {!hasScreenshot && hasOutputText && (
-        <pre className="mb-1 whitespace-pre-wrap break-words text-xs text-muted-foreground">
+        <pre className="mb-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
           {displayText}
           {isLong && !expanded && ELLIPSIS}
         </pre>
       )}
 
       {!hasScreenshot && !hasOutputText && (
-        <p className="text-xs text-muted-foreground">{t("conversation.waiting")}</p>
+        <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
       )}
 
       {!hasScreenshot && isLong && (

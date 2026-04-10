@@ -9,15 +9,16 @@ import { normalizeToolName, normalizeAgentName } from "../lib/tool-constants";
 import { ToolOutputRenderer } from "./ToolOutputRenderer";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
 import { useTranslation } from "@/i18n";
+import { EVENT_LEFT_RAIL_CLASSES, EVENT_META_BADGE_CLASSES, EVENT_ROW_BASE_CLASSES } from "../lib/format-tools";
 import type { AgentStatus, ToolCallInfo } from "@/shared/types";
 
-function ToolStatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
+function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly label: string }) {
   if (tc.output !== undefined) {
     return tc.success === false
-      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
-      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />;
+      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" role="img" aria-label={label} />
+      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" role="img" aria-label={label} />;
   }
-  return <PulsingDot size="sm" />;
+  return <PulsingDot size="sm" aria-label={label} />;
 }
 
 interface AgentStatusRowProps {
@@ -47,9 +48,9 @@ export function AgentStatusRow({
         onClick={() => hasTools && setExpanded((prev) => !prev)}
         aria-label={hasTools ? (expanded ? t("a11y.collapse") : t("a11y.expand")) : undefined}
         className={cn(
-          "flex w-full items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          "bg-secondary/70",
-          hasTools && "cursor-pointer hover:bg-muted/70",
+          EVENT_ROW_BASE_CLASSES,
+          "flex w-full items-center gap-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          hasTools && "cursor-pointer hover:bg-muted/20",
           !hasTools && "cursor-default",
         )}
       >
@@ -61,19 +62,24 @@ export function AgentStatusRow({
           <PulsingDot size="sm" />
         )}
         <GitFork className={cn("h-3.5 w-3.5 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
-        <span className={cn("flex-1 truncate", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
-          {agent.description.includes(" → ") ? (
-            <>
-              {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
-              <ArrowRightLeft className="mx-1 inline h-3.5 w-3.5 text-muted-foreground" />
-              {agent.description.split(" → ").slice(1).join(" → ")}
-            </>
-          ) : (
-            normalizeAgentName(agent.name || agent.description)
-          )}
-        </span>
+        <div className="min-w-0 flex-1">
+          <span className={cn("block truncate text-sm font-medium", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
+            {agent.description.includes(" → ") ? (
+              <>
+                {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
+                <ArrowRightLeft className="mx-1 inline h-3.5 w-3.5 text-muted-foreground" />
+                {agent.description.split(" → ").slice(1).join(" → ")}
+              </>
+            ) : (
+              normalizeAgentName(agent.name || agent.description)
+            )}
+          </span>
+          <span className={cn("mt-0.5 block font-mono text-micro", isDark ? "text-[var(--color-terminal-dim)]" : "text-muted-foreground-dim")}>
+            {agent.agentId.slice(0, 8)}
+          </span>
+        </div>
         {hasTools && (
-          <span className="text-micro font-mono text-muted-foreground tabular-nums">
+          <span className={cn(EVENT_META_BADGE_CLASSES, "font-mono tabular-nums text-muted-foreground-dim")}>
             {toolCalls.filter((tc) => tc.output !== undefined).length}/{toolCalls.length}
           </span>
         )}
@@ -86,9 +92,6 @@ export function AgentStatusRow({
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
           </motion.span>
         )}
-        <span className={cn("ml-auto font-mono text-micro", isDark ? "text-[var(--color-terminal-dim)]" : "text-muted-foreground-dim")}>
-          {agent.agentId.slice(0, 8)}
-        </span>
       </button>
 
       {/* Nested tool calls */}
@@ -101,11 +104,20 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="overflow-hidden"
           >
-            <div className="ml-4 mt-1 space-y-1 rounded-md border-l border-border/80 pl-3">
+            <div className={cn("ml-1.5 mt-1.5 space-y-2", EVENT_LEFT_RAIL_CLASSES)}>
               {toolCalls.map((tc) => (
-                <div key={tc.id}>
-                  <div className="flex items-start gap-2.5 py-1">
-                    <ToolStatusIcon tc={tc} />
+                <div key={tc.id} className="rounded-sm px-0.5 py-1">
+                  <div className="flex items-start gap-2.5">
+                    <ToolStatusIcon
+                      tc={tc}
+                      label={
+                        tc.output !== undefined
+                          ? tc.success === false
+                            ? t("a11y.toolFailed")
+                            : t("a11y.toolSuccess")
+                          : t("a11y.toolRunning")
+                      }
+                    />
                     <span className="text-sm text-foreground">
                       {normalizeToolName(tc.name)}
                     </span>
@@ -116,12 +128,12 @@ export function AgentStatusRow({
                     )}
                   </div>
                   {Object.keys(tc.input).length > 0 && (
-                    <div className="ml-4 mb-0.5">
+                    <div className="mt-1 mb-0.5 pl-2">
                       <ToolArgsDisplay input={tc.input} compact />
                     </div>
                   )}
                   {tc.output !== undefined && (
-                    <div className="ml-4 mb-1">
+                    <div className="mt-1 mb-1 pl-2">
                       <ToolOutputRenderer
                         output={tc.output}
                         toolName={tc.name}

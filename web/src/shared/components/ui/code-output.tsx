@@ -7,8 +7,8 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { ExpandToggle } from "./expand-toggle";
+import { OUTPUT_COLLAPSE_THRESHOLD } from "@/features/agent-computer/lib/format-tools";
 
-const COLLAPSE_THRESHOLD = 500;
 const CODE_OUTPUT_MARKDOWN_CLASSES = "[&_pre]:!text-sm [&_code]:!text-sm";
 
 interface CodeOutputProps {
@@ -24,8 +24,8 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
   const [expanded, setExpanded] = useState(false);
   const [copied, setCopied] = useState(false);
   const handleToggle = useCallback(() => setExpanded((p) => !p), []);
-  const isLong = output.length > COLLAPSE_THRESHOLD;
-  const displayText = isLong && !expanded ? output.slice(0, COLLAPSE_THRESHOLD) : output;
+  const isLong = output.length > OUTPUT_COLLAPSE_THRESHOLD;
+  const displayText = isLong && !expanded ? output.slice(0, OUTPUT_COLLAPSE_THRESHOLD) : output;
 
   const handleCopy = useCallback(async () => {
     try {
@@ -43,14 +43,14 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
   }, [language, displayText]);
 
   return (
-    <div className={cn("rounded-md border border-border/70 bg-muted/50 px-3 py-2", className)}>
+    <div className={cn("rounded-lg border border-border-strong bg-background/70 px-3 py-2", className)}>
       {/* Header row: copy button (left) + category label (right) */}
       <div className="mb-1.5 flex items-center justify-between">
         <button
           type="button"
           onClick={handleCopy}
           aria-label={copied ? t("output.copied") : t("output.copyToClipboard")}
-          className="flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted/25 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {copied ? (
             <>
@@ -66,7 +66,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
         </button>
 
         {Icon && label && (
-          <span className="flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
             <Icon className="h-3 w-3" />
             {label}
           </span>
@@ -74,8 +74,8 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
       </div>
 
       {/* Content — rendered via MarkdownRenderer for syntax highlighting */}
-      <div className="code-output-content [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-0">
-        <MarkdownRenderer content={fenced} className={CODE_OUTPUT_MARKDOWN_CLASSES} />
+      <div className="code-output-content rounded-md bg-muted/10 px-2 py-1.5 [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-0">
+        <MarkdownRenderer content={fenced} className={CODE_OUTPUT_MARKDOWN_CLASSES} compactCode />
         {isLong && !expanded && (
           <span className="font-mono text-xs text-muted-foreground-dim">{"\n..."}</span>
         )}

@@ -100,12 +100,12 @@ export function ChannelConversationList({
 
   if (error) {
     return (
-      <div className="flex flex-col items-center gap-3 px-4 py-8 text-center bg-destructive/5 border border-destructive/20 m-2 rounded-lg">
+      <div className="m-2 flex flex-col items-center gap-3 rounded-lg border border-destructive bg-destructive/5 px-4 py-8 text-center">
         <p className="text-xs text-destructive">{error}</p>
         <button
           type="button"
           onClick={() => { setLoading(true); void fetchConversations(); }}
-          className="inline-flex items-center gap-1.5 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="inline-flex items-center gap-1.5 rounded-md border border-destructive bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <RefreshCw className="h-3 w-3" />
           Retry
@@ -220,7 +220,7 @@ export function ChannelConversationList({
               <button
                 type="button"
                 onClick={(e) => handleDelete(e, conv.conversation_id)}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:border-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 title="Delete conversation"
                 aria-label="Delete conversation"
               >

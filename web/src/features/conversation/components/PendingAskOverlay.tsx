@@ -16,7 +16,10 @@ export function PendingAskOverlay() {
         onSubmit={handlePromptSubmit}
       />
       {respondError && (
-        <div role="alert" className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-md border border-destructive/20 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+        <div
+          role="alert"
+          className="fixed bottom-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 rounded-lg border border-destructive/40 bg-background px-4 py-2.5 text-sm text-destructive shadow-card"
+        >
           {respondError}
         </div>
       )}

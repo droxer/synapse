@@ -228,7 +228,7 @@ export function ConversationWorkspace({
 
       <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Left pane: Conversation */}
-        <div className={cn("flex flex-col", panelOpen ? "w-full border-b border-border lg:w-1/2 lg:border-b-0 lg:border-r" : "w-full")}>
+        <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[52%]" : "w-full")}>
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
@@ -236,19 +236,18 @@ export function ConversationWorkspace({
               </div>
             )}
 
-            <div className={cn("mx-auto", !panelOpen && "max-w-3xl")} aria-live="polite" aria-relevant="additions">
+            <div
+              className={cn("mx-auto w-full", panelOpen ? "max-w-2xl" : "max-w-3xl")}
+              aria-live="polite"
+              aria-relevant="additions"
+            >
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
                 const messageKey = `${msg.role}-${msg.timestamp}-${i}`;
 
                 return (
-                  <div
-                    key={messageKey}
-                    className={cn(
-                      i > 0 && "mt-6",
-                    )}
-                  >
+                  <div key={messageKey} className={cn(i > 0 && "mt-4")} data-role={msg.role}>
                     {msg.role === "user" ? (
                       /* ─── User message ─── right-aligned command surface */
                       <motion.div
@@ -257,9 +256,9 @@ export function ConversationWorkspace({
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className="flex justify-end"
                       >
-                        <div className="max-w-[90%] min-w-[120px] sm:max-w-[80%]">
+                        <div className="max-w-[92%] min-w-[120px] sm:max-w-[85%]">
                           {/* User bubble */}
-                          <div className="rounded-md border border-border bg-card px-4 py-3">
+                          <div className="rounded-lg bg-secondary px-4 py-3">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
@@ -268,7 +267,7 @@ export function ConversationWorkspace({
                                 {msg.attachments.map((att, idx) => (
                                   <span
                                     key={idx}
-                                    className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-0.5 text-xs font-mono text-muted-foreground"
+                                    className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-micro font-mono text-muted-foreground"
                                   >
                                     <Paperclip className="h-3 w-3" />
                                     {att.name}
@@ -279,8 +278,8 @@ export function ConversationWorkspace({
                           </div>
                           {/* Timestamp below, right-aligned */}
                           {msg.timestamp && (
-                            <div className="mt-1.5 flex items-center justify-end gap-1.5 pr-1">
-                              <span className="text-xs font-mono text-muted-foreground-dim tabular-nums">
+                            <div className="mt-1 flex items-center justify-end gap-1.5 pr-1">
+                              <span className="text-micro font-mono text-muted-foreground-dim tabular-nums">
                                 {formatTime(msg.timestamp)}
                               </span>
                             </div>
@@ -294,7 +293,7 @@ export function ConversationWorkspace({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className={cn(
-                          "group relative max-w-full min-w-0 sm:max-w-[85%]",
+                          "conversation-assistant-message group relative max-w-full min-w-0 sm:max-w-[85%]",
                         )}
                       >
                         <div className="relative">
@@ -313,7 +312,7 @@ export function ConversationWorkspace({
                             </div>
                           )}
                           {/* Message body */}
-                          <div className="text-sm leading-[1.5] text-foreground">
+                          <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
                             <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
 
                             {/* Inline images for this message */}
@@ -326,7 +325,7 @@ export function ConversationWorkspace({
                                       key={url}
                                       src={url}
                                       alt={t("conversation.imageAlt")}
-                                      className="max-h-72 max-w-full rounded-md border border-border object-contain"
+                                      className="max-h-72 max-w-full rounded-md object-contain"
                                       onError={(e) => {
                                         (e.currentTarget as HTMLImageElement).style.display = "none";
                                       }}
@@ -343,6 +342,14 @@ export function ConversationWorkspace({
                               </div>
                             )}
                           </div>
+
+                          {msg.timestamp && (
+                            <div className="mt-1 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+                              <span className="text-micro font-mono text-muted-foreground-dim tabular-nums">
+                                {formatTime(msg.timestamp)}
+                              </span>
+                            </div>
+                          )}
 
                           {/* Message action bar */}
                           {isLastAssistant && !isStreaming && (taskState === "idle" || taskState === "complete") && (
@@ -394,14 +401,14 @@ export function ConversationWorkspace({
               })}
 
               {planMessageIndex === null && planSteps.length > 0 && (
-                <div className="mt-6 max-w-[85%]">
+                <div className="mt-4 max-w-[85%]">
                   <PlanChecklistPanel planSteps={planSteps} />
                 </div>
               )}
 
               {/* Standalone thinking block when no assistant message yet */}
               {showLoadingSkeleton && currentThinkingEntries.length > 0 && (
-                <div className="mt-6 max-w-full space-y-2 sm:max-w-[85%]">
+                <div className="mt-4 max-w-full space-y-2 sm:max-w-[85%]">
                   {currentThinkingEntries.map((entry, idx) => (
                     <ThinkingBlock
                       key={`current-thinking-${entry.timestamp}-${idx}`}
@@ -416,7 +423,7 @@ export function ConversationWorkspace({
 
               <AnimatePresence mode="wait">
                 {showLoadingSkeleton && (
-                  <div className="mt-6">
+                  <div className="mt-4">
                     <AssistantLoadingSkeleton phase={effectivePhase} />
                   </div>
                 )}
@@ -426,7 +433,13 @@ export function ConversationWorkspace({
           </div>
 
           {events.length > 0 && (
-            <div className={cn("border-t border-border px-4 sm:px-6 py-3", !panelOpen && "mx-auto w-full max-w-3xl")}>
+            <div
+              className={cn(
+                "px-4 py-3 sm:px-6",
+                "mx-auto w-full",
+                panelOpen ? "max-w-2xl" : "max-w-3xl",
+              )}
+            >
               <AgentProgressCard
                 events={events}
                 toolCalls={toolCalls}
@@ -439,7 +452,7 @@ export function ConversationWorkspace({
             </div>
           )}
 
-          <div className={cn("mx-auto w-full", !panelOpen && "max-w-3xl")}>
+          <div className={cn("mx-auto w-full", panelOpen ? "max-w-2xl" : "max-w-3xl")}>
             <ChatInput
               onSendMessage={onSendMessage}
               disabled={!userCancelled && (isWaitingForAgent || taskState === "executing" || taskState === "planning")}
@@ -452,7 +465,7 @@ export function ConversationWorkspace({
         {/* Right pane: Synapse's Computer */}
         {panelOpen && (
           <motion.div
-            className="flex w-full flex-col md:w-1/2"
+            className="flex w-full flex-col border-l border-transparent bg-secondary/15 md:w-[48%]"
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.12, ease: "easeOut" }}

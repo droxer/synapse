@@ -5,6 +5,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { formatArgValue } from "../lib/format-tools";
+import { OUTPUT_CARD_DENSE_CLASSES } from "../lib/format-tools";
 import type { TFn } from "@/shared/types/i18n";
 
 const VALUE_TRUNCATE = 120;
@@ -72,7 +73,7 @@ function ValueToggle({
       type="button"
       onClick={onToggle}
       aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
-      className="ml-1 inline-flex items-center text-micro text-muted-foreground hover:text-foreground transition-colors"
+      className="ml-1 inline-flex items-center rounded-lg px-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
     >
       {expanded ? (
         <ChevronUp className="h-3 w-3" />
@@ -107,8 +108,9 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
   return (
     <div
       className={cn(
-        "rounded-md border-l-2 border-border bg-muted",
-        compact ? "px-2 py-1 text-micro" : "px-2.5 py-1.5 text-xs",
+        OUTPUT_CARD_DENSE_CLASSES,
+        "border-l border-border",
+        compact ? "px-2 py-1 text-micro" : "text-xs",
       )}
     >
       <div
@@ -162,7 +164,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                     {String(value)}
                   </span>
                 ) : (
-                  <span className="break-all text-foreground">
+                  <span className={cn("break-all text-foreground", compact ? "text-micro" : "text-sm")}>
                     {displayValue}
                     {isLong && !isExpanded && (
                       <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>

@@ -70,7 +70,7 @@ export function TokenUsageTab() {
             </div>
 
             {/* Legend */}
-            <div className="flex items-center justify-between text-xs font-mono tabular-nums">
+            <div className="flex items-center justify-between text-caption font-mono tabular-nums">
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
                 <span className="text-muted-foreground">{t("profile.inputTokens")}</span>
@@ -88,7 +88,7 @@ export function TokenUsageTab() {
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-4 pt-1 text-xs text-muted-foreground">
+            <div className="flex items-center gap-4 pt-1 text-caption text-muted-foreground">
               <span>{t("profile.totalRequests", { count: usage.total_requests })}</span>
               <span>{t("preferences.usage.conversations", { count: usage.conversation_count })}</span>
             </div>
@@ -145,19 +145,19 @@ export function TokenUsageTab() {
                     "hover:bg-secondary transition-colors duration-100",
                   )}
                 >
-                  <span className="truncate font-mono text-xs text-foreground">
+                  <span className="truncate font-mono text-caption text-foreground">
                     {truncateId(item.conversation_id)}
                   </span>
-                  <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
                     {formatTokenCount(item.input_tokens)}
                   </span>
-                  <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
                     {formatTokenCount(item.output_tokens)}
                   </span>
-                  <span className="text-right font-mono text-xs tabular-nums text-muted-foreground">
+                  <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
                     {item.request_count}
                   </span>
-                  <span className="text-right text-xs text-muted-foreground">
+                  <span className="text-right text-caption text-muted-foreground">
                     {formatRelativeTime(item.updated_at)}
                   </span>
                 </motion.div>
@@ -178,7 +178,7 @@ export function TokenUsageTab() {
               <ChevronLeft className="mr-1 h-3.5 w-3.5" />
               {t("preferences.usage.previous")}
             </Button>
-            <span className="text-xs text-muted-foreground">
+            <span className="text-caption text-muted-foreground">
               {t("preferences.usage.page", { current: page + 1, total: totalPages })}
             </span>
             <Button
