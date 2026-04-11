@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { LayoutGrid, Search, Zap } from "lucide-react";
+import { LayoutGrid, Search, Zap, Sparkles, GitFork } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Tooltip,
@@ -18,6 +18,8 @@ interface TopBarProps {
   onNavigateHome?: () => void;
   conversationTitle?: string;
   conversationId?: string | null;
+  orchestratorMode?: "agent" | "planner" | null;
+  isPlannerAutoDetected?: boolean;
 }
 
 export function TopBar({
@@ -26,6 +28,8 @@ export function TopBar({
   onNavigateHome,
   conversationTitle,
   conversationId,
+  orchestratorMode,
+  isPlannerAutoDetected = false,
 }: TopBarProps) {
   const { t } = useTranslation();
   const { usage: convUsage } = useConversationTokenUsage(conversationId ?? null);
@@ -94,18 +98,45 @@ export function TopBar({
             </span>
           </span>
         )}
+        {orchestratorMode === "planner" && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <span
+                role="status"
+                aria-live="polite"
+                className={
+                  isPlannerAutoDetected
+                    ? "status-pill ml-1.5 shrink-0 border border-border-active bg-ai-surface text-foreground"
+                    : "status-pill ml-1.5 shrink-0 chip-muted"
+                }
+              >
+                {isPlannerAutoDetected ? (
+                  <Sparkles className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                ) : (
+                  <GitFork className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                )}
+                <span>{isPlannerAutoDetected ? t("topbar.planAuto") : t("topbar.plan")}</span>
+              </span>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="text-xs">
+              {isPlannerAutoDetected ? t("topbar.planAutoTooltip") : t("topbar.planTooltip")}
+            </TooltipContent>
+          </Tooltip>
+        )}
       </div>
 
       {/* Right: Command palette trigger */}
-      <button
+      <Button
         type="button"
         onClick={handleOpenCommandPalette}
-        className="flex shrink-0 items-center gap-2 rounded-md border border-border bg-secondary px-3 py-1 text-sm text-muted-foreground transition-[color,background-color,border-color] duration-150 ease-out hover:border-border-strong hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        variant="secondary"
+        size="sm"
+        className="shrink-0 gap-2 text-muted-foreground hover:text-foreground"
       >
         <Search className="h-4 w-4" />
         <span className="hidden sm:inline">{t("topbar.search")}</span>
         <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
-      </button>
+      </Button>
     </header>
   );
 }

@@ -91,6 +91,7 @@ def _to_conversation(model: ConversationModel) -> ConversationRecord:
         id=model.id,
         user_id=model.user_id,
         title=model.title,
+        orchestrator_mode=model.orchestrator_mode,
         context_summary=model.context_summary,
         created_at=model.created_at,
         updated_at=model.updated_at,
@@ -152,9 +153,13 @@ class ConversationRepository:
         title: str | None = None,
         conversation_id: uuid.UUID | None = None,
         user_id: uuid.UUID | None = None,
+        orchestrator_mode: str = "agent",
     ) -> ConversationRecord:
         model = ConversationModel(
-            id=conversation_id or uuid.uuid4(), title=title, user_id=user_id
+            id=conversation_id or uuid.uuid4(),
+            title=title,
+            user_id=user_id,
+            orchestrator_mode=orchestrator_mode,
         )
         session.add(model)
         await session.flush()
@@ -228,6 +233,7 @@ class ConversationRepository:
         conversation_id: uuid.UUID,
         title: str | None = None,
         context_summary: str | None = None,
+        orchestrator_mode: str | None = None,
     ) -> ConversationRecord:
         stmt = select(ConversationModel).where(ConversationModel.id == conversation_id)
         result = await session.execute(stmt)
@@ -239,6 +245,8 @@ class ConversationRepository:
             model.title = title
         if context_summary is not None:
             model.context_summary = context_summary
+        if orchestrator_mode is not None:
+            model.orchestrator_mode = orchestrator_mode
         model.updated_at = datetime.now(timezone.utc)
 
         await session.commit()

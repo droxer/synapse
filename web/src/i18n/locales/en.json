@@ -14,7 +14,10 @@
   "chat.skillLabel": "Skills",
   "chat.planLabel": "Plan",
   "chat.planner": "Use planner mode",
-  "chat.plannerHint": "Decompose into parallel sub-agents",
+  "chat.plannerHint": "Force planner mode (complex tasks are detected automatically)",
+  "chat.plannerActive": "Planner mode forced on",
+  "chat.autoPlanner": "Complex task detected — using planner mode",
+  "chat.plannerModeActive": "Planner mode active",
   "chat.removeFile": "Remove file: {name}",
 
   "sidebar.logo": "Synapse logo",
@@ -41,6 +44,10 @@
   "topbar.closePanel": "Close panel",
   "topbar.openPanel": "Open panel",
   "topbar.search": "Search...",
+  "topbar.plan": "plan",
+  "topbar.planAuto": "plan·auto",
+  "topbar.planTooltip": "Planner mode — task decomposed into sub-agents",
+  "topbar.planAutoTooltip": "Complex task auto-detected — planner mode active",
 
   "theme.light": "Light",
   "theme.dark": "Dark",

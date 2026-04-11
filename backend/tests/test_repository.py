@@ -73,6 +73,16 @@ class TestCreateConversation:
         record = await repo.create_conversation(session, title=None)
         assert record.title is None
 
+    async def test_creates_with_orchestrator_mode(
+        self, repo, session: AsyncSession
+    ) -> None:
+        record = await repo.create_conversation(
+            session,
+            title="Planner convo",
+            orchestrator_mode="planner",
+        )
+        assert record.orchestrator_mode == "planner"
+
 
 class TestGetConversation:
     async def test_returns_none_for_missing(self, repo, session: AsyncSession) -> None:
@@ -108,6 +118,15 @@ class TestUpdateConversation:
         created = await repo.create_conversation(session, title="Old")
         updated = await repo.update_conversation(session, created.id, title="New")
         assert updated.title == "New"
+
+    async def test_update_orchestrator_mode(self, repo, session: AsyncSession) -> None:
+        created = await repo.create_conversation(session, title="Mode test")
+        updated = await repo.update_conversation(
+            session,
+            created.id,
+            orchestrator_mode="planner",
+        )
+        assert updated.orchestrator_mode == "planner"
 
     async def test_merge_context_summary_preserves_fragment_boundaries(
         self, repo, session: AsyncSession

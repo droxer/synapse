@@ -35,6 +35,7 @@ class ConversationRecord:
     id: uuid.UUID
     user_id: uuid.UUID | None
     title: str | None
+    orchestrator_mode: str
     context_summary: str | None
     created_at: datetime
     updated_at: datetime

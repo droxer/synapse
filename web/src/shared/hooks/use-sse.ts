@@ -85,6 +85,17 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
     } as AgentEventDataByType[K];
   }
 
+  if (eventType === "turn_start") {
+    return {
+      ...data,
+      message: typeof data.message === "string" ? data.message : undefined,
+      orchestrator_mode:
+        data.orchestrator_mode === "planner" || data.orchestrator_mode === "agent"
+          ? data.orchestrator_mode
+          : undefined,
+    } as AgentEventDataByType[K];
+  }
+
   if (eventType === "tool_call") {
     return {
       ...data,

@@ -60,7 +60,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
         <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">{agentName}</span>
         {role && (
-          <span className="rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+          <span className="status-pill chip-muted">
             {role}
           </span>
         )}
@@ -94,7 +94,7 @@ function WaitForAgentsDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallIn
           {agentIds.map((id) => (
             <span
               key={id}
-              className="inline-flex items-center rounded-md bg-muted/20 px-1.5 py-0.5 font-mono text-micro text-muted-foreground"
+              className="status-pill chip-muted"
             >
               {agentNameMap.get(String(id)) || String(id).slice(0, 8)}
             </span>
@@ -460,9 +460,9 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "activity" ? 0 : -1}
             onClick={() => setActiveTab("activity")}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium transition-colors",
               activeTab === "activity"
-                ? "bg-secondary text-foreground"
+                ? "border border-border bg-secondary text-foreground"
                 : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
             )}
           >
@@ -478,9 +478,9 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "files" ? 0 : -1}
             onClick={() => setActiveTab("files")}
             className={cn(
-              "flex items-center gap-1.5 rounded-md px-2 py-1 text-sm font-medium transition-colors",
+              "flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-medium transition-colors",
               activeTab === "files"
-                ? "bg-secondary text-foreground"
+                ? "border border-border bg-secondary text-foreground"
                 : "text-muted-foreground hover:bg-secondary/70 hover:text-foreground",
             )}
           >
@@ -691,10 +691,7 @@ export function AgentComputerPanel({
             </div>
 
             <span
-              className={cn(
-                "px-1.5 py-0.5 font-mono text-micro font-medium tabular-nums",
-                isComplete ? "text-accent-emerald" : "text-muted-foreground",
-              )}
+                className={cn("status-pill px-1.5 tabular-nums", isComplete ? "bg-accent-emerald/10 text-accent-emerald" : "chip-muted")}
             >
               {completedCount}/{visibleToolCalls.length}
             </span>

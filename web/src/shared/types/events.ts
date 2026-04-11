@@ -27,11 +27,17 @@ export const EVENT_TYPES = [
   "skill_activated",
   "plan_created",
   "loop_guard_nudge",
+  "planner_auto_selected",
 ] as const;
 
 export type EventType = (typeof EVENT_TYPES)[number];
 
 type GenericEventData = Record<string, unknown>;
+
+export interface TurnStartEventData extends GenericEventData {
+  readonly message?: string;
+  readonly orchestrator_mode?: "agent" | "planner";
+}
 
 export interface ThinkingEventData extends GenericEventData {
   readonly thinking?: string;
@@ -119,7 +125,7 @@ export type AgentEventDataByType = {
   task_start: GenericEventData;
   task_complete: GenericEventData;
   task_error: GenericEventData;
-  turn_start: GenericEventData;
+  turn_start: TurnStartEventData;
   turn_complete: GenericEventData;
   turn_cancelled: GenericEventData;
   iteration_start: GenericEventData;
@@ -144,6 +150,7 @@ export type AgentEventDataByType = {
   skill_activated: SkillActivatedEventData;
   plan_created: PlanCreatedEventData;
   loop_guard_nudge: LoopGuardNudgeEventData;
+  planner_auto_selected: GenericEventData;
 };
 
 export type AgentEvent = {

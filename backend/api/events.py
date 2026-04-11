@@ -59,6 +59,8 @@ class EventType(StrEnum):
     SKILL_DEPENDENCY_FAILED = "skill_dependency_failed"
     LOOP_GUARD_NUDGE = "loop_guard_nudge"
 
+    PLANNER_AUTO_SELECTED = "planner_auto_selected"
+
 
 @dataclass(frozen=True)
 class AgentEvent:

@@ -38,4 +38,24 @@ describe("deriveAgentState", () => {
     expect(state.toolCalls).toHaveLength(1);
     expect(state.toolCalls[0]?.output).toBe(JSON.stringify({ ok: true, count: 2 }));
   });
+
+  it("keeps plan steps empty when planner turn has no plan_created event", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "plan this", orchestrator_mode: "planner" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Working on it" },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.planSteps).toHaveLength(0);
+  });
 });

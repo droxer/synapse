@@ -101,9 +101,9 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
-  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 45%);
-  --shadow-card-hover: 0 4px 12px rgba(15, 23, 42, 0.06), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 35%);
-  --shadow-elevated: 0 10px 26px rgba(0, 0, 0, 0.09), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 30%);
+  --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 42%);
+  --shadow-card-hover: 0 8px 20px rgba(15, 23, 42, 0.08), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 32%);
+  --shadow-elevated: 0 16px 38px rgba(0, 0, 0, 0.12), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 28%);
 
   /* Animations — keep useful ones, remove glow/orbital */
   --animate-fade-in: fadeIn 0.3s ease-out;
@@ -287,9 +287,9 @@
   --logo-bg: var(--logo-white);
   --logo-glyph: var(--logo-black);
   --color-overlay: rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 2px 6px rgba(0, 0, 0, 0.16), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 26%);
-  --shadow-card-hover: 0 8px 22px rgba(0, 0, 0, 0.28), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 18%);
-  --shadow-elevated: 0 18px 42px rgba(0, 0, 0, 0.42), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 12%);
+  --shadow-card: 0 2px 8px rgba(0, 0, 0, 0.2), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 24%);
+  --shadow-card-hover: 0 12px 28px rgba(0, 0, 0, 0.32), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 15%);
+  --shadow-elevated: 0 22px 48px rgba(0, 0, 0, 0.46), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 10%);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -314,6 +314,39 @@
 @utility text-caption {
   font-size: var(--font-size-caption);
   line-height: var(--font-size-caption--line-height);
+}
+
+@utility surface-panel {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-card);
+  box-shadow: var(--shadow-card);
+}
+
+@utility surface-overlay {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-popover);
+  box-shadow: var(--shadow-elevated);
+}
+
+@utility chip-muted {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+@utility status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--radius-md);
+  padding: 0.125rem 0.375rem;
+  font-family: var(--font-mono);
+  font-size: var(--font-size-micro);
+  font-weight: 500;
+  line-height: var(--font-size-micro--line-height);
 }
 
 @utility label-mono {

@@ -86,7 +86,7 @@ export function ArtifactExplorer({
         }),
       ),
     );
-  }, [mode, artifacts, conversationId, groups]);
+  }, [mode, artifacts, conversationId, groups, t]);
 
   // ── Build folder structure ───────────────────────────────────────────────
 

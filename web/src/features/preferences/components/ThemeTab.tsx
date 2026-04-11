@@ -22,10 +22,10 @@ const THEME_OPTIONS: readonly {
 
 function ThemePreview({ variant }: { readonly variant: ThemeValue }) {
   const bg = variant === "dark"
-    ? "bg-[#1e293b]"
+    ? "bg-secondary"
     : variant === "light"
-      ? "bg-[#f8fafc]"
-      : "bg-gradient-to-r from-[#f8fafc] to-[#1e293b]";
+      ? "bg-background"
+      : "bg-gradient-to-r from-background to-secondary";
 
   const barColor = variant === "dark"
     ? "bg-muted-foreground"

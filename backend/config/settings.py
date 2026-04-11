@@ -78,6 +78,9 @@ class Settings(BaseSettings):
     # Before compaction, persist heuristic facts from user text in dropped context
     COMPACT_MEMORY_FLUSH: bool = False
     SKILL_SELECTOR_MODEL: str = ""
+    COMPLEXITY_CLASSIFIER_MODEL: str = (
+        ""  # Model for task complexity classification (default: LITE_MODEL)
+    )
 
     # Agent robustness / guardrails
     HANDOFF_MESSAGE_SNIPPET_CHARS: int = 2000

@@ -260,7 +260,7 @@ class AgentOrchestrator:
 
         await self._emitter.emit(
             EventType.TURN_START,
-            {"message": user_message},
+            {"message": user_message, "orchestrator_mode": "agent"},
         )
 
         self._executor.reset_turn_quotas()

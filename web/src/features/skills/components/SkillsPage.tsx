@@ -44,7 +44,7 @@ import { useTranslation } from "@/i18n";
 /* ── skeleton (matches grid card layout) ── */
 function SkillSkeleton() {
   return (
-    <div className="flex flex-col rounded-lg border border-border bg-card p-4">
+    <div className="surface-panel flex flex-col p-4">
       <div className="flex items-start justify-between">
         <div className="h-9 w-9 shrink-0 rounded-lg skeleton-shimmer" />
         <div className="h-4 w-14 skeleton-shimmer" />
@@ -239,7 +239,7 @@ export function SkillsPage() {
       >
         <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+            <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center">
               <Lightbulb aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
@@ -252,7 +252,7 @@ export function SkillsPage() {
             </div>
           </div>
           {skills.length > 0 && (
-            <div className="flex items-center gap-1.5 rounded-md bg-secondary px-2.5 py-1">
+            <div className="status-pill chip-muted px-2.5 py-1">
               <Package aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">
                 {t("skills.builtIn", { count: bundledSkills.length })}

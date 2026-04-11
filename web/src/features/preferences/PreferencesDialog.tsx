@@ -54,7 +54,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         <div className="flex h-[min(80vh,700px)]">
           {/* Side menu */}
           <nav
-            className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary p-3"
+            className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary/70 p-3"
             aria-label={t("preferences.title")}
           >
             <p className="label-mono px-3 pb-3 pt-4 text-muted-foreground-dim">
@@ -68,11 +68,11 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   type="button"
                   onClick={() => setActiveId(id)}
                   className={cn(
-                    "relative flex items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-[color,background-color] duration-150 ease-out overflow-hidden mb-1",
+                    "relative mb-1 flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-sm transition-[color,background-color,border-color] duration-150 ease-out",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     isActive
-                      ? "bg-muted text-foreground font-semibold"
-                      : "text-muted-foreground hover:bg-background hover:text-foreground",
+                      ? "border border-border bg-background text-foreground font-semibold shadow-card"
+                      : "border border-transparent text-muted-foreground hover:bg-background/80 hover:text-foreground",
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >

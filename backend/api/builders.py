@@ -462,6 +462,7 @@ def _build_planner_orchestrator(
     skill_registry: SkillRegistry | None = None,
     memory_entries: list[dict[str, str]] | None = None,
     conversation_id: str | None = None,
+    initial_messages: tuple[dict[str, Any], ...] = (),
 ) -> tuple[PlannerOrchestrator, ToolExecutor]:
     """Build a PlannerOrchestrator with properly wired sub-agent registries."""
     settings = get_settings()
@@ -525,6 +526,7 @@ def _build_planner_orchestrator(
         max_iterations=settings.MAX_ITERATIONS,
         system_prompt=planner_prompt,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
+        initial_messages=initial_messages,
     )
     callback_holder.set(orchestrator.on_task_complete)
 

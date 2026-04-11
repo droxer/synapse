@@ -415,14 +415,14 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
   switch (state) {
     case "planning":
       return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+        <span className="status-pill chip-muted">
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+        <span className="status-pill chip-muted">
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
@@ -499,7 +499,7 @@ export function AgentProgressCard({
             : t("computer.statusIdle");
   return (
     <motion.div
-      className="overflow-hidden rounded-xl border border-border-strong bg-background"
+      className="surface-panel overflow-hidden"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}

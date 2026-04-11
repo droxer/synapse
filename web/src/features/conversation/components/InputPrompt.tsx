@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
 import { MessageCircle, Send } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import { Input } from "@/shared/components/ui/input";
 import { FOCUSABLE_SELECTOR } from "@/shared/lib/a11y";
 import { useTranslation } from "@/i18n";
 
@@ -69,7 +70,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
         aria-labelledby="input-prompt-title"
         className="relative z-10 mx-4 w-full max-w-xl animate-modal-in"
       >
-        <div className="rounded-xl border border-border bg-background p-5 shadow-card sm:p-6">
+        <div className="surface-overlay p-5 sm:p-6">
           {/* Header */}
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">
@@ -92,14 +93,14 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
 
           {/* Input */}
           <form onSubmit={handleSubmit} className="flex gap-3">
-            <input
+            <Input
               ref={inputRef}
               type="text"
               value={value}
               onChange={(e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
               placeholder={t("inputPrompt.placeholder")}
               aria-label={t("inputPrompt.ariaLabel")}
-              className="flex-1 rounded-lg border border-border bg-background px-4 py-2.5 text-sm text-foreground placeholder:text-placeholder outline-none transition-[color,background-color,border-color,box-shadow] duration-150 ease-out focus-visible:border-border-active focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="h-10 flex-1 px-4"
             />
             <Button
               type="submit"

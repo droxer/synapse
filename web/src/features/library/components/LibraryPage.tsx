@@ -111,7 +111,7 @@ export function LibraryPage() {
       >
         <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-secondary">
+            <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center">
               <Library aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
             </div>
             <div>
@@ -148,35 +148,29 @@ export function LibraryPage() {
                 placeholder={t("library.filterPlaceholder")}
                 clearLabel={t("library.clearFilter")}
               />
-              <div className="flex items-center gap-1 ml-1">
-                <button
+              <div className="ml-1 flex items-center gap-1">
+                <Button
                   type="button"
+                  size="icon-sm"
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
                   aria-label={t("library.viewGrid")}
                   aria-pressed={viewMode === "grid"}
                   onClick={() => handleSetViewMode("grid")}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                    viewMode === "grid"
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
-                  )}
+                  className={cn(viewMode !== "grid" && "text-muted-foreground hover:text-foreground")}
                 >
                   <LayoutGrid aria-hidden="true" className="h-4 w-4" />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  size="icon-sm"
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
                   aria-label={t("library.viewList")}
                   aria-pressed={viewMode === "list"}
                   onClick={() => handleSetViewMode("list")}
-                  className={cn(
-                    "flex h-8 w-8 items-center justify-center rounded-md transition-colors",
-                    viewMode === "list"
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-secondary/50",
-                  )}
+                  className={cn(viewMode !== "list" && "text-muted-foreground hover:text-foreground")}
                 >
                   <List aria-hidden="true" className="h-4 w-4" />
-                </button>
+                </Button>
               </div>
             </div>
           ) : null}

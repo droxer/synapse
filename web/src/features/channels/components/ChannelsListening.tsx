@@ -26,7 +26,7 @@ export function ChannelsListening() {
             className="absolute h-14 w-14 rounded-full border border-focus"
             style={{ animation: "pulsingDotRing 2.5s ease-out infinite 1.2s" }}
           />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-purple shadow-lg shadow-accent-purple/20">
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl border border-border bg-secondary shadow-card">
             <ChannelProviderIcon provider="telegram" size="lg" />
           </div>
         </div>
@@ -44,7 +44,7 @@ export function ChannelsListening() {
           </p>
         </div>
 
-        <div className="w-full rounded-lg border border-border bg-secondary p-3.5">
+        <div className="surface-panel w-full p-3.5">
           <div className="flex items-start gap-2.5">
             <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-accent-purple/10">
               <svg className="h-3 w-3 text-accent-purple" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">

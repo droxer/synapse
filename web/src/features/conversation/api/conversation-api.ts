@@ -16,8 +16,8 @@ export async function createConversation(
     for (const file of files) {
       formData.append("files", file);
     }
-    if (usePlanner) {
-      formData.append("use_planner", "true");
+    if (usePlanner !== undefined) {
+      formData.append("use_planner", usePlanner ? "true" : "false");
     }
     res = await fetch(`${API_BASE}/conversations`, {
       method: "POST",
@@ -30,7 +30,7 @@ export async function createConversation(
       body: JSON.stringify({
         message,
         skills: skills ?? [],
-        ...(usePlanner ? { use_planner: true } : {}),
+        ...(usePlanner !== undefined ? { use_planner: usePlanner } : {}),
       }),
     });
   }
@@ -59,8 +59,8 @@ export async function sendFollowUpMessage(
     for (const file of files) {
       formData.append("files", file);
     }
-    if (usePlanner) {
-      formData.append("use_planner", "true");
+    if (usePlanner !== undefined) {
+      formData.append("use_planner", usePlanner ? "true" : "false");
     }
     res = await fetch(
       `${API_BASE}/conversations/${conversationId}/messages`,
@@ -78,7 +78,7 @@ export async function sendFollowUpMessage(
         body: JSON.stringify({
           message,
           skills: skills ?? [],
-          ...(usePlanner ? { use_planner: true } : {}),
+          ...(usePlanner !== undefined ? { use_planner: usePlanner } : {}),
         }),
       },
     );

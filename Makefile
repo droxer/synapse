@@ -34,7 +34,7 @@ install-web:
 
 # Database migrations
 migrate:
-	cd backend && uv run alembic upgrade head
+	cd backend && uv run python -m alembic upgrade head
 
 # Production build
 build-web:

@@ -14,7 +14,10 @@
   "chat.skillLabel": "技能",
   "chat.planLabel": "規劃",
   "chat.planner": "使用規劃模式",
-  "chat.plannerHint": "分解為並行子智慧體",
+  "chat.plannerHint": "強制規劃模式（複雜任務會自動偵測）",
+  "chat.plannerActive": "規劃模式已強制開啟",
+  "chat.autoPlanner": "偵測到複雜任務 — 已啟用規劃模式",
+  "chat.plannerModeActive": "規劃模式已啟動",
   "chat.removeFile": "移除檔案：{name}",
 
   "sidebar.logo": "Synapse 圖示",
@@ -41,6 +44,10 @@
   "topbar.closePanel": "關閉面板",
   "topbar.openPanel": "開啟面板",
   "topbar.search": "搜尋...",
+  "topbar.plan": "規劃",
+  "topbar.planAuto": "規劃·自動",
+  "topbar.planTooltip": "規劃模式 — 任務已分解為子智慧體",
+  "topbar.planAutoTooltip": "已自動偵測到複雜任務 — 規劃模式已啟動",
 
   "theme.light": "淺色",
   "theme.dark": "深色",

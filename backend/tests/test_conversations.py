@@ -5,6 +5,9 @@ from __future__ import annotations
 import os
 import uuid
 from datetime import datetime, timezone
+from unittest.mock import AsyncMock
+
+import pytest
 
 from agent.state.schemas import EventRecord
 
@@ -14,8 +17,14 @@ from agent.state.schemas import EventRecord
 os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 os.environ.setdefault("TAVILY_API_KEY", "test-key")
 
+from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage  # noqa: E402
 from api.models import ConversationMetricsResponse  # noqa: E402
-from api.routes.conversations import _build_conversation_metrics_response  # noqa: E402
+from api.routes.conversations import (  # noqa: E402
+    _COMPLEXITY_SYSTEM_PROMPT,
+    _build_conversation_metrics_response,
+    _classify_task_complexity,
+    _planner_flag_to_mode,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -344,3 +353,94 @@ class TestConversationMetricsResponse:
         assert m.tool_call_counts == {"bash": 3}
         assert m.per_agent_metrics == {"agent-1": {"iterations": 4}}
         assert m.sandbox_execution_time == 1.5
+
+
+class TestPlannerModeFlag:
+    def test_planner_flag_true_maps_to_planner_mode(self) -> None:
+        assert _planner_flag_to_mode(True) == "planner"
+
+    def test_planner_flag_false_maps_to_agent_mode(self) -> None:
+        assert _planner_flag_to_mode(False) == "agent"
+
+    def test_missing_planner_flag_keeps_existing_mode(self) -> None:
+        assert _planner_flag_to_mode(None) is None
+
+
+# ---------------------------------------------------------------------------
+# Task complexity classifier
+# ---------------------------------------------------------------------------
+
+
+def _mock_client(response_text: str) -> AnthropicClient:
+    client = AsyncMock(spec=AnthropicClient)
+    client.create_message.return_value = LLMResponse(
+        text=response_text,
+        tool_calls=(),
+        stop_reason="end_turn",
+        usage=TokenUsage(input_tokens=10, output_tokens=2),
+    )
+    return client
+
+
+class TestClassifyTaskComplexity:
+    @pytest.mark.asyncio
+    async def test_complex_verdict_returns_true(self) -> None:
+        result = await _classify_task_complexity(
+            _mock_client("COMPLEX"), "build a website"
+        )
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_simple_verdict_returns_false(self) -> None:
+        result = await _classify_task_complexity(_mock_client("SIMPLE"), "what is 2+2")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_verdict_case_insensitive(self) -> None:
+        result = await _classify_task_complexity(_mock_client("complex"), "some task")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_verdict_with_trailing_punctuation(self) -> None:
+        result = await _classify_task_complexity(_mock_client("COMPLEX."), "some task")
+        assert result is True
+
+    @pytest.mark.asyncio
+    async def test_api_error_returns_false(self) -> None:
+        client = AsyncMock(spec=AnthropicClient)
+        client.create_message.side_effect = RuntimeError("network failure")
+        result = await _classify_task_complexity(client, "build a pipeline")
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_ambiguous_response_returns_false(self) -> None:
+        result = await _classify_task_complexity(
+            _mock_client("I cannot decide."), "some task"
+        )
+        assert result is False
+
+    @pytest.mark.asyncio
+    async def test_uses_lite_model(self) -> None:
+        client = _mock_client("SIMPLE")
+        await _classify_task_complexity(client, "hello")
+        call_kwargs = client.create_message.call_args.kwargs
+        assert "model" in call_kwargs
+
+    @pytest.mark.asyncio
+    async def test_max_tokens_is_small(self) -> None:
+        client = _mock_client("COMPLEX")
+        await _classify_task_complexity(client, "build something")
+        call_kwargs = client.create_message.call_args.kwargs
+        assert call_kwargs.get("max_tokens", 999) <= 10
+
+    @pytest.mark.asyncio
+    async def test_long_message_is_truncated(self) -> None:
+        client = _mock_client("SIMPLE")
+        await _classify_task_complexity(client, "x" * 5000)
+        call_kwargs = client.create_message.call_args.kwargs
+        content = call_kwargs["messages"][0]["content"]
+        assert len(content) <= 2000
+
+    def test_complexity_system_prompt_has_both_labels(self) -> None:
+        assert "COMPLEX" in _COMPLEXITY_SYSTEM_PROMPT
+        assert "SIMPLE" in _COMPLEXITY_SYSTEM_PROMPT

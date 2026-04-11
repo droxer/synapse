@@ -90,6 +90,7 @@ class ConversationEntry:
         "last_attachments",
         "last_selected_skills",
         "idempotency_cache",
+        "orchestrator_mode",
     )
 
     def __init__(
@@ -99,6 +100,7 @@ class ConversationEntry:
         orchestrator: Runnable,
         executor: ToolExecutor,
         pending_callbacks: dict[str, Any],
+        orchestrator_mode: str = "agent",
     ) -> None:
         self.emitter = emitter
         self.event_queue = event_queue
@@ -111,6 +113,7 @@ class ConversationEntry:
         self.last_attachments: tuple[FileAttachment, ...] = ()
         self.last_selected_skills: tuple[str, ...] = ()
         self.idempotency_cache: dict[str, str] = {}
+        self.orchestrator_mode = orchestrator_mode
 
 
 @dataclass
@@ -150,8 +153,8 @@ class MessageRequest(BaseModel):
 
     message: str = Field(max_length=100_000)
     skills: list[str] = Field(default_factory=list)
-    use_planner: bool = Field(
-        default=False,
+    use_planner: bool | None = Field(
+        default=None,
         description="When True, use PlannerOrchestrator to decompose into sub-tasks.",
     )
     idempotency_key: str | None = Field(

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "@jest/globals";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
+import { getLatestTurnMode } from "./conversation-mode";
+import type { AgentEvent } from "@/shared/types";
 
 describe("shouldAutoScrollToBottom", () => {
   it("scrolls on first populate", () => {
@@ -40,5 +42,23 @@ describe("shouldAutoScrollToBottom", () => {
         distanceFromBottom: 300,
       }),
     ).toBe(false);
+  });
+});
+
+describe("getLatestTurnMode", () => {
+  it("returns planner when latest turn_start is planner", () => {
+    const events: AgentEvent[] = [
+      { type: "turn_start", data: { message: "one", orchestrator_mode: "agent" }, timestamp: 1, iteration: null },
+      { type: "turn_start", data: { message: "two", orchestrator_mode: "planner" }, timestamp: 2, iteration: null },
+    ];
+    expect(getLatestTurnMode(events)).toBe("planner");
+  });
+
+  it("returns null when latest turn_start has no mode", () => {
+    const events: AgentEvent[] = [
+      { type: "turn_start", data: { message: "one", orchestrator_mode: "planner" }, timestamp: 1, iteration: null },
+      { type: "turn_start", data: { message: "two" }, timestamp: 2, iteration: null },
+    ];
+    expect(getLatestTurnMode(events)).toBeNull();
   });
 });

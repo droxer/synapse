@@ -94,6 +94,7 @@ class PlannerOrchestrator:
         observer: Observer | None = None,
         system_prompt: str = "",
         skill_registry: SkillRegistry | None = None,
+        initial_messages: tuple[dict[str, Any], ...] = (),
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations must be at least 1")
@@ -134,7 +135,7 @@ class PlannerOrchestrator:
         self._executor = tool_executor.with_registry(registry_with_meta)
 
         # Persistent conversation state — appended to on each run() call
-        self._state = AgentState()
+        self._state = AgentState(messages=initial_messages)
         self._run_lock = asyncio.Lock()
 
     async def on_task_complete(self, summary: str) -> None:
@@ -175,7 +176,7 @@ class PlannerOrchestrator:
 
         await self._emitter.emit(
             EventType.TURN_START,
-            {"message": user_message},
+            {"message": user_message, "orchestrator_mode": "planner"},
         )
         self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()

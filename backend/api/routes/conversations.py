@@ -48,6 +48,9 @@ _EVENT_QUEUE_MAXSIZE = 5000
 
 router = APIRouter(dependencies=common_dependencies)
 
+ORCHESTRATOR_AGENT = "agent"
+ORCHESTRATOR_PLANNER = "planner"
+
 
 async def _resolve_user_id(
     auth_user: AuthUser | None,
@@ -213,25 +216,23 @@ def _extract_selected_skills(form: Any) -> tuple[str, ...]:
     return tuple(skills)
 
 
-# ---------------------------------------------------------------------------
-# Helper functions
-# ---------------------------------------------------------------------------
+def _planner_flag_to_mode(use_planner: bool | None) -> str | None:
+    """Convert optional planner flag into orchestrator mode."""
+    if use_planner is None:
+        return None
+    return ORCHESTRATOR_PLANNER if use_planner else ORCHESTRATOR_AGENT
 
 
-async def _reconstruct_conversation(
+async def _load_initial_messages_for_conversation(
     state: AppState,
-    conversation_id: str,
-) -> ConversationEntry | None:
-    """Reconstruct a conversation from DB history when it's been evicted from memory.
-
-    Returns the new ConversationEntry, or None if the conversation doesn't exist in DB.
-    """
-    conv_uuid = uuid.UUID(conversation_id)
+    convo: Any,
+    memory_entries: list[dict[str, str]],
+    user_skill_registry: Any,
+) -> list[dict[str, Any]]:
+    """Load reconstructed message history in Claude API message format."""
     settings = get_settings()
+    conv_uuid = convo.id
     async with state.db_session_factory() as session:
-        convo = await state.db_repo.get_conversation(session, conv_uuid)
-        if convo is None:
-            return None
         if convo.context_summary and convo.context_summary.strip():
             db_messages = await state.db_repo.get_recent_messages(
                 session,
@@ -241,7 +242,6 @@ async def _reconstruct_conversation(
         else:
             db_messages = await state.db_repo.get_messages(session, conv_uuid)
 
-    # Convert DB messages to Claude API format
     initial_messages: list[dict[str, Any]] = []
     if convo.context_summary and convo.context_summary.strip():
         initial_messages.append(
@@ -256,15 +256,46 @@ async def _reconstruct_conversation(
             continue
         content = m.content
         if isinstance(content, list):
-            # Preserve multimodal content as-is
             initial_messages.append({"role": m.role, "content": content})
         elif isinstance(content, dict) and "text" in content:
-            text = content["text"]
-            initial_messages.append({"role": m.role, "content": text})
+            initial_messages.append({"role": m.role, "content": content["text"]})
         elif isinstance(content, str):
             initial_messages.append({"role": m.role, "content": content})
         else:
             initial_messages.append({"role": m.role, "content": str(content)})
+
+    effective_sp = build_agent_system_prompt(memory_entries, user_skill_registry)
+    obs = Observer(
+        max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
+        max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
+        token_budget=settings.COMPACT_TOKEN_BUDGET,
+        claude_client=state.claude_client,
+        summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+    )
+    msg_tuple = tuple(initial_messages)
+    if obs.should_compact(msg_tuple, effective_sp):
+        msg_tuple = await obs.compact(msg_tuple, effective_sp)
+    return list(msg_tuple)
+
+
+# ---------------------------------------------------------------------------
+# Helper functions
+# ---------------------------------------------------------------------------
+
+
+async def _reconstruct_conversation(
+    state: AppState,
+    conversation_id: str,
+) -> ConversationEntry | None:
+    """Reconstruct a conversation from DB history when it's been evicted from memory.
+
+    Returns the new ConversationEntry, or None if the conversation doesn't exist in DB.
+    """
+    conv_uuid = uuid.UUID(conversation_id)
+    async with state.db_session_factory() as session:
+        convo = await state.db_repo.get_conversation(session, conv_uuid)
+        if convo is None:
+            return None
 
     emitter = EventEmitter()
     event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
@@ -285,31 +316,44 @@ async def _reconstruct_conversation(
 
     # Build a user-scoped skill registry for this conversation's owner
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
-
-    effective_sp = build_agent_system_prompt(memory_entries, user_skill_registry)
-    obs = Observer(
-        max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
-        max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
-        token_budget=settings.COMPACT_TOKEN_BUDGET,
-        claude_client=state.claude_client,
-        summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+    initial_messages = await _load_initial_messages_for_conversation(
+        state,
+        convo,
+        memory_entries,
+        user_skill_registry,
     )
-    msg_tuple = tuple(initial_messages)
-    if obs.should_compact(msg_tuple, effective_sp):
-        msg_tuple = await obs.compact(msg_tuple, effective_sp)
-    initial_messages = list(msg_tuple)
 
-    orchestrator, executor = _build_orchestrator(
-        state.claude_client,
-        emitter,
-        state.sandbox_provider,
-        state.storage_backend,
-        initial_messages=tuple(initial_messages),
-        persistent_store=persistent_store,
-        mcp_state=state.mcp_state,
-        skill_registry=user_skill_registry,
-        memory_entries=memory_entries,
+    mode = (
+        convo.orchestrator_mode
+        if convo.orchestrator_mode in (ORCHESTRATOR_AGENT, ORCHESTRATOR_PLANNER)
+        else ORCHESTRATOR_AGENT
     )
+    if mode == ORCHESTRATOR_PLANNER:
+        orchestrator, executor = _build_planner_orchestrator(
+            state.claude_client,
+            emitter,
+            state.sandbox_provider,
+            state.storage_backend,
+            persistent_store=persistent_store,
+            mcp_state=state.mcp_state,
+            skill_registry=user_skill_registry,
+            memory_entries=memory_entries,
+            conversation_id=conversation_id,
+            initial_messages=tuple(initial_messages),
+        )
+    else:
+        orchestrator, executor = _build_orchestrator(
+            state.claude_client,
+            emitter,
+            state.sandbox_provider,
+            state.storage_backend,
+            initial_messages=tuple(initial_messages),
+            persistent_store=persistent_store,
+            mcp_state=state.mcp_state,
+            skill_registry=user_skill_registry,
+            memory_entries=memory_entries,
+            conversation_id=conversation_id,
+        )
 
     entry = ConversationEntry(
         emitter=emitter,
@@ -317,6 +361,7 @@ async def _reconstruct_conversation(
         orchestrator=orchestrator,
         executor=executor,
         pending_callbacks=pending_callbacks,
+        orchestrator_mode=mode,
     )
     entry.subscriber = subscriber
     state.conversations[conversation_id] = entry
@@ -490,6 +535,42 @@ async def _generate_title(
         logger.warning("title_generation_failed conversation_id={}", conversation_id)
 
 
+_COMPLEXITY_SYSTEM_PROMPT = (
+    "Classify the user's request as COMPLEX or SIMPLE.\n"
+    "COMPLEX: the task clearly requires multiple sequential or parallel sub-tasks, "
+    "orchestration of several tools, long multi-step research/coding workflows, or "
+    "coordinating several independent objectives in one request.\n"
+    "SIMPLE: a single-step answer, quick lookup, short creative snippet, or a "
+    "conversational exchange.\n"
+    "Reply with exactly one word: COMPLEX or SIMPLE."
+)
+
+
+async def _classify_task_complexity(
+    claude_client: AnthropicClient,
+    user_message: str,
+) -> bool:
+    """Return True when the task warrants planner mode. Falls back to False on error."""
+    try:
+        settings = get_settings()
+        response = await claude_client.create_message(
+            system=_COMPLEXITY_SYSTEM_PROMPT,
+            messages=[{"role": "user", "content": user_message[:2000]}],
+            max_tokens=10,
+            model=settings.COMPLEXITY_CLASSIFIER_MODEL or settings.LITE_MODEL,
+        )
+        is_complex = response.text.strip().upper().startswith("COMPLEX")
+        logger.debug(
+            "task_complexity verdict={} preview={}",
+            response.text.strip(),
+            user_message[:80],
+        )
+        return is_complex
+    except Exception as exc:
+        logger.warning("task_complexity_classifier_error error={}", exc)
+        return False
+
+
 # ---------------------------------------------------------------------------
 # Metrics aggregation
 # ---------------------------------------------------------------------------
@@ -571,7 +652,12 @@ async def create_conversation(
         if not message or not str(message).strip():
             raise HTTPException(status_code=422, detail="message must not be empty")
         message = str(message)
-        use_planner = str(form.get("use_planner", "false")).lower() == "true"
+        use_planner_raw = form.get("use_planner")
+        explicit_planner: bool | None = (
+            str(use_planner_raw).lower() == "true"
+            if use_planner_raw is not None
+            else None
+        )
         selected_skills = _extract_selected_skills(form)
         raw_files = form.getlist("files")
         upload_files = _extract_upload_files(raw_files)
@@ -579,9 +665,23 @@ async def create_conversation(
     else:
         body = MessageRequest(**(await request.json()))
         message = body.message
-        use_planner = body.use_planner
+        explicit_planner = body.use_planner
         selected_skills = tuple(body.skills)
         attachments = ()
+
+    auto_detected = False
+    if explicit_planner is True:
+        orchestrator_mode = ORCHESTRATOR_PLANNER
+    elif explicit_planner is False:
+        orchestrator_mode = ORCHESTRATOR_AGENT
+    else:
+        # explicit_planner is None — auto-detect based on task complexity
+        use_planner_auto = await _classify_task_complexity(state.claude_client, message)
+        orchestrator_mode = (
+            ORCHESTRATOR_PLANNER if use_planner_auto else ORCHESTRATOR_AGENT
+        )
+        auto_detected = use_planner_auto
+        logger.info("auto_planner mode={} preview={}", orchestrator_mode, message[:80])
 
     idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
     if not idem_key:
@@ -603,6 +703,9 @@ async def create_conversation(
     pending_callbacks: dict[str, Any] = {}
     subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
     emitter.subscribe(subscriber)
+
+    if auto_detected:
+        await emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
 
     # Resolve user before building orchestrator so we can scope resources
     user_id = await _resolve_user_id(auth_user, state)
@@ -629,7 +732,7 @@ async def create_conversation(
 
     orchestrator: Any
     executor: Any
-    if use_planner:
+    if orchestrator_mode == ORCHESTRATOR_PLANNER:
         orchestrator, executor = _build_planner_orchestrator(
             state.claude_client,
             emitter,
@@ -660,6 +763,7 @@ async def create_conversation(
         orchestrator=orchestrator,
         executor=executor,
         pending_callbacks=pending_callbacks,
+        orchestrator_mode=orchestrator_mode,
     )
     entry.subscriber = subscriber
     state.conversations[conversation_id] = entry
@@ -667,7 +771,11 @@ async def create_conversation(
     # Persist conversation and register DB subscriber
     async with state.db_session_factory() as session:
         await state.db_repo.create_conversation(
-            session, title=message[:80], conversation_id=conv_uuid, user_id=user_id
+            session,
+            title=message[:80],
+            conversation_id=conv_uuid,
+            user_id=user_id,
+            orchestrator_mode=orchestrator_mode,
         )
 
     # Visibility barrier: confirm the committed row is readable from a fresh
@@ -778,6 +886,12 @@ async def send_message(
         if not message or not str(message).strip():
             raise HTTPException(status_code=422, detail="message must not be empty")
         message = str(message)
+        use_planner_raw = form.get("use_planner")
+        requested_mode = _planner_flag_to_mode(
+            str(use_planner_raw).lower() == "true"
+            if use_planner_raw is not None
+            else None
+        )
         selected_skills = _extract_selected_skills(form)
         raw_files = form.getlist("files")
         upload_files = _extract_upload_files(raw_files)
@@ -785,6 +899,7 @@ async def send_message(
     else:
         body = MessageRequest(**(await request.json()))
         message = body.message
+        requested_mode = _planner_flag_to_mode(body.use_planner)
         selected_skills = tuple(body.skills)
         attachments = ()
 
@@ -810,6 +925,75 @@ async def send_message(
     # Wait for any in-progress turn to finish before starting the next
     if entry.turn_task is not None and not entry.turn_task.done():
         await entry.turn_task
+
+    current_mode = entry.orchestrator_mode
+    target_mode = requested_mode or current_mode
+    if target_mode not in (ORCHESTRATOR_AGENT, ORCHESTRATOR_PLANNER):
+        target_mode = ORCHESTRATOR_AGENT
+
+    if target_mode != current_mode:
+        conv_uuid = uuid.UUID(conversation_id)
+        async with state.db_session_factory() as session:
+            convo = await state.db_repo.get_conversation(session, conv_uuid)
+        if convo is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+
+        persistent_store = PersistentMemoryStore(
+            session_factory=state.db_session_factory,
+            user_id=convo.user_id,
+            conversation_id=conv_uuid,
+        )
+        memory_entries = await persistent_store.load_all()
+        user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
+        initial_messages = await _load_initial_messages_for_conversation(
+            state,
+            convo,
+            memory_entries,
+            user_skill_registry,
+        )
+        if target_mode == ORCHESTRATOR_PLANNER:
+            orchestrator, executor = _build_planner_orchestrator(
+                state.claude_client,
+                entry.emitter,
+                state.sandbox_provider,
+                state.storage_backend,
+                persistent_store=persistent_store,
+                mcp_state=state.mcp_state,
+                skill_registry=user_skill_registry,
+                memory_entries=memory_entries,
+                conversation_id=conversation_id,
+                initial_messages=tuple(initial_messages),
+            )
+            entry.orchestrator = orchestrator
+            entry.executor = executor
+        else:
+            orchestrator, executor = _build_orchestrator(
+                state.claude_client,
+                entry.emitter,
+                state.sandbox_provider,
+                state.storage_backend,
+                initial_messages=tuple(initial_messages),
+                persistent_store=persistent_store,
+                mcp_state=state.mcp_state,
+                skill_registry=user_skill_registry,
+                memory_entries=memory_entries,
+                conversation_id=conversation_id,
+            )
+            entry.orchestrator = orchestrator
+            entry.executor = executor
+        entry.orchestrator_mode = target_mode
+        async with state.db_session_factory() as session:
+            await state.db_repo.update_conversation(
+                session,
+                conv_uuid,
+                orchestrator_mode=target_mode,
+            )
+        logger.info(
+            "conversation_mode_switched id={} from={} to={}",
+            conversation_id,
+            current_mode,
+            target_mode,
+        )
 
     # Start new turn on the same orchestrator (preserves full history)
     entry.turn_task = asyncio.create_task(

@@ -162,11 +162,11 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "relative rounded-md border border-transparent bg-secondary/35 transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+            "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out",
             isFocused
-              ? "border-border-active bg-background"
+              ? "border-border-active bg-background shadow-card-hover"
               : "",
-            isDragOver && "border-dashed border-border-active bg-secondary",
+            isDragOver && "border-dashed border-border-active bg-secondary/80",
           )}
         >
           {/* File & skill attachment shelf */}
@@ -234,8 +234,8 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 aria-label={t("chat.attachFile")}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "gap-1.5 rounded-md px-2 text-xs font-medium text-muted-foreground hover:bg-secondary hover:text-foreground",
-                  isWelcome ? "h-8 px-3 bg-secondary" : "h-7 bg-secondary",
+                  "gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:text-foreground",
+                  isWelcome ? "h-8 px-3 border border-border bg-muted hover:bg-secondary" : "h-7 border border-border bg-muted hover:bg-secondary",
                 )}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -247,34 +247,31 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 variant={isWelcome ? "welcome" : "default"}
               />
 
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                aria-label={t("chat.planner")}
-                aria-pressed={usePlanner}
-                onClick={() => setUsePlanner((v) => !v)}
-                className={cn(
-                  "gap-1.5 rounded-md px-2 text-xs font-medium transition-colors duration-150",
-                  isWelcome && "h-8 px-3",
-                  !isWelcome && "h-7",
-                  usePlanner
-                    ? "border border-border bg-muted text-foreground hover:border-border-strong"
-                    : cn(
-                        "border border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground",
-                        isWelcome ? "bg-muted" : "bg-transparent",
-                      ),
-                )}
-                title={t("chat.plannerHint")}
-              >
-                <GitFork className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">{t("chat.planLabel")}</span>
-                {usePlanner && (
-                  <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
-                    <span className="absolute inset-0 rounded-full bg-foreground" />
-                  </span>
-                )}
-              </Button>
+              {isWelcome && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  aria-label={t("chat.planner")}
+                  aria-pressed={usePlanner}
+                  onClick={() => setUsePlanner((v) => !v)}
+                  className={cn(
+                    "h-8 gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-150",
+                    usePlanner
+                      ? "border border-border-strong bg-secondary text-foreground"
+                      : "border border-border bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground",
+                  )}
+                  title={usePlanner ? t("chat.plannerActive") : t("chat.plannerHint")}
+                >
+                  <GitFork className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">{t("chat.planLabel")}</span>
+                  {usePlanner && (
+                    <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
+                      <span className="absolute inset-0 rounded-full bg-foreground" />
+                    </span>
+                  )}
+                </Button>
+              )}
 
             </div>
 

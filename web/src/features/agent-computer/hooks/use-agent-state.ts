@@ -335,6 +335,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       if (userText) {
         messages.push({ role: "user", content: userText, timestamp: event.timestamp });
       }
+      planSteps = [];
       pendingThinkingEntries = [];
       pendingThinkingParts = [];
       currentThinkingEntries = [];

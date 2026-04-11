@@ -13,6 +13,7 @@ import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
+import { getLatestTurnMode, getIsCurrentTurnAutoDetected } from "./conversation-mode";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import type {
@@ -154,6 +155,9 @@ export function ConversationWorkspace({
     return lastIdx;
   }, [events, messages]);
 
+  const latestTurnMode = useMemo(() => getLatestTurnMode(events), [events]);
+  const isCurrentTurnAutoDetected = useMemo(() => getIsCurrentTurnAutoDetected(events), [events]);
+
   const hasArtifacts = useMemo(
     () => toolCalls.some((tc) => tc.output !== undefined && !NON_ARTIFACT_TOOLS.has(tc.name)),
     [toolCalls],
@@ -209,6 +213,9 @@ export function ConversationWorkspace({
     ? { phase: "thinking" }
     : assistantPhase;
 
+  const contentWidthClass = panelOpen ? "max-w-[44rem]" : "max-w-[52rem]";
+  const messageWidthClass = panelOpen ? "sm:max-w-[88%]" : "sm:max-w-[82%]";
+
   return (
     <div
       className="flex h-full flex-col"
@@ -223,12 +230,14 @@ export function ConversationWorkspace({
           onNavigateHome={onNavigateHome}
           conversationTitle={conversationTitle}
           conversationId={conversationId}
+          orchestratorMode={latestTurnMode}
+          isPlannerAutoDetected={isCurrentTurnAutoDetected}
         />
       )}
 
       <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Left pane: Conversation */}
-        <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[52%]" : "w-full")}>
+        <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[56%]" : "w-full")}>
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
@@ -237,7 +246,7 @@ export function ConversationWorkspace({
             )}
 
             <div
-              className={cn("mx-auto w-full", panelOpen ? "max-w-2xl" : "max-w-3xl")}
+              className={cn("mx-auto w-full", contentWidthClass)}
               aria-live="polite"
               aria-relevant="additions"
             >
@@ -256,9 +265,9 @@ export function ConversationWorkspace({
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className="flex justify-end"
                       >
-                        <div className="max-w-[92%] min-w-[120px] sm:max-w-[85%]">
+                        <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
                           {/* User bubble */}
-                          <div className="rounded-lg bg-secondary px-4 py-3">
+                          <div className="rounded-xl border border-border bg-secondary px-4 py-3 shadow-card">
                             <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                               {msg.content}
                             </p>
@@ -293,7 +302,8 @@ export function ConversationWorkspace({
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.12, ease: "easeOut" }}
                         className={cn(
-                          "conversation-assistant-message group relative max-w-full min-w-0 sm:max-w-[85%]",
+                          "conversation-assistant-message group relative max-w-full min-w-0",
+                          messageWidthClass,
                         )}
                       >
                         <div className="relative">
@@ -401,14 +411,14 @@ export function ConversationWorkspace({
               })}
 
               {planMessageIndex === null && planSteps.length > 0 && (
-                <div className="mt-4 max-w-[85%]">
+                <div className={cn("mt-4", messageWidthClass)}>
                   <PlanChecklistPanel planSteps={planSteps} />
                 </div>
               )}
 
               {/* Standalone thinking block when no assistant message yet */}
               {showLoadingSkeleton && currentThinkingEntries.length > 0 && (
-                <div className="mt-4 max-w-full space-y-2 sm:max-w-[85%]">
+                <div className={cn("mt-4 max-w-full space-y-2", messageWidthClass)}>
                   {currentThinkingEntries.map((entry, idx) => (
                     <ThinkingBlock
                       key={`current-thinking-${entry.timestamp}-${idx}`}
@@ -437,7 +447,7 @@ export function ConversationWorkspace({
               className={cn(
                 "px-4 py-3 sm:px-6",
                 "mx-auto w-full",
-                panelOpen ? "max-w-2xl" : "max-w-3xl",
+                contentWidthClass,
               )}
             >
               <AgentProgressCard
@@ -452,7 +462,7 @@ export function ConversationWorkspace({
             </div>
           )}
 
-          <div className={cn("mx-auto w-full", panelOpen ? "max-w-2xl" : "max-w-3xl")}>
+          <div className={cn("mx-auto w-full", contentWidthClass)}>
             <ChatInput
               onSendMessage={onSendMessage}
               disabled={!userCancelled && (isWaitingForAgent || taskState === "executing" || taskState === "planning")}
@@ -465,7 +475,7 @@ export function ConversationWorkspace({
         {/* Right pane: Synapse's Computer */}
         {panelOpen && (
           <motion.div
-            className="flex w-full flex-col border-l border-transparent bg-secondary/15 md:w-[48%]"
+            className="flex w-full flex-col border-l border-border/70 bg-secondary/25 md:w-[44%]"
             initial={{ opacity: 0, x: 12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
