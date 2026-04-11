@@ -106,6 +106,46 @@ describe("buildSteps runtime phrase mapping", () => {
     expect(steps[0]?.title).toContain("skills");
   });
 
+  it("marks explicit skill steps complete only after skill_activated", () => {
+    const events = [
+      {
+        type: "tool_call",
+        timestamp: 1,
+        iteration: 0,
+        data: { name: "activate_skill", tool_id: "tool-5", input: { name: "frontend-design" } },
+      },
+      {
+        type: "skill_activated",
+        timestamp: 2,
+        iteration: 0,
+        data: { name: "frontend-design", source: "explicit" },
+      },
+    ] as unknown as AgentEvent[];
+    const toolCalls: ToolCallInfo[] = [
+      { id: "tc-5", toolUseId: "tool-5", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 1 },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.status).toBe("complete");
+  });
+
+  it("creates an error skill step for auto-selected setup failures", () => {
+    const events = [
+      {
+        type: "skill_setup_failed",
+        timestamp: 1,
+        iteration: 0,
+        data: { name: "docx", source: "auto", phase: "dependencies", error: "pip install failed" },
+      },
+    ] as unknown as AgentEvent[];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.kind).toBe("skill");
+    expect(steps[0]?.status).toBe("error");
+  });
+
   it("maps parsing tools into parse content phrase", () => {
     const events = [
       {

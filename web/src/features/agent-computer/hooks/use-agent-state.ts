@@ -99,6 +99,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let toolCallSeq = 0;
   let planSteps: PlanStep[] = [];
   const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
+  const skillToolNames = new Set(["activate_skill", "load_skill"]);
 
   const resolveToolResultRow = (apiToolId: string): string | undefined => {
     if (!apiToolId) return undefined;
@@ -162,6 +163,45 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       }
     }
     return undefined;
+  };
+
+  const resolveSkillRow = (skillName: string): string | undefined => {
+    for (let i = toolCallOrder.length - 1; i >= 0; i--) {
+      const rowId = toolCallOrder[i]!;
+      const call = toolCallMap.get(rowId);
+      if (!call) continue;
+      if (
+        skillToolNames.has(call.name)
+        && String(call.input.name ?? "") === skillName
+      ) {
+        return rowId;
+      }
+      if (call.name === "activate_skill" && call.toolUseId.startsWith("skill-event:") && String(call.input.name ?? "") === skillName) {
+        return rowId;
+      }
+    }
+    return undefined;
+  };
+
+  const ensureSkillRow = (
+    skillName: string,
+    timestamp: number,
+    source?: string,
+  ): string => {
+    const existingId = resolveSkillRow(skillName);
+    if (existingId) return existingId;
+
+    const rowId = `tc-${++toolCallSeq}`;
+    const toolUseId = `skill-event:${skillName}:${source ?? "unknown"}:${timestamp}`;
+    toolCallOrder.push(rowId);
+    toolCallMap.set(rowId, {
+      id: rowId,
+      toolUseId,
+      name: "activate_skill",
+      input: { name: skillName, source },
+      timestamp,
+    });
+    return rowId;
   };
 
   for (const event of events) {
@@ -254,6 +294,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       const rowId = resolveToolResultRow(toolId);
       const existing = rowId ? toolCallMap.get(rowId) : undefined;
       if (existing && rowId) {
+        const isSkillTool = skillToolNames.has(existing.name);
         const browserMetadata: BrowserMetadata | undefined = existing.name === "browser_use"
           ? {
               ...existing.browserMetadata,
@@ -280,7 +321,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         toolCallMap.set(rowId, {
           ...existing,
           output: toDisplayText(event.data.output ?? event.data.result),
-          success: event.data.success !== false,
+          success: isSkillTool ? undefined : event.data.success !== false,
           contentType: event.data.content_type ? String(event.data.content_type) : undefined,
           artifactIds: Array.isArray(event.data.artifact_ids) ? event.data.artifact_ids : undefined,
           browserMetadata,
@@ -293,6 +334,37 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       const newImageIds = artifactIds.filter((artifactId) => imageArtifactIdSet.has(artifactId));
       if (newImageIds.length > 0) {
         pendingImageArtifactIds = [...pendingImageArtifactIds, ...newImageIds];
+      }
+    } else if (event.type === "skill_activated") {
+      const skillName = String(event.data.name ?? "");
+      if (skillName) {
+        const rowId = ensureSkillRow(skillName, event.timestamp, event.data.source);
+        const existing = toolCallMap.get(rowId);
+        if (existing) {
+          toolCallMap.set(rowId, {
+            ...existing,
+            success: true,
+          });
+        }
+      }
+    } else if (event.type === "skill_setup_failed") {
+      const skillName = String(event.data.name ?? "");
+      if (skillName) {
+        const rowId = ensureSkillRow(skillName, event.timestamp, event.data.source);
+        const existing = toolCallMap.get(rowId);
+        if (existing) {
+          const phase = typeof event.data.phase === "string" ? event.data.phase : "setup";
+          const manager = typeof event.data.manager === "string" ? ` (${event.data.manager})` : "";
+          const packages = typeof event.data.packages === "string" && event.data.packages.length > 0
+            ? `: ${event.data.packages}`
+            : "";
+          const detail = typeof event.data.error === "string" ? event.data.error : "Unknown skill setup error";
+          toolCallMap.set(rowId, {
+            ...existing,
+            success: false,
+            output: `Skill ${phase} failed${manager}${packages}\n${detail}`,
+          });
+        }
       }
     } else if (event.type === "sandbox_stdout" || event.type === "sandbox_stderr") {
       const streamRowId = resolveActiveStreamRow();

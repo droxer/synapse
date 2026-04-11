@@ -35,6 +35,7 @@ class ToolExecutor:
         self._artifact_manager = artifact_manager or ArtifactManager()
         self._conversation_id = conversation_id
         self._shell_tools_this_turn = 0
+        self._staged_skills_by_template: dict[str, set[str]] = {}
 
     @property
     def sandbox_provider(self) -> Any | None:
@@ -132,6 +133,49 @@ class ToolExecutor:
         (e.g. the file-upload route) don't need to reach into private API.
         """
         return await self._get_sandbox_session(tool_tags)
+
+    async def get_sandbox_session_for_template(self, template: str) -> Any:
+        """Return a sandbox session for a specific template name."""
+        from agent.sandbox.base import SandboxConfig
+
+        if not template.strip():
+            raise ValueError("template must not be empty")
+
+        if template in self._sandbox_sessions:
+            return self._sandbox_sessions[template]
+
+        if self._sandbox_provider is None:
+            raise RuntimeError(
+                "No sandbox provider configured. "
+                "Set a SandboxProvider to use sandbox tools."
+            )
+
+        if (
+            self._sandbox_config is not None
+            and self._sandbox_config.template == template
+        ):
+            config = self._sandbox_config
+        elif template == "browser":
+            config = SandboxConfig(template="browser", memory_mb=4096, cpu_count=2)
+        else:
+            config = SandboxConfig(template=template)
+
+        session = await self._sandbox_provider.create_session(config)
+        self._sandbox_sessions[template] = session
+        logger.info(
+            "Sandbox session created (template={}, sandbox_id={})",
+            template,
+            getattr(session, "sandbox_id", None) or "unknown",
+        )
+        return session
+
+    def is_skill_staged(self, template: str, skill_name: str) -> bool:
+        """Return True when *skill_name* is staged for *template*."""
+        return skill_name in self._staged_skills_by_template.get(template, set())
+
+    def mark_skill_staged(self, template: str, skill_name: str) -> None:
+        """Record *skill_name* as staged for *template*."""
+        self._staged_skills_by_template.setdefault(template, set()).add(skill_name)
 
     @property
     def artifact_manager(self) -> ArtifactManager:
@@ -304,6 +348,7 @@ class ToolExecutor:
         # Snapshot and clear to prevent double-cleanup.
         sessions = dict(self._sandbox_sessions)
         self._sandbox_sessions.clear()
+        self._staged_skills_by_template.clear()
 
         if self._sandbox_provider is None:
             logger.warning("Sandbox sessions exist but no provider to destroy them")

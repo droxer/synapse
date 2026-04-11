@@ -162,6 +162,35 @@ export function buildSteps(
   /** Deduplicate by (api tool id + ordinal), since providers may reuse ids across turns. */
   const seenToolCalls = new Set<string>();
   const toolCallOrdinalByApiId = new Map<string, number>();
+  const updateSkillStepStatus = (
+    skillName: string,
+    status: "complete" | "error",
+    timestamp: number,
+  ) => {
+    const normalized = normalizeSkillName(skillName);
+    let updated = false;
+    steps = steps.map((step, idx, arr) => {
+      if (
+        updated
+        || step.kind !== "skill"
+        || step.name !== normalized
+        || arr.slice(idx + 1).some((candidate) => candidate.kind === "skill" && candidate.name === normalized)
+      ) {
+        return step;
+      }
+      updated = true;
+      return { ...step, status };
+    });
+    if (!updated) {
+      steps = [...steps, {
+        id: `skill-${skillName}-${timestamp}`,
+        kind: "skill",
+        title: t("progress.loadingSkills", { name: normalized }),
+        name: normalized,
+        status,
+      }];
+    }
+  };
 
   for (const event of events) {
     switch (event.type) {
@@ -233,8 +262,32 @@ export function buildSteps(
             title: stepTitle,
             name: displayName,
             rawToolName: toolName,
-            status: tc?.output !== undefined ? "complete" : "running",
+            status: isSkill
+              ? tc?.success === false
+                ? "error"
+                : tc?.success === true
+                  ? "complete"
+                  : "running"
+              : tc?.output !== undefined
+                ? "complete"
+                : "running",
           }];
+        }
+        break;
+      }
+
+      case "skill_activated": {
+        const skillName = String(event.data.name ?? "").trim();
+        if (skillName) {
+          updateSkillStepStatus(skillName, "complete", event.timestamp);
+        }
+        break;
+      }
+
+      case "skill_setup_failed": {
+        const skillName = String(event.data.name ?? "").trim();
+        if (skillName) {
+          updateSkillStepStatus(skillName, "error", event.timestamp);
         }
         break;
       }

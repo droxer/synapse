@@ -20,9 +20,13 @@ from agent.runtime.helpers import (
     process_tool_calls,
 )
 from agent.runtime.observer import Observer, compaction_summary_for_persistence
+from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.orchestrator import AgentState
 from agent.runtime.skill_runtime import split_allowed_tools
-from agent.runtime.skill_install import install_skill_dependencies_for_turn
+from agent.runtime.skill_setup import (
+    build_skill_prompt_content,
+    prepare_skill_for_turn,
+)
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.task_runner import TaskAgentConfig
 from agent.runtime.turn_attachments import (
@@ -203,23 +207,8 @@ class PlannerOrchestrator:
         )
         if matched is not None:
             self._auto_injected_skill = matched.metadata.name
-            effective_prompt = (
-                base_prompt
-                + f'\n\n<skill_content name="{matched.metadata.name}">\n'
-                + matched.instructions
-                + "\n</skill_content>"
-            )
             explicit_skill_name = next((s for s in selected_skills if s.strip()), None)
             source = "explicit" if explicit_skill_name is not None else "auto"
-            logger.info(
-                "planner_skill_activated name={} source={}",
-                matched.metadata.name,
-                source,
-            )
-            await self._emitter.emit(
-                EventType.SKILL_ACTIVATED,
-                {"name": matched.metadata.name, "source": source},
-            )
 
             # Replace ActivateSkill tool with active skill name
             from agent.tools.local.activate_skill import ActivateSkill
@@ -230,24 +219,35 @@ class PlannerOrchestrator:
                     active_skill_name=matched.metadata.name,
                 )
             )
-
-            # Apply sandbox template
-            if matched.metadata.sandbox_template:
-                self._executor.set_sandbox_template(matched.metadata.sandbox_template)
-                logger.info(
-                    "planner_skill_sandbox_template name={} template={}",
-                    matched.metadata.name,
-                    matched.metadata.sandbox_template,
+            try:
+                await prepare_skill_for_turn(
+                    executor=self._executor,
+                    skill=matched,
+                    emitter=self._emitter,
+                    source=source,
+                    install_dependencies=lambda: install_skill_dependencies_for_turn(
+                        self._executor,
+                        matched.metadata.dependencies,
+                        self._emitter,
+                        context="planner",
+                        skill_name=matched.metadata.name,
+                        source=source,
+                        raise_on_error=True,
+                    ),
                 )
-
-            # Auto-install dependencies
-            if matched.metadata.dependencies:
-                await install_skill_dependencies_for_turn(
-                    self._executor,
-                    matched.metadata.dependencies,
-                    self._emitter,
-                    context="planner",
+            except Exception as exc:
+                await self._emitter.emit(
+                    EventType.TASK_ERROR,
+                    {
+                        "error": str(exc),
+                        "code": "skill_setup",
+                        "retryable": False,
+                    },
                 )
+                return f"Error: {exc}"
+            effective_prompt = (
+                base_prompt + "\n\n" + build_skill_prompt_content(matched)
+            )
 
             # Filter tools by allowed_tools
             if matched.metadata.allowed_tools:
@@ -437,10 +437,7 @@ class PlannerOrchestrator:
 
         self._auto_injected_skill = skill.metadata.name
         effective_prompt = (
-            self._turn_base_prompt
-            + f'\n\n<skill_content name="{skill.metadata.name}">\n'
-            + skill.instructions
-            + "\n</skill_content>"
+            self._turn_base_prompt + "\n\n" + build_skill_prompt_content(skill)
         )
 
         from agent.tools.local.activate_skill import ActivateSkill
@@ -452,21 +449,21 @@ class PlannerOrchestrator:
             )
         )
 
-        if skill.metadata.sandbox_template:
-            self._executor.set_sandbox_template(skill.metadata.sandbox_template)
-            logger.info(
-                "planner_mid_turn_skill_sandbox_template name={} template={}",
-                skill.metadata.name,
-                skill.metadata.sandbox_template,
-            )
-
-        if skill.metadata.dependencies:
-            await install_skill_dependencies_for_turn(
+        await prepare_skill_for_turn(
+            executor=self._executor,
+            skill=skill,
+            emitter=self._emitter,
+            source="mid_turn",
+            install_dependencies=lambda: install_skill_dependencies_for_turn(
                 self._executor,
                 skill.metadata.dependencies,
                 self._emitter,
                 context="planner_mid_turn",
-            )
+                skill_name=skill.metadata.name,
+                source="mid_turn",
+                raise_on_error=True,
+            ),
+        )
 
         if skill.metadata.allowed_tools:
             allowed_names, allowed_tags = split_allowed_tools(
@@ -477,10 +474,6 @@ class PlannerOrchestrator:
             )
 
         tools = updated_registry.to_anthropic_tools()
-        await self._emitter.emit(
-            EventType.SKILL_ACTIVATED,
-            {"name": skill.metadata.name, "source": "mid_turn"},
-        )
         logger.info("planner_mid_turn_skill_activated name={}", skill.metadata.name)
         return effective_prompt, updated_registry, tools
 

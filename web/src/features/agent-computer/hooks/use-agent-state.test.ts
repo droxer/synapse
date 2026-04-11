@@ -114,4 +114,50 @@ describe("deriveAgentState", () => {
     expect(state.toolCalls[0]?.output).toBe("final\n");
     expect(state.toolCalls[0]?.success).toBe(true);
   });
+
+  it("creates a synthetic completed skill row for auto-selected skills", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "skill_activated",
+        data: { name: "frontend-design", source: "auto" },
+        timestamp: 1,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.name).toBe("activate_skill");
+    expect(state.toolCalls[0]?.input.name).toBe("frontend-design");
+    expect(state.toolCalls[0]?.success).toBe(true);
+  });
+
+  it("keeps explicit activate_skill pending until setup resolves and marks failures inline", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "tool_call",
+        data: { tool_id: "tool-9", tool_name: "activate_skill", tool_input: { name: "docx" } },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "tool_result",
+        data: { tool_id: "tool-9", output: "<skill_content name=\"docx\">...</skill_content>", success: true },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "skill_setup_failed",
+        data: { name: "docx", source: "explicit", phase: "dependencies", error: "pip install failed" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.success).toBe(false);
+    expect(state.toolCalls[0]?.output).toContain("dependencies");
+    expect(state.toolCalls[0]?.output).toContain("pip install failed");
+  });
 });

@@ -29,8 +29,12 @@ from agent.runtime.message_chain import (
     tool_calls_fingerprint,
 )
 from agent.runtime.observer import Observer, compaction_summary_for_persistence
-from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
+from agent.runtime.skill_runtime import split_allowed_tools
+from agent.runtime.skill_setup import (
+    build_skill_prompt_content,
+    prepare_skill_for_turn,
+)
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.turn_attachments import (
     build_user_message_content,
@@ -291,23 +295,8 @@ class AgentOrchestrator:
         )
         if matched is not None:
             self._auto_injected_skill = matched.metadata.name
-            effective_prompt = (
-                self._system_prompt
-                + f'\n\n<skill_content name="{matched.metadata.name}">\n'
-                + matched.instructions
-                + "\n</skill_content>"
-            )
             explicit_skill_name = next((s for s in selected_skills if s.strip()), None)
             source = "explicit" if explicit_skill_name is not None else "auto"
-            logger.info(
-                "skill_activated name={} source={}",
-                matched.metadata.name,
-                source,
-            )
-            await self._emitter.emit(
-                EventType.SKILL_ACTIVATED,
-                {"name": matched.metadata.name, "source": source},
-            )
             # Replace ActivateSkill tool with active skill name (copy-on-write)
             from agent.tools.local.activate_skill import ActivateSkill
 
@@ -317,32 +306,32 @@ class AgentOrchestrator:
                     active_skill_name=matched.metadata.name,
                 )
             )
-
-        # Apply skill's sandbox template (e.g. data_science) so that
-        # both file uploads and tool execution target the correct image.
-        if (
-            self._auto_injected_skill is not None
-            and matched is not None
-            and matched.metadata.sandbox_template
-        ):
-            self._executor.set_sandbox_template(matched.metadata.sandbox_template)
-            logger.info(
-                "skill_sandbox_template name={} template={}",
-                matched.metadata.name,
-                matched.metadata.sandbox_template,
-            )
-
-        # Auto-install skill dependencies before any sandbox interaction
-        if (
-            self._auto_injected_skill is not None
-            and matched is not None
-            and matched.metadata.dependencies
-        ):
-            await install_skill_dependencies_for_turn(
-                self._executor,
-                matched.metadata.dependencies,
-                self._emitter,
-                context="orchestrator",
+            try:
+                await prepare_skill_for_turn(
+                    executor=self._executor,
+                    skill=matched,
+                    emitter=self._emitter,
+                    source=source,
+                    install_dependencies=lambda: install_skill_dependencies_for_turn(
+                        self._executor,
+                        matched.metadata.dependencies,
+                        self._emitter,
+                        context="orchestrator",
+                        skill_name=matched.metadata.name,
+                        source=source,
+                        raise_on_error=True,
+                    ),
+                )
+            except Exception as exc:
+                error = str(exc)
+                await self._emit_task_error(
+                    error,
+                    code="skill_setup",
+                    retryable=False,
+                )
+                return f"Error: {error}"
+            effective_prompt = (
+                effective_prompt + "\n\n" + build_skill_prompt_content(matched)
             )
 
         uploaded_paths: tuple[str, ...] = ()
@@ -517,10 +506,7 @@ class AgentOrchestrator:
 
         # Inject skill instructions into prompt
         effective_prompt = (
-            self._system_prompt
-            + f'\n\n<skill_content name="{skill.metadata.name}">\n'
-            + skill.instructions
-            + "\n</skill_content>"
+            self._system_prompt + "\n\n" + build_skill_prompt_content(skill)
         )
 
         # Replace ActivateSkill tool with updated active skill name
@@ -533,23 +519,21 @@ class AgentOrchestrator:
             )
         )
 
-        # Apply sandbox template if specified
-        if skill.metadata.sandbox_template:
-            self._executor.set_sandbox_template(skill.metadata.sandbox_template)
-            logger.info(
-                "mid_turn_skill_sandbox_template name={} template={}",
-                skill.metadata.name,
-                skill.metadata.sandbox_template,
-            )
-
-        # Auto-install dependencies if specified
-        if skill.metadata.dependencies:
-            await install_skill_dependencies_for_turn(
+        await prepare_skill_for_turn(
+            executor=self._executor,
+            skill=skill,
+            emitter=self._emitter,
+            source="mid_turn",
+            install_dependencies=lambda: install_skill_dependencies_for_turn(
                 self._executor,
                 skill.metadata.dependencies,
                 self._emitter,
                 context="orchestrator_mid_turn",
-            )
+                skill_name=skill.metadata.name,
+                source="mid_turn",
+                raise_on_error=True,
+            ),
+        )
 
         # Filter tools by allowed_tools if specified
         if skill.metadata.allowed_tools:
@@ -562,15 +546,7 @@ class AgentOrchestrator:
 
         tools = updated_registry.to_anthropic_tools()
 
-        logger.info(
-            "mid_turn_skill_activated name={}",
-            skill.metadata.name,
-        )
-
-        await self._emitter.emit(
-            EventType.SKILL_ACTIVATED,
-            {"name": skill.metadata.name, "source": "mid_turn"},
-        )
+        logger.info("mid_turn_skill_activated name={}", skill.metadata.name)
 
         return effective_prompt, updated_registry, tools
 

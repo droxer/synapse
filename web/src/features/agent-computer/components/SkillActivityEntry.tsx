@@ -67,8 +67,9 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
 
   const skillName = String(toolCall.input.name ?? "unknown");
   const displayName = normalizeSkillName(skillName);
-  const isComplete = toolCall.output !== undefined;
-  const isError = isComplete && toolCall.success === false;
+  const isResolved = toolCall.success !== undefined;
+  const isComplete = toolCall.success === true;
+  const isError = toolCall.success === false;
 
   const skillMeta = getSkill(skillName);
   // Show skeletons only while cache is still loading; once loaded/failed, hide them
@@ -136,7 +137,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 {displayName}
               </span>
 
-              {isComplete && !isError && (
+              {isComplete && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
@@ -149,7 +150,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 </motion.div>
               )}
 
-              {!isComplete && (
+              {!isResolved && (
                 <span className="rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
                   {t("skills.activity.loading")}
                 </span>
@@ -197,7 +198,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             ) : null}
 
             {/* Row 3: Stats row — instructions + resources */}
-            {isComplete && !isError && (lineCount > 0 || resourceCount > 0) && (
+            {isComplete && (lineCount > 0 || resourceCount > 0) && (
               <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -226,7 +227,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
           </div>
 
           {/* Expand raw toggle */}
-          {isComplete && !isError && lineCount > 0 && (
+          {isResolved && !isError && lineCount > 0 && (
             <button
               type="button"
               onClick={toggleRaw}

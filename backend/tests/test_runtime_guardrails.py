@@ -227,6 +227,7 @@ class _FakePlannerExecutor:
         self.current_template: str | None = None
         self.template_requests: list[str] = []
         self.reset_calls = 0
+        self.staged_skills_by_template: dict[str, set[str]] = {}
 
     def set_sandbox_template(self, template: str) -> None:
         self.current_template = template
@@ -246,6 +247,20 @@ class _FakePlannerExecutor:
     ) -> _FakeSession:
         self.template_requests.append(self.current_template or "default")
         return self.session
+
+    async def get_sandbox_session_for_template(self, template: str) -> _FakeSession:
+        self.template_requests.append(template)
+        return self.session
+
+    def is_skill_staged(self, template: str, skill_name: str) -> bool:
+        return skill_name in self.staged_skills_by_template.get(template, set())
+
+    def mark_skill_staged(self, template: str, skill_name: str) -> None:
+        self.staged_skills_by_template.setdefault(template, set()).add(skill_name)
+
+    @property
+    def sandbox_config(self):
+        return None
 
 
 def _build_skill_registry() -> SkillRegistry:
@@ -350,7 +365,7 @@ async def test_planner_resets_skill_selected_template_on_next_turn() -> None:
     )
     await planner.run("say hello", attachments=(_attachment("b.txt"),))
 
-    assert executor.template_requests == ["data_science", "default"]
+    assert executor.template_requests == ["data_science", "data_science", "default"]
     assert executor.reset_calls == 2
 
 

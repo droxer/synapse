@@ -66,6 +66,7 @@ class _SequenceExecutor:
 class _FakeSkillSession:
     def __init__(self) -> None:
         self.commands: list[str] = []
+        self.uploads: list[str] = []
 
     async def exec(
         self,
@@ -79,6 +80,10 @@ class _FakeSkillSession:
         self.commands.append(command)
         return ExecResult(stdout="", stderr="", exit_code=0)
 
+    async def upload_file(self, local_path: str, remote_path: str) -> None:
+        del local_path
+        self.uploads.append(remote_path)
+
 
 class _TaskRunnerExecutor:
     def __init__(self, registry: ToolRegistry, session: _FakeSkillSession) -> None:
@@ -86,6 +91,7 @@ class _TaskRunnerExecutor:
         self._session = session
         self.current_template: str | None = None
         self.template_requests: list[str] = []
+        self.staged_skills_by_template: dict[str, set[str]] = {}
 
     def set_sandbox_template(self, template: str) -> None:
         self.current_template = template
@@ -96,6 +102,22 @@ class _TaskRunnerExecutor:
         del tool_tags
         self.template_requests.append(self.current_template or "default")
         return self._session
+
+    async def get_sandbox_session_for_template(
+        self, template: str
+    ) -> _FakeSkillSession:
+        self.template_requests.append(template)
+        return self._session
+
+    def is_skill_staged(self, template: str, skill_name: str) -> bool:
+        return skill_name in self.staged_skills_by_template.get(template, set())
+
+    def mark_skill_staged(self, template: str, skill_name: str) -> None:
+        self.staged_skills_by_template.setdefault(template, set()).add(skill_name)
+
+    @property
+    def sandbox_config(self):
+        return None
 
     async def execute(self, name: str, tool_input: dict[str, object]) -> ToolResult:
         tool = self._registry.get(name)
@@ -524,5 +546,5 @@ async def test_task_runner_auto_selected_skill_applies_template_and_dependencies
 
     assert result.success is True
     assert executor.current_template == "data_science"
-    assert executor.template_requests == ["data_science"]
+    assert executor.template_requests == ["data_science", "data_science"]
     assert any("pip install pandas" in command for command in session.commands)

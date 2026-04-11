@@ -2,14 +2,11 @@
 
 from __future__ import annotations
 
-import os
-from pathlib import Path
 from typing import Any
 
 from agent.skills.loader import SkillRegistry
+from agent.runtime.skill_setup import build_skill_prompt_content
 from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolResult
-
-_MAX_FILES_PER_CATEGORY = 50
 
 
 class ActivateSkill(LocalTool):
@@ -69,64 +66,4 @@ class ActivateSkill(LocalTool):
                 f"Skill '{name}' not found. Available skills: {available}"
             )
 
-        parts = [f'<skill_content name="{skill.metadata.name}">']
-        parts.append(skill.instructions)
-        parts.append("")
-        parts.append(f"Skill directory: {skill.directory_path}")
-        parts.append(
-            "Resolve all relative paths in instructions against this directory."
-        )
-
-        resources = _categorize_resources(skill.directory_path)
-        if any(resources.values()):
-            parts.append("")
-            parts.append("<skill_resources>")
-            for category in ("scripts", "references", "assets"):
-                files = resources.get(category, [])
-                if files:
-                    parts.append(f"  <{category}>")
-                    for f in files[:_MAX_FILES_PER_CATEGORY]:
-                        parts.append(f"    <file>{f}</file>")
-                    if len(files) > _MAX_FILES_PER_CATEGORY:
-                        parts.append(
-                            f"    <!-- {len(files) - _MAX_FILES_PER_CATEGORY} more files -->"
-                        )
-                    parts.append(f"  </{category}>")
-            other = resources.get("other", [])
-            if other:
-                parts.append("  <other>")
-                for f in other[:_MAX_FILES_PER_CATEGORY]:
-                    parts.append(f"    <file>{f}</file>")
-                parts.append("  </other>")
-            parts.append("</skill_resources>")
-
-        parts.append("</skill_content>")
-
-        return ToolResult.ok("\n".join(parts))
-
-
-def _categorize_resources(directory: Path) -> dict[str, list[str]]:
-    """Categorize non-SKILL.md files into scripts/references/assets/other."""
-    categories: dict[str, list[str]] = {
-        "scripts": [],
-        "references": [],
-        "assets": [],
-        "other": [],
-    }
-
-    if not directory.is_dir():
-        return categories
-
-    for root, _dirs, files in os.walk(directory):
-        for fname in sorted(files):
-            if fname == "SKILL.md":
-                continue
-            rel = os.path.relpath(os.path.join(root, fname), directory)
-
-            top_dir = rel.split(os.sep)[0] if os.sep in rel else None
-            if top_dir in categories:
-                categories[top_dir].append(rel)
-            else:
-                categories["other"].append(rel)
-
-    return categories
+        return ToolResult.ok(build_skill_prompt_content(skill))

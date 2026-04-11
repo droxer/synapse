@@ -25,6 +25,7 @@ export const EVENT_TYPES = [
   "artifact_created",
   "conversation_title",
   "skill_activated",
+  "skill_setup_failed",
   "plan_created",
   "loop_guard_nudge",
   "planner_auto_selected",
@@ -116,6 +117,15 @@ export interface SkillActivatedEventData extends GenericEventData {
   readonly source?: "explicit" | "auto" | "mid_turn";
 }
 
+export interface SkillSetupFailedEventData extends GenericEventData {
+  readonly name?: string;
+  readonly phase?: "resources" | "dependencies";
+  readonly error?: string;
+  readonly manager?: string;
+  readonly packages?: string;
+  readonly source?: "explicit" | "auto" | "mid_turn";
+}
+
 export interface LoopGuardNudgeEventData extends GenericEventData {
   readonly iteration?: number;
   readonly repeated_signature?: string;
@@ -148,6 +158,7 @@ export type AgentEventDataByType = {
   artifact_created: ArtifactCreatedEventData;
   conversation_title: GenericEventData;
   skill_activated: SkillActivatedEventData;
+  skill_setup_failed: SkillSetupFailedEventData;
   plan_created: PlanCreatedEventData;
   loop_guard_nudge: LoopGuardNudgeEventData;
   planner_auto_selected: GenericEventData;

@@ -155,10 +155,28 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
     } as AgentEventDataByType[K];
   }
 
+  if (eventType === "skill_activated" || eventType === "skill_setup_failed") {
+    return {
+      ...data,
+      name: typeof data.name === "string" ? data.name : undefined,
+      source:
+        data.source === "auto" || data.source === "explicit" || data.source === "mid_turn"
+          ? data.source
+          : undefined,
+      phase:
+        data.phase === "resources" || data.phase === "dependencies"
+          ? data.phase
+          : undefined,
+      error: typeof data.error === "string" ? data.error : undefined,
+      manager: typeof data.manager === "string" ? data.manager : undefined,
+      packages: typeof data.packages === "string" ? data.packages : undefined,
+    } as AgentEventDataByType[K];
+  }
+
   return data as AgentEventDataByType[K];
 }
 
-function parseSSEEvent(rawJson: string, fallbackEventType: EventType): AgentEvent | null {
+export function parseSSEEvent(rawJson: string, fallbackEventType: EventType): AgentEvent | null {
   const parsed: unknown = JSON.parse(rawJson);
   if (!isRecord(parsed)) return null;
 

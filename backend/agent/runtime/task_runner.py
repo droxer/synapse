@@ -20,6 +20,10 @@ from agent.runtime.observer import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_runtime import split_allowed_tools
+from agent.runtime.skill_setup import (
+    build_skill_prompt_content,
+    prepare_skill_for_turn,
+)
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -344,17 +348,7 @@ class TaskAgentRunner:
         )
         if matched is not None:
             self._auto_injected_skill = matched.metadata.name
-            effective_prompt = (
-                self._system_prompt
-                + f'\n\n<skill_content name="{matched.metadata.name}">\n'
-                + matched.instructions
-                + "\n</skill_content>"
-            )
             self._turn_base_prompt = self._system_prompt
-            await self._emitter.emit(
-                EventType.SKILL_ACTIVATED,
-                {"name": matched.metadata.name, "source": "auto"},
-            )
 
             from agent.tools.local.activate_skill import ActivateSkill
 
@@ -364,22 +358,24 @@ class TaskAgentRunner:
                     active_skill_name=matched.metadata.name,
                 )
             )
-
-            if matched.metadata.sandbox_template:
-                self._executor.set_sandbox_template(matched.metadata.sandbox_template)
-                logger.info(
-                    "task_runner_skill_sandbox_template name={} template={}",
-                    matched.metadata.name,
-                    matched.metadata.sandbox_template,
-                )
-
-            if matched.metadata.dependencies:
-                await install_skill_dependencies_for_turn(
+            await prepare_skill_for_turn(
+                executor=self._executor,
+                skill=matched,
+                emitter=self._emitter,
+                source="auto",
+                install_dependencies=lambda: install_skill_dependencies_for_turn(
                     self._executor,
                     matched.metadata.dependencies,
                     self._emitter,
                     context="task_runner",
-                )
+                    skill_name=matched.metadata.name,
+                    source="auto",
+                    raise_on_error=True,
+                ),
+            )
+            effective_prompt = (
+                self._system_prompt + "\n\n" + build_skill_prompt_content(matched)
+            )
 
             if matched.metadata.allowed_tools:
                 allowed_names, allowed_tags = split_allowed_tools(
@@ -605,10 +601,7 @@ class TaskAgentRunner:
 
         self._auto_injected_skill = skill.metadata.name
         effective_prompt = (
-            self._turn_base_prompt
-            + f'\n\n<skill_content name="{skill.metadata.name}">\n'
-            + skill.instructions
-            + "\n</skill_content>"
+            self._turn_base_prompt + "\n\n" + build_skill_prompt_content(skill)
         )
 
         from agent.tools.local.activate_skill import ActivateSkill
@@ -620,21 +613,21 @@ class TaskAgentRunner:
             )
         )
 
-        if skill.metadata.sandbox_template:
-            self._executor.set_sandbox_template(skill.metadata.sandbox_template)
-            logger.info(
-                "task_runner_mid_turn_skill_sandbox_template name={} template={}",
-                skill.metadata.name,
-                skill.metadata.sandbox_template,
-            )
-
-        if skill.metadata.dependencies:
-            await install_skill_dependencies_for_turn(
+        await prepare_skill_for_turn(
+            executor=self._executor,
+            skill=skill,
+            emitter=self._emitter,
+            source="mid_turn",
+            install_dependencies=lambda: install_skill_dependencies_for_turn(
                 self._executor,
                 skill.metadata.dependencies,
                 self._emitter,
                 context="task_runner_mid_turn",
-            )
+                skill_name=skill.metadata.name,
+                source="mid_turn",
+                raise_on_error=True,
+            ),
+        )
 
         if skill.metadata.allowed_tools:
             allowed_names, allowed_tags = split_allowed_tools(
@@ -644,9 +637,5 @@ class TaskAgentRunner:
                 allowed_names, allowed_tags
             )
 
-        await self._emitter.emit(
-            EventType.SKILL_ACTIVATED,
-            {"name": skill.metadata.name, "source": "mid_turn"},
-        )
         logger.info("task_runner_mid_turn_skill_activated name={}", skill.metadata.name)
         return effective_prompt, updated_registry, updated_registry.to_anthropic_tools()

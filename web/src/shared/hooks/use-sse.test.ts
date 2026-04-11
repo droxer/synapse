@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { shouldScheduleReconnect } from "./use-sse";
+import { parseSSEEvent, shouldScheduleReconnect } from "./use-sse";
 
 describe("shouldScheduleReconnect", () => {
   it("returns false when stopped", () => {
@@ -44,5 +44,29 @@ describe("shouldScheduleReconnect", () => {
         hasPendingTimer: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("parseSSEEvent", () => {
+  it("accepts skill_setup_failed events", () => {
+    const parsed = parseSSEEvent(
+      JSON.stringify({
+        event_type: "skill_setup_failed",
+        data: {
+          name: "docx",
+          phase: "dependencies",
+          error: "pip install failed",
+          source: "auto",
+        },
+        timestamp: 123,
+        iteration: 1,
+      }),
+      "skill_setup_failed",
+    );
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.type).toBe("skill_setup_failed");
+    expect(parsed?.data.name).toBe("docx");
+    expect(parsed?.data.phase).toBe("dependencies");
   });
 });

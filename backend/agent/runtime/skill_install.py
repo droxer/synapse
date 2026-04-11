@@ -19,15 +19,19 @@ async def install_skill_dependencies_for_turn(
     emitter: EventEmitter,
     *,
     context: str = "agent",
+    skill_name: str | None = None,
+    source: str | None = None,
+    raise_on_error: bool = False,
 ) -> None:
     """Run pip/npm installs for *dependencies*.
 
     On failure: emits :data:`EventType.SKILL_DEPENDENCY_FAILED` and logs.
-    If ``SKILL_DEPENDENCY_INSTALL_STRICT`` is enabled in settings, raises
-    ``RuntimeError`` after the first failed install batch.
+    If ``SKILL_DEPENDENCY_INSTALL_STRICT`` is enabled in settings, or
+    ``raise_on_error`` is True, raises ``RuntimeError`` after the first
+    failed install batch.
     """
     settings = get_settings()
-    strict = settings.SKILL_DEPENDENCY_INSTALL_STRICT
+    strict = settings.SKILL_DEPENDENCY_INSTALL_STRICT or raise_on_error
     by_manager = group_safe_dependencies(dependencies)
 
     for manager, packages in by_manager.items():
@@ -75,12 +79,26 @@ async def install_skill_dependencies_for_turn(
         await emitter.emit(
             EventType.SKILL_DEPENDENCY_FAILED,
             {
+                "name": skill_name,
                 "manager": manager,
                 "packages": packages_str,
                 "error": err_detail or "unknown error",
                 "context": context,
+                "source": source,
             },
         )
+        if skill_name and source:
+            await emitter.emit(
+                EventType.SKILL_SETUP_FAILED,
+                {
+                    "name": skill_name,
+                    "phase": "dependencies",
+                    "manager": manager,
+                    "packages": packages_str,
+                    "error": err_detail or "unknown error",
+                    "source": source,
+                },
+            )
         if strict:
             raise RuntimeError(
                 f"Skill dependency install failed ({context}): "

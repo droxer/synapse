@@ -57,6 +57,7 @@ class EventType(StrEnum):
     CONTEXT_COMPACTED = "context_compacted"
 
     SKILL_DEPENDENCY_FAILED = "skill_dependency_failed"
+    SKILL_SETUP_FAILED = "skill_setup_failed"
     LOOP_GUARD_NUDGE = "loop_guard_nudge"
 
     PLANNER_AUTO_SELECTED = "planner_auto_selected"
