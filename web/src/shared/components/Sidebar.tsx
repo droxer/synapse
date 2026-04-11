@@ -193,7 +193,7 @@ export function Sidebar({
                   onClick={onNewTask}
                   aria-label={t("sidebar.newTask")}
                   className={cn(
-                    "group/new flex w-full items-center justify-center rounded-lg p-2",
+                    "group/new flex w-full items-center justify-center rounded-md p-2",
                     "border border-transparent",
                     "transition-[color,background-color,border-color] duration-200",
                     "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -295,7 +295,7 @@ export function Sidebar({
               type="button"
               onClick={onNewTask}
               className={cn(
-                "group/new flex w-full items-center gap-2 rounded-lg px-3 py-2.5",
+                "group/new flex w-full items-center gap-2 rounded-md px-3 py-2.5",
                 "border border-transparent",
                 "transition-[color,background-color,border-color] duration-200",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
@@ -314,7 +314,7 @@ export function Sidebar({
               onClick={createNavClickHandler("/channels")}
               aria-label={t("sidebar.channels")}
               className={cn(
-                "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/channels"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -331,7 +331,7 @@ export function Sidebar({
               onClick={createNavClickHandler("/library")}
               aria-label={t("sidebar.library")}
               className={cn(
-                "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/library"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -349,7 +349,7 @@ export function Sidebar({
               onClick={createNavClickHandler("/skills")}
               aria-label={t("sidebar.skills")}
               className={cn(
-                "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/skills"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -366,7 +366,7 @@ export function Sidebar({
               onClick={createNavClickHandler("/mcp")}
               aria-label={t("sidebar.mcp")}
               className={cn(
-                "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "group flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 activePath === "/mcp"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -411,7 +411,7 @@ export function Sidebar({
                       type="button"
                       onClick={() => onSelectTask?.(task.id)}
                       className={cn(
-                        "relative flex w-full cursor-pointer items-center justify-center rounded-lg p-2 transition-colors duration-200",
+                        "relative flex w-full cursor-pointer items-center justify-center rounded-md p-2 transition-colors duration-200",
                         "hover:bg-sidebar-hover",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         isActive && "bg-sidebar-active",
@@ -432,7 +432,7 @@ export function Sidebar({
                     aria-current={isActive ? "true" : undefined}
                     onClick={() => onSelectTask?.(task.id)}
                     className={cn(
-                      "relative flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-1.5 pr-9 text-left",
+                      "relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 pr-9 text-left",
                       "transition-colors duration-200 ease-out",
                       "hover:bg-sidebar-hover",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

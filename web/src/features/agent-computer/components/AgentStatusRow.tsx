@@ -13,7 +13,7 @@ import { EVENT_LEFT_RAIL_CLASSES, EVENT_META_BADGE_CLASSES, EVENT_ROW_BASE_CLASS
 import type { AgentStatus, ToolCallInfo } from "@/shared/types";
 
 function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly label: string }) {
-  if (tc.output !== undefined) {
+  if (tc.success !== undefined) {
     return tc.success === false
       ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" role="img" aria-label={label} />
       : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" role="img" aria-label={label} />;
@@ -111,7 +111,7 @@ export function AgentStatusRow({
                     <ToolStatusIcon
                       tc={tc}
                       label={
-                        tc.output !== undefined
+                        tc.success !== undefined
                           ? tc.success === false
                             ? t("a11y.toolFailed")
                             : t("a11y.toolSuccess")
@@ -121,7 +121,7 @@ export function AgentStatusRow({
                     <span className="text-sm text-foreground">
                       {normalizeToolName(tc.name)}
                     </span>
-                    {tc.output === undefined && (
+                    {tc.success === undefined && (
                       <span className="text-sm text-muted-foreground">
                         {t("computer.running")}
                       </span>

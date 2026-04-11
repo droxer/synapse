@@ -1,0 +1,84 @@
+"""Tests for prompt section safety around long-running memory contexts."""
+
+from __future__ import annotations
+
+from types import SimpleNamespace
+
+from api.builders import (
+    build_agent_system_prompt,
+    format_verified_facts_prompt_section,
+)
+
+
+def test_verified_facts_section_keeps_closing_tag_under_cap() -> None:
+    facts = [
+        {"namespace": "profile", "key": "timezone", "value": "UTC+8"},
+        {"namespace": "preferences", "key": "language", "value": "English"},
+    ]
+    cap = len(
+        "\n".join(
+            [
+                "<verified_user_facts>",
+                "Known user facts (verified):",
+                "- [profile] timezone: UTC+8",
+                "</verified_user_facts>",
+            ]
+        )
+    )
+
+    section = format_verified_facts_prompt_section(facts, token_cap_chars=cap)
+
+    assert section.endswith("</verified_user_facts>")
+    assert "- [profile] timezone: UTC+8" in section
+    assert "- [preferences] language: English" not in section
+
+
+def test_verified_facts_section_returns_empty_when_cap_too_small() -> None:
+    facts = [{"namespace": "profile", "key": "timezone", "value": "UTC"}]
+
+    section = format_verified_facts_prompt_section(facts, token_cap_chars=10)
+
+    assert section == ""
+
+
+def test_build_agent_system_prompt_caps_memory_value_and_total(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            DEFAULT_SYSTEM_PROMPT="BASE",
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=20,
+            MEMORY_PROMPT_MAX_CHARS=260,
+        ),
+    )
+    memory_entries = [
+        {"namespace": "default", "key": "notes", "value": "a" * 500},
+        {"namespace": "default", "key": "second", "value": "b" * 500},
+    ]
+
+    prompt = build_agent_system_prompt(memory_entries, skill_registry=None)
+
+    assert "<personal_memory>" in prompt
+    assert "...[memory entries truncated]" in prompt
+    assert "- notes:" not in prompt
+    assert "- second:" not in prompt
+    # "BASE\n" + memory section (capped at 260 chars)
+    assert len(prompt) <= len("BASE\n") + 260
+
+
+def test_build_agent_system_prompt_caps_single_memory_value(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            DEFAULT_SYSTEM_PROMPT="BASE",
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=20,
+            MEMORY_PROMPT_MAX_CHARS=500,
+        ),
+    )
+    memory_entries = [{"namespace": "default", "key": "notes", "value": "a" * 500}]
+
+    prompt = build_agent_system_prompt(memory_entries, skill_registry=None)
+
+    assert "- notes: " in prompt
+    assert "...[truncated]" in prompt

@@ -12,8 +12,8 @@ export function PulsingDot({ size = "sm", className }: PulsingDotProps) {
 
   return (
     <span className={cn("relative shrink-0", sizeClass, className)}>
-      <span className={cn("absolute inset-0 rounded-full bg-accent-purple animate-[pulsingDotFade_2s_ease-in-out_infinite]")} />
-      <span className="absolute inset-0 rounded-full bg-accent-purple animate-[pulsingDotRing_2s_ease-out_infinite]" />
+      <span className={cn("absolute inset-0 rounded-full bg-focus animate-[pulsingDotFade_2s_ease-in-out_infinite]")} />
+      <span className="absolute inset-0 rounded-full bg-focus animate-[pulsingDotRing_2s_ease-out_infinite]" />
     </span>
   );
 }

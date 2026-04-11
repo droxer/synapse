@@ -138,6 +138,13 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
     } as AgentEventDataByType[K];
   }
 
+  if (eventType === "sandbox_stdout" || eventType === "sandbox_stderr") {
+    return {
+      ...data,
+      text: normalizeEventText(data.text),
+    } as AgentEventDataByType[K];
+  }
+
   if (eventType === "artifact_created") {
     return {
       ...data,

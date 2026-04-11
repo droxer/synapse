@@ -178,6 +178,10 @@ export interface ChatMessage {
   readonly imageArtifactIds?: readonly string[];
   readonly thinkingContent?: string;
   readonly thinkingEntries?: readonly ThinkingEntry[];
+  /** Stable key for merging optimistic, history, and event-derived rows. */
+  readonly messageId?: string;
+  readonly source?: "history" | "event" | "optimistic";
+  readonly turnId?: string;
 }
 
 export interface ThinkingEntry {

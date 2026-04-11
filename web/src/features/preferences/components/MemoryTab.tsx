@@ -67,7 +67,7 @@ export function MemoryTab() {
       {/* Table */}
       <div className="rounded-lg border border-border overflow-hidden">
         {/* Header */}
-        <div className="grid grid-cols-[180px_1fr_100px_100px_40px] gap-3 bg-secondary px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-[180px_1fr_100px_100px_40px] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground">
           <span>{t("preferences.memory.key")}</span>
           <span>{t("preferences.memory.value")}</span>
           <span>{t("preferences.memory.scope")}</span>

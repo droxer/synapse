@@ -188,7 +188,7 @@ function getRunningToolStatusText(toolCall: ToolCallInfo, t: TFn): string {
 }
 
 function RunningBadge({ toolCall, t }: { readonly toolCall: ToolCallInfo; readonly t: TFn }) {
-  if (toolCall.output !== undefined) return null;
+  if (toolCall.success !== undefined) return null;
   return <span className="text-foreground">{t("computer.running")}</span>;
 }
 
@@ -219,7 +219,7 @@ function getBrowserStatusText(tc: ToolCallInfo, t: TFn): string {
 /* ── status icon for terminal-style logs ── */
 function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   const { t } = useTranslation();
-  if (tc.output !== undefined) {
+  if (tc.success !== undefined) {
     return tc.success === false
       ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" aria-label={t("a11y.toolFailed")} role="img" />
       : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" aria-label={t("a11y.toolSuccess")} role="img" />;
@@ -610,7 +610,7 @@ export function AgentComputerPanel({
                           <RunningBadge toolCall={item.toolCall} t={t} />
                         </>
                       )}
-                      {item.toolCall.output !== undefined && item.toolCall.success !== false && (
+                      {item.toolCall.success === true && (
                         <span className={cn(EVENT_META_BADGE_CLASSES, "ml-auto")}>
                           {t("computer.statusDone")}
                         </span>

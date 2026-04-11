@@ -98,6 +98,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let pendingToolCallThinking = "";
   let toolCallSeq = 0;
   let planSteps: PlanStep[] = [];
+  const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
 
   const resolveToolResultRow = (apiToolId: string): string | undefined => {
     if (!apiToolId) return undefined;
@@ -150,6 +151,17 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       thinkingEntries: appendUnique(existing.thinkingEntries, pendingThinkingEntries),
     };
     pendingThinkingEntries = [];
+  };
+
+  const resolveActiveStreamRow = (): string | undefined => {
+    for (let i = toolCallOrder.length - 1; i >= 0; i--) {
+      const rowId = toolCallOrder[i]!;
+      const call = toolCallMap.get(rowId);
+      if (call && streamableCodeTools.has(call.name) && call.success === undefined) {
+        return rowId;
+      }
+    }
+    return undefined;
   };
 
   for (const event of events) {
@@ -282,29 +294,32 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       if (newImageIds.length > 0) {
         pendingImageArtifactIds = [...pendingImageArtifactIds, ...newImageIds];
       }
+    } else if (event.type === "sandbox_stdout" || event.type === "sandbox_stderr") {
+      const streamRowId = resolveActiveStreamRow();
+      const existing = streamRowId ? toolCallMap.get(streamRowId) : undefined;
+      const text = typeof event.data.text === "string" ? event.data.text : "";
+      if (existing && streamRowId && text.length > 0) {
+        const chunk = event.type === "sandbox_stderr" ? `stderr: ${text}` : text;
+        toolCallMap.set(streamRowId, {
+          ...existing,
+          output: `${existing.output ?? ""}${chunk}`,
+        });
+      }
     } else if (event.type === "code_result") {
-      const codeToolNames = new Set(["code_run", "code_interpret", "shell_exec"]);
       const directToolId = event.data.tool_id ? String(event.data.tool_id) : "";
       let targetId: string | undefined;
       if (directToolId) {
         for (let i = toolCallOrder.length - 1; i >= 0; i--) {
           const rowId = toolCallOrder[i]!;
           const call = toolCallMap.get(rowId);
-          if (call && call.toolUseId === directToolId && codeToolNames.has(call.name) && call.output === undefined) {
+          if (call && call.toolUseId === directToolId && streamableCodeTools.has(call.name) && call.output === undefined) {
             targetId = rowId;
             break;
           }
         }
       }
       if (!targetId) {
-        for (let i = toolCallOrder.length - 1; i >= 0; i--) {
-          const rowId = toolCallOrder[i]!;
-          const call = toolCallMap.get(rowId);
-          if (call && codeToolNames.has(call.name) && call.output === undefined) {
-            targetId = rowId;
-            break;
-          }
-        }
+        targetId = resolveActiveStreamRow();
       }
       if (targetId) {
         const existing = toolCallMap.get(targetId);

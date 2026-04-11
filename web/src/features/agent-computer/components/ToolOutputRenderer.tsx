@@ -241,8 +241,8 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     );
   }
 
-  // Shell exec — terminal-style renderer
-  if (toolName === "shell_exec") {
+  // Shell/code execution — terminal-style renderer
+  if (toolName === "shell_exec" || toolName === "code_run") {
     return (
       <TerminalWindow title={t("output.shell.title")} className="mt-2" copyText={stripAnsi(output)}>
         {/* Output */}

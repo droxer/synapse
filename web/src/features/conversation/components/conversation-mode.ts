@@ -1,4 +1,38 @@
-import type { AgentEvent } from "@/shared/types";
+import type { AgentEvent, TaskState } from "@/shared/types";
+
+export function getCurrentTurnEventSlice(events: AgentEvent[]): AgentEvent[] {
+  let lastCompleteIdx = -1;
+  for (let i = 0; i < events.length; i++) {
+    if (events[i]?.type === "turn_complete") {
+      lastCompleteIdx = i;
+    }
+  }
+  if (lastCompleteIdx === -1) return events;
+  return events.slice(lastCompleteIdx + 1);
+}
+
+export function hasPlannerSignalsSinceLastTurnComplete(events: AgentEvent[]): boolean {
+  return getCurrentTurnEventSlice(events).some((e) => e.type === "plan_created");
+}
+
+export interface PlannerModeBadgeContext {
+  readonly taskState: TaskState;
+  readonly isWaitingForAgent: boolean;
+  readonly plannerBadgeLive: boolean;
+  readonly explicitPlannerPending: boolean;
+}
+
+export function shouldShowPlannerModeBadge(
+  events: AgentEvent[],
+  ctx: PlannerModeBadgeContext,
+): boolean {
+  if (ctx.taskState === "planning") return true;
+  if (!ctx.plannerBadgeLive) return false;
+  if (ctx.taskState === "executing" && hasPlannerSignalsSinceLastTurnComplete(events)) {
+    return true;
+  }
+  return false;
+}
 
 export function getLatestTurnMode(events: AgentEvent[]): "agent" | "planner" | null {
   for (let i = events.length - 1; i >= 0; i--) {

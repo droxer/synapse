@@ -77,6 +77,9 @@ class Settings(BaseSettings):
     COMPACT_RECONSTRUCT_TAIL_MESSAGES: int = 80
     # Before compaction, persist heuristic facts from user text in dropped context
     COMPACT_MEMORY_FLUSH: bool = False
+    # Deprecated compatibility shim. This legacy env var is intentionally a no-op.
+    # Keep it accepted to avoid startup crashes with older .env files.
+    COMPACT_TOKEN_BUDGET_SCALE: float | None = None
     SKILL_SELECTOR_MODEL: str = ""
     COMPLEXITY_CLASSIFIER_MODEL: str = (
         ""  # Model for task complexity classification (default: LITE_MODEL)

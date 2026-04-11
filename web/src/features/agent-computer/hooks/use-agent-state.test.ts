@@ -58,4 +58,60 @@ describe("deriveAgentState", () => {
     const state = deriveAgentState(events);
     expect(state.planSteps).toHaveLength(0);
   });
+
+  it("streams sandbox stdout/stderr into active shell/code tool output", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "tool_call",
+        data: { tool_id: "tool-2", tool_name: "shell_exec", tool_input: { command: "echo hi" } },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "sandbox_stdout",
+        data: { text: "line 1\n" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "sandbox_stderr",
+        data: { text: "warn\n" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.output).toBe("line 1\nstderr: warn\n");
+    expect(state.toolCalls[0]?.success).toBeUndefined();
+  });
+
+  it("replaces streamed output with final tool_result output", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "tool_call",
+        data: { tool_id: "tool-3", tool_name: "code_run", tool_input: { language: "bash", code: "echo done" } },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "sandbox_stdout",
+        data: { text: "partial\n" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "tool_result",
+        data: { tool_id: "tool-3", output: "final\n", success: true },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.output).toBe("final\n");
+    expect(state.toolCalls[0]?.success).toBe(true);
+  });
 });

@@ -5,6 +5,7 @@ export interface ConversationListItem {
   readonly title: string | null;
   readonly created_at: string;
   readonly updated_at: string;
+  readonly is_running?: boolean;
 }
 
 export interface ConversationListResponse {

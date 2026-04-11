@@ -33,7 +33,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       tabIndex={0}
       aria-label={normalizeSkillName(skill.name)}
       className={cn(
-        "group flex h-full cursor-pointer flex-col rounded-lg border bg-card p-4 transition-[border-color,background-color] duration-200 ease-out",
+        "group flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color] duration-200 ease-out",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         isDisabled
           ? "border-border hover:border-border"

@@ -145,7 +145,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
             transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <Command
-              className="w-[calc(100%-2rem)] max-w-[560px] overflow-hidden rounded-lg border border-border bg-card shadow-elevated"
+              className="w-[calc(100%-2rem)] max-w-[560px] overflow-hidden rounded-xl border border-border bg-card shadow-elevated"
               loop
             >
               {/* Search input */}

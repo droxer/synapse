@@ -110,9 +110,9 @@ function getProviderConfig(provider: string): ProviderConfig {
   return (
     PROVIDER_CONFIGS[provider.toLowerCase()] ?? {
       label: provider.charAt(0).toUpperCase() + provider.slice(1),
-      bgColor: "#64748B",
+      bgColor: "#71717A",
       textColor: "#ffffff",
-      gradient: "linear-gradient(135deg, #64748B 0%, #475569 100%)",
+      gradient: "linear-gradient(135deg, #71717A 0%, #52525B 100%)",
       icon: <GenericChannelSVG size={16} />,
     }
   );

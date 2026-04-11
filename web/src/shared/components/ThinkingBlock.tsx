@@ -21,7 +21,7 @@ export function ThinkingBlock({ content, isLive = false, className }: ThinkingBl
   return (
     <div
       className={cn(
-        "mb-4 overflow-hidden rounded-lg border border-border bg-card",
+        "mb-4 overflow-hidden rounded-xl border border-border bg-card",
         className,
       )}
     >

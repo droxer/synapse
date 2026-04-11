@@ -10,13 +10,15 @@ export interface ConversationHistoryItem {
   readonly id: string;
   readonly title: string;
   readonly timestamp: number;
+  readonly isRunning: boolean;
 }
 
-function toHistoryItem(item: ConversationListItem): ConversationHistoryItem {
+export function toHistoryItem(item: ConversationListItem): ConversationHistoryItem {
   return {
     id: item.id,
     title: item.title ?? "Untitled",
     timestamp: new Date(item.created_at).getTime(),
+    isRunning: item.is_running === true,
   };
 }
 
@@ -67,7 +69,12 @@ export const useAppStore = create<AppState>()(
           conversationId,
           isLiveConversation: true,
           conversationHistory: [
-            { id: conversationId, title: title.slice(0, 80), timestamp: Date.now() },
+            {
+              id: conversationId,
+              title: title.slice(0, 80),
+              timestamp: Date.now(),
+              isRunning: true,
+            },
             ...state.conversationHistory.filter((c) => c.id !== conversationId),
           ],
           totalConversations: state.conversationHistory.some((c) => c.id === conversationId)

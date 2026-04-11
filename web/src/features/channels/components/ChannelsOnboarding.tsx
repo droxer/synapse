@@ -26,14 +26,14 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
         <div className="relative flex h-24 w-24 items-center justify-center">
           <div className="absolute h-24 w-24 rounded-full border border-border" />
           <div className="absolute h-16 w-16 rounded-full border border-border-strong" />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-muted border border-border">
+          <div className="relative flex h-14 w-14 items-center justify-center rounded-xl bg-muted border border-border">
             <ChannelProviderIcon provider="telegram" size="lg" />
           </div>
           {/* Compass point dots */}
-          <div className="absolute top-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-accent-purple/40" />
-          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-accent-purple/40" />
-          <div className="absolute left-1 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full bg-accent-purple/40" />
-          <div className="absolute right-1 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full bg-accent-purple/40" />
+          <div className="absolute top-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-focus/40" />
+          <div className="absolute bottom-1 left-1/2 -translate-x-1/2 h-1 w-1 rounded-full bg-focus/40" />
+          <div className="absolute left-1 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full bg-focus/40" />
+          <div className="absolute right-1 top-1/2 -translate-y-1/2 h-1 w-1 rounded-full bg-focus/40" />
         </div>
 
         {/* Heading */}
@@ -54,7 +54,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
                   <div
                     className={
                       isActive
-                        ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-purple text-xs font-semibold text-primary-foreground ring-1 ring-accent-purple/30 shadow-sm shadow-accent-purple/20"
+                        ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-focus text-xs font-semibold text-primary-foreground ring-1 ring-focus/30 shadow-sm shadow-focus/20"
                         : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground-dim ring-1 ring-border"
                     }
                   >
@@ -64,7 +64,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
                     <div
                       className={`mt-1 w-px flex-1 min-h-[20px] ${
                         isActive
-                          ? "bg-gradient-to-b from-accent-purple/40 to-transparent"
+                          ? "bg-gradient-to-b from-focus/40 to-transparent"
                           : "bg-border"
                       }`}
                     />

@@ -112,7 +112,7 @@ export function TokenUsageTab() {
 
         <div className="rounded-lg border border-border overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_120px_120px_80px_120px] gap-3 bg-secondary px-4 py-3 text-micro font-semibold uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-[1fr_120px_120px_80px_120px] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground">
             <span>{t("preferences.usage.conversationId")}</span>
             <span className="text-right">{t("profile.inputTokens")}</span>
             <span className="text-right">{t("profile.outputTokens")}</span>
