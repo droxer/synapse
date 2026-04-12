@@ -10,16 +10,9 @@ import {
   Minus,
   Lightbulb,
   Play,
-  Code,
-  FileText,
-  Globe,
-  Database,
-  Eye,
   Bot,
   Flag,
   AlertTriangle,
-  Wrench,
-  Plug,
   Monitor,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
@@ -38,9 +31,8 @@ import {
   HIDDEN_ACTIVITY_TOOLS,
   normalizeToolNameI18n,
   normalizeAgentName,
-  getToolCategory,
 } from "@/features/agent-computer/lib/tool-constants";
-import type { ToolCategory } from "@/features/agent-computer/lib/tool-constants";
+import { getTimelineToolOrSkillIcon } from "@/features/agent-computer/lib/tool-visual-icons";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import type { TFn } from "@/shared/types/i18n";
 
@@ -63,6 +55,8 @@ interface TimelineStep {
   readonly title: string;
   /** The tool, skill, or agent name — rendered with emphasis when present */
   readonly name?: string;
+  /** Raw skill id from tool input / events — stable icon key */
+  readonly skillKey?: string;
   /** Raw tool name for category-based icon lookup */
   readonly rawToolName?: string;
   readonly status: TimelineStepStatus;
@@ -83,7 +77,7 @@ interface ToolCallIndexes {
   readonly countByAgentId: ReadonlyMap<string, number>;
 }
 
-const STEP_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm";
+const STEP_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-md";
 const STEP_ICON_GLYPH_CLASS = "h-3 w-3";
 
 const SEARCH_LIKE_TOOLS = new Set([
@@ -229,7 +223,7 @@ export function buildSteps(
         return step;
       }
       updated = true;
-      return { ...step, status, title: getSkillStepTitle(normalized, status) };
+      return { ...step, skillKey: step.skillKey ?? skillName, status, title: getSkillStepTitle(normalized, status) };
     });
     if (!updated) {
       steps = [...steps, {
@@ -237,6 +231,7 @@ export function buildSteps(
         kind: "skill",
         title: getSkillStepTitle(normalized, status),
         name: normalized,
+        skillKey: skillName,
         status,
       }];
     }
@@ -274,6 +269,7 @@ export function buildSteps(
           let stepTitle: string;
 
           const isComputer = toolName === "computer_action" || toolName === "computer_screenshot";
+          const rawSkillId = isSkill ? String(input.name ?? "").trim() : "";
 
           if (isComputer) {
             // Computer use: "Desktop click (640, 480)" or "Desktop screenshot"
@@ -291,7 +287,7 @@ export function buildSteps(
           } else {
             const normalizedToolName = normalizeToolNameI18n(toolName, t);
             displayName = isSkill
-              ? normalizeSkillName(String(input.name ?? "skill"))
+              ? normalizeSkillName(rawSkillId || "skill")
               : normalizedToolName;
 
             if (isSkill) {
@@ -323,6 +319,7 @@ export function buildSteps(
             kind: isSkill ? "skill" : "tool",
             title: stepTitle,
             name: displayName,
+            skillKey: isSkill && rawSkillId ? rawSkillId : undefined,
             rawToolName: toolName,
             status: isSkill
               ? skillStatus
@@ -350,7 +347,12 @@ export function buildSteps(
                     : nextStep.status;
               steps = steps.map((s, i) =>
                 i === syntheticIdx
-                  ? { ...nextStep, status: mergedStatus, title: getSkillStepTitle(displayName, mergedStatus) }
+                  ? {
+                    ...nextStep,
+                    skillKey: prior.skillKey ?? nextStep.skillKey,
+                    status: mergedStatus,
+                    title: getSkillStepTitle(displayName, mergedStatus),
+                  }
                   : s
               );
               break;
@@ -494,29 +496,20 @@ function AgentStepTitleLine({
   );
 }
 
-/* Category-based icon for each tool kind */
-function toolCategoryIcon(category: ToolCategory) {
-  switch (category) {
-    case "code": return Code;
-    case "file": return FileText;
-    case "search": return Globe;
-    case "memory": return Database;
-    case "browser": return Eye;
-    case "computer": return Monitor;
-    case "preview": return Eye;
-    case "mcp": return Plug;
-    default: return Wrench;
-  }
-}
-
-function kindIcon(kind: StepKind, rawToolName?: string) {
-  switch (kind) {
-    case "start": return Play;
-    case "skill": return Lightbulb;
-    case "agent": return Bot;
-    case "complete": return Flag;
-    case "error": return AlertTriangle;
-    case "tool": return rawToolName ? toolCategoryIcon(getToolCategory(rawToolName)) : Wrench;
+function stepGlyphIcon(step: TimelineStep) {
+  switch (step.kind) {
+    case "start":
+      return Play;
+    case "skill":
+      return getTimelineToolOrSkillIcon("skill", step.rawToolName, step.skillKey, step.name);
+    case "agent":
+      return Bot;
+    case "complete":
+      return Flag;
+    case "error":
+      return AlertTriangle;
+    case "tool":
+      return getTimelineToolOrSkillIcon("tool", step.rawToolName, undefined, step.name);
   }
 }
 
@@ -567,19 +560,32 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
 
 /* Icon + status-colored container for each step */
 function StepIcon({ step }: { readonly step: TimelineStep }) {
-  const Icon = kindIcon(step.kind, step.rawToolName);
+  const Icon = stepGlyphIcon(step);
   const visual = getStepStatusVisual(step.status);
+  const useDistinctGlyph = step.kind === "tool" || step.kind === "skill";
 
   if (step.status === "running") {
     return (
       <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
-        <span className="absolute inset-0 rounded-sm bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
+        <span className="absolute inset-0 rounded-md bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
       </span>
     );
   }
 
   if (step.status === "error") {
+    if (useDistinctGlyph) {
+      return (
+        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+          <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
+          <CircleX
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+            strokeWidth={2.5}
+            aria-hidden
+          />
+        </span>
+      );
+    }
     return (
       <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <CircleX className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
@@ -603,7 +609,19 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
     );
   }
 
-  // complete
+  if (useDistinctGlyph) {
+    return (
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
+        <Check
+          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+          strokeWidth={3}
+          aria-hidden
+        />
+      </span>
+    );
+  }
+
   return (
     <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
       <Check className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.5} />

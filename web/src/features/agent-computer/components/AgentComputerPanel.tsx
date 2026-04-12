@@ -6,18 +6,12 @@ import {
   Monitor,
   CircleCheck,
   CircleX,
+  Check,
   X,
   FolderOpen,
   GitFork,
   Clock,
   MessageSquare,
-  Code,
-  FileText,
-  Globe,
-  Database,
-  Eye,
-  Plug,
-  Wrench,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
@@ -27,7 +21,8 @@ import {
   EVENT_ROW_BASE_CLASSES,
 } from "../lib/format-tools";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
-import { HIDDEN_ACTIVITY_TOOLS, normalizeToolNameI18n, getToolCategory } from "../lib/tool-constants";
+import { HIDDEN_ACTIVITY_TOOLS, normalizeToolNameI18n } from "../lib/tool-constants";
+import { getSkillIcon, getToolIcon } from "../lib/tool-visual-icons";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { ToolOutputRenderer } from "./ToolOutputRenderer";
 import { SkillActivityEntry } from "./SkillActivityEntry";
@@ -57,7 +52,7 @@ function getToolVerb(name: string, t: TFn): string {
 
 const COMPUTER_USE_TOOLS = new Set(["computer_action", "computer_screenshot"]);
 const AGENT_META_TOOLS = new Set(["agent_spawn", "agent_wait", "agent_send"]);
-const TOOL_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm";
+const TOOL_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-md";
 const TOOL_ICON_GLYPH_CLASS = "h-3.5 w-3.5";
 
 /** Polished display for agent_spawn tool calls. */
@@ -267,53 +262,38 @@ function getBrowserStatusText(tc: ToolCallInfo, t: TFn): string {
   return t("computer.usingTool", { verb: getToolVerb("browser_use", t) });
 }
 
-function getToolGlyph(toolName: string) {
-  if (toolName === "agent_spawn") return GitFork;
-  if (toolName === "agent_wait") return Clock;
-  if (toolName === "agent_send") return MessageSquare;
-  if (COMPUTER_USE_TOOLS.has(toolName)) return Monitor;
-  switch (getToolCategory(toolName)) {
-    case "code":
-      return Code;
-    case "file":
-      return FileText;
-    case "search":
-      return Globe;
-    case "memory":
-      return Database;
-    case "browser":
-    case "preview":
-      return Eye;
-    case "mcp":
-      return Plug;
-    case "computer":
-      return Monitor;
-    default:
-      return Wrench;
-  }
-}
-
 /* ── status icon for terminal-style logs ── */
 function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   const { t } = useTranslation();
-  const ToolGlyph = getToolGlyph(tc.name);
+  const skillId = SKILL_TOOL_NAMES.has(tc.name) ? String(tc.input.name ?? "").trim() : "";
+  const ToolGlyph = skillId ? getSkillIcon(skillId) : getToolIcon(tc.name);
   if (tc.success !== undefined) {
     return tc.success === false
       ? (
-        <span className={cn(TOOL_ICON_FRAME_CLASS, "bg-destructive/14")}>
-          <CircleX className={cn(TOOL_ICON_GLYPH_CLASS, "text-destructive")} strokeWidth={2.25} aria-label={t("a11y.toolFailed")} role="img" />
+        <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-destructive/14")} aria-label={t("a11y.toolFailed")} role="img">
+          <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-destructive")} strokeWidth={2.25} />
+          <CircleX
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+            strokeWidth={2.5}
+            aria-hidden
+          />
         </span>
       )
       : (
-        <span className={cn(TOOL_ICON_FRAME_CLASS, "bg-accent-emerald/14")}>
-          <CircleCheck className={cn(TOOL_ICON_GLYPH_CLASS, "text-accent-emerald")} strokeWidth={2.25} aria-label={t("a11y.toolSuccess")} role="img" />
+        <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-accent-emerald/14")} aria-label={t("a11y.toolSuccess")} role="img">
+          <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-accent-emerald")} strokeWidth={2.25} />
+          <Check
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+            strokeWidth={3}
+            aria-hidden
+          />
         </span>
       );
   }
   return (
     <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-focus/14")} aria-label={t("a11y.toolRunning")} role="img">
       <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-focus")} strokeWidth={2.25} />
-      <span className="absolute inset-0 rounded-sm bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
+      <span className="absolute inset-0 rounded-md bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
     </span>
   );
 }
