@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useId } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Brain, ChevronDown } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { MarkdownRenderer } from "@/shared/components";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
@@ -24,6 +24,7 @@ export function ThinkingBlock({
   const shouldReduceMotion = useReducedMotion();
   const [expanded, setExpanded] = useState(true);
   const wasTurnStreamingRef = useRef(isTurnStreaming);
+  const panelId = useId();
 
   // Auto-collapse only when the streaming turn finishes, not when the
   // assistant moves from "thinking" to "writing".
@@ -43,57 +44,36 @@ export function ThinkingBlock({
     : t("thinking.thoughtFor", { seconds: durationSeconds });
 
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
-      {/* Header — same shell as PlanChecklistPanel; badge matches AssistantLoadingSkeleton */}
+    <div className="overflow-hidden border-l border-border/50 pl-2">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
+        aria-expanded={expanded}
+        aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-3 px-4 py-3 text-left transition-colors",
-          "hover:bg-muted/50",
+          "flex w-full items-center gap-2 px-2.5 py-1.5 text-left text-caption font-medium tracking-[0.01em] text-muted-foreground transition-colors",
+          "hover:text-foreground/90",
+          expanded && "text-foreground/85",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
       >
-        <div
-          className={cn(
-            "inline-flex shrink-0 items-center gap-2 rounded-md border border-border px-2.5 py-1 text-sm font-medium",
-            "bg-muted text-muted-foreground",
-          )}
-        >
-          <motion.span
-            animate={isThinking && !shouldReduceMotion ? { opacity: [0.5, 1, 0.5] } : {}}
-            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <Brain className="h-3 w-3" />
-          </motion.span>
-          <span>{label}</span>
-          {isThinking && (
-            <span className="flex items-center gap-0.5">
-              {[0, 1, 2].map((i) => (
-                <motion.span
-                  key={i}
-                  className="inline-block h-1 w-1 rounded-full bg-muted-foreground"
-                  animate={shouldReduceMotion ? {} : { opacity: [0.3, 1, 0.3] }}
-                  transition={{
-                    duration: 1.4,
-                    repeat: Infinity,
-                    delay: i * 0.2,
-                    ease: "easeInOut",
-                  }}
-                />
-              ))}
-            </span>
-          )}
-        </div>
-
-        <div className="min-w-0 flex-1" />
+        {isThinking && (
+          <span
+            className={cn(
+              "h-1.5 w-1.5 shrink-0 rounded-full bg-focus/90",
+              !shouldReduceMotion && "animate-pulse",
+            )}
+            aria-hidden="true"
+          />
+        )}
+        <span className="min-w-0 flex-1 truncate">{label}</span>
 
         <motion.span
           animate={{ rotate: expanded ? 180 : 0 }}
           transition={{ duration: 0.15 * dur }}
           className="shrink-0 text-muted-foreground"
         >
-          <ChevronDown className="h-4 w-4" />
+          <ChevronDown className="h-3.5 w-3.5" />
         </motion.span>
       </button>
 
@@ -101,15 +81,16 @@ export function ThinkingBlock({
         {expanded && (
           <motion.div
             key="thinking-body"
+            id={panelId}
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
             transition={{ duration: 0.15 * dur, ease: [0.33, 1, 0.68, 1] }}
             className="overflow-hidden"
           >
-            <div className="border-t border-border bg-muted/40">
-              <div className="max-h-72 overflow-y-auto px-4 py-3">
-                <div className="border-l-2 border-border pl-3">
+            <div className="pt-1">
+              <div className="max-h-72 overflow-y-auto px-2.5 pb-2.5">
+                <div className="border-l border-border/35 pl-3">
                   <MarkdownRenderer
                     content={content}
                     isStreaming={isThinking}

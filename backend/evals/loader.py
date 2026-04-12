@@ -25,6 +25,7 @@ _VALID_CRITERIA_TYPES = frozenset(
         "tool_call_count",
         "context_compacted",
         "tool_not_repeated",
+        "execution_shape",
     }
 )
 

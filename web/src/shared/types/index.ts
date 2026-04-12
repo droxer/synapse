@@ -9,6 +9,7 @@ export type {
   BrowserMetadata,
   ComputerUseMetadata,
   ArtifactInfo,
+  AgentStatusState,
   AgentStatus,
   PlanStep,
   AssistantPhase,

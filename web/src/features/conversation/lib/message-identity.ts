@@ -155,12 +155,7 @@ export function mergeConversationMessages(
     }
   }
 
-  merged.sort((a, b) => {
-    if (a.message.timestamp === b.message.timestamp) {
-      return a.originalIndex - b.originalIndex;
-    }
-    return a.message.timestamp - b.message.timestamp;
-  });
+  merged.sort((a, b) => a.originalIndex - b.originalIndex);
 
   return merged.map(({ message }) => message);
 }

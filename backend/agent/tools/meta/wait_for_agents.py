@@ -64,6 +64,15 @@ class WaitForAgents(LocalTool):
                 "error": result.error,
                 "artifacts": list(result.artifacts),
                 "failure_mode": result.failure_mode,
+                "terminal_state": (
+                    "replan_required"
+                    if result.replan_required
+                    else "skipped"
+                    if result.skip_execution
+                    else "complete"
+                    if result.success
+                    else "error"
+                ),
                 "skip_execution": result.skip_execution,
                 "replan_required": result.replan_required,
                 "metrics": (

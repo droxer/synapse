@@ -162,12 +162,14 @@ function TreeNode({
       <button
         type="button"
         role="treeitem"
+        aria-level={depth + 1}
         aria-selected={isDir ? undefined : isSelected}
         aria-expanded={isDir ? expanded : undefined}
         onClick={handleClick}
         className={cn(
           "flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left font-sans text-xs",
           "hover:bg-secondary transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           isSelected && "bg-secondary text-foreground",
           !isSelected && "text-muted-foreground",
         )}
@@ -188,17 +190,21 @@ function TreeNode({
         )} />
         <span className="truncate">{node.name}</span>
       </button>
-      {expanded && node.children?.map((child) => (
-        <TreeNode
-          key={child.path}
-          node={child}
-          depth={depth + 1}
-          selectedPath={selectedPath}
-          onSelectFile={onSelectFile}
-          isExpanded={isExpanded}
-          onToggleDir={onToggleDir}
-        />
-      ))}
+      {expanded && node.children && (
+        <div role="group">
+          {node.children.map((child) => (
+            <TreeNode
+              key={child.path}
+              node={child}
+              depth={depth + 1}
+              selectedPath={selectedPath}
+              onSelectFile={onSelectFile}
+              isExpanded={isExpanded}
+              onToggleDir={onToggleDir}
+            />
+          ))}
+        </div>
+      )}
     </>
   );
 }

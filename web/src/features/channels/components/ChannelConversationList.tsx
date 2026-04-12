@@ -6,6 +6,7 @@ import { RefreshCw, Trash2 } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { listChannelConversations, type ChannelConversation } from "../api/channel-api";
 import { deleteConversation } from "@/shared/api/conversation-list-api";
+import { useAppStore } from "@/shared/stores";
 import { getProviderColor } from "./ChannelProviderIcon";
 
 function formatRelativeTime(isoString: string | null): string {
@@ -68,6 +69,7 @@ export function ChannelConversationList({
     try {
       setDeletingId(conversationId);
       await deleteConversation(conversationId);
+      useAppStore.getState().bumpLibraryRefetch();
       setConversations((prev) => {
         const filtered = prev.filter((c) => c.conversation_id !== conversationId);
         onCountChange?.(filtered.length);

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import os
 import re
 import shlex
 from typing import Any
@@ -15,6 +16,11 @@ from agent.tools.base import (
     SandboxTool,
     ToolDefinition,
     ToolResult,
+)
+from agent.tools.sandbox.artifact_detection import (
+    build_artifact_paths,
+    find_new_output_files,
+    snapshot_output_files,
 )
 
 _VALID_SESSION_ID = re.compile(r"^[a-zA-Z0-9_-]{1,64}$")
@@ -119,6 +125,11 @@ class ShellExec(SandboxTool):
                 session, command, clean_id, workdir, output_files
             )
 
+        # Place a timestamp marker before execution so we can find new files.
+        before_snapshot = await snapshot_output_files(session)
+        ts_marker = f"/tmp/_se_ts_{os.urandom(4).hex()}"
+        await session.exec(f"touch {shlex.quote(ts_marker)}")
+
         try:
             use_streaming = event_emitter is not None and isinstance(
                 session, ExtendedSandboxSession
@@ -136,6 +147,7 @@ class ShellExec(SandboxTool):
             else:
                 result = await session.exec(command, timeout=timeout, workdir=workdir)
         except boxlite.BoxliteError as exc:
+            await session.exec(f"rm -f {shlex.quote(ts_marker)}")
             if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
                 return ToolResult.fail(
                     "The sandbox session is no longer available. "
@@ -143,7 +155,16 @@ class ShellExec(SandboxTool):
                 )
             return ToolResult.fail(f"Sandbox error: {exc}")
         except Exception as exc:
+            await session.exec(f"rm -f {shlex.quote(ts_marker)}")
             return ToolResult.fail(f"Shell execution failed: {exc}")
+
+        # Auto-detect output files created during execution.
+        auto_found = await find_new_output_files(
+            session,
+            ts_marker,
+            before_snapshot=before_snapshot,
+        )
+        await session.exec(f"rm -f {shlex.quote(ts_marker)}")
 
         combined = result.stdout
         if result.stderr:
@@ -151,9 +172,10 @@ class ShellExec(SandboxTool):
                 f"{combined}\n[stderr]\n{result.stderr}" if combined else result.stderr
             )
 
+        artifact_paths = build_artifact_paths(output_files, auto_found)
         metadata: dict[str, Any] = {"exit_code": result.exit_code}
-        if output_files:
-            metadata["artifact_paths"] = list(output_files)
+        if artifact_paths:
+            metadata["artifact_paths"] = artifact_paths
 
         return ToolResult.ok(combined, metadata=metadata)
 

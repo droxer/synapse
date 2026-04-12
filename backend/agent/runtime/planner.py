@@ -25,6 +25,7 @@ from agent.runtime.orchestrator import AgentState
 from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_setup import (
     build_skill_prompt_content,
+    emit_redundant_skill_activation,
     prepare_skill_for_turn,
 )
 from agent.runtime.skill_selector import select_skill_for_message
@@ -46,7 +47,7 @@ PLANNER_SYSTEM_PROMPT = """You are a planning agent that decomposes complex task
 
 Your workflow:
 1. Analyze the user's request
-2. Call plan_create with the list of steps you intend to execute
+2. Call plan_create with the list of steps you intend to execute and classify each as planner-owned, sequential-worker, or parallel-worker
 3. Use agent_spawn to create task agents for each step (use the same name from the plan)
 4. Use agent_wait to wait for results
 5. Synthesize the results and communicate to the user via user_message
@@ -54,7 +55,10 @@ Your workflow:
 
 Guidelines:
 - Always call plan_create FIRST before spawning any agents
-- Spawn agents for tasks that can run in parallel
+- Do not spawn agents when one agent can complete the task with existing tools
+- Spawn multiple agents only for truly independent sub-tasks
+- Prefer one worker plus planner-side synthesis over many weakly-separated workers
+- Prefer fixed sequential execution only when the task is a predictable pipeline
 - Each agent gets its own sandbox if needed
 - Keep sub-tasks focused and specific
 - You do NOT have sandbox access — delegate execution to task agents
@@ -141,6 +145,7 @@ class PlannerOrchestrator:
         # Persistent conversation state — appended to on each run() call
         self._state = AgentState(messages=initial_messages)
         self._run_lock = asyncio.Lock()
+        self._turn_artifact_ids: list[str] = []
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -152,6 +157,7 @@ class PlannerOrchestrator:
         attachments: tuple[Any, ...] = (),
         selected_skills: tuple[str, ...] = (),
         runtime_prompt_sections: tuple[str, ...] = (),
+        turn_metadata: dict[str, Any] | None = None,
     ) -> str:
         async with self._run_lock:
             return await self._run_locked(
@@ -159,6 +165,7 @@ class PlannerOrchestrator:
                 attachments=attachments,
                 selected_skills=selected_skills,
                 runtime_prompt_sections=runtime_prompt_sections,
+                turn_metadata=turn_metadata,
             )
 
     async def _run_locked(
@@ -168,6 +175,7 @@ class PlannerOrchestrator:
         attachments: tuple[Any, ...],
         selected_skills: tuple[str, ...],
         runtime_prompt_sections: tuple[str, ...],
+        turn_metadata: dict[str, Any] | None,
     ) -> str:
         """Execute the planner loop and return the final synthesized response.
 
@@ -180,10 +188,19 @@ class PlannerOrchestrator:
 
         await self._emitter.emit(
             EventType.TURN_START,
-            {"message": user_message, "orchestrator_mode": "planner"},
+            {
+                "message": user_message,
+                "orchestrator_mode": "planner",
+                **(turn_metadata or {}),
+            },
         )
         self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()
+        reset_active_skill_directory = getattr(
+            self._executor, "reset_active_skill_directory", None
+        )
+        if callable(reset_active_skill_directory):
+            reset_active_skill_directory()
         self._task_complete_summary = None
         self._auto_injected_skill = None
 
@@ -284,6 +301,7 @@ class PlannerOrchestrator:
         )
         self._state = self._state.add_message({"role": "user", "content": content})
         self._state = replace(self._state, completed=False, error=None, iteration=0)
+        self._turn_artifact_ids = []
 
         tools = effective_registry.to_anthropic_tools()
         model = get_settings().PLANNING_MODEL
@@ -365,6 +383,7 @@ class PlannerOrchestrator:
             stop_check=lambda: self._task_complete_summary is not None,
         )
         state = tool_result.state
+        self._turn_artifact_ids.extend(tool_result.artifact_ids)
 
         if self._task_complete_summary is not None:
             return state.mark_completed(self._task_complete_summary)
@@ -412,7 +431,16 @@ class PlannerOrchestrator:
                 tool_id = block.get("id")
                 break
 
-        if not activated_name or activated_name == self._auto_injected_skill:
+        if not activated_name:
+            return None
+
+        if activated_name == self._auto_injected_skill:
+            await emit_redundant_skill_activation(
+                self._emitter,
+                skill_name=activated_name,
+                tool_id=tool_id,
+                messages=list(self._state.messages),
+            )
             return None
 
         if tool_id is not None:
@@ -544,7 +572,7 @@ class PlannerOrchestrator:
         final_text = extract_final_text(state)
         await self._emitter.emit(
             EventType.TURN_COMPLETE,
-            {"result": final_text},
+            {"result": final_text, "artifact_ids": self._turn_artifact_ids},
         )
         return final_text
 

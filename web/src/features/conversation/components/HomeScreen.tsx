@@ -26,15 +26,20 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
 
   return (
     <div className="relative flex h-full w-full flex-col items-center justify-center overflow-hidden px-4 sm:px-6">
+      <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/45" aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,color-mix(in_srgb,var(--color-ring),transparent_90%)_0%,transparent_62%)]"
+        aria-hidden="true"
+      />
       <motion.div
-        className="relative z-10 flex w-full max-w-3xl flex-col items-center"
+        className="relative z-10 flex w-full max-w-3xl flex-col items-center gap-6 sm:gap-7"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ duration: 0.12 }}
       >
         {/* Heading — single fade-in (Hero type scale per design guide) */}
         <motion.h1
-          className="heading-display mb-8 text-center text-foreground"
+          className="heading-display whitespace-nowrap text-center text-foreground"
           initial={{ opacity: 0, y: 4 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.12, ease: "easeOut" }}
@@ -43,7 +48,7 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
         </motion.h1>
 
         {/* Input card — delegates to ChatInput with welcome variant */}
-        <div className="mb-6 w-full">
+        <div className="w-full">
           <ChatInput
             onSendMessage={onSubmitTask}
             variant="welcome"

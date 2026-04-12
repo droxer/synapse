@@ -43,6 +43,19 @@ class PlanCreate(LocalTool):
                                     "type": "string",
                                     "description": "Brief description of what this step does.",
                                 },
+                                "execution_type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "planner_owned",
+                                        "sequential_worker",
+                                        "parallel_worker",
+                                    ],
+                                    "description": (
+                                        "How this step should execute: planner-owned synthesis/checkpoint work, "
+                                        "a sequential worker task, or a parallel worker task."
+                                    ),
+                                    "default": "parallel_worker",
+                                },
                             },
                             "required": ["name", "description"],
                         },
@@ -65,7 +78,11 @@ class PlanCreate(LocalTool):
             EventType.PLAN_CREATED,
             {
                 "steps": [
-                    {"name": s.get("name", ""), "description": s.get("description", "")}
+                    {
+                        "name": s.get("name", ""),
+                        "description": s.get("description", ""),
+                        "execution_type": s.get("execution_type", "parallel_worker"),
+                    }
                     for s in steps
                 ],
             },

@@ -124,7 +124,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       {/* Footer: slug + status toggle */}
       <div className="mt-auto flex items-center justify-between gap-2 pt-3">
         <span className="font-mono text-micro text-muted-foreground-dim truncate">
-          {skill.name}
+          {normalizeSkillName(skill.name)}
         </span>
         {onToggle && (
           <button
@@ -148,7 +148,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
           >
             <span className={cn(
               "h-1.5 w-1.5 rounded-full transition-colors duration-150",
-              isDisabled ? "bg-border-strong" : "bg-foreground",
+              isDisabled ? "bg-border-strong" : "bg-accent-emerald",
             )} />
             {isDisabled ? t("skills.disabled") : t("skills.enabled")}
           </button>

@@ -1,0 +1,49 @@
+id: prompt_chain_no_spawn
+name: Prompt Chain No Spawn
+description: Predictable sequential workflows should stay within one agent rather than fan out to sub-agents.
+user_message: Draft a short release note, then rewrite it in a more customer-friendly tone.
+grading_mode: programmatic
+tags:
+  - agent
+  - routing
+  - prompt_chain
+max_iterations: 8
+
+criteria:
+  - name: no_agent_spawn
+    type: tool_not_used
+    value: agent_spawn
+    weight: 3.0
+  - name: no_agent_wait
+    type: tool_not_used
+    value: agent_wait
+    weight: 2.0
+  - name: mentions_release_note
+    type: output_contains
+    value: release note
+    weight: 1.0
+  - name: task_completed
+    type: tool_used
+    value: task_complete
+    weight: 1.0
+  - name: no_errors
+    type: no_errors
+    weight: 1.0
+
+mock_responses:
+  - text: "I'll draft the release note and then rewrite it in a friendlier tone."
+    tool_calls:
+      - id: tc_complete
+        name: task_complete
+        input:
+          summary: "Drafted and refined the release note in a single-agent sequential workflow."
+    stop_reason: tool_use
+    usage:
+      input_tokens: 120
+      output_tokens: 45
+  - text: "This release note highlights the update and then presents it in a more customer-friendly tone."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 140
+      output_tokens: 70

@@ -154,6 +154,10 @@ async def prepare_skill_for_turn(
             f"Failed to prepare skill '{skill.metadata.name}' resources: {exc}"
         ) from exc
 
+    set_active_skill_directory = getattr(executor, "set_active_skill_directory", None)
+    if callable(set_active_skill_directory):
+        set_active_skill_directory(sandbox_dir)
+
     if skill.metadata.sandbox_template:
         executor.set_sandbox_template(skill.metadata.sandbox_template)
         logger.info(
@@ -200,6 +204,45 @@ async def emit_skill_setup_failed(
     if packages:
         payload["packages"] = packages
     await emitter.emit(EventType.SKILL_SETUP_FAILED, payload)
+
+
+def tool_use_had_error_result(messages: list[dict[str, Any]], tool_id: str) -> bool:
+    """Return True if messages contain an ``is_error`` tool_result for ``tool_use_id``."""
+    for msg in messages:
+        if msg.get("role") != "user":
+            continue
+        msg_content = msg.get("content")
+        if not isinstance(msg_content, list):
+            continue
+        for block in msg_content:
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "tool_result"
+                and block.get("tool_use_id") == tool_id
+                and block.get("is_error") is True
+            ):
+                return True
+    return False
+
+
+async def emit_redundant_skill_activation(
+    emitter: EventEmitter,
+    *,
+    skill_name: str,
+    tool_id: str | None,
+    messages: list[dict[str, Any]],
+) -> None:
+    """Emit ``skill_activated`` when the model calls ``activate_skill`` for an already-active skill.
+
+    Clients (e.g. the web UI) wait on this event to mark the skill row complete; without it,
+    a redundant activation stays stuck in a loading state even though the tool already returned.
+    """
+    if tool_id is not None and tool_use_had_error_result(messages, tool_id):
+        return
+    await emitter.emit(
+        EventType.SKILL_ACTIVATED,
+        {"name": skill_name, "source": "already_active"},
+    )
 
 
 def categorize_skill_resources(directory: Path) -> dict[str, list[str]]:

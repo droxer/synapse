@@ -1138,3 +1138,66 @@ class TestToolRegistryFilterByNames:
         # Original is unchanged — immutable style
         assert filtered is not tool_reg
         assert tool_reg.get("activate_skill") is tool
+
+
+class TestRedundantSkillActivationEmit:
+    @pytest.mark.asyncio
+    async def test_emit_redundant_skill_activation_notifies_subscribers(self) -> None:
+        from agent.runtime.skill_setup import emit_redundant_skill_activation
+        from api.events import AgentEvent, EventEmitter, EventType
+
+        received: list[AgentEvent] = []
+
+        async def cb(ev: AgentEvent) -> None:
+            received.append(ev)
+
+        emitter = EventEmitter()
+        emitter.subscribe(cb)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tu-1",
+                        "is_error": False,
+                    },
+                ],
+            },
+        ]
+        await emit_redundant_skill_activation(
+            emitter, skill_name="docx", tool_id="tu-1", messages=messages
+        )
+        assert len(received) == 1
+        assert received[0].type == EventType.SKILL_ACTIVATED
+        assert received[0].data["name"] == "docx"
+        assert received[0].data["source"] == "already_active"
+
+    @pytest.mark.asyncio
+    async def test_emit_redundant_skill_activation_skips_on_tool_error(self) -> None:
+        from agent.runtime.skill_setup import emit_redundant_skill_activation
+        from api.events import AgentEvent, EventEmitter
+
+        received: list[AgentEvent] = []
+
+        async def cb(ev: AgentEvent) -> None:
+            received.append(ev)
+
+        emitter = EventEmitter()
+        emitter.subscribe(cb)
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "tool_result",
+                        "tool_use_id": "tu-1",
+                        "is_error": True,
+                    },
+                ],
+            },
+        ]
+        await emit_redundant_skill_activation(
+            emitter, skill_name="docx", tool_id="tu-1", messages=messages
+        )
+        assert received == []

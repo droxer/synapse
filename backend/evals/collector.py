@@ -43,6 +43,8 @@ class EvalCollector:
         # Context compaction and per-agent metrics
         self._context_compaction_count: int = 0
         self._per_agent_metrics: dict[str, dict[str, Any]] = {}
+        self._execution_shape: str = ""
+        self._execution_rationale: str = ""
 
     async def on_event(self, event: AgentEvent) -> None:
         """Async event handler — pass to ``EventEmitter.subscribe()``."""
@@ -51,6 +53,14 @@ class EvalCollector:
                 iteration = event.data.get("iteration", 0)
                 if iteration > self._max_iteration:
                     self._max_iteration = iteration
+
+            case EventType.TURN_START:
+                execution_shape = event.data.get("execution_shape")
+                if isinstance(execution_shape, str):
+                    self._execution_shape = execution_shape
+                execution_rationale = event.data.get("execution_rationale")
+                if isinstance(execution_rationale, str):
+                    self._execution_rationale = execution_rationale
 
             case EventType.LLM_RESPONSE:
                 usage = event.data.get("usage")
@@ -137,4 +147,6 @@ class EvalCollector:
             agent_handoffs=tuple(self._agent_handoffs),
             context_compaction_count=self._context_compaction_count,
             per_agent_metrics=dict(self._per_agent_metrics),
+            execution_shape=self._execution_shape,
+            execution_rationale=self._execution_rationale,
         )

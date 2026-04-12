@@ -51,4 +51,27 @@ describe("mergeConversationMessages", () => {
     expect(merged[0]?.imageArtifactIds).toEqual(["art-1"]);
     expect(merged[0]?.timestamp).toBe(20_000);
   });
+
+  it("preserves collection insertion order over timestamp order", () => {
+    const first: ChatMessage = {
+      messageId: "event:first",
+      role: "assistant",
+      content: "step one",
+      timestamp: 20_000,
+      source: "event",
+    };
+    const second: ChatMessage = {
+      messageId: "event:second",
+      role: "assistant",
+      content: "step two",
+      timestamp: 10_000,
+      source: "event",
+    };
+
+    const merged = mergeConversationMessages([first], [second]);
+    expect(merged.map((message) => message.messageId)).toEqual([
+      "event:first",
+      "event:second",
+    ]);
+  });
 });

@@ -1,28 +1,17 @@
 "use client";
 
-import { useRef, useCallback, useState } from "react";
-import { Download, Trash2, Check } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useRef, useCallback } from "react";
+import { Download, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/shared/lib/utils";
-import { Button } from "@/shared/components/ui/button";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/shared/components/ui/alert-dialog";
-import {
-  fileIcon,
   fileExtension,
   formatFileSize,
   fileCategoryColor,
   fileCategoryBorderColor,
 } from "@/features/agent-computer/lib/artifact-helpers";
+import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
 import type { ArtifactExplorerItem, ConversationNode } from "./artifactExplorerUtils";
 import { ExplorerListRow } from "./ExplorerListRow";
 
@@ -35,10 +24,12 @@ export const GRID_COLS_CLASS = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 g
 
 function formatRelativeDate(dateStr: string, locale: string): { relative: string; absolute: string } {
   const date = new Date(dateStr);
-  const absolute = date.toLocaleDateString(locale, {
+  const absolute = date.toLocaleString(locale, {
     year: "numeric",
     month: "short",
     day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
   });
   const diffMs = Date.now() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -85,8 +76,6 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
       : null;
 
   const { bg, icon: iconColor } = fileCategoryColor(item.contentType, item.name);
-  const Icon = fileIcon(item.contentType, item.name);
-
   // ── Small square for list layout ─────────────────────────────────────────
   if (layout === "list") {
     return (
@@ -99,7 +88,11 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
             loading="lazy"
           />
         ) : (
-          <Icon className={`h-5 w-5 ${iconColor}`} />
+          <BrandFileTypeIcon
+            name={item.name}
+            contentType={item.contentType}
+            className={`h-5 w-5 ${iconColor}`}
+          />
         )}
       </div>
     );
@@ -151,7 +144,11 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
             <div className="h-[5px] w-16 rounded-full bg-current opacity-10" />
           </div>
         </div>
-        <Icon className={`absolute bottom-3 right-3 h-8 w-8 ${iconColor} opacity-10`} />
+        <BrandFileTypeIcon
+          name={item.name}
+          contentType={item.contentType}
+          className={`absolute bottom-3 right-3 h-8 w-8 ${iconColor} opacity-10`}
+        />
       </div>
     );
   }
@@ -179,7 +176,11 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
             <div className="h-[3px] rounded-full bg-current opacity-20" style={{ width: "70%" }} />
           </div>
         </div>
-        <Icon className={`absolute bottom-3 right-3 h-6 w-6 ${iconColor} opacity-20`} />
+        <BrandFileTypeIcon
+          name={item.name}
+          contentType={item.contentType}
+          className={`absolute bottom-3 right-3 h-6 w-6 ${iconColor} opacity-20`}
+        />
       </div>
     );
   }
@@ -196,7 +197,11 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
             />
           ))}
         </div>
-        <Icon className={`absolute bottom-3 right-3 h-6 w-6 ${iconColor} opacity-20`} />
+        <BrandFileTypeIcon
+          name={item.name}
+          contentType={item.contentType}
+          className={`absolute bottom-3 right-3 h-6 w-6 ${iconColor} opacity-20`}
+        />
       </div>
     );
   }
@@ -220,7 +225,11 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
           <div className="h-[5px] rounded-sm bg-current opacity-10" style={{ width: "85%" }} />
           <div className="h-[5px] rounded-sm bg-current opacity-10" style={{ width: "60%" }} />
         </div>
-        <Icon className={`absolute bottom-3 right-3 h-6 w-6 ${iconColor} opacity-15`} />
+        <BrandFileTypeIcon
+          name={item.name}
+          contentType={item.contentType}
+          className={`absolute bottom-3 right-3 h-6 w-6 ${iconColor} opacity-15`}
+        />
       </div>
     );
   }
@@ -228,7 +237,11 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
   // Default — large icon placeholder with subtle gradient
   return (
     <div className={`h-36 overflow-hidden ${bg} flex items-center justify-center relative`}>
-      <Icon className={`h-14 w-14 ${iconColor} opacity-20`} />
+      <BrandFileTypeIcon
+        name={item.name}
+        contentType={item.contentType}
+        className={`h-14 w-14 ${iconColor} opacity-20`}
+      />
       <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/5" />
     </div>
   );
@@ -242,14 +255,13 @@ export interface ExplorerFileListProps {
   items: readonly ArtifactExplorerItem[];
   groups?: readonly ConversationNode[];
   selectedFileId: string | null;
-  selectedIds: ReadonlySet<string>;
   conversationId?: string;
+  /** When false, delete controls are hidden (e.g. no conversation context). */
+  canDelete?: boolean;
   onSelectFile: (id: string) => void;
   onPreview: (item: ArtifactExplorerItem) => void;
   onDownload: (item: ArtifactExplorerItem) => void;
-  onToggleSelection: (id: string) => void;
-  onSelectAll: (ids: readonly string[]) => void;
-  onDeleteSelected: () => void;
+  onOpenDeleteDialog: (artifactIds: readonly string[]) => void;
   mode: "panel" | "page";
   /** Page mode only: "grid" (default) or "list" */
   viewMode?: "grid" | "list";
@@ -262,23 +274,23 @@ export interface ExplorerFileListProps {
 interface FileCardProps {
   item: ArtifactExplorerItem;
   index: number;
-  isSelected: boolean;
-  isMultiSelectMode: boolean;
+  isPreviewOpen: boolean;
   layout: "grid" | "list";
+  canDelete: boolean;
   onPreview: (item: ArtifactExplorerItem) => void;
-  onToggleSelection: (id: string) => void;
   onDownload: (item: ArtifactExplorerItem) => void;
+  onOpenDeleteDialog: (artifactIds: readonly string[]) => void;
 }
 
 function FileCard({
   item,
   index,
-  isSelected,
-  isMultiSelectMode,
+  isPreviewOpen,
   layout,
+  canDelete,
   onPreview,
-  onToggleSelection,
   onDownload,
+  onOpenDeleteDialog,
 }: FileCardProps) {
   const { t, locale } = useTranslation();
   const ext = fileExtension(item.name);
@@ -296,11 +308,11 @@ function FileCard({
         className={[
           "rounded-lg bg-card border overflow-hidden transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
           "border-l-2",
-          isSelected
+          isPreviewOpen
             ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-border-strong"
             : "border-border hover:border-border-strong hover:bg-muted/40",
         ].join(" ")}
-        style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
+        style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
         initial={{ opacity: 0, scale: 0.97 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.12, delay: Math.min(index * 0.02, 0.2) }}
@@ -311,46 +323,33 @@ function FileCard({
             type="button"
             data-file-card-preview="true"
             onClick={() => onPreview(item)}
-            onKeyDown={(e) => {
-              if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
-            }}
             className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <FileThumbnail item={item} layout="grid" />
           </button>
 
-            {/* Controls overlay on thumbnail */}
-
             {/* Download — top-left */}
-            {!isMultiSelectMode && (
-              <button
-                type="button"
-                data-slot="button"
-                aria-label={`Download ${item.name}`}
-                className="absolute top-2 left-2 z-10 flex h-6 w-6 items-center justify-center rounded-full bg-muted opacity-0 transition-opacity hover:bg-secondary group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                onClick={(e) => { e.stopPropagation(); onDownload(item); }}
-              >
-                <Download className="h-3 w-3 text-foreground" />
-              </button>
-            )}
-
-            {/* Selection checkbox — top-right */}
             <button
               type="button"
               data-slot="button"
-              aria-pressed={isSelected}
-              aria-label={isSelected ? `Deselect ${item.name}` : `Select ${item.name}`}
-              className={cn(
-                "absolute top-2 right-2 z-10 flex h-6 w-6 items-center justify-center rounded-full border-2 transition-[color,background-color,border-color,opacity] duration-200 ease-out",
-                isSelected
-                  ? "opacity-100 bg-primary border-border-strong text-primary-foreground"
-                  : "opacity-0 border-border bg-muted hover:border-border-strong group-hover:opacity-100 group-focus-within:opacity-100",
-                "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-              )}
-              onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
+              aria-label={`Download ${item.name}`}
+              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              onClick={(e) => { e.stopPropagation(); onDownload(item); }}
             >
-              {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+              <Download className="h-3.5 w-3.5 text-foreground" />
             </button>
+
+            {canDelete && (
+              <button
+                type="button"
+                data-slot="button"
+                aria-label={t("explorer.deleteFileLabel", { name: item.name })}
+                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
+              >
+                <Trash2 className="h-3.5 w-3.5 text-foreground" />
+              </button>
+            )}
         </div>
 
         {/* Info area */}
@@ -358,9 +357,6 @@ function FileCard({
           type="button"
           data-file-card-preview="true"
           onClick={() => onPreview(item)}
-          onKeyDown={(e) => {
-            if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
-          }}
           className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <div className="flex flex-col gap-1">
@@ -390,11 +386,11 @@ function FileCard({
       className={[
         "rounded-lg bg-card border p-2.5 transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l-2",
-        isSelected
+        isPreviewOpen
           ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-border-strong bg-muted/50"
           : "border-border hover:border-border-strong hover:bg-secondary",
       ].join(" ")}
-      style={isSelected ? undefined : { borderLeftColor: accentBorderColor }}
+      style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.18, delay: Math.min(index * 0.02, 0.18) }}
@@ -403,9 +399,6 @@ function FileCard({
         type="button"
         data-file-card-preview="true"
         onClick={() => onPreview(item)}
-        onKeyDown={(e) => {
-          if (e.key === " ") { e.preventDefault(); onToggleSelection(item.id); }
-        }}
         className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {/* Small thumbnail */}
@@ -432,35 +425,25 @@ function FileCard({
 
       {/* Right side controls */}
       <div className="flex items-center gap-1.5 shrink-0">
-        {/* Download */}
-        {!isMultiSelectMode && (
+        {canDelete && (
           <button
             type="button"
             data-slot="button"
-            aria-label={`Download ${item.name}`}
-            className="opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 focus-visible:opacity-100 h-6 w-6 rounded-full border border-border bg-background flex items-center justify-center hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-            onClick={(e) => { e.stopPropagation(); onDownload(item); }}
+            aria-label={t("explorer.deleteFileLabel", { name: item.name })}
+            className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
           >
-            <Download className={cn("h-3 w-3", iconColor)} />
+            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
           </button>
         )}
-
-        {/* Selection checkbox */}
         <button
           type="button"
           data-slot="button"
-          aria-pressed={isSelected}
-          aria-label={isSelected ? `Deselect ${item.name}` : `Select ${item.name}`}
-          className={cn(
-            "h-5 w-5 rounded-full border flex items-center justify-center transition-[color,background-color,border-color,opacity]",
-            isSelected
-              ? "opacity-100 bg-primary border-border-strong text-primary-foreground"
-              : "opacity-20 border-border bg-background hover:border-border-strong group-hover:opacity-100 group-focus-within:opacity-100",
-            "focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          )}
-          onClick={(e) => { e.stopPropagation(); onToggleSelection(item.id); }}
+          aria-label={`Download ${item.name}`}
+          className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-border-strong hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          onClick={(e) => { e.stopPropagation(); onDownload(item); }}
         >
-          {isSelected && <Check className="h-3 w-3" strokeWidth={3} />}
+          <Download className={cn("h-3.5 w-3.5", iconColor)} />
         </button>
       </div>
     </motion.div>
@@ -475,19 +458,16 @@ export function ExplorerFileList({
   items,
   groups,
   selectedFileId,
-  selectedIds,
+  canDelete = false,
   onSelectFile,
   onPreview,
   onDownload,
-  onToggleSelection,
-  onDeleteSelected,
+  onOpenDeleteDialog,
   mode,
   viewMode = "grid",
 }: ExplorerFileListProps) {
   const { t, locale } = useTranslation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const isMultiSelectMode = selectedIds.size > 0;
-  const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
 
   const handleContainerKeyDown = useCallback(
     (e: React.KeyboardEvent<HTMLDivElement>) => {
@@ -517,10 +497,6 @@ export function ExplorerFileList({
     [items, selectedFileId, onSelectFile],
   );
 
-  const handleDownloadSelected = useCallback(() => {
-    items.filter((i) => selectedIds.has(i.id)).forEach((item) => onDownload(item));
-  }, [items, selectedIds, onDownload]);
-
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-5">
@@ -547,11 +523,11 @@ export function ExplorerFileList({
                 item={item}
                 index={i}
                 layout="list"
-                isSelected={selectedIds.has(item.id)}
-                isMultiSelectMode={isMultiSelectMode}
+                canDelete={canDelete}
+                isPreviewOpen={item.id === selectedFileId}
                 onPreview={onPreview}
-                onToggleSelection={onToggleSelection}
                 onDownload={onDownload}
+                onOpenDeleteDialog={onOpenDeleteDialog}
               />
             ))}
           </div>
@@ -582,11 +558,11 @@ export function ExplorerFileList({
                         key={item.id}
                         item={item}
                         index={i}
-                        isSelected={selectedIds.has(item.id)}
-                        isMultiSelectMode={isMultiSelectMode}
+                        canDelete={canDelete}
+                        isPreviewOpen={item.id === selectedFileId}
                         onPreview={onPreview}
-                        onToggleSelection={onToggleSelection}
                         onDownload={onDownload}
+                        onOpenDeleteDialog={onOpenDeleteDialog}
                         hideConversationLabel
                       />
                     ))}
@@ -623,11 +599,11 @@ export function ExplorerFileList({
                         item={item}
                         index={i}
                         layout="grid"
-                        isSelected={selectedIds.has(item.id)}
-                        isMultiSelectMode={isMultiSelectMode}
+                        canDelete={canDelete}
+                        isPreviewOpen={item.id === selectedFileId}
                         onPreview={onPreview}
-                        onToggleSelection={onToggleSelection}
                         onDownload={onDownload}
+                        onOpenDeleteDialog={onOpenDeleteDialog}
                       />
                     ))}
                   </div>
@@ -637,65 +613,6 @@ export function ExplorerFileList({
           </div>
         )}
       </div>
-
-      <AnimatePresence>
-        {selectedIds.size > 0 && (
-          <motion.div
-            initial={{ y: 50, opacity: 0, x: "-50%" }}
-            animate={{ y: 0, opacity: 1, x: "-50%" }}
-            exit={{ y: 50, opacity: 0, x: "-50%" }}
-            className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-popover rounded-full shadow-lg px-6 py-3 flex items-center gap-4 z-50 border border-border"
-          >
-            <span className="text-sm font-medium whitespace-nowrap">
-              {t("explorer.selectedCount", { count: selectedIds.size })}
-            </span>
-            <div className="h-4 w-px bg-border shrink-0" />
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 rounded-full hover:bg-muted shrink-0"
-              onClick={handleDownloadSelected}
-            >
-              <Download className="h-4 w-4" />
-              {t("explorer.downloadAll")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 rounded-full shrink-0 text-destructive hover:bg-destructive/10 hover:text-destructive"
-              onClick={() => setIsDeleteConfirmOpen(true)}
-            >
-              <Trash2 className="h-4 w-4" />
-              {t("explorer.delete")}
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
-        <AlertDialogContent size="sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              {t("explorer.deleteConfirmTitle")}
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("explorer.deleteConfirmDesc", { count: selectedIds.size })}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel size="sm">
-              {t("explorer.cancel")}
-            </AlertDialogCancel>
-            <AlertDialogAction
-              variant="destructive"
-              size="sm"
-              onClick={onDeleteSelected}
-            >
-              {t("explorer.deleteConfirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft } from "lucide-react";
+import { CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft, AlertTriangle, Minus } from "lucide-react";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { cn } from "@/shared/lib/utils";
 import { normalizeToolName, normalizeAgentName } from "../lib/tool-constants";
@@ -56,6 +56,10 @@ export function AgentStatusRow({
       >
         {agent.status === "complete" ? (
           <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />
+        ) : agent.status === "skipped" ? (
+          <Minus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+        ) : agent.status === "replan_required" ? (
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-accent-amber" />
         ) : agent.status === "error" ? (
           <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
         ) : (

@@ -16,8 +16,12 @@ export const EVENT_TYPES = [
   "ask_user",
   "user_response",
   "agent_spawn",
+  "agent_start",
   "agent_complete",
   "agent_handoff",
+  "agent_stage_transition",
+  "agent_skipped",
+  "agent_replan_required",
   "thinking",
   "sandbox_stdout",
   "sandbox_stderr",
@@ -38,6 +42,8 @@ type GenericEventData = Record<string, unknown>;
 export interface TurnStartEventData extends GenericEventData {
   readonly message?: string;
   readonly orchestrator_mode?: "agent" | "planner";
+  readonly execution_shape?: "single_agent" | "prompt_chain" | "parallel" | "orchestrator_workers";
+  readonly execution_rationale?: string;
 }
 
 export interface ThinkingEventData extends GenericEventData {
@@ -92,6 +98,7 @@ export interface ArtifactCreatedEventData extends GenericEventData {
   readonly name?: string;
   readonly content_type?: string;
   readonly size?: number;
+  readonly file_path?: string;
 }
 
 export interface AgentSpawnEventData extends GenericEventData {
@@ -106,15 +113,22 @@ export interface AgentCompleteEventData extends GenericEventData {
   readonly agent_id?: string;
   readonly id?: string;
   readonly error?: unknown;
+  readonly agent_name?: string;
+  readonly terminal_state?: "complete" | "error" | "skipped" | "replan_required";
+  readonly metrics?: Record<string, unknown>;
 }
 
 export interface PlanCreatedEventData extends GenericEventData {
-  readonly steps?: Array<{ readonly name?: string; readonly description?: string }>;
+  readonly steps?: Array<{
+    readonly name?: string;
+    readonly description?: string;
+    readonly execution_type?: "planner_owned" | "sequential_worker" | "parallel_worker";
+  }>;
 }
 
 export interface SkillActivatedEventData extends GenericEventData {
   readonly name?: string;
-  readonly source?: "explicit" | "auto" | "mid_turn";
+  readonly source?: "explicit" | "auto" | "mid_turn" | "already_active";
 }
 
 export interface SkillSetupFailedEventData extends GenericEventData {
@@ -123,7 +137,7 @@ export interface SkillSetupFailedEventData extends GenericEventData {
   readonly error?: string;
   readonly manager?: string;
   readonly packages?: string;
-  readonly source?: "explicit" | "auto" | "mid_turn";
+  readonly source?: "explicit" | "auto" | "mid_turn" | "already_active";
 }
 
 export interface LoopGuardNudgeEventData extends GenericEventData {
@@ -131,12 +145,17 @@ export interface LoopGuardNudgeEventData extends GenericEventData {
   readonly repeated_signature?: string;
 }
 
+export interface TurnCompleteEventData extends GenericEventData {
+  readonly result?: string;
+  readonly artifact_ids?: string[];
+}
+
 export type AgentEventDataByType = {
   task_start: GenericEventData;
-  task_complete: GenericEventData;
+  task_complete: TurnCompleteEventData;
   task_error: GenericEventData;
   turn_start: TurnStartEventData;
-  turn_complete: GenericEventData;
+  turn_complete: TurnCompleteEventData;
   turn_cancelled: GenericEventData;
   iteration_start: GenericEventData;
   iteration_complete: GenericEventData;
@@ -149,8 +168,12 @@ export type AgentEventDataByType = {
   ask_user: GenericEventData;
   user_response: GenericEventData;
   agent_spawn: AgentSpawnEventData;
+  agent_start: GenericEventData;
   agent_complete: AgentCompleteEventData;
   agent_handoff: GenericEventData;
+  agent_stage_transition: GenericEventData;
+  agent_skipped: GenericEventData;
+  agent_replan_required: GenericEventData;
   thinking: ThinkingEventData;
   sandbox_stdout: GenericEventData;
   sandbox_stderr: GenericEventData;
@@ -242,21 +265,31 @@ export interface ArtifactInfo {
   readonly name: string;
   readonly contentType: string;
   readonly size: number;
+  /** ISO 8601 — when the artifact was created (from event time or API). */
+  readonly createdAt?: string;
   readonly filePath?: string;
 }
 
 export interface PlanStep {
   readonly name: string;
   readonly description: string;
+  readonly executionType: "planner_owned" | "sequential_worker" | "parallel_worker";
   readonly status: "pending" | "running" | "complete" | "error";
   readonly agentId?: string;
 }
+
+export type AgentStatusState =
+  | "running"
+  | "complete"
+  | "error"
+  | "skipped"
+  | "replan_required";
 
 export interface AgentStatus {
   readonly agentId: string;
   readonly name: string;
   readonly description: string;
-  readonly status: "running" | "complete" | "error";
+  readonly status: AgentStatusState;
   readonly timestamp: number;
 }
 

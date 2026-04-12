@@ -205,6 +205,21 @@ def _grade_tool_not_repeated(
     )
 
 
+def _grade_execution_shape(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    expected = str(criteria.value or "")
+    passed = metrics.execution_shape == expected
+    return CriterionResult(
+        criterion_name=criteria.name,
+        passed=passed,
+        detail=(
+            f"Execution shape: {metrics.execution_shape or '(missing)'} "
+            f"(expected: {expected})"
+        ),
+    )
+
+
 _GRADERS = {
     "tool_used": _grade_tool_used,
     "tool_not_used": _grade_tool_not_used,
@@ -218,6 +233,7 @@ _GRADERS = {
     "tool_call_count": _grade_tool_call_count,
     "context_compacted": _grade_context_compacted,
     "tool_not_repeated": _grade_tool_not_repeated,
+    "execution_shape": _grade_execution_shape,
 }
 
 

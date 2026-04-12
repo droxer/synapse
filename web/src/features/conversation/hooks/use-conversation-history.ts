@@ -12,6 +12,17 @@ function isEventType(value: string): value is EventType {
   return EVENT_TYPE_SET.has(value);
 }
 
+export function isConversationHistoryLoading(
+  conversationId: string | null,
+  loadedConversationId: string | null,
+  isLoading: boolean,
+): boolean {
+  if (!conversationId) {
+    return false;
+  }
+  return isLoading || loadedConversationId !== conversationId;
+}
+
 /**
  * Loads persisted messages and events for the selected conversation.
  * History remains available when transitioning between historical and live mode.
@@ -22,6 +33,7 @@ export function useConversationHistory(
   const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
   const [historyEvents, setHistoryEvents] = useState<AgentEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
   const prevConversationId = useRef<string | null>(null);
   const resetConversation = useAppStore((state) => state.resetConversation);
 
@@ -32,6 +44,7 @@ export function useConversationHistory(
       prevConversationId.current = conversationId;
       setHistoryMessages([]);
       setHistoryEvents([]);
+      setLoadedConversationId(null);
     }
   }, [conversationId]);
 
@@ -88,12 +101,14 @@ export function useConversationHistory(
 
         setHistoryMessages(messages);
         setHistoryEvents(events);
+        setLoadedConversationId(conversationId);
       })
       .catch((err) => {
         if (!cancelled) {
           if (err instanceof Error && err.message.includes("404")) {
             setHistoryMessages([]);
             setHistoryEvents([]);
+            setLoadedConversationId(null);
             resetConversation();
           }
           console.error("Failed to load conversation history:", err);
@@ -108,5 +123,13 @@ export function useConversationHistory(
     };
   }, [conversationId, resetConversation]);
 
-  return { historyMessages, historyEvents, isLoading };
+  return {
+    historyMessages,
+    historyEvents,
+    isLoading: isConversationHistoryLoading(
+      conversationId,
+      loadedConversationId,
+      isLoading,
+    ),
+  };
 }

@@ -25,6 +25,7 @@ interface CommandPaletteProps {
   readonly onNavigateHome?: () => void;
   readonly onNavigateSkills?: () => void;
   readonly onNavigateMcp?: () => void;
+  readonly onOpenConversation?: (conversationId: string) => void;
 }
 
 const QUICK_ACTION_KEYS = [
@@ -49,12 +50,17 @@ function ShortcutHint({ keys }: { readonly keys: string }) {
   );
 }
 
-export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, onNavigateMcp }: CommandPaletteProps) {
+export function CommandPalette({
+  onNewTask,
+  onNavigateHome,
+  onNavigateSkills,
+  onNavigateMcp,
+  onOpenConversation,
+}: CommandPaletteProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDivElement>(null);
   const conversationHistory = useAppStore((s) => s.conversationHistory);
-  const switchConversation = useAppStore((s) => s.switchConversation);
 
   const recentConversations = conversationHistory.slice(0, 5);
 
@@ -158,7 +164,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
                   autoFocus
                 />
                 <kbd className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
-                  ESC
+                  {t("command.escapeKey")}
                 </kbd>
               </div>
 
@@ -238,10 +244,10 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
                     {recentConversations.map((conversation) => (
                       <Command.Item
                         key={conversation.id}
-                        value={`recent ${conversation.title}`}
+                        value={`${t("command.recentPrefix")} ${conversation.title}`}
                         onSelect={() => {
                           setOpen(false);
-                          switchConversation(conversation.id);
+                          onOpenConversation?.(conversation.id);
                         }}
                         className={ITEM_CLASS}
                       >
@@ -256,7 +262,7 @@ export function CommandPalette({ onNewTask, onNavigateHome, onNavigateSkills, on
               {/* Footer hint */}
               <div className="flex items-center justify-between border-t border-border px-4 py-2">
                 <span className="text-xs text-muted-foreground">
-                  {t("command.navigateHint")} <kbd className="font-mono">↑↓</kbd> · {t("command.selectHint")} <kbd className="font-mono">↵</kbd>
+                  {t("command.navigateHint")} <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">↑↓</kbd> · {t("command.selectHint")} <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">↵</kbd>
                 </span>
               </div>
             </Command>

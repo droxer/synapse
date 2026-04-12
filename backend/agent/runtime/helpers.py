@@ -115,9 +115,13 @@ async def _emit_and_execute_single_tool(
     agent_id: str | None,
 ) -> tuple[ToolResult, dict[str, Any]]:
     """Run one tool after emitting TOOL_CALL; return (ToolResult, result_data dict)."""
+    event_tool_name, event_tool_input = executor.canonical_tool_call_event_payload(
+        tc.name,
+        tc.input,
+    )
     event_data: dict[str, Any] = {
-        "tool_name": tc.name,
-        "tool_input": tc.input,
+        "tool_name": event_tool_name,
+        "tool_input": event_tool_input,
         "tool_id": tc.id,
     }
     if agent_id is not None:
@@ -225,19 +229,23 @@ async def process_tool_calls(
             [tc.name for tc in tool_calls],
         )
 
-        emit_tasks = [
-            emitter.emit(
-                EventType.TOOL_CALL,
-                {
-                    "tool_name": tc.name,
-                    "tool_input": tc.input,
-                    "tool_id": tc.id,
-                    **({"agent_id": agent_id} if agent_id is not None else {}),
-                },
-                iteration=state.iteration,
+        emit_tasks = []
+        for tc in tool_calls:
+            event_tool_name, event_tool_input = (
+                executor.canonical_tool_call_event_payload(tc.name, tc.input)
             )
-            for tc in tool_calls
-        ]
+            emit_tasks.append(
+                emitter.emit(
+                    EventType.TOOL_CALL,
+                    {
+                        "tool_name": event_tool_name,
+                        "tool_input": event_tool_input,
+                        "tool_id": tc.id,
+                        **({"agent_id": agent_id} if agent_id is not None else {}),
+                    },
+                    iteration=state.iteration,
+                )
+            )
         await asyncio.gather(*emit_tasks)
 
         exec_tasks = [executor.execute(tc.name, tc.input) for tc in tool_calls]

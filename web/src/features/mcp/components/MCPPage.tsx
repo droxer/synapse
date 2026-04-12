@@ -132,7 +132,7 @@ export function MCPPage() {
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",
                   connectedCount > 0
-                    ? "bg-foreground"
+                    ? "bg-accent-emerald"
                     : "bg-border-strong",
                 )}
               />
@@ -154,7 +154,7 @@ export function MCPPage() {
 
           {/* Section header with search + add */}
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-medium text-muted-foreground">
+            <h2 className="text-lg font-medium text-foreground">
               {t("mcp.mcpServers")}
             </h2>
             <div className="flex-1" />

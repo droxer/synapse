@@ -34,8 +34,12 @@ class EventType(StrEnum):
     USER_RESPONSE = "user_response"
 
     AGENT_SPAWN = "agent_spawn"
+    AGENT_START = "agent_start"
     AGENT_COMPLETE = "agent_complete"
     AGENT_HANDOFF = "agent_handoff"
+    AGENT_STAGE_TRANSITION = "agent_stage_transition"
+    AGENT_SKIPPED = "agent_skipped"
+    AGENT_REPLAN_REQUIRED = "agent_replan_required"
 
     THINKING = "thinking"
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 from typing import Any
 
@@ -11,6 +12,11 @@ from agent.tools.base import (
     SandboxTool,
     ToolDefinition,
     ToolResult,
+)
+from agent.tools.sandbox.artifact_detection import (
+    build_artifact_paths,
+    find_new_output_files,
+    snapshot_output_files,
 )
 
 _RUNTIME_MAP: dict[str, str] = {
@@ -62,8 +68,10 @@ class CodeRun(SandboxTool):
                         "type": "array",
                         "items": {"type": "string"},
                         "description": (
-                            "Absolute paths of files created by this code that "
-                            "should be saved as downloadable artifacts."
+                            "Absolute paths of OUTPUT files written to disk by "
+                            "the code during execution (e.g. /workspace/report.docx). "
+                            "Do NOT include the script file itself. "
+                            "Only list files the code creates or writes as results."
                         ),
                     },
                 },
@@ -77,7 +85,7 @@ class CodeRun(SandboxTool):
         code: str = kwargs.get("code", "")
         language: str = kwargs.get("language", "python").lower()
         filename: str | None = kwargs.get("filename")
-        output_files: list[str] = kwargs.get("output_files") or []
+        output_files: list[str] = list(kwargs.get("output_files") or [])
         event_emitter: Any | None = kwargs.get("event_emitter")
 
         if not code.strip():
@@ -98,6 +106,15 @@ class CodeRun(SandboxTool):
         except Exception as exc:
             return ToolResult.fail(f"Failed to write code file: {exc}")
 
+        before_snapshot = await snapshot_output_files(
+            session,
+        )
+
+        # Place a timestamp marker before execution so we can find new files
+        # created during the run, even if they were not listed in output_files.
+        ts_marker = f"/tmp/_cr_ts_{os.urandom(4).hex()}"
+        await session.exec(f"touch {shlex.quote(ts_marker)}")
+
         try:
             command = f"{runtime} {shlex.quote(target)}"
             use_streaming = event_emitter is not None and isinstance(
@@ -117,7 +134,19 @@ class CodeRun(SandboxTool):
             else:
                 result = await session.exec(command, timeout=30)
         except Exception as exc:
+            await session.exec(f"rm -f {shlex.quote(ts_marker)}")
             return ToolResult.fail(f"Code execution failed: {exc}")
+
+        # Scan /workspace and skill directories for output-type files created
+        # during execution.  This catches files the LLM forgot to list in
+        # output_files.
+        auto_found = await find_new_output_files(
+            session,
+            ts_marker,
+            exclude_paths=(target,),
+            before_snapshot=before_snapshot,
+        )
+        await session.exec(f"rm -f {shlex.quote(ts_marker)}")
 
         combined = result.stdout
         if result.stderr:
@@ -125,8 +154,15 @@ class CodeRun(SandboxTool):
                 f"{combined}\n[stderr]\n{result.stderr}" if combined else result.stderr
             )
 
+        # Merge explicit output_files with auto-detected ones; exclude the script.
+        artifact_paths = build_artifact_paths(
+            output_files,
+            auto_found,
+            exclude_paths=(target,),
+        )
+
         metadata: dict[str, Any] = {"exit_code": result.exit_code, "language": language}
-        if output_files:
-            metadata["artifact_paths"] = list(output_files)
+        if artifact_paths:
+            metadata["artifact_paths"] = artifact_paths
 
         return ToolResult.ok(combined, metadata=metadata)

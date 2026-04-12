@@ -8,29 +8,15 @@ import { useConversationUsageList } from "../hooks/use-conversation-usage-list";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
+import { formatRelativeTimeFromIso } from "@/shared/lib/date-time";
 
 const listItem = {
   hidden: { opacity: 0, y: 4 },
   show: { opacity: 1, y: 0, transition: { duration: 0.1, ease: "easeOut" as const } },
 };
 
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
-function truncateId(id: string): string {
-  return id.length > 8 ? `${id.slice(0, 8)}…` : id;
-}
-
 export function TokenUsageTab() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { usage } = useUserTokenUsage();
   const { items, loading, error, page, totalPages, loadPage } = useConversationUsageList();
 
@@ -60,11 +46,11 @@ export function TokenUsageTab() {
             {/* Bar */}
             <div className="flex h-2.5 w-full overflow-hidden rounded-full bg-secondary">
               <div
-                className="h-full bg-muted-foreground/40 transition-[width] duration-200 ease-out"
+                className="h-full bg-focus/40 transition-[width] duration-200 ease-out"
                 style={{ width: `${inputPct}%` }}
               />
               <div
-                className="h-full bg-foreground transition-[width] duration-200 ease-out"
+                className="h-full bg-accent-emerald transition-[width] duration-200 ease-out"
                 style={{ width: `${outputPct}%` }}
               />
             </div>
@@ -72,14 +58,14 @@ export function TokenUsageTab() {
             {/* Legend */}
             <div className="flex items-center justify-between text-caption font-mono tabular-nums">
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-muted-foreground/40" />
+                <span className="h-2 w-2 rounded-full bg-focus/40" />
                 <span className="text-muted-foreground">{t("profile.inputTokens")}</span>
                 <span className="font-medium text-foreground">
                   {formatTokenCount(usage.total_input_tokens)}
                 </span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2 w-2 rounded-full bg-foreground" />
+                <span className="h-2 w-2 rounded-full bg-accent-emerald" />
                 <span className="text-muted-foreground">{t("profile.outputTokens")}</span>
                 <span className="font-medium text-foreground">
                   {formatTokenCount(usage.total_output_tokens)}
@@ -89,7 +75,13 @@ export function TokenUsageTab() {
 
             {/* Stats row */}
             <div className="flex items-center gap-4 pt-1 text-caption text-muted-foreground">
-              <span>{t("profile.totalRequests", { count: usage.total_requests })}</span>
+              <span>
+                {usage.total_requests === 1
+                  ? t("preferences.usage.totalModelResponses.one")
+                  : t("preferences.usage.totalModelResponses.other", {
+                      count: usage.total_requests,
+                    })}
+              </span>
               <span>{t("preferences.usage.conversations", { count: usage.conversation_count })}</span>
             </div>
           </div>
@@ -112,11 +104,13 @@ export function TokenUsageTab() {
 
         <div className="rounded-lg border border-border overflow-hidden">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_120px_120px_80px_120px] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground">
-            <span>{t("preferences.usage.conversationId")}</span>
+          <div className="grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,7.5rem)_minmax(5.5rem,7.5rem)_minmax(6.5rem,8.5rem)_minmax(5.5rem,7rem)] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground">
+            <span>{t("preferences.usage.taskName")}</span>
             <span className="text-right">{t("profile.inputTokens")}</span>
             <span className="text-right">{t("profile.outputTokens")}</span>
-            <span className="text-right">{t("preferences.usage.requests")}</span>
+            <span className="text-right leading-tight">
+              {t("preferences.usage.modelResponses")}
+            </span>
             <span className="text-right">{t("preferences.usage.lastActive")}</span>
           </div>
 
@@ -140,13 +134,22 @@ export function TokenUsageTab() {
                   key={item.conversation_id}
                   variants={listItem}
                   className={cn(
-                    "grid grid-cols-[1fr_120px_120px_80px_120px] items-center gap-3 px-4 py-3 text-sm",
+                    "grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,7.5rem)_minmax(5.5rem,7.5rem)_minmax(6.5rem,8.5rem)_minmax(5.5rem,7rem)] items-center gap-3 px-4 py-3 text-sm",
                     "border-t border-border first:border-t-0",
                     "hover:bg-secondary transition-colors duration-100",
                   )}
                 >
-                  <span className="truncate font-mono text-caption text-foreground">
-                    {truncateId(item.conversation_id)}
+                  <span
+                    className="truncate text-sm text-foreground"
+                    title={
+                      item.title?.trim()
+                        ? item.title
+                        : item.conversation_id
+                    }
+                  >
+                    {item.title?.trim()
+                      ? item.title
+                      : t("library.untitledTask")}
                   </span>
                   <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
                     {formatTokenCount(item.input_tokens)}
@@ -158,7 +161,7 @@ export function TokenUsageTab() {
                     {item.request_count}
                   </span>
                   <span className="text-right text-caption text-muted-foreground">
-                    {formatRelativeTime(item.updated_at)}
+                    {formatRelativeTimeFromIso(item.updated_at, locale)}
                   </span>
                 </motion.div>
               ))}

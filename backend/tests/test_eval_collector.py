@@ -38,6 +38,20 @@ class TestEvalCollector:
         assert metrics.total_input_tokens == 200
         assert metrics.total_output_tokens == 100
 
+    async def test_tracks_execution_shape(self, collector: EvalCollector) -> None:
+        await collector.on_event(
+            _event(
+                EventType.TURN_START,
+                {
+                    "execution_shape": "parallel",
+                    "execution_rationale": "independent tasks",
+                },
+            )
+        )
+        metrics = collector.to_metrics()
+        assert metrics.execution_shape == "parallel"
+        assert metrics.execution_rationale == "independent tasks"
+
     async def test_tracks_tool_calls(self, collector: EvalCollector) -> None:
         await collector.on_event(
             _event(

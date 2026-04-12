@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { Download } from "lucide-react";
+import { Download, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,10 +14,10 @@ import { FilePreview } from "@/shared/components/FilePreview";
 import { downloadFile } from "@/shared/lib/download";
 import { useTranslation } from "@/i18n";
 import type { ArtifactInfo } from "@/shared/types";
+import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
 import {
   fileExtension,
   fileCategoryColor,
-  fileIcon,
   formatFileSize,
 } from "../lib/artifact-helpers";
 
@@ -26,6 +26,8 @@ interface ArtifactPreviewDialogProps {
   readonly artifactUrl: string | null;
   readonly open: boolean;
   readonly onOpenChange: (open: boolean) => void;
+  /** When set, shows a delete control that starts the parent delete confirmation flow. */
+  readonly onRequestDelete?: () => void;
 }
 
 export function ArtifactPreviewDialog({
@@ -33,8 +35,9 @@ export function ArtifactPreviewDialog({
   artifactUrl,
   open,
   onOpenChange,
+  onRequestDelete,
 }: ArtifactPreviewDialogProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
 
   const handleDownload = useCallback(() => {
     if (!artifactUrl || !artifact) return;
@@ -45,17 +48,31 @@ export function ArtifactPreviewDialog({
 
   const ext = fileExtension(artifact.name);
   const colors = fileCategoryColor(artifact.contentType, artifact.name);
-  const Icon = fileIcon(artifact.contentType, artifact.name);
+  const createdLabel =
+    artifact.createdAt &&
+    !Number.isNaN(new Date(artifact.createdAt).getTime())
+      ? new Date(artifact.createdAt).toLocaleString(locale, {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })
+      : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span
               className={`inline-flex h-6 w-6 items-center justify-center rounded ${colors.bg}`}
             >
-              <Icon className={`h-3.5 w-3.5 ${colors.icon}`} />
+              <BrandFileTypeIcon
+                name={artifact.name}
+                contentType={artifact.contentType}
+                className={`h-3.5 w-3.5 ${colors.icon}`}
+              />
             </span>
             <span className="truncate">{artifact.name}</span>
             {ext && (
@@ -69,6 +86,9 @@ export function ArtifactPreviewDialog({
               </span>
             )}
           </DialogTitle>
+          {createdLabel && (
+            <p className="text-xs text-muted-foreground">{createdLabel}</p>
+          )}
         </DialogHeader>
 
         <div className="max-h-[75vh] overflow-auto">
@@ -82,7 +102,18 @@ export function ArtifactPreviewDialog({
           )}
         </div>
 
-        <DialogFooter>
+        <DialogFooter className="gap-2 sm:gap-0">
+          {onRequestDelete && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              onClick={onRequestDelete}
+            >
+              <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+              {t("explorer.delete")}
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleDownload}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {t("artifacts.downloadFile")}

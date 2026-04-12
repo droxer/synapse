@@ -13,6 +13,12 @@ export interface ConversationHistoryItem {
   readonly isRunning: boolean;
 }
 
+export interface PendingNewTask {
+  readonly prompt: string;
+  readonly skills?: readonly string[];
+  readonly usePlanner?: boolean;
+}
+
 export function toHistoryItem(item: ConversationListItem): ConversationHistoryItem {
   return {
     id: item.id,
@@ -26,6 +32,8 @@ interface AppState {
   // Conversation
   readonly conversationId: string | null;
   readonly isLiveConversation: boolean;
+  readonly pendingNewTask: PendingNewTask | null;
+  readonly pendingConversationRouteId: string | null;
   readonly conversationHistory: readonly ConversationHistoryItem[];
   readonly totalConversations: number;
   readonly isLoadingHistory: boolean;
@@ -41,6 +49,10 @@ interface AppState {
   readonly switchConversation: (conversationId: string) => void;
   readonly resumeConversation: () => void;
   readonly resetConversation: () => void;
+  readonly queuePendingNewTask: (task: PendingNewTask) => void;
+  readonly clearPendingNewTask: () => void;
+  readonly setPendingConversationRoute: (conversationId: string) => void;
+  readonly clearPendingConversationRoute: () => void;
   readonly toggleSidebar: () => void;
   readonly setSidebarWidth: (width: number) => void;
   readonly openSidebar: () => void;
@@ -48,6 +60,15 @@ interface AppState {
   readonly loadConversations: () => Promise<void>;
   readonly loadMore: () => Promise<void>;
   readonly deleteConversation: (conversationId: string) => Promise<void>;
+  /** Bumped when conversation list may be stale vs server (e.g. after delete). Library page refetches on change. */
+  readonly libraryRefetchEpoch: number;
+  readonly bumpLibraryRefetch: () => void;
+  /**
+   * Artifact IDs removed via API this session (library or computer panel).
+   * Filters event-derived artifact lists so UI matches server; library refetches on each update.
+   */
+  readonly deletedArtifactIds: Readonly<Record<string, true>>;
+  readonly recordArtifactsDeleted: (artifactIds: readonly string[]) => void;
 }
 
 const PAGE_SIZE = 20;
@@ -57,12 +78,31 @@ export const useAppStore = create<AppState>()(
     (set, get) => ({
       conversationId: null,
       isLiveConversation: false,
+      pendingNewTask: null,
+      pendingConversationRouteId: null,
       conversationHistory: [],
       totalConversations: 0,
       isLoadingHistory: false,
       sidebarCollapsed: false,
       sidebarWidth: 256,
       sidebarOpen: false,
+      libraryRefetchEpoch: 0,
+      deletedArtifactIds: {},
+
+      bumpLibraryRefetch: () =>
+        set((state) => ({ libraryRefetchEpoch: state.libraryRefetchEpoch + 1 })),
+
+      recordArtifactsDeleted: (artifactIds) => {
+        if (artifactIds.length === 0) return;
+        set((state) => {
+          const next = { ...state.deletedArtifactIds };
+          for (const id of artifactIds) next[id] = true;
+          return {
+            deletedArtifactIds: next,
+            libraryRefetchEpoch: state.libraryRefetchEpoch + 1,
+          };
+        });
+      },
 
       startConversation: (conversationId, title) =>
         set((state) => ({
@@ -95,6 +135,15 @@ export const useAppStore = create<AppState>()(
       resumeConversation: () => set({ isLiveConversation: true }),
 
       resetConversation: () => set({ conversationId: null, isLiveConversation: false }),
+
+      queuePendingNewTask: (task) => set({ pendingNewTask: task }),
+
+      clearPendingNewTask: () => set({ pendingNewTask: null }),
+
+      setPendingConversationRoute: (conversationId) =>
+        set({ pendingConversationRouteId: conversationId }),
+
+      clearPendingConversationRoute: () => set({ pendingConversationRouteId: null }),
 
       toggleSidebar: () =>
         set((state) => ({ sidebarCollapsed: !state.sidebarCollapsed })),
@@ -151,6 +200,19 @@ export const useAppStore = create<AppState>()(
       },
 
       deleteConversation: async (conversationId) => {
+        const wasInSidebar = get().conversationHistory.some(
+          (c) => c.id === conversationId,
+        );
+        const previousHistory = get().conversationHistory;
+
+        if (wasInSidebar) {
+          set((state) => ({
+            conversationHistory: state.conversationHistory.filter(
+              (c) => c.id !== conversationId,
+            ),
+          }));
+        }
+
         try {
           await apiDeleteConversation(conversationId);
           const { conversationId: activeId } = get();
@@ -159,12 +221,16 @@ export const useAppStore = create<AppState>()(
               (c) => c.id !== conversationId,
             ),
             totalConversations: Math.max(0, state.totalConversations - 1),
+            libraryRefetchEpoch: state.libraryRefetchEpoch + 1,
           }));
           if (activeId === conversationId) {
             get().resetConversation();
           }
         } catch (err) {
           console.error("Failed to delete conversation:", err);
+          if (wasInSidebar) {
+            set({ conversationHistory: previousHistory });
+          }
         }
       },
     }),

@@ -20,10 +20,15 @@ os.environ.setdefault("TAVILY_API_KEY", "test-key")
 from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage  # noqa: E402
 from api.models import ConversationMetricsResponse  # noqa: E402
 from api.routes.conversations import (  # noqa: E402
-    _COMPLEXITY_SYSTEM_PROMPT,
+    _EXECUTION_ROUTER_SYSTEM_PROMPT,
+    EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+    EXECUTION_SHAPE_PARALLEL,
+    EXECUTION_SHAPE_PROMPT_CHAIN,
+    EXECUTION_SHAPE_SINGLE_AGENT,
     _build_conversation_metrics_response,
-    _classify_task_complexity,
+    _classify_execution_shape,
     _planner_flag_to_mode,
+    _resolve_execution_route,
 )
 
 
@@ -366,6 +371,56 @@ class TestPlannerModeFlag:
         assert _planner_flag_to_mode(None) is None
 
 
+class TestResolveExecutionRoute:
+    @pytest.mark.asyncio
+    async def test_explicit_planner_forces_planner_mode_without_classifier(
+        self,
+    ) -> None:
+        client = AsyncMock(spec=AnthropicClient)
+
+        result = await _resolve_execution_route(client, "plan this work", True)
+
+        assert result == (
+            EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+            "planner forced by user",
+            "planner",
+            False,
+        )
+        client.create_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_explicit_agent_forces_single_agent_without_classifier(self) -> None:
+        client = AsyncMock(spec=AnthropicClient)
+
+        result = await _resolve_execution_route(client, "keep this simple", False)
+
+        assert result == (
+            EXECUTION_SHAPE_SINGLE_AGENT,
+            "planner disabled by user",
+            "agent",
+            False,
+        )
+        client.create_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_unset_planner_flag_uses_classifier_and_auto_detects_planner(
+        self,
+    ) -> None:
+        client = _mock_client("parallel|independent tasks")
+
+        result = await _resolve_execution_route(
+            client, "split this into independent tasks", None
+        )
+
+        assert result == (
+            EXECUTION_SHAPE_PARALLEL,
+            "independent tasks",
+            "planner",
+            True,
+        )
+        client.create_message.assert_called_once()
+
+
 # ---------------------------------------------------------------------------
 # Task complexity classifier
 # ---------------------------------------------------------------------------
@@ -382,65 +437,77 @@ def _mock_client(response_text: str) -> AnthropicClient:
     return client
 
 
-class TestClassifyTaskComplexity:
+class TestClassifyExecutionShape:
     @pytest.mark.asyncio
-    async def test_complex_verdict_returns_true(self) -> None:
-        result = await _classify_task_complexity(
-            _mock_client("COMPLEX"), "build a website"
+    async def test_single_agent_verdict_returns_shape(self) -> None:
+        result = await _classify_execution_shape(
+            _mock_client("single_agent|one owner"), "build a website"
         )
-        assert result is True
+        assert result == (EXECUTION_SHAPE_SINGLE_AGENT, "one owner")
 
     @pytest.mark.asyncio
-    async def test_simple_verdict_returns_false(self) -> None:
-        result = await _classify_task_complexity(_mock_client("SIMPLE"), "what is 2+2")
-        assert result is False
+    async def test_prompt_chain_verdict_returns_shape(self) -> None:
+        result = await _classify_execution_shape(
+            _mock_client("prompt_chain|predictable sequence"),
+            "prepare and then summarize",
+        )
+        assert result == (EXECUTION_SHAPE_PROMPT_CHAIN, "predictable sequence")
 
     @pytest.mark.asyncio
-    async def test_verdict_case_insensitive(self) -> None:
-        result = await _classify_task_complexity(_mock_client("complex"), "some task")
-        assert result is True
+    async def test_parallel_verdict_case_insensitive(self) -> None:
+        result = await _classify_execution_shape(
+            _mock_client("PARALLEL|independent tasks"), "some task"
+        )
+        assert result == (EXECUTION_SHAPE_PARALLEL, "independent tasks")
 
     @pytest.mark.asyncio
-    async def test_verdict_with_trailing_punctuation(self) -> None:
-        result = await _classify_task_complexity(_mock_client("COMPLEX."), "some task")
-        assert result is True
+    async def test_orchestrator_workers_verdict_returns_shape(self) -> None:
+        result = await _classify_execution_shape(
+            _mock_client("orchestrator_workers|open ended decomposition"), "some task"
+        )
+        assert result == (
+            EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+            "open ended decomposition",
+        )
 
     @pytest.mark.asyncio
-    async def test_api_error_returns_false(self) -> None:
+    async def test_api_error_returns_single_agent_default(self) -> None:
         client = AsyncMock(spec=AnthropicClient)
         client.create_message.side_effect = RuntimeError("network failure")
-        result = await _classify_task_complexity(client, "build a pipeline")
-        assert result is False
+        result = await _classify_execution_shape(client, "build a pipeline")
+        assert result[0] == EXECUTION_SHAPE_SINGLE_AGENT
 
     @pytest.mark.asyncio
-    async def test_ambiguous_response_returns_false(self) -> None:
-        result = await _classify_task_complexity(
+    async def test_ambiguous_response_returns_single_agent_default(self) -> None:
+        result = await _classify_execution_shape(
             _mock_client("I cannot decide."), "some task"
         )
-        assert result is False
+        assert result[0] == EXECUTION_SHAPE_SINGLE_AGENT
 
     @pytest.mark.asyncio
     async def test_uses_lite_model(self) -> None:
-        client = _mock_client("SIMPLE")
-        await _classify_task_complexity(client, "hello")
+        client = _mock_client("single_agent|default")
+        await _classify_execution_shape(client, "hello")
         call_kwargs = client.create_message.call_args.kwargs
         assert "model" in call_kwargs
 
     @pytest.mark.asyncio
-    async def test_max_tokens_is_small(self) -> None:
-        client = _mock_client("COMPLEX")
-        await _classify_task_complexity(client, "build something")
+    async def test_max_tokens_is_bounded(self) -> None:
+        client = _mock_client("parallel|independent")
+        await _classify_execution_shape(client, "build something")
         call_kwargs = client.create_message.call_args.kwargs
-        assert call_kwargs.get("max_tokens", 999) <= 10
+        assert call_kwargs.get("max_tokens", 999) <= 40
 
     @pytest.mark.asyncio
     async def test_long_message_is_truncated(self) -> None:
-        client = _mock_client("SIMPLE")
-        await _classify_task_complexity(client, "x" * 5000)
+        client = _mock_client("single_agent|default")
+        await _classify_execution_shape(client, "x" * 5000)
         call_kwargs = client.create_message.call_args.kwargs
         content = call_kwargs["messages"][0]["content"]
         assert len(content) <= 2000
 
-    def test_complexity_system_prompt_has_both_labels(self) -> None:
-        assert "COMPLEX" in _COMPLEXITY_SYSTEM_PROMPT
-        assert "SIMPLE" in _COMPLEXITY_SYSTEM_PROMPT
+    def test_execution_router_system_prompt_has_all_shapes(self) -> None:
+        assert "single_agent" in _EXECUTION_ROUTER_SYSTEM_PROMPT
+        assert "prompt_chain" in _EXECUTION_ROUTER_SYSTEM_PROMPT
+        assert "parallel" in _EXECUTION_ROUTER_SYSTEM_PROMPT
+        assert "orchestrator_workers" in _EXECUTION_ROUTER_SYSTEM_PROMPT

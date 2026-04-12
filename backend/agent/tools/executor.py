@@ -36,6 +36,7 @@ class ToolExecutor:
         self._conversation_id = conversation_id
         self._shell_tools_this_turn = 0
         self._staged_skills_by_template: dict[str, set[str]] = {}
+        self._active_skill_directory: str | None = None
 
     @property
     def sandbox_provider(self) -> Any | None:
@@ -65,6 +66,14 @@ class ToolExecutor:
     def reset_turn_quotas(self) -> None:
         """Reset per-turn counters (call at the start of each user turn)."""
         self._shell_tools_this_turn = 0
+
+    def set_active_skill_directory(self, directory: str) -> None:
+        """Set the default shell working directory for the active skill."""
+        self._active_skill_directory = directory
+
+    def reset_active_skill_directory(self) -> None:
+        """Clear any active-skill working directory override."""
+        self._active_skill_directory = None
 
     def set_sandbox_template(self, template: str) -> None:
         """Override the default sandbox template.
@@ -208,6 +217,17 @@ class ToolExecutor:
         )
         return "activate_skill", activate_skill_tool
 
+    def canonical_tool_call_event_payload(
+        self,
+        tool_name: str,
+        tool_input: dict[str, Any],
+    ) -> tuple[str, dict[str, Any]]:
+        """Return canonical tool name/input for TOOL_CALL event emission."""
+        resolved_name, _ = self._resolve_tool(tool_name)
+        if resolved_name == "activate_skill" and tool_name != resolved_name:
+            return resolved_name, {"name": tool_name}
+        return resolved_name, tool_input
+
     async def execute(
         self,
         tool_name: str,
@@ -224,6 +244,15 @@ class ToolExecutor:
         resolved_input = tool_input
         if resolved_name == "activate_skill" and tool_name != resolved_name:
             resolved_input = {"name": tool_name}
+        elif (
+            resolved_name == "shell_exec"
+            and not resolved_input.get("workdir")
+            and self._active_skill_directory is not None
+        ):
+            resolved_input = {
+                **resolved_input,
+                "workdir": self._active_skill_directory,
+            }
 
         if tool is None:
             logger.warning("unknown_tool_requested name={}", tool_name)

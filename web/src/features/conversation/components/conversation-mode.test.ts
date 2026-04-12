@@ -1,10 +1,11 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  getPlanMessageIndex,
   getCurrentTurnEventSlice,
   hasPlannerSignalsSinceLastTurnComplete,
   shouldShowPlannerModeBadge,
 } from "./conversation-mode";
-import type { AgentEvent } from "@/shared/types";
+import type { AgentEvent, ChatMessage } from "@/shared/types";
 
 describe("getCurrentTurnEventSlice", () => {
   it("returns events after the last turn_complete", () => {
@@ -33,6 +34,43 @@ describe("hasPlannerSignalsSinceLastTurnComplete", () => {
       { type: "tool_call", data: {}, timestamp: 3, iteration: null },
     ];
     expect(hasPlannerSignalsSinceLastTurnComplete(events)).toBe(false);
+  });
+});
+
+describe("getPlanMessageIndex", () => {
+  it("anchors the checklist to the assistant message in the latest planner turn", () => {
+    const events: AgentEvent[] = [
+      { type: "turn_start", data: { message: "first", orchestrator_mode: "planner" }, timestamp: 1, iteration: null },
+      { type: "plan_created", data: { steps: [] }, timestamp: 2, iteration: null },
+      { type: "turn_complete", data: {}, timestamp: 3, iteration: null },
+      { type: "turn_start", data: { message: "second", orchestrator_mode: "planner" }, timestamp: 10, iteration: null },
+      { type: "plan_created", data: { steps: [] }, timestamp: 11, iteration: null },
+    ];
+    const messages: ChatMessage[] = [
+      { role: "user", content: "first", timestamp: 1 },
+      { role: "assistant", content: "first result", timestamp: 2 },
+      { role: "user", content: "second", timestamp: 10 },
+      { role: "assistant", content: "second result", timestamp: 12 },
+    ];
+
+    expect(getPlanMessageIndex(events, messages)).toBe(3);
+  });
+
+  it("does not anchor a new planner turn to an assistant message from an older turn", () => {
+    const events: AgentEvent[] = [
+      { type: "turn_start", data: { message: "first", orchestrator_mode: "planner" }, timestamp: 1, iteration: null },
+      { type: "plan_created", data: { steps: [] }, timestamp: 2, iteration: null },
+      { type: "turn_complete", data: {}, timestamp: 3, iteration: null },
+      { type: "turn_start", data: { message: "second", orchestrator_mode: "planner" }, timestamp: 10, iteration: null },
+      { type: "plan_created", data: { steps: [] }, timestamp: 11, iteration: null },
+    ];
+    const messages: ChatMessage[] = [
+      { role: "user", content: "first", timestamp: 1 },
+      { role: "assistant", content: "first result", timestamp: 2 },
+      { role: "user", content: "second", timestamp: 10 },
+    ];
+
+    expect(getPlanMessageIndex(events, messages)).toBeNull();
   });
 });
 

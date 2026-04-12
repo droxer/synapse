@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import os
 import shlex
 from typing import Any
 
@@ -12,6 +13,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.tools.sandbox.constants import ARTIFACT_EXTENSIONS
 
 
 class FileRead(SandboxTool):
@@ -73,6 +75,16 @@ class FileWrite(SandboxTool):
                         "type": "string",
                         "description": "Content to write to the file.",
                     },
+                    "is_artifact": {
+                        "type": "boolean",
+                        "description": (
+                            "Whether this file is a final output artifact "
+                            "that should be shown to the user (e.g. a report, "
+                            "chart, or export). Defaults to auto-detect based "
+                            "on file extension. Set to false for intermediate "
+                            "helper scripts or temp files."
+                        ),
+                    },
                 },
                 "required": ["path", "content"],
             },
@@ -100,13 +112,23 @@ class FileWrite(SandboxTool):
         except Exception as exc:
             return ToolResult.fail(f"Failed to write file: {exc}")
 
+        metadata: dict[str, Any] = {
+            "path": path,
+            "bytes_written": len(content),
+        }
+
+        # Determine whether this file should be treated as an artifact.
+        # Explicit is_artifact wins; otherwise use extension heuristic.
+        is_artifact = kwargs.get("is_artifact")
+        if is_artifact is None:
+            _, ext = os.path.splitext(path)
+            is_artifact = ext.lower() in ARTIFACT_EXTENSIONS
+        if is_artifact:
+            metadata["artifact_paths"] = [path]
+
         return ToolResult.ok(
             f"Successfully wrote {len(content)} bytes to {path}",
-            metadata={
-                "path": path,
-                "bytes_written": len(content),
-                "artifact_paths": [path],
-            },
+            metadata=metadata,
         )
 
 

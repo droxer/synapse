@@ -130,6 +130,7 @@ class TokenUsageRecord:
     request_count: int
     created_at: datetime
     updated_at: datetime
+    conversation_title: str | None = None
 
 
 @dataclass(frozen=True)

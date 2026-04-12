@@ -45,6 +45,14 @@ class TestAgentMessageBus:
         msgs = bus.receive("a1")
         assert len(msgs) == 0
 
+    def test_broadcast_is_not_redelivered(self) -> None:
+        bus = AgentMessageBus()
+        bus.broadcast("a1", "hey all")
+        first = bus.receive("a2")
+        second = bus.receive("a2")
+        assert len(first) == 1
+        assert second == []
+
     def test_clear(self) -> None:
         bus = AgentMessageBus()
         bus.send("a1", "a2", "msg")
@@ -85,6 +93,16 @@ class TestSendToAgent:
         bus = AgentMessageBus()
         tool = SendToAgent(bus, sender_id="agent1")
         result = await tool.execute(agent_id="", message="hello")
+        assert not result.success
+
+    async def test_unknown_target_fails(self) -> None:
+        bus = AgentMessageBus()
+        tool = SendToAgent(
+            bus,
+            sender_id="agent1",
+            target_validator=lambda target_id: target_id == "agent2",
+        )
+        result = await tool.execute(agent_id="missing", message="hello")
         assert not result.success
 
 

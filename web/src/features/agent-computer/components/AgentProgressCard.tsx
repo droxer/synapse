@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useMemo, type ReactNode } from "react";
+import { useState, useMemo, useRef, useEffect, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
   ChevronDown,
   CircleCheck,
   CircleX,
+  Minus,
   Lightbulb,
   Play,
   Code,
@@ -28,7 +29,17 @@ import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import type { AgentEvent, AgentStatus, TaskState, ToolCallInfo } from "@/shared/types";
 import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
-import { normalizeToolNameI18n, normalizeAgentName, getToolCategory } from "@/features/agent-computer/lib/tool-constants";
+import {
+  getTaskStateAnnouncement,
+  getTaskStateProgressIndicatorClass,
+  isTaskStateLive,
+} from "@/features/agent-computer/lib/task-state-display";
+import {
+  HIDDEN_ACTIVITY_TOOLS,
+  normalizeToolNameI18n,
+  normalizeAgentName,
+  getToolCategory,
+} from "@/features/agent-computer/lib/tool-constants";
 import type { ToolCategory } from "@/features/agent-computer/lib/tool-constants";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import type { TFn } from "@/shared/types/i18n";
@@ -44,6 +55,7 @@ interface AgentProgressCardProps {
 }
 
 type StepKind = "start" | "tool" | "skill" | "agent" | "complete" | "error";
+type TimelineStepStatus = "running" | "complete" | "error" | "skipped" | "replan_required";
 
 interface TimelineStep {
   readonly id: string;
@@ -53,15 +65,26 @@ interface TimelineStep {
   readonly name?: string;
   /** Raw tool name for category-based icon lookup */
   readonly rawToolName?: string;
-  readonly status: "running" | "complete" | "error";
+  readonly status: TimelineStepStatus;
   /** Sub-agent row: tool count under this agent (suffix via i18n when > 0) */
   readonly agentToolCount?: number;
+}
+
+interface StatusVisual {
+  readonly text: string;
+  readonly rowBase: string;
+  readonly rowHover: string;
+  readonly iconSurface: string;
+  readonly iconColor: string;
 }
 
 interface ToolCallIndexes {
   readonly byToolUseId: ReadonlyMap<string, readonly ToolCallInfo[]>;
   readonly countByAgentId: ReadonlyMap<string, number>;
 }
+
+const STEP_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-sm";
+const STEP_ICON_GLYPH_CLASS = "h-3 w-3";
 
 const SEARCH_LIKE_TOOLS = new Set([
   "web_search",
@@ -82,6 +105,9 @@ export function buildToolCallIndexes(toolCalls: readonly ToolCallInfo[]): ToolCa
   const countByAgentId = new Map<string, number>();
 
   for (const toolCall of toolCalls) {
+    if (HIDDEN_ACTIVITY_TOOLS.has(toolCall.name)) {
+      continue;
+    }
     const existingForId = byToolUseId.get(toolCall.toolUseId);
     if (existingForId) {
       existingForId.push(toolCall);
@@ -152,6 +178,18 @@ function resolveParseTarget(input: Record<string, unknown>, fallback: string, t:
   return value || t("progress.runtimeUnknown");
 }
 
+function mapAgentStepStatus(value: unknown): TimelineStepStatus {
+  switch (value) {
+    case "complete":
+    case "skipped":
+    case "replan_required":
+    case "error":
+      return value;
+    default:
+      return "error";
+  }
+}
+
 export function buildSteps(
   events: AgentEvent[],
   indexes: ToolCallIndexes,
@@ -159,6 +197,18 @@ export function buildSteps(
   agentNameMap: ReadonlyMap<string, string>,
 ): TimelineStep[] {
   let steps: TimelineStep[] = [];
+  const getSkillStepTitle = (
+    skillName: string,
+    status: TimelineStepStatus,
+  ): string => {
+    if (status === "complete") {
+      return t("progress.skillLoaded", { name: skillName });
+    }
+    if (status === "error") {
+      return t("progress.skillLoadFailed", { name: skillName });
+    }
+    return t("progress.loadingSkill", { name: skillName });
+  };
   /** Deduplicate by (api tool id + ordinal), since providers may reuse ids across turns. */
   const seenToolCalls = new Set<string>();
   const toolCallOrdinalByApiId = new Map<string, number>();
@@ -179,13 +229,13 @@ export function buildSteps(
         return step;
       }
       updated = true;
-      return { ...step, status };
+      return { ...step, status, title: getSkillStepTitle(normalized, status) };
     });
     if (!updated) {
       steps = [...steps, {
         id: `skill-${skillName}-${timestamp}`,
         kind: "skill",
-        title: t("progress.loadingSkills", { name: normalized }),
+        title: getSkillStepTitle(normalized, status),
         name: normalized,
         status,
       }];
@@ -206,6 +256,9 @@ export function buildSteps(
 
       case "tool_call": {
         const toolName = String(event.data.name ?? event.data.tool_name ?? "unknown");
+        if (HIDDEN_ACTIVITY_TOOLS.has(toolName)) {
+          break;
+        }
         const apiToolId = String(event.data.tool_id ?? event.data.id ?? event.timestamp);
         const ord = toolCallOrdinalByApiId.get(apiToolId) ?? 0;
         toolCallOrdinalByApiId.set(apiToolId, ord + 1);
@@ -242,7 +295,7 @@ export function buildSteps(
               : normalizedToolName;
 
             if (isSkill) {
-              stepTitle = t("progress.loadingSkills", { name: displayName });
+              stepTitle = t("progress.loadingSkill", { name: displayName });
             } else if (SEARCH_LIKE_TOOLS.has(toolName)) {
               const target = resolveSearchTarget(input, normalizedToolName, t);
               displayName = target;
@@ -256,22 +309,55 @@ export function buildSteps(
             }
           }
 
-          steps = [...steps, {
+          const skillStatus: TimelineStepStatus = tc?.success === false
+            ? "error"
+            : tc?.success === true
+              ? "complete"
+              : "running";
+          if (isSkill) {
+            stepTitle = getSkillStepTitle(displayName, skillStatus);
+          }
+
+          const nextStep: TimelineStep = {
             id: tc ? `tool-${tc.id}` : `tool-${apiToolId}-${ord}-${event.timestamp}`,
             kind: isSkill ? "skill" : "tool",
             title: stepTitle,
             name: displayName,
             rawToolName: toolName,
             status: isSkill
-              ? tc?.success === false
+              ? skillStatus
+              : tc?.success === false
                 ? "error"
-                : tc?.success === true
+                : tc?.success === true || tc?.output !== undefined
                   ? "complete"
-                  : "running"
-              : tc?.output !== undefined
-                ? "complete"
-                : "running",
-          }];
+                  : "running",
+          };
+
+          /* skill_activated / skill_setup_failed may arrive before tool_call; those append a
+           * synthetic skill row (no rawToolName). Merge this tool_call into that row so we
+           * do not show two "loading skill" lines for one activation. */
+          if (isSkill) {
+            const syntheticIdx = steps.findLastIndex(
+              (s) => s.kind === "skill" && s.name === displayName && s.rawToolName === undefined,
+            );
+            if (syntheticIdx !== -1) {
+              const prior = steps[syntheticIdx]!;
+              const mergedStatus: TimelineStepStatus =
+                nextStep.status === "error" || prior.status === "error"
+                  ? "error"
+                  : nextStep.status === "complete" || prior.status === "complete"
+                    ? "complete"
+                    : nextStep.status;
+              steps = steps.map((s, i) =>
+                i === syntheticIdx
+                  ? { ...nextStep, status: mergedStatus, title: getSkillStepTitle(displayName, mergedStatus) }
+                  : s
+              );
+              break;
+            }
+          }
+
+          steps = [...steps, nextStep];
         }
         break;
       }
@@ -320,9 +406,9 @@ export function buildSteps(
       case "agent_complete": {
         const agentId = String(event.data.agent_id ?? event.data.id ?? "");
         const completedToolCount = indexes.countByAgentId.get(agentId) ?? 0;
-        const newStatus: TimelineStep["status"] = event.data.error ? "error" : "complete";
+        const newStatus = mapAgentStepStatus(event.data.terminal_state);
         steps = steps.map((s) =>
-          s.id.startsWith("agent-") && s.id.includes(agentId)
+          s.id.startsWith(`agent-${agentId}-`)
             ? {
               ...s,
               status: newStatus,
@@ -434,62 +520,125 @@ function kindIcon(kind: StepKind, rawToolName?: string) {
   }
 }
 
+function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
+  switch (status) {
+    case "error":
+      return {
+        text: "text-destructive",
+        rowBase: "border border-destructive/20 bg-destructive/6",
+        rowHover: "hover:bg-destructive/10",
+        iconSurface: "bg-destructive/14",
+        iconColor: "text-destructive",
+      };
+    case "replan_required":
+      return {
+        text: "text-accent-amber",
+        rowBase: "border border-accent-amber/20 bg-accent-amber/8",
+        rowHover: "hover:bg-accent-amber/12",
+        iconSurface: "bg-accent-amber/14",
+        iconColor: "text-accent-amber",
+      };
+    case "skipped":
+      return {
+        text: "text-muted-foreground",
+        rowBase: "border border-border/65 bg-muted/30",
+        rowHover: "hover:bg-muted/45",
+        iconSurface: "bg-muted/55",
+        iconColor: "text-muted-foreground",
+      };
+    case "running":
+      return {
+        text: "text-foreground",
+        rowBase: "border border-focus/20 bg-focus/6",
+        rowHover: "hover:bg-focus/10",
+        iconSurface: "bg-focus/12",
+        iconColor: "text-focus",
+      };
+    default:
+      return {
+        text: "text-foreground",
+        rowBase: "border border-accent-emerald/20 bg-accent-emerald/6",
+        rowHover: "hover:bg-accent-emerald/10",
+        iconSurface: "bg-accent-emerald/12",
+        iconColor: "text-accent-emerald",
+      };
+  }
+}
+
 /* Icon + status-colored container for each step */
 function StepIcon({ step }: { readonly step: TimelineStep }) {
   const Icon = kindIcon(step.kind, step.rawToolName);
+  const visual = getStepStatusVisual(step.status);
 
   if (step.status === "running") {
     return (
-      <span className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
-        <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className="absolute inset-0 rounded-full bg-muted animate-[pulsingDotFade_2s_ease-in-out_infinite]" />
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
+        <span className="absolute inset-0 rounded-sm bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
       </span>
     );
   }
 
   if (step.status === "error") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
-        <CircleX className="h-3.5 w-3.5 text-accent-rose" />
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <CircleX className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
+      </span>
+    );
+  }
+
+  if (step.status === "replan_required") {
+    return (
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <AlertTriangle className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
+      </span>
+    );
+  }
+
+  if (step.status === "skipped") {
+    return (
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <Minus className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
   }
 
   // complete
   return (
-    <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full">
-      <Check className="h-3.5 w-3.5 text-accent-emerald" />
+    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+      <Check className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.5} />
     </span>
   );
 }
 
 /* State badge shown next to the title */
 function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: TFn }) {
+  const baseClass = "status-pill border";
   switch (state) {
     case "planning":
       return (
-        <span className="status-pill chip-muted">
+        <span className={cn(baseClass, "border-accent-amber/30 bg-accent-amber/10 text-accent-amber")}>
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className="status-pill chip-muted">
+        <span className={cn(baseClass, "border-focus/25 bg-focus/10 text-focus")}>
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
     case "complete":
       return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-accent-emerald/10 px-1.5 py-0.5 text-micro font-medium text-accent-emerald">
-          <CircleCheck className="h-3 w-3 text-accent-emerald" />
+        <span className={cn(baseClass, "border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald")}>
+          <CircleCheck className="h-3 w-3" />
           {t("progress.stateComplete")}
         </span>
       );
     case "error":
       return (
-        <span className="inline-flex items-center gap-1 rounded-md bg-accent-rose/10 px-1.5 py-0.5 text-micro font-medium text-accent-rose">
+        <span className={cn(baseClass, "border-destructive/30 bg-destructive/10 text-destructive")}>
           <CircleX className="h-3 w-3" />
           {t("progress.stateError")}
         </span>
@@ -510,6 +659,7 @@ export function AgentProgressCard({
 }: AgentProgressCardProps) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
+  const stepsScrollRef = useRef<HTMLDivElement>(null);
   const toolIndexes = useMemo(() => buildToolCallIndexes(toolCalls), [toolCalls]);
 
   const agentNameMap = useMemo(() => {
@@ -525,9 +675,32 @@ export function AgentProgressCard({
     [events, toolIndexes, t, agentNameMap],
   );
 
+  const stepsScrollKey = useMemo(() => {
+    if (steps.length === 0) return "";
+    const last = steps[steps.length - 1];
+    return `${steps.length}:${last.id}:${last.status}`;
+  }, [steps]);
+
+  useEffect(() => {
+    if (!expanded || steps.length === 0) return;
+    const el = stepsScrollRef.current;
+    if (!el) return;
+    let cancelled = false;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        if (cancelled) return;
+        el.scrollTop = el.scrollHeight;
+      });
+    });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(id);
+    };
+  }, [expanded, stepsScrollKey, steps.length]);
+
   const completedCount = steps.filter((s) => s.status === "complete").length;
   const totalCount = steps.length;
-  const isRunning = taskState === "executing";
+  const isRunning = isTaskStateLive(taskState);
   const progressPercent = useMemo(
     () => computeAgentTaskProgressPercent(taskState, completedCount, totalCount),
     [taskState, completedCount, totalCount],
@@ -540,19 +713,10 @@ export function AgentProgressCard({
   }, [steps, isRunning]);
 
   if (totalCount === 0) return null;
-  const taskStateAnnouncement =
-    taskState === "planning"
-      ? t("progress.statePlanning")
-      : taskState === "executing"
-        ? t("progress.stateExecuting")
-        : taskState === "complete"
-          ? t("progress.stateComplete")
-          : taskState === "error"
-            ? t("progress.stateError")
-            : t("computer.statusIdle");
+  const taskStateAnnouncement = getTaskStateAnnouncement(taskState, t);
   return (
     <motion.div
-      className="surface-panel overflow-hidden"
+      className="surface-panel overflow-hidden border-border-strong/75 shadow-[var(--shadow-card-hover)]"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
@@ -562,51 +726,56 @@ export function AgentProgressCard({
       </div>
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-3 px-4 pt-3 pb-2">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <button
-            type="button"
-            aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
-            onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-            className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/20 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      <div className="flex items-center gap-2.5 border-b border-border/70 bg-muted/25 px-3 py-2.5">
+        <button
+          type="button"
+          aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
+          onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        >
+          <Monitor className="h-3.5 w-3.5" />
+        </button>
+        <span className="label-mono flex-1 truncate text-muted-foreground">{t("progress.title")}</span>
+        <TaskStateBadge state={taskState} t={t} />
+        <span
+          className={cn(
+            "status-pill tabular-nums",
+            taskState === "complete"
+              ? "border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald"
+              : taskState === "error"
+                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                : isRunning
+                  ? "border-focus/25 bg-focus/10 text-focus"
+                  : "border-border bg-muted text-muted-foreground",
+          )}
+        >
+          {completedCount}/{totalCount}
+        </span>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
+          aria-expanded={expanded}
+          onClick={() => setExpanded((prev) => !prev)}
+          className="border border-transparent text-muted-foreground hover:border-border/60 hover:bg-muted/45 hover:text-foreground"
+        >
+          <motion.span
+            animate={{ rotate: expanded ? 180 : 0 }}
+            transition={{ duration: 0.15, ease: "easeOut" }}
+            className="flex items-center"
           >
-            <Monitor className="h-3.5 w-3.5" />
-          </button>
-          <span className="truncate text-sm font-semibold tracking-tight text-foreground">{t("progress.title")}</span>
-          <TaskStateBadge state={taskState} t={t} />
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="tabular-nums font-mono text-caption font-medium text-muted-foreground">{completedCount}/{totalCount}</span>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-xs"
-            aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
-            onClick={() => setExpanded((prev) => !prev)}
-            className="text-muted-foreground hover:text-foreground"
-          >
-            <motion.span
-              animate={{ rotate: expanded ? 180 : 0 }}
-              transition={{ duration: 0.15, ease: "easeOut" }}
-              className="flex items-center"
-            >
-              <ChevronDown className="h-3.5 w-3.5" />
-            </motion.span>
-          </Button>
-        </div>
+            <ChevronDown className="h-3.5 w-3.5" />
+          </motion.span>
+        </Button>
       </div>
 
       {/* Progress bar */}
-      <div className="px-4 pb-3">
+      <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-1 rounded-full bg-border/50"
-          indicatorClassName={cn(
-            taskState === "complete" && "bg-accent-emerald",
-            taskState === "error" && "bg-accent-rose",
-            taskState === "planning" && "bg-muted-foreground",
-            (taskState === "executing" || taskState === "idle") && "bg-foreground",
-          )}
+          className="h-1 rounded-full bg-border/60"
+          indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
 
@@ -619,12 +788,18 @@ export function AgentProgressCard({
               transition={{ duration: 0.15, ease: "easeOut" }}
               className="overflow-hidden"
             >
-              <div className="mt-2.5 max-h-60 space-y-0.5 overflow-y-auto text-sm">
+              <div
+                ref={stepsScrollRef}
+                className="mt-2 max-h-56 space-y-1 overflow-y-auto text-sm"
+              >
                   {steps.map((step, index) => {
                     const isClickable = isTimelineStepActionable(step.id);
+                    const stepVisual = getStepStatusVisual(step.status);
                     const rowClassName = cn(
-                      "flex items-start gap-2.5 rounded-md px-1.5 py-1.5",
-                      isClickable && "cursor-pointer transition-colors hover:bg-muted/20",
+                      "flex items-start gap-2.5 rounded-md px-2 py-1.5",
+                      stepVisual.rowBase,
+                      isClickable && "cursor-pointer transition-colors",
+                      isClickable && stepVisual.rowHover,
                       isClickable &&
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     );
@@ -634,30 +809,20 @@ export function AgentProgressCard({
                         <span
                           className={cn(
                             "min-w-0 flex-1 truncate",
-                            step.status === "running" && "text-foreground",
-                            step.status === "complete" && "text-foreground",
-                            step.status === "error" && "text-accent-rose",
+                            stepVisual.text,
                           )}
                         >
                           {step.kind === "agent" ? (
                             <AgentStepTitleLine
                               step={step}
                               t={t}
-                              mainClass={cn(
-                                step.status === "running" && "text-foreground",
-                                step.status === "complete" && "text-foreground",
-                                step.status === "error" && "text-accent-rose",
-                              )}
+                              mainClass={stepVisual.text}
                             />
                           ) : step.name ? (
                             <StepTitleLine
                               title={step.title}
                               name={step.name}
-                              statusClass={cn(
-                                step.status === "running" && "text-foreground",
-                                step.status === "complete" && "text-foreground",
-                                step.status === "error" && "text-accent-rose",
-                              )}
+                              statusClass={stepVisual.text}
                             />
                           ) : (
                             step.title

@@ -90,7 +90,11 @@ class TestCodeRunStreaming:
         session.exec_stream = AsyncMock(
             return_value=ExecResult(stdout="42", stderr="", exit_code=0)
         )
-        session.exec = AsyncMock()
+        # exec is used for the timestamp marker, find command, and cleanup —
+        # return a no-op ExecResult so auto-detection produces no paths.
+        session.exec = AsyncMock(
+            return_value=ExecResult(stdout="", stderr="", exit_code=0)
+        )
         session.read_file = AsyncMock()
         session.upload_file = AsyncMock()
         session.download_file = AsyncMock()

@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
-from dataclasses import asdict, dataclass, replace
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
@@ -22,6 +22,7 @@ from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_setup import (
     build_skill_prompt_content,
+    emit_redundant_skill_activation,
     prepare_skill_for_turn,
 )
 from agent.runtime.skill_selector import select_skill_for_message
@@ -80,6 +81,7 @@ class TaskAgentConfig:
     role: str = ""
     max_handoffs: int = 3
     dependency_failure_mode: DependencyFailureMode = "inherit"
+    allow_redundant: bool = False
 
 
 @dataclass(frozen=True)
@@ -207,11 +209,15 @@ class TaskAgentRunner:
 
     async def run(self) -> AgentResult:
         """Execute the task agent loop and return an AgentResult."""
-        # AGENT_SPAWN is emitted earlier by SpawnTaskAgent.execute() so the
-        # frontend plan checklist updates immediately without waiting for
-        # semaphore acquisition.
-
         self._reset_run_state()
+        reset_sandbox_template = getattr(self._executor, "reset_sandbox_template", None)
+        if callable(reset_sandbox_template):
+            reset_sandbox_template()
+        reset_active_skill_directory = getattr(
+            self._executor, "reset_active_skill_directory", None
+        )
+        if callable(reset_active_skill_directory):
+            reset_active_skill_directory()
         started_at = time.perf_counter()
         settings = get_settings()
         timeout_seconds = (
@@ -228,14 +234,6 @@ class TaskAgentRunner:
         except asyncio.TimeoutError:
             error = f"Task agent timed out after {timeout_seconds}s"
             metrics = self._build_metrics(started_at)
-            await self._emit_complete(
-                success=False,
-                error=error,
-                failure_mode="cancel_downstream",
-                timed_out=True,
-                timeout_seconds=timeout_seconds,
-                metrics=metrics,
-            )
             return AgentResult(
                 agent_id=self._agent_id,
                 success=False,
@@ -248,14 +246,6 @@ class TaskAgentRunner:
         except Exception as exc:
             logger.exception("Task agent {} failed: {}", self._agent_id, exc)
             metrics = self._build_metrics(started_at)
-            await self._emit_complete(
-                success=False,
-                error=str(exc),
-                failure_mode="cancel_downstream",
-                timed_out=False,
-                timeout_seconds=timeout_seconds,
-                metrics=metrics,
-            )
             return AgentResult(
                 agent_id=self._agent_id,
                 success=False,
@@ -266,13 +256,6 @@ class TaskAgentRunner:
             )
 
         metrics = self._build_metrics(started_at)
-        await self._emit_complete(
-            success=True,
-            failure_mode="cancel_downstream",
-            timed_out=False,
-            timeout_seconds=timeout_seconds,
-            metrics=metrics,
-        )
         return AgentResult(
             agent_id=self._agent_id,
             success=True,
@@ -300,33 +283,6 @@ class TaskAgentRunner:
             context_compaction_count=self._context_compaction_count,
             input_tokens=self._input_tokens,
             output_tokens=self._output_tokens,
-        )
-
-    async def _emit_complete(
-        self,
-        *,
-        success: bool,
-        error: str | None = None,
-        failure_mode: FailureMode = "cancel_downstream",
-        timed_out: bool,
-        timeout_seconds: float | None,
-        metrics: AgentRunMetrics | None = None,
-    ) -> None:
-        """Emit the AGENT_COMPLETE event."""
-        completed_via_task_complete = self._task_complete_summary is not None
-        await self._emitter.emit(
-            EventType.AGENT_COMPLETE,
-            {
-                "agent_id": self._agent_id,
-                "agent_name": self._config.name or self._agent_id,
-                "success": success,
-                "error": error,
-                "failure_mode": failure_mode,
-                "timed_out": timed_out,
-                "timeout_seconds": timeout_seconds,
-                "metrics": asdict(metrics) if metrics is not None else None,
-                "completed_via_task_complete": completed_via_task_complete,
-            },
         )
 
     async def _execute_loop(self) -> str:
@@ -576,7 +532,16 @@ class TaskAgentRunner:
                 tool_id = block.get("id")
                 break
 
-        if not activated_name or activated_name == self._auto_injected_skill:
+        if not activated_name:
+            return None
+
+        if activated_name == self._auto_injected_skill:
+            await emit_redundant_skill_activation(
+                self._emitter,
+                skill_name=activated_name,
+                tool_id=tool_id,
+                messages=list(state.messages),
+            )
             return None
 
         if tool_id is not None:

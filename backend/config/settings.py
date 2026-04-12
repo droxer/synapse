@@ -84,6 +84,9 @@ class Settings(BaseSettings):
     COMPLEXITY_CLASSIFIER_MODEL: str = (
         ""  # Model for task complexity classification (default: LITE_MODEL)
     )
+    EXECUTION_ROUTER_MODEL: str = ""  # Model for execution-shape routing (default: COMPLEXITY_CLASSIFIER_MODEL or LITE_MODEL)
+    EXECUTION_SHAPE_PARALLEL_SOFT_LIMIT: int = 3
+    EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT: int = 4
 
     # Agent robustness / guardrails
     HANDOFF_MESSAGE_SNIPPET_CHARS: int = 2000

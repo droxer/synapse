@@ -1,5 +1,5 @@
 export { ConversationShell } from "./components/ConversationShell";
-export { mergeUniqueEvents } from "./components/ConversationProvider";
+export { mergeUniqueEvents } from "./lib/merge-unique-events";
 export { ConversationProvider } from "./components/ConversationProvider";
 export { ConversationView } from "./components/ConversationView";
 export { PendingAskOverlay } from "./components/PendingAskOverlay";

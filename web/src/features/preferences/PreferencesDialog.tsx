@@ -47,14 +47,14 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-4xl max-h-[85vh] overflow-hidden p-0">
+      <DialogContent className="w-[min(96vw,80rem)] max-w-[min(96vw,80rem)] sm:max-w-[min(96vw,80rem)] max-h-[min(92vh,calc(100dvh-2rem))] overflow-hidden p-0 gap-0">
         {/* Screen-reader-only title */}
         <DialogTitle className="sr-only">{t("preferences.title")}</DialogTitle>
 
-        <div className="flex h-[min(80vh,700px)]">
+        <div className="flex h-[min(90vh,56rem)] min-h-[28rem] w-full min-w-0">
           {/* Side menu */}
           <nav
-            className="flex w-64 shrink-0 flex-col border-r border-border bg-secondary/70 p-3"
+            className="flex w-72 shrink-0 flex-col border-r border-border bg-secondary/70 p-3"
             aria-label={t("preferences.title")}
           >
             <p className="label-mono px-3 pb-3 pt-4 text-muted-foreground-dim">
@@ -87,7 +87,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
           </nav>
 
           {/* Content panel */}
-          <div className="flex-1 overflow-y-auto p-8">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto p-8">
             <ActivePanel />
           </div>
         </div>

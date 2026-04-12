@@ -2,6 +2,8 @@ import { API_BASE } from "@/shared/constants";
 
 export interface ConversationUsage {
   readonly conversation_id: string;
+  /** Conversation task title when returned from the paginated user usage list. */
+  readonly title?: string | null;
   readonly user_id: string | null;
   readonly input_tokens: number;
   readonly output_tokens: number;

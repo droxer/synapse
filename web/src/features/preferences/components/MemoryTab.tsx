@@ -8,29 +8,19 @@ import { useMemoryEntries } from "../hooks/use-memory-entries";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
+import { formatRelativeTimeFromIso } from "@/shared/lib/date-time";
 
 const listItem = {
   hidden: { opacity: 0, y: 4 },
   show: { opacity: 1, y: 0, transition: { duration: 0.1, ease: "easeOut" as const } },
 };
 
-function formatRelativeTime(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
-}
-
 function truncateValue(value: string, maxLen = 80): string {
   return value.length > maxLen ? `${value.slice(0, maxLen)}...` : value;
 }
 
 export function MemoryTab() {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
   const { items, loading, error, page, totalPages, loadPage, deleteEntry } =
     useMemoryEntries();
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -128,7 +118,7 @@ export function MemoryTab() {
                     : t("preferences.memory.conversation")}
                 </span>
                 <span className="text-right text-caption text-muted-foreground">
-                  {formatRelativeTime(entry.updated_at)}
+                  {formatRelativeTimeFromIso(entry.updated_at, locale)}
                 </span>
                 <Button
                   variant="ghost"

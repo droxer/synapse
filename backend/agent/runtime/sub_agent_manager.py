@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import asyncio
+import re
 import uuid
+from dataclasses import asdict, replace
 from typing import Callable
 
 from agent.llm.client import AnthropicClient
 from agent.runtime.task_runner import (
     AgentResult,
+    AgentRunMetrics,
     HandoffRequest,
     TaskAgentConfig,
     TaskAgentRunner,
@@ -36,6 +39,26 @@ _FAILURE_MODE_PRIORITY: dict[str, int] = {
     "cancel_downstream": 1,
     "replan": 2,
 }
+
+
+def _normalize_task_signature(value: str) -> str:
+    compact = re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+    return re.sub(r"\s+", " ", compact)
+
+
+def _aggregate_metrics(
+    stage_metrics: list[AgentRunMetrics],
+) -> AgentRunMetrics | None:
+    if not stage_metrics:
+        return None
+    return AgentRunMetrics(
+        duration_seconds=sum(m.duration_seconds for m in stage_metrics),
+        iterations=sum(m.iterations for m in stage_metrics),
+        tool_call_count=sum(m.tool_call_count for m in stage_metrics),
+        context_compaction_count=sum(m.context_compaction_count for m in stage_metrics),
+        input_tokens=sum(m.input_tokens for m in stage_metrics),
+        output_tokens=sum(m.output_tokens for m in stage_metrics),
+    )
 
 
 def _format_handoff_context(
@@ -108,7 +131,7 @@ class SubAgentManager:
         self._agents: dict[str, asyncio.Task[AgentResult]] = {}
         self._results: dict[str, AgentResult] = {}
         self._configs: dict[str, TaskAgentConfig] = {}
-        self._executors: dict[str, ToolExecutor] = {}
+        self._executors: dict[str, list[ToolExecutor]] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent)
 
     @property
@@ -145,6 +168,21 @@ class SubAgentManager:
                     f"({total_tokens} >= {settings.AGENT_GLOBAL_TOKEN_BUDGET}); "
                     "refuse spawning further task agents",
                 )
+
+        if not config.allow_redundant:
+            new_signature = _normalize_task_signature(config.task_description)
+            for existing_id, existing in self._configs.items():
+                if existing_id in self._results:
+                    continue
+                same_role = existing.role.strip().lower() == config.role.strip().lower()
+                same_task = (
+                    _normalize_task_signature(existing.task_description)
+                    == new_signature
+                )
+                if same_role and same_task:
+                    raise RuntimeError(
+                        "Redundant task agent rejected; use allow_redundant=True for explicit voting/redundancy patterns"
+                    )
 
         agent_id = str(uuid.uuid4())
         self._configs[agent_id] = config
@@ -205,21 +243,66 @@ class SubAgentManager:
             )
 
         # Clean up executor sandbox sessions
-        for agent_id, executor in self._executors.items():
-            try:
-                await executor.cleanup()
-            except Exception as exc:
-                logger.error(
-                    "Failed to cleanup executor for agent {}: {}",
-                    agent_id[:8],
-                    exc,
-                )
+        for agent_id, executors in self._executors.items():
+            for executor in executors:
+                try:
+                    maybe_cleanup = executor.cleanup()
+                    if asyncio.iscoroutine(maybe_cleanup):
+                        await maybe_cleanup
+                except Exception as exc:
+                    logger.error(
+                        "Failed to cleanup executor for agent {}: {}",
+                        agent_id[:8],
+                        exc,
+                    )
 
         self._agents.clear()
         self._results.clear()
         self._configs.clear()
         self._executors.clear()
         self._message_bus.clear()
+
+    def _is_agent_active(self, agent_id: str) -> bool:
+        task = self._agents.get(agent_id)
+        return task is not None and not task.done()
+
+    async def _emit_terminal_events(
+        self,
+        agent_id: str,
+        config: TaskAgentConfig,
+        result: AgentResult,
+    ) -> None:
+        terminal_state = (
+            "replan_required"
+            if result.replan_required
+            else "skipped"
+            if result.skip_execution
+            else "complete"
+            if result.success
+            else "error"
+        )
+        base_payload = {
+            "agent_id": agent_id,
+            "agent_name": config.name or agent_id,
+            "error": result.error,
+            "failure_mode": result.failure_mode,
+            "metrics": asdict(result.metrics) if result.metrics is not None else None,
+            "terminal_state": terminal_state,
+        }
+        if result.skip_execution:
+            await self._emitter.emit(EventType.AGENT_SKIPPED, base_payload)
+        if result.replan_required:
+            await self._emitter.emit(EventType.AGENT_REPLAN_REQUIRED, base_payload)
+        await self._emitter.emit(
+            EventType.AGENT_COMPLETE,
+            {
+                **base_payload,
+                "success": result.success,
+                "timed_out": bool(result.error and "timed out" in result.error.lower()),
+                "timeout_seconds": config.timeout_seconds,
+                "completed_via_task_complete": bool(result.summary),
+            },
+        )
 
     async def _run_agent(
         self,
@@ -231,19 +314,44 @@ class SubAgentManager:
 
         if isinstance(dep_outcome, AgentResult):
             # Dependency policy says skip or replan — store and return early
-            self._results[agent_id] = dep_outcome
-            return dep_outcome
+            final_result = replace(
+                dep_outcome,
+                metrics=_aggregate_metrics(
+                    [dep_outcome.metrics] if dep_outcome.metrics is not None else []
+                ),
+            )
+            self._results[agent_id] = final_result
+            await self._emit_terminal_events(agent_id, config, final_result)
+            return final_result
 
         current_config = dep_outcome
         handoff_depth = 0
+        stage_metrics: list[AgentRunMetrics] = []
+
+        await self._emitter.emit(
+            EventType.AGENT_START,
+            {
+                "agent_id": agent_id,
+                "agent_name": current_config.name or agent_id,
+                "task": current_config.task_description,
+                "role": current_config.role,
+            },
+        )
 
         while True:
             async with self._semaphore:
                 result = await self._execute_agent(agent_id, current_config)
+            if result.metrics is not None:
+                stage_metrics.append(result.metrics)
 
             if result.handoff is None:
-                self._results[agent_id] = result
-                return result
+                final_result = replace(
+                    result,
+                    metrics=_aggregate_metrics(stage_metrics),
+                )
+                self._results[agent_id] = final_result
+                await self._emit_terminal_events(agent_id, current_config, final_result)
+                return final_result
 
             handoff_depth += 1
             handoff = result.handoff
@@ -260,6 +368,18 @@ class SubAgentManager:
                     "remaining_handoffs": handoff.remaining_handoffs,
                 },
             )
+            await self._emitter.emit(
+                EventType.AGENT_STAGE_TRANSITION,
+                {
+                    "agent_id": agent_id,
+                    "agent_name": current_config.name or agent_id,
+                    "from_role": current_config.role,
+                    "to_role": handoff.target_role,
+                    "task": handoff.task_description,
+                    "reason": handoff.context,
+                    "stage_index": handoff_depth + 1,
+                },
+            )
 
             context = _format_handoff_context(
                 handoff.source_messages,
@@ -270,6 +390,7 @@ class SubAgentManager:
 
             current_config = TaskAgentConfig(
                 task_description=handoff.task_description,
+                name=current_config.name,
                 context=context,
                 sandbox_template=current_config.sandbox_template,
                 priority=current_config.priority,
@@ -279,6 +400,7 @@ class SubAgentManager:
                 role=handoff.target_role,
                 max_handoffs=handoff.remaining_handoffs,
                 dependency_failure_mode=current_config.dependency_failure_mode,
+                allow_redundant=current_config.allow_redundant,
             )
 
             logger.info(
@@ -405,6 +527,7 @@ class SubAgentManager:
 
         return TaskAgentConfig(
             task_description=config.task_description,
+            name=config.name,
             context=merged_context,
             sandbox_template=config.sandbox_template,
             priority=config.priority,
@@ -414,6 +537,7 @@ class SubAgentManager:
             role=config.role,
             max_handoffs=config.max_handoffs,
             dependency_failure_mode=config.dependency_failure_mode,
+            allow_redundant=config.allow_redundant,
         )
 
     async def _execute_agent(
@@ -422,12 +546,17 @@ class SubAgentManager:
         config: TaskAgentConfig,
     ) -> AgentResult:
         """Create and run a TaskAgentRunner, handling errors."""
+        executor: ToolExecutor | None = None
         try:
             registry = self._registry_factory()
 
             # Inject messaging tools for inter-agent communication
             registry = registry.register(
-                SendToAgent(self._message_bus, sender_id=agent_id)
+                SendToAgent(
+                    self._message_bus,
+                    sender_id=agent_id,
+                    target_validator=self._is_agent_active,
+                )
             )
             registry = registry.register(
                 ReceiveMessages(self._message_bus, receiver_id=agent_id)
@@ -458,7 +587,7 @@ class SubAgentManager:
             )
 
             executor = self._executor_factory(registry)
-            self._executors[agent_id] = executor
+            self._executors.setdefault(agent_id, []).append(executor)
 
             runner = TaskAgentRunner(
                 agent_id=agent_id,
@@ -482,6 +611,22 @@ class SubAgentManager:
                 summary="",
                 error=str(exc),
             )
+        finally:
+            if executor is not None:
+                try:
+                    maybe_cleanup = executor.cleanup()
+                    if asyncio.iscoroutine(maybe_cleanup):
+                        await maybe_cleanup
+                except Exception as exc:
+                    logger.error(
+                        "Failed to cleanup executor for agent {}: {}",
+                        agent_id[:8],
+                        exc,
+                    )
+                executors = self._executors.get(agent_id, [])
+                self._executors[agent_id] = [e for e in executors if e is not executor]
+                if not self._executors[agent_id]:
+                    self._executors.pop(agent_id, None)
 
 
 def _collect_tasks(

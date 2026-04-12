@@ -1,13 +1,20 @@
 "use client";
 
+import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
+import { usePathname } from "next/navigation";
 import { HomeScreen } from "./HomeScreen";
 import { ConversationWorkspace } from "./ConversationWorkspace";
 import { useConversationContext } from "../hooks/use-conversation-context";
 import { ErrorBoundary } from "@/shared/components";
 import { useAppStore } from "@/shared/stores";
+import {
+  shouldAutoStartPendingTask,
+  shouldShowConversationWorkspace,
+} from "./conversation-view-state";
 
 export function ConversationView() {
+  const pathname = usePathname();
   const {
     conversationId,
     events,
@@ -35,17 +42,48 @@ export function ConversationView() {
   const conversationTitle = useAppStore((s) =>
     s.conversationHistory.find((c) => c.id === conversationId)?.title,
   );
+  const pendingNewTask = useAppStore((s) => s.pendingNewTask);
+  const clearPendingNewTask = useAppStore((s) => s.clearPendingNewTask);
 
-  const isActive = conversationId !== null;
+  const isActive = shouldShowConversationWorkspace(conversationId, isWaitingForAgent);
+
+  useEffect(() => {
+    if (!pendingNewTask) {
+      return;
+    }
+    if (
+      !shouldAutoStartPendingTask({
+        pathname,
+        pendingNewTask,
+        isActive,
+      })
+    ) {
+      return;
+    }
+
+    clearPendingNewTask();
+    handleCreateConversation(
+      pendingNewTask.prompt,
+      undefined,
+      pendingNewTask.skills ? [...pendingNewTask.skills] : undefined,
+      pendingNewTask.usePlanner,
+    );
+  }, [
+    pathname,
+    pendingNewTask,
+    isActive,
+    clearPendingNewTask,
+    handleCreateConversation,
+  ]);
 
   return (
-    <AnimatePresence mode="wait">
+    <AnimatePresence initial={false}>
       {!isActive ? (
         <motion.div
           key="welcome"
           className="h-full"
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.12 }}
+          transition={{ duration: 0.08 }}
         >
           <HomeScreen
             onSubmitTask={handleCreateConversation}
@@ -59,7 +97,7 @@ export function ConversationView() {
           className="h-full"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ duration: 0.12, delay: 0.05 }}
+          transition={{ duration: 0.08 }}
         >
           <ErrorBoundary>
             <ConversationWorkspace

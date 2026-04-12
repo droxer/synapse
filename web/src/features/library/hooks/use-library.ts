@@ -1,38 +1,54 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useAppStore } from "@/shared/stores";
 import type { LibraryGroup } from "../types";
 import { fetchLibrary } from "../api/library-api";
 
 const PAGE_SIZE = 20;
 
 export function useLibrary() {
+  const libraryRefetchEpoch = useAppStore((s) => s.libraryRefetchEpoch);
   const [groups, setGroups] = useState<readonly LibraryGroup[]>([]);
   const [total, setTotal] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [offset, setOffset] = useState(0);
   const [filter, setFilter] = useState("");
+  const initialLibraryFetchDone = useRef(false);
 
-  const load = useCallback(async (currentOffset: number, append: boolean) => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const data = await fetchLibrary(PAGE_SIZE, currentOffset);
-      setGroups((prev) =>
-        append ? [...prev, ...data.groups] : data.groups,
-      );
-      setTotal(data.total);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load library");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const load = useCallback(
+    async (currentOffset: number, append: boolean, options?: { silent?: boolean }) => {
+      const silent = options?.silent === true;
+      if (!silent) setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchLibrary(PAGE_SIZE, currentOffset);
+        setGroups((prev) =>
+          append ? [...prev, ...data.groups] : data.groups,
+        );
+        setTotal(data.total);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load library");
+      } finally {
+        if (!silent) setIsLoading(false);
+      }
+    },
+    [],
+  );
 
   useEffect(() => {
-    load(0, false);
-  }, [load]);
+    setOffset(0);
+    const silent = initialLibraryFetchDone.current;
+    let cancelled = false;
+    void (async () => {
+      await load(0, false, { silent });
+      if (!cancelled) initialLibraryFetchDone.current = true;
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [load, libraryRefetchEpoch]);
 
   const loadMore = useCallback(() => {
     const nextOffset = offset + PAGE_SIZE;
@@ -41,6 +57,19 @@ export function useLibrary() {
   }, [offset, load]);
 
   const hasMore = groups.length < total;
+
+  const removeArtifactsById = useCallback((ids: readonly string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setGroups((prev) =>
+      prev
+        .map((g) => ({
+          ...g,
+          artifacts: g.artifacts.filter((a) => !idSet.has(a.id)),
+        }))
+        .filter((g) => g.artifacts.length > 0),
+    );
+  }, []);
 
   const filtered = filter
     ? groups
@@ -68,5 +97,6 @@ export function useLibrary() {
     setFilter,
     loadMore,
     hasMore,
+    removeArtifactsById,
   };
 }

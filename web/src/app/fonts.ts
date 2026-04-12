@@ -1,8 +1,8 @@
-import { Geist, Geist_Mono, Noto_Sans_SC, Noto_Sans_TC, Orbitron } from "next/font/google";
+import { Geist, Geist_Mono, Noto_Sans_SC, Noto_Sans_TC } from "next/font/google";
 
-export const geist = Geist({
+export const geistSans = Geist({
   subsets: ["latin"],
-  variable: "--font-geist",
+  variable: "--font-geist-sans",
   display: "swap",
 });
 
@@ -23,12 +23,5 @@ export const notoSansTC = Noto_Sans_TC({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
   variable: "--font-noto-sans-tc",
-  display: "swap",
-});
-
-export const orbitron = Orbitron({
-  subsets: ["latin"],
-  weight: ["500", "600", "700"],
-  variable: "--font-brand",
   display: "swap",
 });

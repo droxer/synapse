@@ -37,6 +37,31 @@ describe("buildToolCallIndexes", () => {
     expect(indexes.countByAgentId.get("agent-1")).toBe(2);
     expect(indexes.countByAgentId.get("agent-2")).toBe(1);
   });
+
+  it("ignores hidden communication tools in grouped counts", () => {
+    const calls: ToolCallInfo[] = [
+      {
+        id: "tc-1",
+        toolUseId: "hidden-id",
+        name: "message_user",
+        input: {},
+        timestamp: 1,
+        agentId: "agent-1",
+      },
+      {
+        id: "tc-2",
+        toolUseId: "visible-id",
+        name: "web_search",
+        input: {},
+        timestamp: 2,
+        agentId: "agent-1",
+      },
+    ];
+
+    const indexes = buildToolCallIndexes(calls);
+    expect(indexes.byToolUseId.has("hidden-id")).toBe(false);
+    expect(indexes.countByAgentId.get("agent-1")).toBe(1);
+  });
 });
 
 describe("isTimelineStepActionable", () => {
@@ -53,8 +78,12 @@ function createTestTranslator(): TFn {
     switch (key) {
       case "progress.searchingTarget":
         return `searching ${params?.target ?? ""}`;
-      case "progress.loadingSkills":
-        return `loading ${params?.name ?? ""} skills`;
+      case "progress.loadingSkill":
+        return `Loading ${params?.name ?? ""} skill`;
+      case "progress.skillLoaded":
+        return `Loaded ${params?.name ?? ""}`;
+      case "progress.skillLoadFailed":
+        return `Failed ${params?.name ?? ""}`;
       case "progress.parsingContent":
         return `parse ${params?.target ?? ""} content`;
       case "progress.runtimeUnknown":
@@ -102,8 +131,9 @@ describe("buildSteps runtime phrase mapping", () => {
     ];
 
     const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
-    expect(steps[0]?.title).toContain("loading");
-    expect(steps[0]?.title).toContain("skills");
+    expect(steps[0]?.title).toContain("Loading");
+    expect(steps[0]?.title).toContain("Frontend Design");
+    expect(steps[0]?.title).toContain("skill");
   });
 
   it("marks explicit skill steps complete only after skill_activated", () => {
@@ -128,6 +158,51 @@ describe("buildSteps runtime phrase mapping", () => {
     const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.status).toBe("complete");
+    expect(steps[0]?.title).toBe("Loaded Frontend Design");
+  });
+
+  it("merges tool_call into a synthetic skill row when skill_activated arrived first", () => {
+    const events = [
+      {
+        type: "skill_activated",
+        timestamp: 1,
+        iteration: 0,
+        data: { name: "frontend-design", source: "already_active" },
+      },
+      {
+        type: "tool_call",
+        timestamp: 2,
+        iteration: 0,
+        data: { name: "activate_skill", tool_id: "tool-9", input: { name: "frontend-design" } },
+      },
+    ] as unknown as AgentEvent[];
+    const toolCalls: ToolCallInfo[] = [
+      { id: "tc-9", toolUseId: "tool-9", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 2 },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.kind).toBe("skill");
+    expect(steps[0]?.rawToolName).toBe("activate_skill");
+    expect(steps[0]?.status).toBe("complete");
+    expect(steps[0]?.title).toBe("Loaded Frontend Design");
+  });
+
+  it("renders loaded title when skill_activated arrives without a tool_call", () => {
+    const events = [
+      {
+        type: "skill_activated",
+        timestamp: 1,
+        iteration: 0,
+        data: { name: "deep-research", source: "auto" },
+      },
+    ] as unknown as AgentEvent[];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.kind).toBe("skill");
+    expect(steps[0]?.status).toBe("complete");
+    expect(steps[0]?.title).toBe("Loaded Deep Research");
   });
 
   it("creates an error skill step for auto-selected setup failures", () => {
@@ -144,6 +219,7 @@ describe("buildSteps runtime phrase mapping", () => {
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.status).toBe("error");
+    expect(steps[0]?.title).toBe("Failed Docx");
   });
 
   it("maps parsing tools into parse content phrase", () => {
@@ -178,5 +254,89 @@ describe("buildSteps runtime phrase mapping", () => {
 
     const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
     expect(steps[0]?.title).toContain("searching");
+  });
+
+  it("does not show message user tool calls in the progress timeline", () => {
+    const events = [
+      {
+        type: "tool_call",
+        timestamp: 1,
+        iteration: 0,
+        data: { name: "message_user", tool_id: "tool-5", input: { message: "Need input" } },
+      },
+      {
+        type: "tool_call",
+        timestamp: 2,
+        iteration: 0,
+        data: { name: "web_search", tool_id: "tool-6", input: { query: "docs" } },
+      },
+    ] as unknown as AgentEvent[];
+    const toolCalls: ToolCallInfo[] = [
+      { id: "tc-5", toolUseId: "tool-5", name: "message_user", input: { message: "Need input" }, timestamp: 1, output: "ok" },
+      { id: "tc-6", toolUseId: "tool-6", name: "web_search", input: { query: "docs" }, timestamp: 2, output: "ok" },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.rawToolName).toBe("web_search");
+  });
+
+  it("marks failed tool calls as error instead of complete", () => {
+    const events = [
+      {
+        type: "tool_call",
+        timestamp: 1,
+        iteration: 0,
+        data: { name: "web_fetch", tool_id: "tool-7", input: { url: "https://example.com" } },
+      },
+    ] as unknown as AgentEvent[];
+    const toolCalls: ToolCallInfo[] = [
+      {
+        id: "tc-7",
+        toolUseId: "tool-7",
+        name: "web_fetch",
+        input: { url: "https://example.com" },
+        timestamp: 1,
+        output: "network failed",
+        success: false,
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.status).toBe("error");
+  });
+
+  it("preserves skipped and replan-required agent outcomes", () => {
+    const events = [
+      {
+        type: "agent_spawn",
+        timestamp: 1,
+        iteration: 0,
+        data: { agent_id: "agent-skip", name: "researcher" },
+      },
+      {
+        type: "agent_complete",
+        timestamp: 2,
+        iteration: 0,
+        data: { agent_id: "agent-skip", terminal_state: "skipped" },
+      },
+      {
+        type: "agent_spawn",
+        timestamp: 3,
+        iteration: 0,
+        data: { agent_id: "agent-replan", name: "builder" },
+      },
+      {
+        type: "agent_complete",
+        timestamp: 4,
+        iteration: 0,
+        data: { agent_id: "agent-replan", terminal_state: "replan_required" },
+      },
+    ] as unknown as AgentEvent[];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
+    expect(steps.find((step) => step.id.startsWith("agent-agent-skip-"))?.status).toBe("skipped");
+    expect(steps.find((step) => step.id.startsWith("agent-agent-replan-"))?.status).toBe("replan_required");
   });
 });

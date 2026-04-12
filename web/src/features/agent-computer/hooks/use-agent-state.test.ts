@@ -18,6 +18,108 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("content fallback message");
   });
 
+  it("timestamps llm_response messages at the response event, not first text_delta", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "hello" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "hello" },
+        timestamp: 99,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages[0]?.timestamp).toBe(99);
+  });
+
+  it("keeps in-flight streaming message timestamp at first text_delta", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Hello" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: " world" },
+        timestamp: 20,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "!" },
+        timestamp: 30,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Hello world!");
+    expect(state.messages[0]?.timestamp).toBe(10);
+  });
+
+  it("does not duplicate final assistant message when turn_complete differs only by trailing whitespace", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "llm_response",
+        data: { text: "Deep research summary" },
+        timestamp: 100,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Deep research summary\n\n" },
+        timestamp: 110,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Deep research summary");
+  });
+
+  it("does not materialize terminal llm_response when turn_complete finalizes the same turn", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Deep research " },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "summary" },
+        timestamp: 20,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Deep research summary", stop_reason: "end_turn" },
+        timestamp: 30,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Deep research summary" },
+        timestamp: 40,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Deep research summary");
+  });
+
   it("serializes non-string tool_result output", () => {
     const events: AgentEvent[] = [
       {
@@ -132,6 +234,32 @@ describe("deriveAgentState", () => {
     expect(state.toolCalls[0]?.success).toBe(true);
   });
 
+  it("marks activate_skill as failed immediately when tool_result reports success false", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "tool_call",
+        data: { tool_id: "tool-bad", tool_name: "activate_skill", tool_input: { name: "nope" } },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "tool_result",
+        data: {
+          tool_id: "tool-bad",
+          output: "Skill 'nope' not found. Available skills: a, b",
+          success: false,
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.success).toBe(false);
+    expect(state.toolCalls[0]?.output).toContain("not found");
+  });
+
   it("keeps explicit activate_skill pending until setup resolves and marks failures inline", () => {
     const events: AgentEvent[] = [
       {
@@ -159,5 +287,76 @@ describe("deriveAgentState", () => {
     expect(state.toolCalls[0]?.success).toBe(false);
     expect(state.toolCalls[0]?.output).toContain("dependencies");
     expect(state.toolCalls[0]?.output).toContain("pip install failed");
+  });
+
+  it("preserves skipped agent terminal state from agent_complete", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "agent_spawn",
+        data: { agent_id: "agent-1", name: "researcher", description: "Research docs" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "agent_complete",
+        data: { agent_id: "agent-1", terminal_state: "skipped" },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.agentStatuses).toHaveLength(1);
+    expect(state.agentStatuses[0]?.status).toBe("skipped");
+  });
+
+  it("sets artifact createdAt from event timestamp on artifact_created", () => {
+    const ts = new Date("2026-01-15T14:30:00.000Z").getTime();
+    const events: AgentEvent[] = [
+      {
+        type: "artifact_created",
+        data: {
+          artifact_id: "art-1",
+          name: "report.pdf",
+          content_type: "application/pdf",
+          size: 1024,
+          file_path: "outputs/report.pdf",
+        },
+        timestamp: ts,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.artifacts).toHaveLength(1);
+    expect(state.artifacts[0]?.createdAt).toBe("2026-01-15T14:30:00.000Z");
+    expect(state.artifacts[0]?.filePath).toBe("outputs/report.pdf");
+  });
+
+  it("preserves replan_required status from dedicated agent events", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "agent_spawn",
+        data: { agent_id: "agent-2", name: "builder", description: "Build feature" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "agent_replan_required",
+        data: { agent_id: "agent-2" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "agent_complete",
+        data: { agent_id: "agent-2", terminal_state: "replan_required" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.agentStatuses).toHaveLength(1);
+    expect(state.agentStatuses[0]?.status).toBe("replan_required");
   });
 });

@@ -150,3 +150,20 @@ class TestListConversationUsage:
             session, user_id, limit=2, offset=2
         )
         assert len(items2) == 1
+
+    async def test_includes_conversation_title(self, repo, session, user_id) -> None:
+        cid = uuid.uuid4()
+        session.add(
+            ConversationModel(
+                id=cid,
+                user_id=user_id,
+                title="My task title",
+            )
+        )
+        await session.flush()
+        await repo.increment(session, cid, user_id, 10, 5)
+
+        items, total = await repo.list_conversation_usage(session, user_id)
+        assert total == 1
+        assert len(items) == 1
+        assert items[0].conversation_title == "My task title"

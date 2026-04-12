@@ -163,8 +163,14 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
         <div
           className={cn(
             "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+            isWelcome && "focus-within:ring-2 focus-within:ring-ring/45 focus-within:ring-offset-2 focus-within:ring-offset-background",
             isFocused
-              ? "border-border-active bg-background shadow-card-hover"
+              ? cn(
+                  "border-border-active bg-background",
+                  isWelcome
+                    ? "shadow-[0_0_0_1px_var(--color-border-active),0_0_0_4px_var(--color-input-glow)]"
+                    : "shadow-card-hover",
+                )
               : "",
             isDragOver && "border-dashed border-border-active bg-secondary/80",
           )}
@@ -232,6 +238,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 variant="ghost"
                 size="sm"
                 aria-label={t("chat.attachFile")}
+                title={t("chat.attachFile")}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
                   "gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:text-foreground",
@@ -291,6 +298,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     variant="secondary"
                     onClick={onCancel}
                     aria-label={t("chat.cancelExecution")}
+                    title={t("chat.cancelExecution")}
                     className="group h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:bg-destructive/15"
                   >
                     <Square
@@ -313,6 +321,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     size="icon"
                     disabled={disabled || !hasContent}
                     aria-label={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
+                    title={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                     className={cn(
                       "h-9 w-9",
                       !hasContent && "bg-muted text-placeholder hover:bg-muted",

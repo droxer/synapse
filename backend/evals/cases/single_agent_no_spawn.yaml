@@ -1,0 +1,45 @@
+id: single_agent_no_spawn
+name: Single-Agent No Spawn
+description: Straightforward tasks should stay in a single agent and avoid planner-style sub-agent spawning.
+user_message: Summarize what a binary search tree is in two concise paragraphs.
+grading_mode: programmatic
+tags:
+  - agent
+  - routing
+  - single_agent
+max_iterations: 6
+
+criteria:
+  - name: no_agent_spawn
+    type: tool_not_used
+    value: agent_spawn
+    weight: 3.0
+  - name: no_agent_wait
+    type: tool_not_used
+    value: agent_wait
+    weight: 2.0
+  - name: task_completed
+    type: tool_used
+    value: task_complete
+    weight: 1.0
+  - name: no_errors
+    type: no_errors
+    weight: 1.0
+
+mock_responses:
+  - text: "A binary search tree is a node-based data structure..."
+    tool_calls:
+      - id: tc_complete
+        name: task_complete
+        input:
+          summary: "Provided a concise explanation of binary search trees without using sub-agents."
+    stop_reason: tool_use
+    usage:
+      input_tokens: 90
+      output_tokens: 40
+  - text: "A binary search tree is a node-based data structure where each left subtree contains smaller values and each right subtree contains larger values."
+    tool_calls: []
+    stop_reason: end_turn
+    usage:
+      input_tokens: 110
+      output_tokens: 65

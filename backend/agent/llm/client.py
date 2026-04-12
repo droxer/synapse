@@ -423,6 +423,7 @@ class AnthropicClient:
         model: str | None = None,
         max_tokens: int | None = None,
         on_text_delta: Callable[[str], Coroutine[Any, Any, None]] | None = None,
+        on_thinking_ready: Callable[[str], Coroutine[Any, Any, None]] | None = None,
         thinking_budget: int = 0,
     ) -> LLMResponse:
         """Send a message to the Claude API with streaming, invoking on_text_delta for each token.
@@ -434,6 +435,8 @@ class AnthropicClient:
             model: Override the default model.
             max_tokens: Override the default max tokens.
             on_text_delta: Async callback invoked with each text chunk as it arrives.
+            on_thinking_ready: Async callback invoked once with accumulated
+                thinking text before the first visible output chunk.
 
         Returns:
             Parsed LLMResponse with complete text, tool calls, and usage.
@@ -516,9 +519,37 @@ class AnthropicClient:
                 )
                 # endregion
                 async with self._client.messages.stream(**kwargs) as stream:
-                    if on_text_delta is not None:
-                        async for text in stream.text_stream:
-                            await on_text_delta(text)
+                    thinking_snapshot = ""
+                    emitted_thinking = False
+
+                    async def _emit_thinking_once() -> None:
+                        nonlocal emitted_thinking
+                        if (
+                            emitted_thinking
+                            or on_thinking_ready is None
+                            or not thinking_snapshot
+                        ):
+                            return
+                        await on_thinking_ready(thinking_snapshot)
+                        emitted_thinking = True
+
+                    async for chunk in stream:
+                        chunk_type = getattr(chunk, "type", "")
+                        if chunk_type == "thinking":
+                            snapshot = getattr(chunk, "snapshot", "")
+                            if isinstance(snapshot, str) and snapshot:
+                                thinking_snapshot = snapshot
+                            continue
+
+                        if chunk_type in {"text", "input_json", "content_block_start"}:
+                            await _emit_thinking_once()
+
+                        if chunk_type == "text" and on_text_delta is not None:
+                            text_delta = getattr(chunk, "text", "")
+                            if isinstance(text_delta, str) and text_delta:
+                                await on_text_delta(text_delta)
+
+                    await _emit_thinking_once()
                     response = await stream.get_final_message()
                 if thinking_budget > 0:
                     block_types = [getattr(b, "type", "?") for b in response.content]

@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { startTransition, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { Sidebar } from "@/shared/components";
 import { MobileDrawer } from "@/shared/components/MobileDrawer";
 import { UserMenu } from "@/shared/components/UserMenu";
 import { useAppStore } from "@/shared/stores";
 import { useIsMobile } from "@/shared/hooks/use-media-query";
+import { getRecentTaskNavigationDecision } from "./app-sidebar-navigation";
 
 export function AppSidebar() {
   const router = useRouter();
@@ -25,6 +26,10 @@ export function AppSidebar() {
   const deleteConversation = useAppStore((s) => s.deleteConversation);
   const switchConversation = useAppStore((s) => s.switchConversation);
   const resetConversation = useAppStore((s) => s.resetConversation);
+  const clearPendingNewTask = useAppStore((s) => s.clearPendingNewTask);
+  const clearPendingConversationRoute = useAppStore(
+    (s) => s.clearPendingConversationRoute,
+  );
 
   useEffect(() => {
     loadConversations();
@@ -48,17 +53,48 @@ export function AppSidebar() {
   }, [loadConversations]);
 
   const handleNewConversation = useCallback(() => {
+    clearPendingNewTask();
+    clearPendingConversationRoute();
     resetConversation();
     closeSidebar();
-    if (pathname !== "/") router.push("/");
-  }, [resetConversation, closeSidebar, pathname, router]);
+    if (pathname !== "/") {
+      startTransition(() => {
+        router.push("/");
+      });
+    }
+  }, [
+    clearPendingConversationRoute,
+    clearPendingNewTask,
+    resetConversation,
+    closeSidebar,
+    pathname,
+    router,
+  ]);
 
   const handleSelectConversation = useCallback((id: string) => {
-    if (id === conversationId && pathname === "/") return;
+    const decision = getRecentTaskNavigationDecision(conversationId, pathname, id);
+    if (decision.isAlreadyActive) {
+      closeSidebar();
+      return;
+    }
+    clearPendingNewTask();
+    clearPendingConversationRoute();
     switchConversation(id);
     closeSidebar();
-    if (pathname !== "/") router.push("/");
-  }, [conversationId, pathname, switchConversation, closeSidebar, router]);
+    if (pathname !== decision.nextPath) {
+      startTransition(() => {
+        router.push(decision.nextPath);
+      });
+    }
+  }, [
+    clearPendingConversationRoute,
+    clearPendingNewTask,
+    conversationId,
+    pathname,
+    switchConversation,
+    closeSidebar,
+    router,
+  ]);
 
   const handleSidebarNavigate = useCallback((href: string) => {
     closeSidebar();
@@ -66,6 +102,32 @@ export function AppSidebar() {
       router.push(href);
     }
   }, [closeSidebar, pathname, router]);
+
+  const handleDeleteConversation = useCallback(async (id: string) => {
+    const isActiveRoute =
+      conversationId === id && pathname === getRecentTaskNavigationDecision(conversationId, pathname, id).nextPath;
+
+    if (isActiveRoute) {
+      clearPendingNewTask();
+      clearPendingConversationRoute();
+      resetConversation();
+      closeSidebar();
+      startTransition(() => {
+        router.push("/");
+      });
+    }
+
+    await deleteConversation(id);
+  }, [
+    clearPendingConversationRoute,
+    clearPendingNewTask,
+    closeSidebar,
+    conversationId,
+    deleteConversation,
+    pathname,
+    resetConversation,
+    router,
+  ]);
 
   const isCollapsed = isMobile ? false : sidebarCollapsed;
 
@@ -81,7 +143,7 @@ export function AppSidebar() {
       onToggle={isMobile ? undefined : toggleSidebar}
       onWidthChange={isMobile ? undefined : setSidebarWidth}
       onLoadMore={loadMore}
-      onDeleteTask={deleteConversation}
+      onDeleteTask={handleDeleteConversation}
       onClose={isMobile ? closeSidebar : undefined}
       isMobile={isMobile}
       activePath={pathname}

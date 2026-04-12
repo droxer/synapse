@@ -27,8 +27,8 @@ const PHASE_CONFIG: Record<
 > = {
   thinking: {
     icon: Brain,
-    badgeClass: "bg-muted border border-border text-muted-foreground",
-    dotClass: "bg-muted-foreground",
+    badgeClass: "bg-ai-surface border border-ai-border text-muted-foreground",
+    dotClass: "bg-focus",
   },
   writing: {
     icon: Pencil,
@@ -37,8 +37,8 @@ const PHASE_CONFIG: Record<
   },
   using_tool: {
     icon: Wrench,
-    badgeClass: "bg-muted border border-border text-muted-foreground",
-    dotClass: "bg-muted-foreground",
+    badgeClass: "bg-focus/5 border border-focus/15 text-muted-foreground",
+    dotClass: "bg-focus",
   },
 };
 

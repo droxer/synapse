@@ -25,7 +25,7 @@ export function TypingIndicator() {
           <motion.span
             key={i}
             aria-hidden="true"
-            className="h-1.5 w-1.5 rounded-full bg-accent-emerald"
+            className="h-1.5 w-1.5 rounded-full bg-focus"
             animate={{
               opacity: [0.4, 1, 0.4],
             }}

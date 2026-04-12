@@ -273,7 +273,7 @@ export function SkillsPage() {
 
           {/* Section header with search + install */}
           <div className="flex items-center gap-3">
-            <h2 className="text-lg font-medium text-muted-foreground">
+            <h2 className="text-lg font-medium text-foreground">
               {t("skills.agentSkills")}
             </h2>
             <div className="flex-1" />
@@ -508,7 +508,7 @@ export function SkillsPage() {
                     <button
                       type="button"
                       onClick={() => folderInputRef.current?.click()}
-                      className="text-xs text-primary underline-offset-2 hover:underline"
+                      className="text-xs text-focus underline-offset-2 hover:underline"
                     >
                       {t("skills.chooseFolder")}
                     </button>

@@ -50,6 +50,10 @@ router = APIRouter(dependencies=common_dependencies)
 
 ORCHESTRATOR_AGENT = "agent"
 ORCHESTRATOR_PLANNER = "planner"
+EXECUTION_SHAPE_SINGLE_AGENT = "single_agent"
+EXECUTION_SHAPE_PROMPT_CHAIN = "prompt_chain"
+EXECUTION_SHAPE_PARALLEL = "parallel"
+EXECUTION_SHAPE_ORCHESTRATOR_WORKERS = "orchestrator_workers"
 
 
 async def _resolve_user_id(
@@ -223,6 +227,83 @@ def _planner_flag_to_mode(use_planner: bool | None) -> str | None:
     return ORCHESTRATOR_PLANNER if use_planner else ORCHESTRATOR_AGENT
 
 
+def _route_shape_to_mode(shape: str) -> str:
+    if shape in (
+        EXECUTION_SHAPE_PARALLEL,
+        EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+    ):
+        return ORCHESTRATOR_PLANNER
+    return ORCHESTRATOR_AGENT
+
+
+async def _resolve_execution_route(
+    claude_client: AnthropicClient,
+    message: str,
+    explicit_planner: bool | None,
+) -> tuple[str, str, str, bool]:
+    """Resolve execution shape and orchestrator mode for a turn.
+
+    Explicit planner choices are treated as hard routing overrides:
+    ``True`` forces planner orchestration and ``False`` forces single-agent.
+    When the flag is unset, the classifier decides the route.
+    """
+    forced_mode = _planner_flag_to_mode(explicit_planner)
+    if forced_mode == ORCHESTRATOR_PLANNER:
+        return (
+            EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+            "planner forced by user",
+            ORCHESTRATOR_PLANNER,
+            False,
+        )
+    if forced_mode == ORCHESTRATOR_AGENT:
+        return (
+            EXECUTION_SHAPE_SINGLE_AGENT,
+            "planner disabled by user",
+            ORCHESTRATOR_AGENT,
+            False,
+        )
+
+    execution_shape, execution_rationale = await _classify_execution_shape(
+        claude_client, message
+    )
+    orchestrator_mode = _route_shape_to_mode(execution_shape)
+    auto_detected = orchestrator_mode == ORCHESTRATOR_PLANNER
+    return execution_shape, execution_rationale, orchestrator_mode, auto_detected
+
+
+def _build_execution_shape_prompt_sections(
+    execution_shape: str,
+    rationale: str,
+) -> tuple[str, ...]:
+    settings = get_settings()
+    sections: list[str] = [
+        (
+            "Execution route for this turn:\n"
+            f"- execution_shape: {execution_shape}\n"
+            f"- rationale: {rationale}"
+        )
+    ]
+    if execution_shape == EXECUTION_SHAPE_SINGLE_AGENT:
+        sections.append(
+            "Routing guidance: keep ownership in a single agent. Do not decompose into sub-agents."
+        )
+    elif execution_shape == EXECUTION_SHAPE_PROMPT_CHAIN:
+        sections.append(
+            "Routing guidance: use a fixed sequential workflow inside one agent. Do not spawn sub-agents."
+        )
+    elif execution_shape == EXECUTION_SHAPE_PARALLEL:
+        sections.append(
+            "Routing guidance: only spawn workers for truly independent tasks. "
+            f"Soft spawn budget: {settings.EXECUTION_SHAPE_PARALLEL_SOFT_LIMIT} workers."
+        )
+    elif execution_shape == EXECUTION_SHAPE_ORCHESTRATOR_WORKERS:
+        sections.append(
+            "Routing guidance: planner-managed worker orchestration is allowed, but only when decomposition is not knowable upfront. "
+            f"Soft spawn budget: {settings.EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT} workers."
+        )
+    return tuple(sections)
+
+
 async def _load_initial_messages_for_conversation(
     state: AppState,
     convo: Any,
@@ -394,6 +475,7 @@ async def _run_turn(
     attachments: tuple[FileAttachment, ...] = (),
     selected_skills: tuple[str, ...] = (),
     runtime_prompt_sections: tuple[str, ...] = (),
+    turn_metadata: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
 ) -> str:
     """Run a single turn of the conversation. Does NOT close the SSE connection."""
@@ -425,6 +507,7 @@ async def _run_turn(
             attachments=attachments,
             selected_skills=selected_skills,
             runtime_prompt_sections=runtime_prompt_sections,
+            turn_metadata=turn_metadata,
         )
         logger.info("turn_completed conversation_id={}", conversation_id)
         store_entry = state.conversations.get(conversation_id)
@@ -535,40 +618,57 @@ async def _generate_title(
         logger.warning("title_generation_failed conversation_id={}", conversation_id)
 
 
-_COMPLEXITY_SYSTEM_PROMPT = (
-    "Classify the user's request as COMPLEX or SIMPLE.\n"
-    "COMPLEX: the task clearly requires multiple sequential or parallel sub-tasks, "
-    "orchestration of several tools, long multi-step research/coding workflows, or "
-    "coordinating several independent objectives in one request.\n"
-    "SIMPLE: a single-step answer, quick lookup, short creative snippet, or a "
-    "conversational exchange.\n"
-    "Reply with exactly one word: COMPLEX or SIMPLE."
+_EXECUTION_ROUTER_SYSTEM_PROMPT = (
+    "Route the user's request to exactly one execution shape.\n"
+    "Valid shapes:\n"
+    "- single_agent: one agent should handle the task end-to-end.\n"
+    "- prompt_chain: one agent should execute a predictable sequential workflow without sub-agents.\n"
+    "- parallel: multiple independent worker tasks can be executed in parallel, then synthesized.\n"
+    "- orchestrator_workers: a planner should coordinate workers because decomposition or specialization is open-ended.\n"
+    "Default to single_agent unless parallelism or orchestration is clearly justified.\n"
+    "Reply in exactly one line using this format:\n"
+    "SHAPE|brief rationale"
 )
 
 
-async def _classify_task_complexity(
+async def _classify_execution_shape(
     claude_client: AnthropicClient,
     user_message: str,
-) -> bool:
-    """Return True when the task warrants planner mode. Falls back to False on error."""
+) -> tuple[str, str]:
+    """Route a task to an execution shape with a short rationale."""
     try:
         settings = get_settings()
         response = await claude_client.create_message(
-            system=_COMPLEXITY_SYSTEM_PROMPT,
+            system=_EXECUTION_ROUTER_SYSTEM_PROMPT,
             messages=[{"role": "user", "content": user_message[:2000]}],
-            max_tokens=10,
-            model=settings.COMPLEXITY_CLASSIFIER_MODEL or settings.LITE_MODEL,
+            max_tokens=40,
+            model=(
+                settings.EXECUTION_ROUTER_MODEL
+                or settings.COMPLEXITY_CLASSIFIER_MODEL
+                or settings.LITE_MODEL
+            ),
         )
-        is_complex = response.text.strip().upper().startswith("COMPLEX")
+        line = response.text.strip().splitlines()[0] if response.text.strip() else ""
+        shape_part, _, rationale_part = line.partition("|")
+        shape = shape_part.strip().lower()
+        rationale = rationale_part.strip() or "router-selected default"
+        allowed = {
+            EXECUTION_SHAPE_SINGLE_AGENT,
+            EXECUTION_SHAPE_PROMPT_CHAIN,
+            EXECUTION_SHAPE_PARALLEL,
+            EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+        }
+        if shape not in allowed:
+            return EXECUTION_SHAPE_SINGLE_AGENT, "router returned ambiguous output"
         logger.debug(
-            "task_complexity verdict={} preview={}",
+            "execution_shape verdict={} preview={}",
             response.text.strip(),
             user_message[:80],
         )
-        return is_complex
+        return shape, rationale
     except Exception as exc:
-        logger.warning("task_complexity_classifier_error error={}", exc)
-        return False
+        logger.warning("execution_shape_router_error error={}", exc)
+        return EXECUTION_SHAPE_SINGLE_AGENT, "router error: defaulted to single agent"
 
 
 # ---------------------------------------------------------------------------
@@ -669,19 +769,26 @@ async def create_conversation(
         selected_skills = tuple(body.skills)
         attachments = ()
 
-    auto_detected = False
-    if explicit_planner is True:
-        orchestrator_mode = ORCHESTRATOR_PLANNER
-    elif explicit_planner is False:
-        orchestrator_mode = ORCHESTRATOR_AGENT
-    else:
-        # explicit_planner is None — auto-detect based on task complexity
-        use_planner_auto = await _classify_task_complexity(state.claude_client, message)
-        orchestrator_mode = (
-            ORCHESTRATOR_PLANNER if use_planner_auto else ORCHESTRATOR_AGENT
-        )
-        auto_detected = use_planner_auto
-        logger.info("auto_planner mode={} preview={}", orchestrator_mode, message[:80])
+    (
+        execution_shape,
+        execution_rationale,
+        orchestrator_mode,
+        auto_detected,
+    ) = await _resolve_execution_route(state.claude_client, message, explicit_planner)
+    logger.info(
+        "execution_routed shape={} mode={} preview={}",
+        execution_shape,
+        orchestrator_mode,
+        message[:80],
+    )
+    runtime_prompt_sections = _build_execution_shape_prompt_sections(
+        execution_shape,
+        execution_rationale,
+    )
+    turn_metadata = {
+        "execution_shape": execution_shape,
+        "execution_rationale": execution_rationale,
+    }
 
     idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
     if not idem_key:
@@ -813,6 +920,8 @@ async def create_conversation(
             message,
             attachments,
             selected_skills,
+            runtime_prompt_sections=runtime_prompt_sections,
+            turn_metadata=turn_metadata,
             idempotency_key=idem_key,
         ),
     )
@@ -887,7 +996,7 @@ async def send_message(
             raise HTTPException(status_code=422, detail="message must not be empty")
         message = str(message)
         use_planner_raw = form.get("use_planner")
-        requested_mode = _planner_flag_to_mode(
+        explicit_planner: bool | None = (
             str(use_planner_raw).lower() == "true"
             if use_planner_raw is not None
             else None
@@ -899,7 +1008,7 @@ async def send_message(
     else:
         body = MessageRequest(**(await request.json()))
         message = body.message
-        requested_mode = _planner_flag_to_mode(body.use_planner)
+        explicit_planner = body.use_planner
         selected_skills = tuple(body.skills)
         attachments = ()
 
@@ -926,10 +1035,21 @@ async def send_message(
     if entry.turn_task is not None and not entry.turn_task.done():
         await entry.turn_task
 
+    (
+        execution_shape,
+        execution_rationale,
+        target_mode,
+        auto_detected,
+    ) = await _resolve_execution_route(state.claude_client, message, explicit_planner)
     current_mode = entry.orchestrator_mode
-    target_mode = requested_mode or current_mode
-    if target_mode not in (ORCHESTRATOR_AGENT, ORCHESTRATOR_PLANNER):
-        target_mode = ORCHESTRATOR_AGENT
+    runtime_prompt_sections = _build_execution_shape_prompt_sections(
+        execution_shape,
+        execution_rationale,
+    )
+    turn_metadata = {
+        "execution_shape": execution_shape,
+        "execution_rationale": execution_rationale,
+    }
 
     if target_mode != current_mode:
         conv_uuid = uuid.UUID(conversation_id)
@@ -995,6 +1115,9 @@ async def send_message(
             target_mode,
         )
 
+    if auto_detected:
+        await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
+
     # Start new turn on the same orchestrator (preserves full history)
     entry.turn_task = asyncio.create_task(
         _run_turn(
@@ -1004,6 +1127,8 @@ async def send_message(
             message,
             attachments,
             selected_skills,
+            runtime_prompt_sections=runtime_prompt_sections,
+            turn_metadata=turn_metadata,
             idempotency_key=idem_key,
         ),
     )

@@ -43,15 +43,15 @@ export function TopBar({
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-10 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border/90 bg-background/95 px-4 backdrop-blur-sm">
       {/* Left: Breadcrumb */}
-      <div className="flex items-center gap-1.5 min-w-0">
+      <div className="min-w-0 flex items-center gap-1.5">
         <Button
           variant="ghost"
           size="sm"
           onClick={onNavigateHome}
           aria-label={t("a11y.home")}
-          className="shrink-0 gap-2 text-muted-foreground hover:text-foreground"
+          className="shrink-0 gap-2 rounded-md text-muted-foreground hover:bg-muted hover:text-foreground"
         >
           <LayoutGrid className="h-4 w-4" />
         </Button>
@@ -64,18 +64,18 @@ export function TopBar({
             {convUsage && (convUsage.input_tokens > 0 || convUsage.output_tokens > 0) && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-0.5 text-micro font-medium tabular-nums font-mono text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground">
+                  <span className="ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-muted px-2 py-0.5 font-mono text-micro font-medium tabular-nums text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-active hover:text-foreground">
                     <Zap className="h-3 w-3" />
                     {formatTokenCount(convUsage.input_tokens + convUsage.output_tokens)}
                   </span>
                 </TooltipTrigger>
                 <TooltipContent className="font-mono text-micro tabular-nums">
                   <div className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-0.5">
-                    <span className="text-muted-foreground">in</span>
+                    <span className="text-muted-foreground">{t("topbar.tokensIn")}</span>
                     <span className="text-right">{convUsage.input_tokens.toLocaleString()}</span>
-                    <span className="text-muted-foreground">out</span>
+                    <span className="text-muted-foreground">{t("topbar.tokensOut")}</span>
                     <span className="text-right">{convUsage.output_tokens.toLocaleString()}</span>
-                    <span className="text-muted-foreground">req</span>
+                    <span className="text-muted-foreground">{t("topbar.requests")}</span>
                     <span className="text-right">{convUsage.request_count}</span>
                   </div>
                 </TooltipContent>
@@ -84,18 +84,16 @@ export function TopBar({
           </>
         )}
         {isConnected && (
-          <span role="status" aria-live="polite" className="ml-1.5 flex items-center">
+          <span
+            role="status"
+            aria-live="polite"
+            className="status-pill ml-1.5 shrink-0 border border-focus/25 bg-focus/10 text-focus"
+          >
             <span className="relative flex h-2 w-2 shrink-0">
-              <span
-                className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60"
-                aria-hidden="true"
-              />
-              <span
-                className="relative inline-flex h-2 w-2 rounded-full bg-accent-emerald"
-                aria-label={t("topbar.connected")}
-                title={t("topbar.connected")}
-              />
+              <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-focus opacity-60" aria-hidden="true" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-focus" aria-hidden="true" />
             </span>
+            <span className="hidden sm:inline">{t("topbar.connected")}</span>
           </span>
         )}
         {orchestratorMode === "planner" && (
@@ -104,11 +102,9 @@ export function TopBar({
               <span
                 role="status"
                 aria-live="polite"
-                className={
-                  isPlannerAutoDetected
-                    ? "status-pill ml-1.5 shrink-0 border border-border-active bg-ai-surface text-foreground"
-                    : "status-pill ml-1.5 shrink-0 chip-muted"
-                }
+                className={isPlannerAutoDetected
+                  ? "status-pill ml-1.5 shrink-0 border border-border-active bg-ai-surface text-foreground"
+                  : "status-pill ml-1.5 shrink-0 border border-border bg-muted text-muted-foreground"}
               >
                 {isPlannerAutoDetected ? (
                   <Sparkles className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
@@ -131,11 +127,11 @@ export function TopBar({
         onClick={handleOpenCommandPalette}
         variant="secondary"
         size="sm"
-        className="shrink-0 gap-2 text-muted-foreground hover:text-foreground"
+        className="shrink-0 gap-2 border border-border bg-card text-muted-foreground shadow-[var(--shadow-card)] hover:border-border-strong hover:bg-muted hover:text-foreground"
       >
         <Search className="h-4 w-4" />
         <span className="hidden sm:inline">{t("topbar.search")}</span>
-        <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
+        <kbd className="hidden rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border sm:inline">⌘K</kbd>
       </Button>
     </header>
   );

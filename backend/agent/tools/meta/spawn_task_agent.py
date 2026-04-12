@@ -99,6 +99,14 @@ class SpawnTaskAgent(LocalTool):
                         ),
                         "default": "inherit",
                     },
+                    "allow_redundant": {
+                        "type": "boolean",
+                        "description": (
+                            "Allow this spawn even if it overlaps an existing worker task. "
+                            "Use for explicit voting/redundancy patterns."
+                        ),
+                        "default": False,
+                    },
                 },
                 "required": ["task_description", "name"],
             },
@@ -115,6 +123,7 @@ class SpawnTaskAgent(LocalTool):
         use_lite_model: bool = kwargs.get("use_lite_model", False)
         timeout_seconds: float | None = kwargs.get("timeout_seconds")
         role: str = kwargs.get("role", "")
+        allow_redundant: bool = kwargs.get("allow_redundant", False)
         dependency_failure_mode = cast(
             "DependencyFailureMode",
             kwargs.get("dependency_failure_mode", "inherit"),
@@ -139,6 +148,7 @@ class SpawnTaskAgent(LocalTool):
                 timeout_seconds=timeout_seconds,
                 role=role,
                 dependency_failure_mode=dependency_failure_mode,
+                allow_redundant=allow_redundant,
             )
             agent_id = await self._manager.spawn(config)
         except Exception as exc:

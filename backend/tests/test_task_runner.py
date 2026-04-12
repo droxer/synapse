@@ -59,6 +59,11 @@ class _SequenceExecutor:
     def __init__(self, *results: ToolResult) -> None:
         self._results = list(results)
 
+    def canonical_tool_call_event_payload(
+        self, tool_name: str, tool_input: dict[str, object]
+    ) -> tuple[str, dict[str, object]]:
+        return tool_name, tool_input
+
     async def execute(self, name: str, tool_input: dict[str, object]) -> ToolResult:
         return self._results.pop(0)
 
@@ -118,6 +123,11 @@ class _TaskRunnerExecutor:
     @property
     def sandbox_config(self):
         return None
+
+    def canonical_tool_call_event_payload(
+        self, tool_name: str, tool_input: dict[str, object]
+    ) -> tuple[str, dict[str, object]]:
+        return tool_name, tool_input
 
     async def execute(self, name: str, tool_input: dict[str, object]) -> ToolResult:
         tool = self._registry.get(name)
@@ -272,28 +282,11 @@ async def test_run_times_out_with_cancel_downstream_failure_mode_and_metrics(
     assert result.metrics.output_tokens == 0
     assert result.metrics.duration_seconds >= 0.0
 
-    agent_complete = [
-        event for event in events if event.type == EventType.AGENT_COMPLETE
-    ]
-    assert len(agent_complete) == 1
-    assert agent_complete[0].data["agent_name"] == "agent-timeout"
-    assert agent_complete[0].data["success"] is False
-    assert agent_complete[0].data["failure_mode"] == "cancel_downstream"
-    assert agent_complete[0].data["timed_out"] is True
-    assert agent_complete[0].data["timeout_seconds"] == 0.01
-    assert "timed out" in agent_complete[0].data["error"].lower()
-    assert agent_complete[0].data["metrics"] == {
-        "duration_seconds": result.metrics.duration_seconds,
-        "iterations": 1,
-        "tool_call_count": 0,
-        "context_compaction_count": 0,
-        "input_tokens": 0,
-        "output_tokens": 0,
-    }
+    assert [event for event in events if event.type == EventType.AGENT_COMPLETE] == []
 
 
 @pytest.mark.asyncio
-async def test_run_emits_agent_complete_metrics_for_successful_execution(monkeypatch):
+async def test_run_returns_metrics_for_successful_execution(monkeypatch):
     monkeypatch.setattr(
         "agent.runtime.task_runner.get_settings",
         lambda: _task_settings(timeout_seconds=5.0),
@@ -351,23 +344,7 @@ async def test_run_emits_agent_complete_metrics_for_successful_execution(monkeyp
     assert result.metrics.output_tokens == 8
     assert result.metrics.duration_seconds >= 0.0
 
-    agent_complete = [
-        event for event in events if event.type == EventType.AGENT_COMPLETE
-    ]
-    assert len(agent_complete) == 1
-    assert agent_complete[0].data["agent_name"] == "worker-1"
-    assert agent_complete[0].data["success"] is True
-    assert agent_complete[0].data["failure_mode"] == "cancel_downstream"
-    assert agent_complete[0].data["timed_out"] is False
-    assert agent_complete[0].data["timeout_seconds"] == 5.0
-    assert agent_complete[0].data["metrics"] == {
-        "duration_seconds": result.metrics.duration_seconds,
-        "iterations": 2,
-        "tool_call_count": 1,
-        "context_compaction_count": 1,
-        "input_tokens": 18,
-        "output_tokens": 8,
-    }
+    assert [event for event in events if event.type == EventType.AGENT_COMPLETE] == []
 
 
 @pytest.mark.asyncio
@@ -404,13 +381,7 @@ async def test_run_uses_config_timeout_seconds_override(monkeypatch):
     assert result.error is not None
     assert "timed out" in result.error.lower()
 
-    agent_complete = [
-        event for event in events if event.type == EventType.AGENT_COMPLETE
-    ]
-    assert len(agent_complete) == 1
-    assert agent_complete[0].data["agent_name"] == "agent-timeout-override"
-    assert agent_complete[0].data["timed_out"] is True
-    assert agent_complete[0].data["timeout_seconds"] == 0.01
+    assert [event for event in events if event.type == EventType.AGENT_COMPLETE] == []
 
 
 @pytest.mark.asyncio

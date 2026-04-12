@@ -26,17 +26,14 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
 
   return (
     <div className={cn(
-      "group flex h-full flex-col rounded-lg border bg-card p-4 transition-[border-color,background-color] duration-200 ease-out",
+      "surface-panel group flex h-full flex-col p-4 transition-[border-color,background-color,box-shadow] duration-200 ease-out",
       isDisabled
-        ? "border-border hover:border-border"
-        : "border-border hover:border-border-strong hover:bg-muted/40",
+        ? "opacity-90"
+        : "hover:border-border-strong hover:bg-muted/40 hover:shadow-[var(--shadow-card-hover)]",
     )}>
       {/* Top row: icon + transport badge + delete */}
       <div className="flex items-start justify-between gap-2">
-        <div className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200",
-          isDisabled ? "bg-secondary" : "bg-secondary",
-        )}>
+        <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center transition-colors duration-200">
           <Blocks className={cn(
             "h-4 w-4 transition-colors duration-200",
             isDisabled ? "text-muted-foreground-dim" : "text-muted-foreground",
@@ -97,7 +94,7 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
               isDisabled
                 ? "bg-border-strong"
                 : server.status === "connected"
-                  ? "bg-foreground"
+                  ? "bg-accent-emerald"
                   : "bg-border-strong",
             )}
           />
@@ -129,7 +126,7 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
           >
             <span className={cn(
               "h-1.5 w-1.5 rounded-full transition-colors duration-150",
-              isDisabled ? "bg-border-strong" : "bg-foreground",
+              isDisabled ? "bg-border-strong" : "bg-accent-emerald",
             )} />
             {isDisabled ? t("mcp.disabled") : t("mcp.enabled")}
           </button>

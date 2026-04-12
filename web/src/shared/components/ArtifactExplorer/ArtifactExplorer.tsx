@@ -1,9 +1,19 @@
 "use client";
 
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { FolderOpen } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { EmptyState } from "@/shared/components/EmptyState";
+import { Button } from "@/shared/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 import { downloadFile } from "@/shared/lib/download";
 import { ArtifactPreviewDialog } from "@/features/agent-computer/components/ArtifactPreviewDialog";
 import { ExplorerFileList } from "./ExplorerFileList";
@@ -15,6 +25,7 @@ import { useArtifactExplorer } from "./useArtifactExplorer";
 import type { ArtifactExplorerItem, ConversationNode } from "./artifactExplorerUtils";
 import type { LibraryGroup, ViewMode } from "@/features/library/types";
 import type { ArtifactInfo } from "@/shared/types";
+import { useAppStore } from "@/shared/stores";
 
 // ---------------------------------------------------------------------------
 // Props
@@ -29,6 +40,8 @@ export interface ArtifactExplorerProps {
   readonly mode: "panel" | "page";
   /** Page mode only: controls grid vs list layout. Defaults to "grid". */
   readonly viewMode?: ViewMode;
+  /** Page mode: optimistically drop deleted artifacts from library state after a successful API delete. */
+  readonly onLibraryArtifactsRemoved?: (artifactIds: readonly string[]) => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -41,17 +54,13 @@ export function ArtifactExplorer({
   groups,
   mode,
   viewMode = "grid",
+  onLibraryArtifactsRemoved,
 }: ArtifactExplorerProps) {
   const { t } = useTranslation();
 
-  const {
-    selectedFileId,
-    selectedIds,
-    selectFile,
-    toggleSelection,
-    selectAll,
-    clearSelection,
-  } = useArtifactExplorer();
+  const { selectedFileId, selectFile } = useArtifactExplorer();
+
+  const [deleteTargetIds, setDeleteTargetIds] = useState<readonly string[] | null>(null);
 
   // ── Build normalized item list ──────────────────────────────────────────
 
@@ -65,6 +74,7 @@ export function ArtifactExplorer({
           contentType: a.contentType,
           size: a.size,
           conversationId: conversationId ?? undefined,
+          createdAt: a.createdAt,
           filePath: a.filePath || a.name,
         }),
       );
@@ -137,35 +147,62 @@ export function ArtifactExplorer({
     [selectFile],
   );
 
-  const handleDeleteSelected = useCallback(async () => {
-    if (selectedIds.size === 0) return;
+  const canDelete =
+    mode === "page" ||
+    (mode === "panel" && typeof conversationId === "string" && conversationId.length > 0);
 
-    // Group selected IDs by conversation
-    const selectedItems = allItems.filter(item => selectedIds.has(item.id));
-    const byConversation = new Map<string, string[]>();
+  const performDelete = useCallback(
+    async (ids: readonly string[]): Promise<boolean> => {
+      if (ids.length === 0) return false;
+      const idSet = new Set(ids);
+      const byConversation = new Map<string, string[]>();
 
-    for (const item of selectedItems) {
-      const cId = item.conversationId || conversationId;
-      if (!cId) continue;
-      if (!byConversation.has(cId)) byConversation.set(cId, []);
-      byConversation.get(cId)!.push(item.id);
-    }
+      for (const id of idSet) {
+        const item = allItems.find((i) => i.id === id);
+        const cId =
+          item?.conversationId ?? (mode === "panel" ? conversationId ?? undefined : undefined);
+        if (!cId) return false;
+        if (!byConversation.has(cId)) byConversation.set(cId, []);
+        byConversation.get(cId)!.push(id);
+      }
 
-    try {
-      await Promise.all(
-        Array.from(byConversation.entries()).map(([cId, ids]) =>
-          fetch(`/api/conversations/${cId}/artifacts/bulk`, {
-            method: "DELETE",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ artifact_ids: ids }),
-          })
-        )
-      );
-      clearSelection();
-    } catch (error) {
-      console.error("Failed to bulk delete artifacts", error);
-    }
-  }, [selectedIds, allItems, conversationId, clearSelection]);
+      try {
+        const responses = await Promise.all(
+          Array.from(byConversation.entries()).map(([cId, artifactIds]) =>
+            fetch(`/api/conversations/${cId}/artifacts/bulk`, {
+              method: "DELETE",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ artifact_ids: artifactIds }),
+            }),
+          ),
+        );
+        if (!responses.every((r) => r.ok)) return false;
+
+        useAppStore.getState().recordArtifactsDeleted(ids);
+        if (mode === "page") {
+          onLibraryArtifactsRemoved?.(ids);
+        }
+
+        if (selectedFileId && idSet.has(selectedFileId)) selectFile(null);
+        return true;
+      } catch (error) {
+        console.error("Failed to delete artifacts", error);
+        return false;
+      }
+    },
+    [allItems, conversationId, mode, onLibraryArtifactsRemoved, selectFile, selectedFileId],
+  );
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!deleteTargetIds?.length) return;
+    const ok = await performDelete(deleteTargetIds);
+    if (ok) setDeleteTargetIds(null);
+  }, [deleteTargetIds, performDelete]);
+
+  const openDeleteDialog = useCallback((ids: readonly string[]) => {
+    if (ids.length === 0 || !canDelete) return;
+    setDeleteTargetIds([...ids]);
+  }, [canDelete]);
 
   // ── Empty state ──────────────────────────────────────────────────────────
 
@@ -189,6 +226,7 @@ export function ArtifactExplorer({
         name: selectedItem.name,
         contentType: selectedItem.contentType,
         size: selectedItem.size,
+        ...(selectedItem.createdAt ? { createdAt: selectedItem.createdAt } : {}),
       }
     : null;
 
@@ -199,14 +237,12 @@ export function ArtifactExplorer({
           items={allItems}
           groups={mode === "page" ? conversationNodes : undefined}
           selectedFileId={selectedFileId}
-          selectedIds={selectedIds}
           conversationId={conversationId ?? undefined}
+          canDelete={canDelete}
           onSelectFile={selectFile}
           onPreview={handlePreview}
           onDownload={handleDownload}
-          onToggleSelection={toggleSelection}
-          onSelectAll={selectAll}
-          onDeleteSelected={handleDeleteSelected}
+          onOpenDeleteDialog={openDeleteDialog}
           mode={mode}
           viewMode={viewMode}
         />
@@ -216,7 +252,36 @@ export function ArtifactExplorer({
         artifactUrl={selectedUrl}
         open={selectedFileId !== null}
         onOpenChange={handleDialogOpenChange}
+        onRequestDelete={
+          canDelete && selectedItem ? () => openDeleteDialog([selectedItem.id]) : undefined
+        }
       />
+
+      <AlertDialog
+        open={deleteTargetIds !== null}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTargetIds(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("explorer.deleteConfirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("explorer.deleteConfirmDesc", { count: deleteTargetIds?.length ?? 0 })}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel size="sm">{t("explorer.cancel")}</AlertDialogCancel>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => void handleConfirmDelete()}
+            >
+              {t("explorer.deleteConfirm")}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

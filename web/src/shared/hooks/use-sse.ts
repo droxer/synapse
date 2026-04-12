@@ -93,6 +93,17 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
         data.orchestrator_mode === "planner" || data.orchestrator_mode === "agent"
           ? data.orchestrator_mode
           : undefined,
+      execution_shape:
+        data.execution_shape === "single_agent"
+        || data.execution_shape === "prompt_chain"
+        || data.execution_shape === "parallel"
+        || data.execution_shape === "orchestrator_workers"
+          ? data.execution_shape
+          : undefined,
+      execution_rationale:
+        typeof data.execution_rationale === "string"
+          ? data.execution_rationale
+          : undefined,
     } as AgentEventDataByType[K];
   }
 
@@ -152,6 +163,7 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
       name: typeof data.name === "string" ? data.name : undefined,
       content_type: typeof data.content_type === "string" ? data.content_type : undefined,
       size: typeof data.size === "number" ? data.size : undefined,
+      file_path: typeof data.file_path === "string" ? data.file_path : undefined,
     } as AgentEventDataByType[K];
   }
 
@@ -160,7 +172,10 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
       ...data,
       name: typeof data.name === "string" ? data.name : undefined,
       source:
-        data.source === "auto" || data.source === "explicit" || data.source === "mid_turn"
+        data.source === "auto"
+        || data.source === "explicit"
+        || data.source === "mid_turn"
+        || data.source === "already_active"
           ? data.source
           : undefined,
       phase:
@@ -191,6 +206,19 @@ export function parseSSEEvent(rawJson: string, fallbackEventType: EventType): Ag
   } as AgentEvent;
 }
 
+// Events that should flush the buffer immediately (user-facing or terminal).
+const FLUSH_IMMEDIATELY = new Set<string>([
+  "ask_user",
+  "task_error",
+  "task_complete",
+  "turn_complete",
+  "turn_cancelled",
+  "llm_response",
+  "message_user",
+  "skill_activated",
+  "skill_setup_failed",
+]);
+
 export function useSSE(conversationId: string | null, isLive = true) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -200,7 +228,41 @@ export function useSSE(conversationId: string | null, isLive = true) {
   const listenersRef = useRef<Array<{ name: string; handler: (e: MessageEvent) => void }>>([]);
   const stoppedRef = useRef(false);
 
+  // --- Event batching: buffer events and flush once per animation frame ---
+  const bufferRef = useRef<AgentEvent[]>([]);
+  const rafIdRef = useRef<number | null>(null);
+
+  const flushBuffer = useCallback(() => {
+    rafIdRef.current = null;
+    if (bufferRef.current.length === 0) return;
+    const batch = bufferRef.current;
+    bufferRef.current = [];
+    setEvents((prev) => [...prev, ...batch]);
+  }, []);
+
+  const enqueueEvent = useCallback(
+    (agentEvent: AgentEvent) => {
+      bufferRef.current.push(agentEvent);
+      if (FLUSH_IMMEDIATELY.has(agentEvent.type)) {
+        // Cancel pending RAF and flush synchronously for important events.
+        if (rafIdRef.current !== null) {
+          cancelAnimationFrame(rafIdRef.current);
+        }
+        flushBuffer();
+      } else if (rafIdRef.current === null) {
+        rafIdRef.current = requestAnimationFrame(flushBuffer);
+      }
+    },
+    [flushBuffer],
+  );
+
   const cleanup = useCallback(() => {
+    // Flush any remaining buffered events before tearing down.
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+    }
+    flushBuffer();
+
     if (retryTimerRef.current !== null) {
       clearTimeout(retryTimerRef.current);
       retryTimerRef.current = null;
@@ -216,7 +278,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
       eventSourceRef.current = null;
     }
     setIsConnected(false);
-  }, []);
+  }, [flushBuffer]);
 
   const connect = useCallback(
     (id: string) => {
@@ -279,7 +341,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
               console.log("[SSE] ask_user event received:", JSON.stringify(agentEvent.data));
             }
 
-            setEvents((prev) => [...prev, agentEvent]);
+            enqueueEvent(agentEvent);
           } catch {
             // Skip malformed events
           }
@@ -290,7 +352,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
 
       listenersRef.current = listeners;
     },
-    [cleanup],
+    [cleanup, enqueueEvent],
   );
 
   useEffect(() => {

@@ -63,7 +63,8 @@ function GroupSkeleton() {
 
 export function LibraryPage() {
   const { t } = useTranslation();
-  const { groups, isLoading, error, filter, setFilter, loadMore, hasMore } = useLibrary();
+  const { groups, isLoading, error, filter, setFilter, loadMore, hasMore, removeArtifactsById } =
+    useLibrary();
   const [dismissedError, setDismissedError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
 
@@ -132,7 +133,7 @@ export function LibraryPage() {
 
       {/* Content */}
       <div className="flex flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
-        <div className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-5 overflow-hidden">
+        <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 overflow-hidden">
           {/* Error */}
           {error && error !== dismissedError && (
             <ErrorBanner message={error} onDismiss={() => setDismissedError(error)} />
@@ -184,7 +185,12 @@ export function LibraryPage() {
             </div>
           ) : (
             <div className="flex-1 overflow-hidden">
-              <ArtifactExplorer mode="page" groups={groups} viewMode={viewMode} />
+              <ArtifactExplorer
+                mode="page"
+                groups={groups}
+                viewMode={viewMode}
+                onLibraryArtifactsRemoved={removeArtifactsById}
+              />
             </div>
           )}
 

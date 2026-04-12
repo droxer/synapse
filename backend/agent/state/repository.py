@@ -355,16 +355,23 @@ class ConversationRepository:
         self,
         session: AsyncSession,
         conversation_id: uuid.UUID,
-        limit: int = 1000,
+        limit: int | None = None,
         offset: int = 0,
     ) -> list[EventRecord]:
+        """Return conversation events in causal order.
+
+        When *limit* is ``None`` (default), all rows are returned. A numeric
+        *limit* applies to the ordered query — avoid using a low default here:
+        callers that need the full timeline (history replay, metrics) must not
+        silently drop the newest events.
+        """
         stmt = (
             select(EventModel)
             .where(EventModel.conversation_id == conversation_id)
-            .order_by(EventModel.timestamp.asc())
-            .limit(limit)
-            .offset(offset)
+            .order_by(EventModel.timestamp.asc(), EventModel.id.asc())
         )
+        if limit is not None:
+            stmt = stmt.limit(limit).offset(offset)
         result = await session.execute(stmt)
         return [_to_event(m) for m in result.scalars().all()]
 
@@ -798,7 +805,11 @@ class SkillRepository:
 # ---------------------------------------------------------------------------
 
 
-def _to_token_usage(model: TokenUsageModel) -> TokenUsageRecord:
+def _to_token_usage(
+    model: TokenUsageModel,
+    *,
+    conversation_title: str | None = None,
+) -> TokenUsageRecord:
     return TokenUsageRecord(
         id=model.id,
         conversation_id=model.conversation_id,
@@ -808,6 +819,7 @@ def _to_token_usage(model: TokenUsageModel) -> TokenUsageRecord:
         request_count=model.request_count,
         created_at=model.created_at,
         updated_at=model.updated_at,
+        conversation_title=conversation_title,
     )
 
 
@@ -900,12 +912,18 @@ class UsageRepository:
         total = (await session.execute(count_stmt)).scalar_one()
 
         stmt = (
-            select(TokenUsageModel)
+            select(TokenUsageModel, ConversationModel.title)
+            .join(
+                ConversationModel,
+                TokenUsageModel.conversation_id == ConversationModel.id,
+            )
             .where(TokenUsageModel.user_id == user_id)
             .order_by(TokenUsageModel.updated_at.desc())
             .limit(limit)
             .offset(offset)
         )
         result = await session.execute(stmt)
-        items = [_to_token_usage(m) for m in result.scalars().all()]
+        items = [
+            _to_token_usage(row[0], conversation_title=row[1]) for row in result.all()
+        ]
         return items, total

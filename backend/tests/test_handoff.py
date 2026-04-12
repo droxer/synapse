@@ -18,7 +18,7 @@ from agent.runtime.task_runner import (
 from agent.tools.meta.handoff import AgentHandoff
 from agent.tools.registry import ToolRegistry
 from api.builders import _build_planner_orchestrator
-from api.events import EventEmitter
+from api.events import EventEmitter, EventType
 from config.settings import Settings
 
 
@@ -201,6 +201,14 @@ class TestSubAgentManagerHandoff:
     @pytest.mark.asyncio
     async def test_run_agent_handoff_loop(self):
         """Test that _run_agent loops on handoff and returns final result."""
+        emitter = EventEmitter()
+        events = []
+
+        async def _capture(event):
+            events.append(event)
+
+        emitter.subscribe(_capture)
+
         handoff_result = AgentResult(
             agent_id="test",
             success=True,
@@ -232,7 +240,7 @@ class TestSubAgentManagerHandoff:
             claude_client=MagicMock(),
             tool_registry_factory=lambda: ToolRegistry(),
             tool_executor_factory=lambda reg: MagicMock(),
-            event_emitter=EventEmitter(),
+            event_emitter=emitter,
         )
         manager._execute_agent = mock_execute
         manager._configs["test-agent"] = TaskAgentConfig(
@@ -247,6 +255,10 @@ class TestSubAgentManagerHandoff:
         assert result.summary == "review complete"
         assert result.handoff is None
         assert call_count == 2
+        assert len([e for e in events if e.type == EventType.AGENT_COMPLETE]) == 1
+        assert (
+            len([e for e in events if e.type == EventType.AGENT_STAGE_TRANSITION]) == 1
+        )
 
     @pytest.mark.asyncio
     async def test_handoff_preserves_timeout_seconds(self):
@@ -294,6 +306,72 @@ class TestSubAgentManagerHandoff:
         assert call_count == 2
         assert captured_configs[0].timeout_seconds == 42.0
         assert captured_configs[1].timeout_seconds == 42.0
+        assert captured_configs[1].name == captured_configs[0].name
+
+    @pytest.mark.asyncio
+    async def test_run_agent_aggregates_metrics_across_handoffs(self):
+        emitter = EventEmitter()
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=emitter,
+        )
+
+        call_count = 0
+
+        async def mock_execute(agent_id, config):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return AgentResult(
+                    agent_id=agent_id,
+                    success=True,
+                    summary="handoff",
+                    handoff=HandoffRequest(
+                        target_role="reviewer",
+                        task_description="review",
+                        context="",
+                        source_messages=(),
+                        remaining_handoffs=1,
+                    ),
+                    metrics=AgentRunMetrics(
+                        duration_seconds=1.0,
+                        iterations=2,
+                        tool_call_count=3,
+                        context_compaction_count=0,
+                        input_tokens=10,
+                        output_tokens=5,
+                    ),
+                )
+            return AgentResult(
+                agent_id=agent_id,
+                success=True,
+                summary="done",
+                metrics=AgentRunMetrics(
+                    duration_seconds=2.0,
+                    iterations=1,
+                    tool_call_count=1,
+                    context_compaction_count=1,
+                    input_tokens=7,
+                    output_tokens=4,
+                ),
+            )
+
+        manager._execute_agent = mock_execute
+
+        result = await manager._run_agent(
+            "agg-agent",
+            TaskAgentConfig(task_description="build", name="worker", role="coder"),
+        )
+
+        assert result.metrics is not None
+        assert result.metrics.duration_seconds == 3.0
+        assert result.metrics.iterations == 3
+        assert result.metrics.tool_call_count == 4
+        assert result.metrics.context_compaction_count == 1
+        assert result.metrics.input_tokens == 17
+        assert result.metrics.output_tokens == 9
 
     @pytest.mark.asyncio
     async def test_multi_step_handoff_chain(self):
@@ -623,6 +701,58 @@ class TestSubAgentSpawnLimits:
                     depends_on=("missing-agent",),
                 )
             )
+
+    @pytest.mark.asyncio
+    async def test_spawn_rejects_redundant_task_by_default(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        async def mock_run_agent(agent_id, config):
+            await asyncio.sleep(0)
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._run_agent = mock_run_agent
+        await manager.spawn(
+            TaskAgentConfig(task_description="Research API docs", role="researcher")
+        )
+
+        with pytest.raises(RuntimeError, match="Redundant task agent rejected"):
+            await manager.spawn(
+                TaskAgentConfig(
+                    task_description="research   api docs",
+                    role="researcher",
+                )
+            )
+
+    @pytest.mark.asyncio
+    async def test_spawn_allows_redundant_task_when_enabled(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        async def mock_run_agent(agent_id, config):
+            await asyncio.sleep(0)
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._run_agent = mock_run_agent
+        await manager.spawn(
+            TaskAgentConfig(task_description="Research API docs", role="researcher")
+        )
+        agent_id = await manager.spawn(
+            TaskAgentConfig(
+                task_description="research api docs",
+                role="researcher",
+                allow_redundant=True,
+            )
+        )
+        assert agent_id
 
 
 class TestDependencyFailurePolicy:
@@ -1191,6 +1321,7 @@ class TestWaitForAgentsOutputEnhanced:
 
         data = json.loads(result.output)
         assert data["agent-1"]["failure_mode"] == "degrade"
+        assert data["agent-1"]["terminal_state"] == "error"
 
     @pytest.mark.asyncio
     async def test_wait_output_includes_metrics(self):
@@ -1277,3 +1408,4 @@ class TestWaitForAgentsOutputEnhanced:
         data = json.loads(result.output)
         assert data["agent-1"]["skip_execution"] is True
         assert data["agent-1"]["replan_required"] is True
+        assert data["agent-1"]["terminal_state"] == "replan_required"

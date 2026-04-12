@@ -22,7 +22,7 @@ export async function fetchConversations(
   if (search) {
     url += `&search=${encodeURIComponent(search)}`;
   }
-  const res = await fetch(url);
+  const res = await fetch(url, { cache: "no-store" });
 
   if (!res.ok) {
     throw new Error(`Failed to fetch conversations: ${res.status}`);
@@ -34,10 +34,10 @@ export async function fetchConversations(
 export async function deleteConversation(
   conversationId: string,
 ): Promise<void> {
-  const res = await fetch(
-    `${API_BASE}/conversations/${conversationId}`,
-    { method: "DELETE" },
-  );
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
+    method: "DELETE",
+    cache: "no-store",
+  });
 
   if (!res.ok) {
     throw new Error(`Failed to delete conversation: ${res.status}`);

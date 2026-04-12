@@ -35,14 +35,14 @@ function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key
 
   return (
     <div className="mt-1.5">
-      <p className={cn("text-sm leading-relaxed text-accent-rose", !expanded && "line-clamp-2")}>
+      <p className={cn("text-sm leading-relaxed text-destructive", !expanded && "line-clamp-2")}>
         {expanded ? output : output.slice(0, 200)}
       </p>
       {isLong && (
         <button
           type="button"
           onClick={() => setExpanded((p) => !p)}
-          className="mt-0.5 rounded text-micro font-medium text-accent-rose transition-colors hover:text-accent-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="mt-0.5 rounded text-micro font-medium text-destructive transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           aria-label={expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
         >
           {expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
@@ -109,21 +109,23 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             aria-label={isComplete ? (isError ? t("skills.activity.skillFailed") : t("skills.activity.skillLoaded")) : t("skills.activity.skillLoading")}
             className={cn(
               "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-              isError ? "bg-destructive/5" : "bg-muted/15",
+              isError
+                ? "bg-destructive/14"
+                : isComplete
+                  ? "bg-accent-emerald/14"
+                  : "bg-focus/14",
             )}
           >
-            {isComplete ? (
-              isError ? (
-                <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-accent-rose/70" />
-              ) : (
-                <motion.div
-                  initial={{ opacity: 0, rotate: -90 }}
-                  animate={{ opacity: 1, rotate: 0 }}
-                  transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
-                >
-                  <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
-                </motion.div>
-              )
+            {isError ? (
+              <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-destructive" />
+            ) : isComplete ? (
+              <motion.div
+                initial={{ opacity: 0, rotate: -90 }}
+                animate={{ opacity: 1, rotate: 0 }}
+                transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
+              >
+                <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-accent-emerald" />
+              </motion.div>
             ) : (
               <PulsingDot size="sm" />
             )}
@@ -137,13 +139,13 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 {displayName}
               </span>
 
-              {isComplete && (
+              {isComplete && !isError && (
                 <motion.div
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <span className="inline-flex items-center gap-1 rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+                  <span className="status-pill bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20">
                     <Check className="h-2.5 w-2.5" />
                     {t("skills.activity.loaded")}
                   </span>
@@ -151,13 +153,13 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {!isResolved && (
-                <span className="rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground">
+                <span className="status-pill chip-muted">
                   {t("skills.activity.loading")}
                 </span>
               )}
 
               {isError && (
-                <span className="rounded-md bg-destructive/10 px-1.5 py-0.5 text-micro font-medium text-accent-rose">
+                <span className="status-pill bg-destructive/10 text-destructive border-destructive/20">
                   {t("skills.activity.failed")}
                 </span>
               )}

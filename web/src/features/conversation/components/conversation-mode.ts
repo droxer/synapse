@@ -1,4 +1,4 @@
-import type { AgentEvent, TaskState } from "@/shared/types";
+import type { AgentEvent, ChatMessage, TaskState } from "@/shared/types";
 
 export function getCurrentTurnEventSlice(events: AgentEvent[]): AgentEvent[] {
   let lastCompleteIdx = -1;
@@ -13,6 +13,49 @@ export function getCurrentTurnEventSlice(events: AgentEvent[]): AgentEvent[] {
 
 export function hasPlannerSignalsSinceLastTurnComplete(events: AgentEvent[]): boolean {
   return getCurrentTurnEventSlice(events).some((e) => e.type === "plan_created");
+}
+
+export function getPlanMessageIndex(
+  events: AgentEvent[],
+  messages: ChatMessage[],
+): number | null {
+  let planEventIdx = -1;
+  for (let i = events.length - 1; i >= 0; i--) {
+    if (events[i]?.type === "plan_created") {
+      planEventIdx = i;
+      break;
+    }
+  }
+  if (planEventIdx === -1) return null;
+
+  const planEvent = events[planEventIdx]!;
+  let turnStartTimestamp = Number.NEGATIVE_INFINITY;
+  for (let i = planEventIdx; i >= 0; i--) {
+    if (events[i]?.type === "turn_start") {
+      turnStartTimestamp = events[i]!.timestamp;
+      break;
+    }
+  }
+
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const message = messages[i];
+    if (
+      message?.role === "assistant"
+      && message.timestamp >= turnStartTimestamp
+      && message.timestamp <= planEvent.timestamp
+    ) {
+      return i;
+    }
+  }
+
+  for (let i = 0; i < messages.length; i++) {
+    const message = messages[i];
+    if (message?.role === "assistant" && message.timestamp >= turnStartTimestamp) {
+      return i;
+    }
+  }
+
+  return null;
 }
 
 export interface PlannerModeBadgeContext {

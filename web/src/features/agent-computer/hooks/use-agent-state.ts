@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 
 // Some LLM providers (e.g. Qwen3 via DashScope) embed thinking content in
 // the response text using <think>…</think> tags rather than returning it as
@@ -17,6 +17,7 @@ function splitThinkTag(text: string): { thinking: string; content: string } {
 import type {
   AgentEvent,
   ArtifactInfo,
+  AgentStatusState,
   AssistantPhase,
   BrowserMetadata,
   ComputerUseMetadata,
@@ -27,6 +28,18 @@ import type {
   AgentStatus,
   PlanStep,
 } from "@/shared/types";
+
+function mapAgentTerminalStatus(value: unknown): AgentStatusState {
+  switch (value) {
+    case "complete":
+    case "skipped":
+    case "replan_required":
+    case "error":
+      return value;
+    default:
+      return "error";
+  }
+}
 
 interface DerivedAgentState {
   readonly messages: ChatMessage[];
@@ -71,6 +84,10 @@ function toDisplayText(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function normalizeComparableMessageContent(content: string): string {
+  return content.trim();
 }
 
 export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
@@ -242,19 +259,24 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       assistantPhase = { phase: "idle" };
       isStreaming = false;
       const responseText = toDisplayText(event.data.text ?? event.data.content ?? event.data.message);
+      const stopReason =
+        typeof event.data.stop_reason === "string" ? event.data.stop_reason : "";
+      const isTerminalEndTurn = stopReason === "end_turn";
       if (responseText.length > 0) {
         reasoningSteps.push(responseText);
       }
 
       const rawText = responseText;
-      if (rawText) {
+      if (rawText && !isTerminalEndTurn) {
         const { thinking: inlineThinking, content } = splitThinkTag(rawText);
         const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
         const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
         let message: ChatMessage = {
           role: "assistant",
           content,
-          timestamp: streamingTimestamp > 0 ? streamingTimestamp : event.timestamp,
+          // Use response completion time so ordering matches emit order when
+          // streaming started long before the final llm_response event.
+          timestamp: event.timestamp,
           ...(thinkingContent ? { thinkingContent } : {}),
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
         };
@@ -272,17 +294,46 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       assistantPhase = { phase: "using_tool", toolName };
 
       const toolUseId = toolId.length > 0 ? toolId : crypto.randomUUID();
-      const rowId = `tc-${++toolCallSeq}`;
-      toolCallOrder.push(rowId);
-      toolCallMap.set(rowId, {
-        id: rowId,
-        toolUseId,
-        name: String(event.data.name ?? event.data.tool_name ?? "unknown"),
-        input: (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>,
-        timestamp: event.timestamp,
-        agentId: event.data.agent_id ? String(event.data.agent_id) : undefined,
-        thinkingText: pendingToolCallThinking || undefined,
-      });
+      const input = (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>;
+
+      // If this is a skill tool call, reuse any synthetic placeholder row created by
+      // an earlier skill_activated event instead of creating a duplicate row.
+      let rowId: string | undefined;
+      if (skillToolNames.has(toolName)) {
+        const skillName = String(input.name ?? "");
+        if (skillName) {
+          const syntheticId = resolveSkillRow(skillName);
+          const synthetic = syntheticId ? toolCallMap.get(syntheticId) : undefined;
+          if (syntheticId && synthetic?.toolUseId.startsWith("skill-event:")) {
+            rowId = syntheticId;
+            toolCallMap.set(rowId, {
+              ...synthetic,
+              toolUseId,
+              name: toolName,
+              input,
+              timestamp: event.timestamp,
+              agentId: event.data.agent_id ? String(event.data.agent_id) : synthetic.agentId,
+              thinkingText: pendingToolCallThinking || undefined,
+              // Reset success so the row stays pending until tool_result / skill_activated
+              success: undefined,
+            });
+          }
+        }
+      }
+
+      if (!rowId) {
+        rowId = `tc-${++toolCallSeq}`;
+        toolCallOrder.push(rowId);
+        toolCallMap.set(rowId, {
+          id: rowId,
+          toolUseId,
+          name: toolName,
+          input,
+          timestamp: event.timestamp,
+          agentId: event.data.agent_id ? String(event.data.agent_id) : undefined,
+          thinkingText: pendingToolCallThinking || undefined,
+        });
+      }
       pendingToolCallThinking = "";
     } else if (event.type === "tool_result") {
       const toolId = String(event.data.tool_id ?? event.data.id ?? "");
@@ -321,7 +372,13 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         toolCallMap.set(rowId, {
           ...existing,
           output: toDisplayText(event.data.output ?? event.data.result),
-          success: isSkillTool ? undefined : event.data.success !== false,
+          // Skill tools: keep "pending" on success until skill_activated / staging, but surface
+          // hard failures from tool_result (unknown skill, etc.) so the UI is not stuck loading.
+          success: isSkillTool
+            ? event.data.success === false
+              ? false
+              : existing.success
+            : event.data.success !== false,
           contentType: event.data.content_type ? String(event.data.content_type) : undefined,
           artifactIds: Array.isArray(event.data.artifact_ids) ? event.data.artifact_ids : undefined,
           browserMetadata,
@@ -449,10 +506,22 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       pendingToolIds.clear();
     } else if (event.type === "turn_complete" || event.type === "task_complete") {
       isStreaming = false;
+      if (event.type === "task_complete") {
+        planSteps = planSteps.map((step) =>
+          step.executionType === "planner_owned" && step.status !== "complete"
+            ? { ...step, status: "complete" }
+            : step,
+        );
+      }
       const rawResult = String(event.data.result ?? "");
       if (rawResult) {
         const { thinking: inlineThinking, content } = splitThinkTag(rawResult);
-        const alreadyShown = messages.some((message) => message.role === "assistant" && message.content === content);
+        const normalizedContent = normalizeComparableMessageContent(content);
+        const alreadyShown = messages.some(
+          (message) =>
+            message.role === "assistant"
+            && normalizeComparableMessageContent(message.content) === normalizedContent,
+        );
         if (!alreadyShown) {
           const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
           const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
@@ -469,7 +538,11 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           pendingThinkingParts = [];
         } else {
           if (pendingImageArtifactIds.length > 0) {
-            const existingIdx = messages.findLastIndex((message) => message.role === "assistant" && message.content === content);
+            const existingIdx = messages.findLastIndex(
+              (message) =>
+                message.role === "assistant"
+                && normalizeComparableMessageContent(message.content) === normalizedContent,
+            );
             if (existingIdx !== -1) {
               const existing = messages[existingIdx]!;
               messages[existingIdx] = {
@@ -480,7 +553,11 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
             pendingImageArtifactIds = [];
           }
           if (pendingThinkingEntries.length > 0) {
-            const existingIdx = messages.findLastIndex((message) => message.role === "assistant" && message.content === content);
+            const existingIdx = messages.findLastIndex(
+              (message) =>
+                message.role === "assistant"
+                && normalizeComparableMessageContent(message.content) === normalizedContent,
+            );
             if (existingIdx !== -1) {
               const existing = messages[existingIdx]!;
               messages[existingIdx] = {
@@ -515,11 +592,17 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     } else if (event.type === "artifact_created") {
       const artifactId = String(event.data.artifact_id ?? crypto.randomUUID());
       const contentType = String(event.data.content_type ?? "application/octet-stream");
+      const filePath =
+        typeof event.data.file_path === "string" && event.data.file_path.trim() !== ""
+          ? event.data.file_path
+          : undefined;
       artifacts.push({
         id: artifactId,
         name: String(event.data.name ?? ""),
         contentType,
         size: Number(event.data.size ?? 0),
+        createdAt: new Date(event.timestamp).toISOString(),
+        ...(filePath !== undefined ? { filePath } : {}),
       });
       if (contentType.startsWith("image/")) {
         imageArtifactIdSet.add(artifactId);
@@ -536,24 +619,56 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       });
 
       const normalizedName = agentName.trim().toLowerCase();
-      const pendingStepIdx = planSteps.findIndex((step) => step.status === "pending" && step.name.trim().toLowerCase() === normalizedName);
+      const pendingStepIdx = planSteps.findIndex(
+        (step) =>
+          step.status === "pending"
+          && step.executionType !== "planner_owned"
+          && step.name.trim().toLowerCase() === normalizedName,
+      );
       if (pendingStepIdx !== -1) {
         planSteps = planSteps.map((step, idx) => idx === pendingStepIdx ? { ...step, status: "running", agentId } : step);
       }
-    } else if (event.type === "agent_complete") {
+    } else if (event.type === "agent_start") {
       const agentId = String(event.data.agent_id ?? event.data.id ?? "");
       const existing = agentMap.get(agentId);
       if (existing) {
         agentMap.set(agentId, {
           ...existing,
-          status: event.data.error ? "error" : "complete",
+          status: "running",
+        });
+      }
+    } else if (event.type === "agent_complete") {
+      const agentId = String(event.data.agent_id ?? event.data.id ?? "");
+      const existing = agentMap.get(agentId);
+      const terminalState = mapAgentTerminalStatus(event.data.terminal_state);
+      const nextStatus = terminalState;
+      if (existing) {
+        agentMap.set(agentId, {
+          ...existing,
+          status: nextStatus,
         });
       }
       planSteps = planSteps.map((step) =>
         step.agentId === agentId
-          ? { ...step, status: event.data.error ? "error" : "complete" }
+          ? { ...step, status: nextStatus === "complete" ? "complete" : "error" }
           : step,
       );
+      if (nextStatus === "complete") {
+        planSteps = planSteps.map((step) =>
+          step.executionType === "planner_owned" && step.status !== "complete"
+            ? { ...step, status: "complete" }
+            : step,
+        );
+      }
+    } else if (event.type === "agent_skipped" || event.type === "agent_replan_required") {
+      const agentId = String(event.data.agent_id ?? event.data.id ?? "");
+      const existing = agentMap.get(agentId);
+      if (existing) {
+        agentMap.set(agentId, {
+          ...existing,
+          status: event.type === "agent_skipped" ? "skipped" : "replan_required",
+        });
+      }
     } else if (event.type === "agent_handoff") {
       const parentId = String(event.data.parent_agent_id ?? "");
       const existing = agentMap.get(parentId);
@@ -567,12 +682,33 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           status: "running",
         });
       }
+    } else if (event.type === "agent_stage_transition") {
+      const agentId = String(event.data.agent_id ?? event.data.id ?? "");
+      const existing = agentMap.get(agentId);
+      if (existing) {
+        const targetRole = String(event.data.to_role ?? "");
+        const reason = String(event.data.reason ?? "");
+        const transitionDescription = reason
+          ? `Handed off to ${targetRole}: ${reason}`
+          : `Handed off to ${targetRole}`;
+        agentMap.set(agentId, {
+          ...existing,
+          description: `${existing.description} → ${transitionDescription}`,
+          status: "running",
+        });
+      }
     } else if (event.type === "plan_created") {
       if (Array.isArray(event.data.steps)) {
         planSteps = event.data.steps.map((step) => ({
           name: String(step.name ?? ""),
           description: String(step.description ?? ""),
-          status: "pending",
+          executionType:
+            step.execution_type === "planner_owned"
+            || step.execution_type === "sequential_worker"
+            || step.execution_type === "parallel_worker"
+              ? step.execution_type
+              : "parallel_worker",
+          status: step.execution_type === "planner_owned" ? "running" : "pending",
         }));
       }
     }
@@ -630,6 +766,99 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   };
 }
 
+// ── Structural sharing ──────────────────────────────────────────────
+// After deriving new state, reuse previous array/object references when
+// the content hasn't meaningfully changed.  This prevents downstream
+// useMemo / React.memo invalidation from cascading unnecessarily.
+
+function shallowArrayEqual<T>(a: readonly T[], b: readonly T[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function messagesEqual(a: readonly ChatMessage[], b: readonly ChatMessage[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const am = a[i];
+    const bm = b[i];
+    if (
+      am.role !== bm.role ||
+      am.content !== bm.content ||
+      am.timestamp !== bm.timestamp ||
+      am.thinkingContent !== bm.thinkingContent ||
+      am.thinkingEntries !== bm.thinkingEntries ||
+      am.imageArtifactIds !== bm.imageArtifactIds
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function toolCallsEqual(a: readonly ToolCallInfo[], b: readonly ToolCallInfo[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const at = a[i];
+    const bt = b[i];
+    if (
+      at.id !== bt.id ||
+      at.output !== bt.output ||
+      at.success !== bt.success ||
+      at.name !== bt.name
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function planStepsEqual(a: readonly PlanStep[], b: readonly PlanStep[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i].name !== b[i].name || a[i].status !== b[i].status) return false;
+  }
+  return true;
+}
+
 export function useAgentState(events: AgentEvent[]) {
-  return useMemo(() => deriveAgentState(events), [events]);
+  const prevRef = useRef<DerivedAgentState | null>(null);
+
+  return useMemo(() => {
+    const next = deriveAgentState(events);
+    const prev = prevRef.current;
+
+    if (prev) {
+      // Reuse previous references for arrays that haven't changed,
+      // so downstream useMemo dependencies stay stable.
+      const stable: DerivedAgentState = {
+        messages: messagesEqual(prev.messages, next.messages) ? prev.messages : next.messages,
+        toolCalls: toolCallsEqual(prev.toolCalls, next.toolCalls) ? prev.toolCalls : next.toolCalls,
+        taskState: next.taskState,
+        agentStatuses: shallowArrayEqual(prev.agentStatuses, next.agentStatuses) ? prev.agentStatuses : next.agentStatuses,
+        planSteps: planStepsEqual(prev.planSteps, next.planSteps) ? prev.planSteps : next.planSteps,
+        currentIteration: next.currentIteration,
+        reasoningSteps: shallowArrayEqual(prev.reasoningSteps, next.reasoningSteps) ? prev.reasoningSteps : next.reasoningSteps,
+        thinkingContent: next.thinkingContent,
+        thinkingDurationMs: next.thinkingDurationMs,
+        currentThinkingEntries: shallowArrayEqual(prev.currentThinkingEntries, next.currentThinkingEntries)
+          ? prev.currentThinkingEntries
+          : next.currentThinkingEntries,
+        isStreaming: next.isStreaming,
+        assistantPhase:
+          prev.assistantPhase.phase === next.assistantPhase.phase &&
+          (prev.assistantPhase as Record<string, unknown>).toolName === (next.assistantPhase as Record<string, unknown>).toolName
+            ? prev.assistantPhase
+            : next.assistantPhase,
+        artifacts: shallowArrayEqual(prev.artifacts, next.artifacts) ? prev.artifacts : next.artifacts,
+      };
+      prevRef.current = stable;
+      return stable;
+    }
+
+    prevRef.current = next;
+    return next;
+  }, [events]);
 }

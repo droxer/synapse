@@ -33,6 +33,7 @@ from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_setup import (
     build_skill_prompt_content,
+    emit_redundant_skill_activation,
     prepare_skill_for_turn,
 )
 from agent.runtime.skill_selector import select_skill_for_message
@@ -154,6 +155,7 @@ class AgentOrchestrator:
         self._run_lock = asyncio.Lock()
         self._last_tool_batch_signature: str | None = None
         self._identical_tool_batch_count: int = 0
+        self._turn_artifact_ids: list[str] = []
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -239,6 +241,7 @@ class AgentOrchestrator:
         attachments: tuple[Any, ...] = (),
         selected_skills: tuple[str, ...] = (),
         runtime_prompt_sections: tuple[str, ...] = (),
+        turn_metadata: dict[str, Any] | None = None,
     ) -> str:
         """Execute the agent loop and return the final text response."""
         if not user_message.strip():
@@ -250,6 +253,7 @@ class AgentOrchestrator:
                 attachments=attachments,
                 selected_skills=selected_skills,
                 runtime_prompt_sections=runtime_prompt_sections,
+                turn_metadata=turn_metadata,
             )
 
     async def _run_locked(
@@ -259,16 +263,26 @@ class AgentOrchestrator:
         attachments: tuple[Any, ...],
         selected_skills: tuple[str, ...],
         runtime_prompt_sections: tuple[str, ...],
+        turn_metadata: dict[str, Any] | None,
     ) -> str:
         logger.info("turn_start user_message_length={}", len(user_message))
 
         await self._emitter.emit(
             EventType.TURN_START,
-            {"message": user_message, "orchestrator_mode": "agent"},
+            {
+                "message": user_message,
+                "orchestrator_mode": "agent",
+                **(turn_metadata or {}),
+            },
         )
 
         self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()
+        reset_active_skill_directory = getattr(
+            self._executor, "reset_active_skill_directory", None
+        )
+        if callable(reset_active_skill_directory):
+            reset_active_skill_directory()
         self._registry = self._base_registry
         self._last_tool_batch_signature = None
         self._identical_tool_batch_count = 0
@@ -361,6 +375,7 @@ class AgentOrchestrator:
             {"role": "user", "content": content},
         )
         self._state = replace(self._state, completed=False, error=None, iteration=0)
+        self._turn_artifact_ids = []
 
         # Filter tools to skill's allowed set (if specified).
         # Entries containing ":" are treated as registry tags (e.g.
@@ -424,7 +439,7 @@ class AgentOrchestrator:
         final_text = extract_final_text(self._state)
         await self._emitter.emit(
             EventType.TURN_COMPLETE,
-            {"result": final_text},
+            {"result": final_text, "artifact_ids": self._turn_artifact_ids},
         )
         return final_text
 
@@ -478,8 +493,13 @@ class AgentOrchestrator:
         if not activated_name:
             return None
 
-        # Skip if this skill is already the active one
         if activated_name == self._auto_injected_skill:
+            await emit_redundant_skill_activation(
+                self._emitter,
+                skill_name=activated_name,
+                tool_id=tool_id,
+                messages=list(self._state.messages),
+            )
             return None
 
         if tool_id is not None:
@@ -620,6 +640,7 @@ class AgentOrchestrator:
         )
         # endregion
         try:
+            thinking_emitted_during_stream = False
 
             async def _on_text_delta(delta: str) -> None:
                 await self._emitter.emit(
@@ -628,13 +649,33 @@ class AgentOrchestrator:
                     iteration=state.iteration,
                 )
 
-            response = await self._client.create_message_stream(
+            async def _on_thinking_ready(thinking: str) -> None:
+                nonlocal thinking_emitted_during_stream
+                if not thinking:
+                    return
+                thinking_emitted_during_stream = True
+                await self._emitter.emit(
+                    EventType.THINKING,
+                    {"thinking": thinking},
+                    iteration=state.iteration,
+                )
+
+            stream_kwargs = dict(
                 system=effective_prompt,
                 messages=list(state.messages),
                 tools=tools if tools else None,
                 on_text_delta=_on_text_delta,
                 thinking_budget=self._thinking_budget,
             )
+            try:
+                response = await self._client.create_message_stream(
+                    **stream_kwargs,
+                    on_thinking_ready=_on_thinking_ready,
+                )
+            except TypeError as exc:
+                if "on_thinking_ready" not in str(exc):
+                    raise
+                response = await self._client.create_message_stream(**stream_kwargs)
         except Exception as exc:
             # region agent log
             _emit_debug_log(
@@ -662,7 +703,7 @@ class AgentOrchestrator:
             response.usage.output_tokens,
         )
 
-        if response.thinking:
+        if response.thinking and not thinking_emitted_during_stream:
             await self._emitter.emit(
                 EventType.THINKING,
                 {"thinking": response.thinking},
@@ -694,6 +735,7 @@ class AgentOrchestrator:
             cancel_check=lambda: self._cancel_event.is_set(),
         )
         state = tool_result.state
+        self._turn_artifact_ids.extend(tool_result.artifact_ids)
 
         threshold = settings.STUCK_LOOP_TOOL_REPEAT_THRESHOLD
         if threshold > 0 and response.tool_calls:

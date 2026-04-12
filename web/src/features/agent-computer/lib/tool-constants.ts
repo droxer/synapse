@@ -1,6 +1,7 @@
 /** Tools that should be hidden from the activity view (communication-only). */
 export const HIDDEN_ACTIVITY_TOOLS = new Set([
   "user_message",
+  "message_user",
   "plan_create",
 ]);
 
@@ -10,6 +11,7 @@ export const NON_ARTIFACT_TOOLS = new Set([
   "web_fetch",
   "user_ask",
   "user_message",
+  "message_user",
   "memory_store",
   "memory_search",
   "task_complete",
@@ -39,6 +41,7 @@ const TOOL_DISPLAY_NAMES: Record<string, string> = {
   web_fetch: "Web Fetch",
   user_ask: "Ask User",
   user_message: "Message User",
+  message_user: "Message User",
   memory_store: "Memory Store",
   memory_search: "Memory Search",
   memory_list: "Memory List",

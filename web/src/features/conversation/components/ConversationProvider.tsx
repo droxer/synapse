@@ -1,7 +1,7 @@
 "use client";
 
-import { createContext, useMemo, type ReactNode } from "react";
-import { useSSE } from "@/shared/hooks";
+import { createContext, useMemo, useRef, type ReactNode } from "react";
+import { useSSE, useSessionFilteredArtifacts } from "@/shared/hooks";
 import { useAppStore } from "@/shared/stores";
 import { useAgentState } from "@/features/agent-computer";
 import { useConversation } from "../hooks/use-conversation";
@@ -18,54 +18,106 @@ import type {
   AgentStatus,
   PlanStep,
 } from "@/shared/types";
+import { getEventKey, mergeUniqueEvents } from "../lib/merge-unique-events";
+import { mergeHistoryWithEventDerivedMessages } from "../lib/merge-transcript-messages";
 
-export function getStableDataKey(value: unknown): string {
-  if (value === null || value === undefined) return String(value);
-  if (typeof value !== "object") return JSON.stringify(value);
-  if (Array.isArray(value)) {
-    return `[${value.map((item) => getStableDataKey(item)).join(",")}]`;
-  }
+// ── Incremental event merge hook ────────────────────────────────────
+// Reuses prior merge results: only processes newly-appended live events
+// and skips the full O(N) deep-serialization + sort on every render.
 
-  const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
-  return `{${keys
-    .map((key) => `${JSON.stringify(key)}:${getStableDataKey(record[key])}`)
-    .join(",")}}`;
+interface IncrementalMergeState {
+  seenKeys: Set<string>;
+  merged: AgentEvent[];
+  /** How many history events were used in the last full rebuild. */
+  historyLen: number;
+  /** How many live events have been incrementally processed so far. */
+  liveProcessed: number;
+  /** Reference identity of the history array used in the last rebuild. */
+  historyRef: readonly AgentEvent[] | null;
 }
 
-export function getEventKey(event: AgentEvent): string {
-  return [
-    event.type,
-    String(event.timestamp),
-    String(event.iteration ?? ""),
-    getStableDataKey(event.data),
-  ].join("|");
-}
-
-export function mergeUniqueEvents(
+function useIncrementalMerge(
   historyEvents: readonly AgentEvent[],
   liveEvents: readonly AgentEvent[],
+  isLive: boolean,
 ): AgentEvent[] {
-  const merged: Array<{ event: AgentEvent; originalIndex: number }> = [];
-  const seen = new Set<string>();
-  let originalIndex = 0;
-
-  for (const event of [...historyEvents, ...liveEvents]) {
-    const key = getEventKey(event);
-    if (seen.has(key)) continue;
-    seen.add(key);
-    merged.push({ event, originalIndex });
-    originalIndex += 1;
-  }
-
-  merged.sort((a, b) => {
-    if (a.event.timestamp === b.event.timestamp) {
-      return a.originalIndex - b.originalIndex;
-    }
-    return a.event.timestamp - b.event.timestamp;
+  const stateRef = useRef<IncrementalMergeState>({
+    seenKeys: new Set(),
+    merged: [],
+    historyLen: 0,
+    liveProcessed: 0,
+    historyRef: null,
   });
 
-  return merged.map(({ event }) => event);
+  return useMemo(() => {
+    if (!isLive) return historyEvents as AgentEvent[];
+
+    const s = stateRef.current;
+
+    // Full rebuild when history changes (rare: initial load / conversation switch).
+    const historyChanged =
+      s.historyRef !== historyEvents || s.historyLen !== historyEvents.length;
+
+    if (historyChanged) {
+      // Rebuild from scratch with current history + all live events.
+      const result = mergeUniqueEvents(historyEvents, liveEvents);
+      // Capture state for future incremental updates.
+      const seenKeys = new Set<string>();
+      for (const event of result) {
+        seenKeys.add(getEventKey(event));
+      }
+      stateRef.current = {
+        seenKeys,
+        merged: result,
+        historyLen: historyEvents.length,
+        liveProcessed: liveEvents.length,
+        historyRef: historyEvents,
+      };
+      return result;
+    }
+
+    // Incremental: only process newly-appended live events.
+    if (liveEvents.length <= s.liveProcessed) {
+      // Live events shrank (e.g. clearLastTurn) — rebuild.
+      if (liveEvents.length < s.liveProcessed) {
+        const result = mergeUniqueEvents(historyEvents, liveEvents);
+        const seenKeys = new Set<string>();
+        for (const event of result) {
+          seenKeys.add(getEventKey(event));
+        }
+        stateRef.current = {
+          seenKeys,
+          merged: result,
+          historyLen: historyEvents.length,
+          liveProcessed: liveEvents.length,
+          historyRef: historyEvents,
+        };
+        return result;
+      }
+      // No new events — return cached.
+      return s.merged;
+    }
+
+    // Append new live events that aren't duplicates of history.
+    let added = false;
+    for (let i = s.liveProcessed; i < liveEvents.length; i++) {
+      const event = liveEvents[i];
+      const key = getEventKey(event);
+      if (!s.seenKeys.has(key)) {
+        s.seenKeys.add(key);
+        s.merged.push(event);
+        added = true;
+      }
+    }
+    s.liveProcessed = liveEvents.length;
+
+    // Return a new reference only when events were actually added so
+    // downstream useMemo / React.memo can skip work when nothing changed.
+    if (added) {
+      s.merged = [...s.merged];
+    }
+    return s.merged;
+  }, [historyEvents, liveEvents, isLive]);
 }
 
 export interface ConversationContextValue {
@@ -117,10 +169,8 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
 
   // Merge history events with live SSE events so the progress card shows
   // persisted activity even after a page refresh (SSE stream starts empty).
-  const effectiveEvents = useMemo(
-    () => (isLive ? mergeUniqueEvents(historyEvents, events) : historyEvents),
-    [events, historyEvents, isLive],
-  );
+  // Uses incremental merge to avoid O(N) deep serialization on every SSE batch.
+  const effectiveEvents = useIncrementalMerge(historyEvents, events, isLive);
 
   const {
     messages,
@@ -135,8 +185,10 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     currentThinkingEntries,
     isStreaming,
     assistantPhase: rawAssistantPhase,
-    artifacts,
+    artifacts: rawArtifacts,
   } = useAgentState(effectiveEvents);
+
+  const artifacts = useSessionFilteredArtifacts(rawArtifacts);
 
   const effectiveTaskState: TaskState = isLive ? taskState : "complete";
   // Force phase to idle for completed (non-live) conversations so the
@@ -152,33 +204,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   // but llm_response events (saved to events table) carry intermediate text
   // that useAgentState correctly derives — we must not discard them.
   const effectiveMessages = useMemo<ChatMessage[]>(() => {
-    const merged = [...historyMessages];
-    for (const msg of messages) {
-      const duplicateIdx = merged.findIndex(
-        (m) =>
-          m.role === msg.role &&
-          m.content === msg.content &&
-          Math.abs(m.timestamp - msg.timestamp) < 30_000,
-      );
-      if (duplicateIdx !== -1) {
-        const existing = merged[duplicateIdx];
-        merged[duplicateIdx] = {
-          ...existing,
-          thinkingContent: msg.thinkingContent || existing.thinkingContent,
-          imageArtifactIds:
-            msg.imageArtifactIds && msg.imageArtifactIds.length > 0
-              ? [...(existing.imageArtifactIds ?? []), ...msg.imageArtifactIds]
-              : existing.imageArtifactIds,
-          thinkingEntries:
-            msg.thinkingEntries && msg.thinkingEntries.length > 0
-              ? [...(existing.thinkingEntries ?? []), ...msg.thinkingEntries]
-              : existing.thinkingEntries,
-        };
-      } else {
-        merged.push(msg);
-      }
-    }
-    return merged;
+    return mergeHistoryWithEventDerivedMessages(historyMessages, messages);
   }, [historyMessages, messages]);
 
   const {
@@ -199,38 +225,54 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     conversationId,
   );
 
-  const value: ConversationContextValue = {
-    conversationId,
-    events: effectiveEvents,
-    isConnected,
-    messages: effectiveMessages,
-    toolCalls,
-    taskState: effectiveTaskState,
-    agentStatuses,
-    planSteps,
-    currentIteration,
-    reasoningSteps,
-    thinkingContent,
-    thinkingDurationMs,
-    currentThinkingEntries,
-    isStreaming: isLive ? isStreaming : false,
-    assistantPhase,
-    artifacts,
-    allMessages,
-    isWaitingForAgent: isLive ? isWaitingForAgent : false,
-    userCancelled: isLive ? userCancelled : false,
-    handleSendMessage,
-    handleCreateConversation,
-    handleSwitchConversation,
-    handleNewConversation,
-    handleCancel,
-    handleRetry,
-    createError,
-    pendingAsk,
-    handlePromptSubmit,
-    respondError,
-    isLoadingHistory,
-  };
+  const effectiveIsStreaming = isLive ? isStreaming : false;
+  const effectiveIsWaitingForAgent = isLive ? isWaitingForAgent : (!conversationId && isWaitingForAgent);
+  const effectiveUserCancelled = isLive ? userCancelled : false;
+
+  const value = useMemo<ConversationContextValue>(
+    () => ({
+      conversationId,
+      events: effectiveEvents,
+      isConnected,
+      messages: effectiveMessages,
+      toolCalls,
+      taskState: effectiveTaskState,
+      agentStatuses,
+      planSteps,
+      currentIteration,
+      reasoningSteps,
+      thinkingContent,
+      thinkingDurationMs,
+      currentThinkingEntries,
+      isStreaming: effectiveIsStreaming,
+      assistantPhase,
+      artifacts,
+      allMessages,
+      isWaitingForAgent: effectiveIsWaitingForAgent,
+      userCancelled: effectiveUserCancelled,
+      handleSendMessage,
+      handleCreateConversation,
+      handleSwitchConversation,
+      handleNewConversation,
+      handleCancel,
+      handleRetry,
+      createError,
+      pendingAsk,
+      handlePromptSubmit,
+      respondError,
+      isLoadingHistory,
+    }),
+    [
+      conversationId, effectiveEvents, isConnected, effectiveMessages,
+      toolCalls, effectiveTaskState, agentStatuses, planSteps,
+      currentIteration, reasoningSteps, thinkingContent, thinkingDurationMs,
+      currentThinkingEntries, effectiveIsStreaming, assistantPhase, artifacts,
+      allMessages, effectiveIsWaitingForAgent, effectiveUserCancelled,
+      handleSendMessage, handleCreateConversation, handleSwitchConversation,
+      handleNewConversation, handleCancel, handleRetry, createError,
+      pendingAsk, handlePromptSubmit, respondError, isLoadingHistory,
+    ],
+  );
 
   return (
     <ConversationContext.Provider value={value}>

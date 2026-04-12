@@ -128,22 +128,18 @@ function LoginForm() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
-      <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-40" aria-hidden="true" />
+      <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/55" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-sm">
         {/* Card */}
-        <div className="relative overflow-hidden rounded-xl border border-border bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
+        <div className="relative overflow-hidden rounded-2xl border border-border-strong/80 bg-card/95 p-8 shadow-[var(--shadow-elevated)] backdrop-blur-sm sm:p-10">
           <div className="flex flex-col items-center gap-6">
-            {/* Logo with animated glow */}
-            <div
-              className="rounded-xl"
-              style={{ animation: "fadeIn 0.5s ease-out both, glowPulse 3s ease-in-out 0.5s infinite" }}
-            >
+            <div className="rounded-xl">
               <Logo size={64} tone="auto" className="rounded-xl" />
             </div>
 
             {/* Title block */}
             <div className="text-center">
-              <h1 className="heading-display text-foreground">
+              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem]">
                 Welcome to Synapse
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -173,7 +169,7 @@ function LoginForm() {
                   type="button"
                   onClick={handleSignIn}
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground transition-[color,background-color,border-color,transform] duration-200 ease-out hover:border-border-active hover:bg-secondary active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   {isLoading ? (
                     <span role="status">
@@ -226,7 +222,7 @@ function LoginForm() {
         </div>
 
         {/* Footer flourish */}
-        <p className="mt-6 text-center text-xs text-muted-foreground-dim">
+        <p className="mt-6 text-center text-xs tracking-[0.02em] text-muted-foreground-dim">
           <span>Secure</span>
           <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
           <span>Private</span>
@@ -243,7 +239,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="relative flex min-h-screen items-center justify-center" role="status">
-          <div className="pointer-events-none absolute inset-0 dot-grid-bg opacity-40" aria-hidden="true" />
+          <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/40" aria-hidden="true" />
           <div className="relative z-10 h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
           <span className="sr-only">Loading...</span>
         </div>

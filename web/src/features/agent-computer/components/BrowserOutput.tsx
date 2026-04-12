@@ -7,6 +7,7 @@ import { useTranslation } from "@/i18n";
 import { MarkdownRenderer } from "@/shared/components";
 import { Progress } from "@/shared/components/ui/progress";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
+import { ArtifactScreenshotGallery } from "./ArtifactScreenshotGallery";
 import {
   PROSE_CLASSES,
   TOOL_OUTPUT_MARKDOWN_CLASSES,
@@ -76,21 +77,11 @@ export function BrowserOutput({
 
       {/* Screenshot */}
       {hasScreenshot && (
-        <div className="mb-2 rounded-md bg-muted/10 p-1.5">
-          <div className="flex flex-col items-center gap-2">
-            {artifactIds.map((aid) => (
-              <img
-                key={aid}
-                src={`/api/conversations/${conversationId}/artifacts/${aid}`}
-                alt={t("output.generatedImage")}
-                className="max-h-80 rounded-md bg-background object-contain"
-                onError={(e) => {
-                  (e.currentTarget as HTMLImageElement).style.visibility = "hidden";
-                }}
-              />
-            ))}
-          </div>
-        </div>
+        <ArtifactScreenshotGallery
+          conversationId={conversationId}
+          artifactIds={artifactIds}
+          alt={t("output.generatedImage")}
+        />
       )}
 
       {/* Step progress */}

@@ -60,6 +60,7 @@ class Runnable(Protocol):
         attachments: tuple[FileAttachment, ...] = (),
         selected_skills: tuple[str, ...] = (),
         runtime_prompt_sections: tuple[str, ...] = (),
+        turn_metadata: dict[str, Any] | None = None,
     ) -> str: ...
 
 
@@ -155,7 +156,7 @@ class MessageRequest(BaseModel):
     skills: list[str] = Field(default_factory=list)
     use_planner: bool | None = Field(
         default=None,
-        description="When True, use PlannerOrchestrator to decompose into sub-tasks.",
+        description="When True, force planner orchestration for this turn. When False, force single-agent orchestration.",
     )
     idempotency_key: str | None = Field(
         default=None,

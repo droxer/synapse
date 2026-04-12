@@ -118,6 +118,7 @@ async def list_user_conversation_usage(
         "items": [
             {
                 "conversation_id": str(r.conversation_id),
+                "title": r.conversation_title,
                 "input_tokens": r.input_tokens,
                 "output_tokens": r.output_tokens,
                 "request_count": r.request_count,

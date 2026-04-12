@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
-import { useSSE } from "@/shared/hooks";
+import { useSSE, useSessionFilteredArtifacts } from "@/shared/hooks";
 import { useAgentState } from "@/features/agent-computer";
 import { ConversationWorkspace, usePendingAsk, mergeUniqueEvents } from "@/features/conversation";
 import {
@@ -111,11 +111,13 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     taskState,
     agentStatuses,
     planSteps,
-    artifacts,
+    artifacts: rawArtifacts,
     currentThinkingEntries,
     isStreaming,
     assistantPhase,
   } = useAgentState(effectiveEvents);
+
+  const artifacts = useSessionFilteredArtifacts(rawArtifacts);
 
   // Merge DB messages + event-derived messages (de-duplicate)
   const messages = useMemo<ChatMessage[]>(() => {

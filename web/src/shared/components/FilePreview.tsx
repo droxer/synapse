@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Download } from "lucide-react";
+import { useTheme } from "next-themes";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { CodeOutput } from "@/shared/components/ui/code-output";
 import { useTranslation } from "@/i18n";
+import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
 import {
   fileExtension,
   fileCategoryColor,
@@ -138,25 +140,39 @@ async function convertXlsxToHtml(url: string): Promise<string> {
 const OFFICE_IFRAME_STYLES = `
 <style>
   :root {
-    color-scheme: light;
+    color-scheme: light dark;
+    --preview-background: #FFFFFF;
+    --preview-foreground: #000000;
+    --preview-secondary: #F7F8F9;
+    --preview-muted: #F7F8F9;
+    --preview-border: #E4E6EB;
+    --preview-hover: #EEF2F8;
+  }
+  .dark {
+    --preview-background: #101114;
+    --preview-foreground: #FFFFFF;
+    --preview-secondary: #181A1E;
+    --preview-muted: #181A1E;
+    --preview-border: #2A2D33;
+    --preview-hover: #1F2530;
   }
 
   body {
     /* Mirror app sans contract without relying on remote font imports inside srcDoc iframes. */
-    font-family: var(--font-geist, "Inter"), var(--font-noto-sans-sc, "PingFang SC"), var(--font-noto-sans-tc, "Noto Sans CJK TC"), "Inter", "SF Pro Text", "Segoe UI Variable Text", "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
-    padding: 24px 32px;
+    font-family: var(--font-sans, "Geist"), "Geist", var(--font-noto-sans-sc, "PingFang SC"), var(--font-noto-sans-tc, "Noto Sans CJK TC"), system-ui, "Helvetica Neue", Helvetica, Arial, "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
+    padding: 1rem 1.25rem;
     margin: 0;
-    color: var(--color-foreground, #0f172a);
-    background: var(--color-background, #f8fafc);
+    color: var(--preview-foreground);
+    background: var(--preview-background);
     line-height: 1.5;
     font-size: 0.875rem;
   }
-  .sheet-title { font-size: 1rem; font-weight: 600; margin-bottom: 8px; }
+  .sheet-title { font-size: 0.875rem; font-weight: 600; margin-bottom: 0.5rem; }
   /* mammoth docx styles */
-  h1 { font-size: 1.6em; margin: 0.8em 0 0.4em; }
-  h2 { font-size: 1.3em; margin: 0.8em 0 0.4em; }
-  h3 { font-size: 1.1em; margin: 0.6em 0 0.3em; }
-  p { margin: 0.4em 0; }
+  h1 { font-size: 1.25rem; margin: 1rem 0 0.5rem; line-height: 1.2; }
+  h2 { font-size: 1.125rem; margin: 0.875rem 0 0.5rem; line-height: 1.2; }
+  h3 { font-size: 1rem; margin: 0.75rem 0 0.375rem; line-height: 1.3; }
+  p { margin: 0.5rem 0; }
   img { max-width: 100%; height: auto; }
   /* xlsx table styles */
   table {
@@ -166,22 +182,23 @@ const OFFICE_IFRAME_STYLES = `
     font-variant-numeric: tabular-nums;
   }
   th, td {
-    border: 1px solid var(--color-border, #e4e4e7);
-    padding: 6px 10px;
+    border: 1px solid var(--preview-border);
+    padding: 0.375rem 0.625rem;
     text-align: left;
     white-space: nowrap;
   }
   th {
-    background: var(--color-secondary, #f1f5f9);
+    background: var(--preview-secondary);
     font-weight: 600;
   }
-  tr:nth-child(even) { background: var(--color-muted, #f1f5f9); }
-  tr:hover { background: var(--color-secondary, #f1f5f9); }
+  tr:nth-child(even) { background: var(--preview-muted); }
+  tr:hover { background: var(--preview-hover); }
 </style>
 `;
 
-function buildOfficeIframeContent(bodyHtml: string): string {
-  return `<!DOCTYPE html><html><head><meta charset="utf-8">${OFFICE_IFRAME_STYLES}</head><body>${bodyHtml}</body></html>`;
+function buildOfficeIframeContent(bodyHtml: string, isDarkTheme: boolean): string {
+  const htmlClass = isDarkTheme ? " class=\"dark\"" : "";
+  return `<!DOCTYPE html><html${htmlClass}><head><meta charset="utf-8">${OFFICE_IFRAME_STYLES}</head><body>${bodyHtml}</body></html>`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -222,10 +239,12 @@ export function FilePreview({
   className,
 }: FilePreviewProps) {
   const { t } = useTranslation();
+  const { resolvedTheme } = useTheme();
   const [content, setContent] = useState<ContentState>({ status: "idle" });
   const [imageZoomed, setImageZoomed] = useState(false);
 
   const ct = contentType;
+  const isDarkTheme = resolvedTheme === "dark";
   const inlineUrl = `${url}${url.includes("?") ? "&" : "?"}inline=1`;
 
   const ext = useMemo(() => fileExtension(fileName), [fileName]);
@@ -378,7 +397,7 @@ export function FilePreview({
 
   /* ---- DOCX / XLSX (client-side converted to HTML) ---- */
   if ((isDocxType(ct) || isXlsxType(ct)) && content.status === "ready" && content.html != null) {
-    const srcDoc = buildOfficeIframeContent(content.html);
+    const srcDoc = buildOfficeIframeContent(content.html, isDarkTheme);
     return (
       <div className={className}>
         <iframe
@@ -398,7 +417,11 @@ export function FilePreview({
         <div className={className}>
           <div className="flex h-48 flex-col items-center justify-center gap-3 text-muted-foreground">
             <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${colors.bg}`}>
-              <Icon className={`h-6 w-6 ${colors.icon}`} />
+              <BrandFileTypeIcon
+                name={fileName}
+                contentType={ct}
+                className={`h-6 w-6 ${colors.icon}`}
+              />
             </div>
             <p className="text-sm">{t("artifacts.previewOfficeLocal")}</p>
             {downloadButton}
