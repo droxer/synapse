@@ -38,7 +38,6 @@ function CallbackContent() {
       image: user.image ?? "",
       googleId: user.googleId ?? "",
     };
-    console.log("[desktop-callback] Posting token with nonce:", nonce, payload);
 
     fetch("/api/auth/desktop-token", {
       method: "POST",
@@ -47,7 +46,6 @@ function CallbackContent() {
     })
       .then(async (res) => {
         const body = await res.text();
-        console.log("[desktop-callback] Response:", res.status, body);
         if (res.ok) {
           setDone(true);
         } else {
