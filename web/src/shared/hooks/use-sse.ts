@@ -337,10 +337,6 @@ export function useSSE(conversationId: string | null, isLive = true) {
             const agentEvent = parseSSEEvent(e.data, eventName as EventType);
             if (!agentEvent) return;
 
-            if (agentEvent.type === "ask_user" && process.env.NODE_ENV === "development") {
-              console.log("[SSE] ask_user event received:", JSON.stringify(agentEvent.data));
-            }
-
             enqueueEvent(agentEvent);
           } catch {
             // Skip malformed events

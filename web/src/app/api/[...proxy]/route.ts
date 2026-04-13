@@ -12,16 +12,6 @@ const PROXY_SECRET = process.env.PROXY_SECRET ?? "";
 async function handler(req: NextRequest) {
   const session = await auth();
 
-  // Debug: log session state for API requests
-  if (process.env.NODE_ENV === "development") {
-    const { pathname } = req.nextUrl;
-    console.log("[proxy]", req.method, pathname, {
-      hasSession: !!session,
-      user: session?.user?.email ?? "none",
-      googleId: session?.user?.googleId ?? "none",
-    });
-  }
-
   // Build the backend URL: /api/conversations/123 → http://backend/conversations/123
   const { pathname, search } = req.nextUrl;
   const backendPath = pathname.replace(/^\/api/, "");
