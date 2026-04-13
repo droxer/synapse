@@ -2,8 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Lightbulb, ChevronRight, Check } from "lucide-react";
-import { PulsingDot } from "@/shared/components/PulsingDot";
+import { ChevronRight, Check, CircleX } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { SOURCE_STYLE, SOURCE_LABEL_KEY } from "@/features/skills/lib/skill-source-styles";
@@ -11,6 +10,7 @@ import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
 import { useTranslation } from "@/i18n";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { EVENT_ROW_BASE_CLASSES } from "../lib/format-tools";
+import { getSkillIcon } from "../lib/tool-visual-icons";
 import type { ToolCallInfo } from "@/shared/types";
 
 /* ── helpers ── */
@@ -71,6 +71,8 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
   const isComplete = toolCall.success === true;
   const isError = toolCall.success === false;
 
+  const SkillGlyph = useMemo(() => getSkillIcon(skillName), [skillName]);
+
   const skillMeta = getSkill(skillName);
   // Show skeletons only while cache is still loading; once loaded/failed, hide them
   const showSkeleton = skillMeta === null && isLoading;
@@ -108,7 +110,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             role="img"
             aria-label={isComplete ? (isError ? t("skills.activity.skillFailed") : t("skills.activity.skillLoaded")) : t("skills.activity.skillLoading")}
             className={cn(
-              "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
+              "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
               isError
                 ? "bg-destructive/14"
                 : isComplete
@@ -117,17 +119,33 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             )}
           >
             {isError ? (
-              <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-destructive" />
+              <>
+                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-destructive" strokeWidth={2.25} />
+                <CircleX
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+                  strokeWidth={2.5}
+                  aria-hidden
+                />
+              </>
             ) : isComplete ? (
               <motion.div
                 initial={{ opacity: 0, rotate: -90 }}
                 animate={{ opacity: 1, rotate: 0 }}
                 transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
+                className="relative flex items-center justify-center"
               >
-                <Lightbulb aria-hidden="true" className="h-3.5 w-3.5 text-accent-emerald" />
+                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-accent-emerald" strokeWidth={2.25} />
+                <Check
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+                  strokeWidth={3}
+                  aria-hidden
+                />
               </motion.div>
             ) : (
-              <PulsingDot size="sm" />
+              <>
+                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
+                <span className="absolute inset-0 rounded-md bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
+              </>
             )}
           </div>
 
