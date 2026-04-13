@@ -206,6 +206,7 @@ class ShellExec(SandboxTool):
         start_script = (
             f"mkdir -p {sdir} && "
             f"{manifest_init}"
+            f"touch {sdir}/ts_marker; "
             f"mkfifo {sdir}/stdin_pipe 2>/dev/null; "
             f"nohup sh -c '"
             f"exec 0< {sdir}/stdin_pipe; "

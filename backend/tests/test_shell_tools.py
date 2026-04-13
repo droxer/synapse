@@ -23,6 +23,12 @@ from agent.tools.sandbox.shell_exec import ShellExec
 # ------------------------------------------------------------------
 
 
+# Patch ExecResult so isinstance checks in artifact_detection pass
+@pytest.fixture(autouse=True)
+def _patch_exec_result(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("agent.sandbox.base.ExecResult", ExecResult)
+
+
 @dataclass
 class ExecResult:
     stdout: str = ""
@@ -274,6 +280,54 @@ class TestShellWait:
             "/tmp/final.pptx",
             "/tmp/report.txt",
         ]
+
+    @pytest.mark.asyncio
+    async def test_auto_detects_artifacts_not_in_manifest(self) -> None:
+        """Auto-detection finds .pptx files even when output_files was not passed."""
+        session = MockSession(
+            {
+                "/pid": ExecResult(stdout="1234"),
+                "ELAPSED": ExecResult(stdout="EXITED"),
+                "tail -n 50": ExecResult(stdout="done"),
+                "tail -n 20": ExecResult(stdout=""),
+                "/exit_code": ExecResult(stdout="0"),
+                # Empty manifest — LLM forgot to pass output_files
+                "/artifact_paths": ExecResult(stdout=""),
+                # find command returns the .pptx created during execution
+                "find": ExecResult(stdout="/workspace/slides.pptx\n"),
+            }
+        )
+        tool = ShellWait()
+        result = await tool.execute(session=session, id="render", timeout=5)
+        assert result.success
+        assert "/workspace/slides.pptx" in (
+            (result.metadata or {}).get("artifact_paths", [])
+        )
+
+    @pytest.mark.asyncio
+    async def test_auto_detection_merges_with_manifest(self) -> None:
+        """Auto-detected artifacts are merged with explicit manifest paths."""
+        session = MockSession(
+            {
+                "/pid": ExecResult(stdout="1234"),
+                "ELAPSED": ExecResult(stdout="EXITED"),
+                "tail -n 50": ExecResult(stdout="done"),
+                "tail -n 20": ExecResult(stdout=""),
+                "/exit_code": ExecResult(stdout="0"),
+                "/artifact_paths": ExecResult(stdout="/workspace/report.pdf\n"),
+                "find": ExecResult(
+                    stdout="/workspace/report.pdf\n/workspace/deck.pptx\n"
+                ),
+            }
+        )
+        tool = ShellWait()
+        result = await tool.execute(session=session, id="build", timeout=5)
+        assert result.success
+        paths = (result.metadata or {}).get("artifact_paths", [])
+        assert "/workspace/report.pdf" in paths
+        assert "/workspace/deck.pptx" in paths
+        # No duplicates
+        assert len(paths) == len(set(paths))
 
 
 # ------------------------------------------------------------------

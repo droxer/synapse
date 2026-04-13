@@ -17,6 +17,10 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.tools.sandbox.artifact_detection import (
+    build_artifact_paths,
+    find_new_output_files,
+)
 
 _SESSION_DIR = "/tmp/shell_sessions"
 
@@ -261,7 +265,13 @@ class ShellWait(SandboxTool):
                 "exit_code": exit_code,
                 "pid": pid,
             }
-            artifact_paths = await _read_artifact_paths(session, session_id)
+
+            # Auto-detect output files created during the background session,
+            # then merge with any explicit paths from the manifest.
+            explicit_paths = await _read_artifact_paths(session, session_id)
+            ts_marker = f"{sdir}/ts_marker"
+            auto_found = await find_new_output_files(session, ts_marker)
+            artifact_paths = build_artifact_paths(explicit_paths, auto_found)
             if artifact_paths:
                 metadata["artifact_paths"] = artifact_paths
 
