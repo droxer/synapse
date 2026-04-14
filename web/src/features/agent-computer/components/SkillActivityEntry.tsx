@@ -96,11 +96,8 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
     >
       <div
         className={cn(
-          "group relative overflow-hidden border-l transition-colors duration-200",
+          "group relative overflow-hidden border-l border-l-border transition-colors duration-150",
           EVENT_ROW_BASE_CLASSES,
-          isError
-            ? "border-destructive border-l-destructive bg-destructive/5"
-            : "border-l-border",
         )}
       >
         {/* Main content */}
@@ -109,14 +106,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
           <div
             role="img"
             aria-label={isError ? t("skills.activity.skillFailed") : isComplete ? t("skills.activity.skillLoaded") : t("skills.activity.skillLoading")}
-            className={cn(
-              "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-              isError
-                ? "bg-destructive/14"
-                : isComplete
-                  ? "bg-accent-emerald/14"
-                  : "bg-focus/14",
-            )}
+            className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted"
           >
             {isError ? (
               <>
@@ -144,7 +134,11 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             ) : (
               <>
                 <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
-                <span className="absolute inset-0 rounded-md bg-focus/15 animate-pulsing-dot-fade" />
+                <span
+                  className="pointer-events-none absolute inset-0 rounded-md animate-pulsing-dot-fade"
+                  style={{ backgroundColor: "color-mix(in srgb, var(--color-focus) 18%, transparent)" }}
+                  aria-hidden
+                />
               </>
             )}
           </div>
@@ -163,7 +157,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <span className="status-pill bg-accent-emerald/10 text-accent-emerald border-accent-emerald/20">
+                  <span className="status-pill chip-muted text-accent-emerald">
                     <Check className="h-2.5 w-2.5" />
                     {t("skills.activity.loaded")}
                   </span>
@@ -177,7 +171,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {isError && (
-                <span className="status-pill bg-destructive/10 text-destructive border-destructive/20">
+                <span className="status-pill chip-muted text-destructive">
                   {t("skills.activity.failed")}
                 </span>
               )}

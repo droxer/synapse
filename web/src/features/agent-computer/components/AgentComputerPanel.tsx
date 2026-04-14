@@ -16,10 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
-import {
-  EVENT_LEFT_RAIL_CLASSES,
-  EVENT_META_BADGE_CLASSES,
-} from "../lib/format-tools";
+import { EVENT_LEFT_RAIL_CLASSES } from "../lib/format-tools";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
 import { HIDDEN_ACTIVITY_TOOLS, normalizeToolNameI18n } from "../lib/tool-constants";
 import { getSkillIcon, getToolIcon } from "../lib/tool-visual-icons";
@@ -207,24 +204,25 @@ function getToolCallVisualClasses(tone: ToolCallTone): {
   readonly text: string;
   readonly doneBadge: string;
 } {
+  const neutralRow = "border border-border bg-muted/30";
   switch (tone) {
     case "error":
       return {
-        row: "border border-destructive/20 bg-destructive/6",
+        row: neutralRow,
         text: "text-destructive",
-        doneBadge: "border border-destructive/30 bg-destructive/10 text-destructive",
+        doneBadge: "status-pill chip-muted text-destructive",
       };
     case "complete":
       return {
-        row: "border border-accent-emerald/20 bg-accent-emerald/6",
+        row: neutralRow,
         text: "text-foreground",
-        doneBadge: "border border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald",
+        doneBadge: "status-pill chip-muted text-accent-emerald",
       };
     default:
       return {
-        row: "border border-focus/20 bg-focus/6",
+        row: neutralRow,
         text: "text-foreground",
-        doneBadge: "border border-focus/25 bg-focus/10 text-focus",
+        doneBadge: "status-pill chip-muted text-focus",
       };
   }
 }
@@ -232,7 +230,7 @@ function getToolCallVisualClasses(tone: ToolCallTone): {
 function RunningBadge({ toolCall, t }: { readonly toolCall: ToolCallInfo; readonly t: TFn }) {
   if (toolCall.success !== undefined) return null;
   return (
-    <span className="status-pill border border-focus/25 bg-focus/10 text-focus">
+    <span className="status-pill chip-muted text-focus">
       {t("computer.running")}
     </span>
   );
@@ -270,7 +268,7 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   if (tc.success !== undefined) {
     return tc.success === false
       ? (
-        <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-destructive/14")} aria-label={t("a11y.toolFailed")} role="img">
+        <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-muted")} aria-label={t("a11y.toolFailed")} role="img">
           <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-destructive")} strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -280,7 +278,7 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
         </span>
       )
       : (
-        <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-accent-emerald/14")} aria-label={t("a11y.toolSuccess")} role="img">
+        <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-muted")} aria-label={t("a11y.toolSuccess")} role="img">
           <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-accent-emerald")} strokeWidth={2.25} />
           <Check
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
@@ -291,9 +289,13 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
       );
   }
   return (
-    <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-focus/14")} aria-label={t("a11y.toolRunning")} role="img">
+    <span className={cn("relative", TOOL_ICON_FRAME_CLASS, "bg-muted")} aria-label={t("a11y.toolRunning")} role="img">
       <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-focus")} strokeWidth={2.25} />
-      <span className="absolute inset-0 rounded-md bg-focus/15 animate-pulsing-dot-fade" />
+      <span
+        className="pointer-events-none absolute inset-0 rounded-md animate-pulsing-dot-fade"
+        style={{ backgroundColor: "color-mix(in srgb, var(--color-focus) 18%, transparent)" }}
+        aria-hidden
+      />
     </span>
   );
 }
@@ -540,7 +542,7 @@ export function AgentComputerPanel({
   return (
     <div className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
-      <div className="shrink-0 border-b border-border/70 bg-muted/20">
+      <div className="shrink-0 border-b border-border bg-card">
         {/* Title bar */}
         <div className="flex items-center gap-2 px-3 py-2">
           <span className="label-mono flex-1 truncate text-muted-foreground">
@@ -572,7 +574,7 @@ export function AgentComputerPanel({
               onClick={onClose}
               className="shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-4 w-4" />
             </Button>
           )}
         </div>
@@ -601,14 +603,10 @@ export function AgentComputerPanel({
                 : "text-muted-foreground hover:text-foreground/80",
             )}
           >
-            <Activity className="h-3 w-3" />
+            <Activity className="h-4 w-4" />
             {t("computer.activity")}
             {activeTab === "activity" && (
-              <motion.span
-                layoutId="computer-tab-indicator"
-                className="absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-focus"
-                transition={{ type: "spring", stiffness: 500, damping: 40 }}
-              />
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />
             )}
           </button>
           <button
@@ -627,26 +625,22 @@ export function AgentComputerPanel({
                 : "text-muted-foreground hover:text-foreground/80",
             )}
           >
-            <FolderOpen className="h-3 w-3" />
+            <FolderOpen className="h-4 w-4" />
             {t("computer.artifacts")}
             {artifacts.length > 0 && (
               <span
                 className={cn(
                   "ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-sm px-1 text-micro font-semibold tabular-nums transition-colors",
                   activeTab === "files"
-                    ? "bg-focus/12 text-focus"
-                    : "bg-muted text-muted-foreground",
+                    ? "border border-border bg-muted text-focus"
+                    : "chip-muted",
                 )}
               >
                 {artifacts.length}
               </span>
             )}
             {activeTab === "files" && (
-              <motion.span
-                layoutId="computer-tab-indicator"
-                className="absolute inset-x-0 -bottom-px h-[2px] rounded-full bg-focus"
-                transition={{ type: "spring", stiffness: 500, damping: 40 }}
-              />
+              <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />
             )}
           </button>
         </div>
@@ -709,7 +703,7 @@ export function AgentComputerPanel({
                     }}
                     transition={{ duration: 0.12, ease: "easeOut" }}
                     className={cn(
-                      "rounded-md px-2 py-1 transition-colors",
+                      "rounded-md px-2 py-1 transition-colors duration-150",
                       getToolCallVisualClasses(getToolCallTone(item.toolCall)).row,
                     )}
                   >
@@ -734,7 +728,7 @@ export function AgentComputerPanel({
                           <span className={visual.text}>{statusText}</span>
                           <RunningBadge toolCall={item.toolCall} t={t} />
                           {item.toolCall.success === true && (
-                            <span className={cn(EVENT_META_BADGE_CLASSES, "ml-auto", visual.doneBadge)}>
+                            <span className={cn("ml-auto", visual.doneBadge)}>
                               {t("computer.statusDone")}
                             </span>
                           )}
@@ -777,14 +771,14 @@ export function AgentComputerPanel({
           </div>
 
           {/* ── Consolidated status bar ── */}
-          <div className="flex shrink-0 items-center gap-2 border-t border-border/70 bg-muted/20 px-3 py-2.5">
+          <div className="flex shrink-0 items-center gap-2 border-t border-border bg-card px-3 py-2.5">
             <Progress
               value={progressValue}
-              className="h-1 flex-1 rounded-full bg-border/60"
+              className="h-1 flex-1 rounded-full bg-muted"
               indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
             />
 
-            <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-background px-2 py-1">
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1">
               {isRunning ? (
                 <PulsingDot size="sm" />
               ) : taskState === "complete" ? (
@@ -812,14 +806,14 @@ export function AgentComputerPanel({
 
             <span
               className={cn(
-                "status-pill tabular-nums",
+                "status-pill chip-muted tabular-nums",
                 isComplete
-                  ? "border border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald"
+                  ? "text-accent-emerald"
                   : taskState === "error"
-                    ? "border border-destructive/30 bg-destructive/10 text-destructive"
+                    ? "text-destructive"
                     : isRunning
-                      ? "border border-focus/25 bg-focus/10 text-focus"
-                      : "chip-muted",
+                      ? "text-focus"
+                      : "text-muted-foreground",
               )}
             >
               {completedCount}/{visibleToolCalls.length}
