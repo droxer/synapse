@@ -10,13 +10,13 @@
 export const PROSE_CLASSES = "text-sm leading-relaxed text-muted-foreground";
 export const TOOL_OUTPUT_MARKDOWN_CLASSES = "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5";
 export const OUTPUT_COLLAPSE_THRESHOLD = 500;
-export const OUTPUT_CARD_BASE_CLASSES = "mt-2 rounded-lg border border-border-strong bg-background/70 px-3 py-2";
-export const OUTPUT_CARD_DENSE_CLASSES = "rounded-md bg-muted/15 px-2 py-1.5";
+export const OUTPUT_CARD_BASE_CLASSES = "mt-2 rounded-lg border border-border-strong bg-card px-3 py-2";
+export const OUTPUT_CARD_DENSE_CLASSES = "rounded-md bg-muted px-2 py-1.5";
 export const OUTPUT_HEADER_ROW_CLASSES = "mb-2 flex items-center gap-1.5";
 export const OUTPUT_HEADER_LABEL_CLASSES = "text-sm font-medium text-muted-foreground";
 export const OUTPUT_META_TEXT_CLASSES = "text-micro text-muted-foreground-dim";
-export const EVENT_ROW_BASE_CLASSES = "rounded-md border border-border-strong bg-background/60 px-3 py-2";
-export const EVENT_META_BADGE_CLASSES = "inline-flex items-center rounded-md bg-muted/20 px-1.5 py-0.5 text-micro font-medium text-muted-foreground";
+export const EVENT_ROW_BASE_CLASSES = "rounded-md border border-border bg-card px-3 py-2";
+export const EVENT_META_BADGE_CLASSES = "inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground";
 export const EVENT_LEFT_RAIL_CLASSES = "border-l border-border pl-2.5";
 
 export function formatInput(input: Record<string, unknown>): string {

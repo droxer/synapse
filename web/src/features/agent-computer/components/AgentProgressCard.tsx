@@ -514,45 +514,47 @@ function stepGlyphIcon(step: TimelineStep) {
 }
 
 function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
+  const neutralRow = "border border-border bg-muted/30";
+  const neutralHover = "hover:border-border-strong hover:bg-muted/40";
   switch (status) {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: "border border-destructive/20 bg-destructive/6",
-        rowHover: "hover:bg-destructive/10",
-        iconSurface: "bg-destructive/14",
+        rowBase: neutralRow,
+        rowHover: neutralHover,
+        iconSurface: "bg-muted",
         iconColor: "text-destructive",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
-        rowBase: "border border-accent-amber/20 bg-accent-amber/8",
-        rowHover: "hover:bg-accent-amber/12",
-        iconSurface: "bg-accent-amber/14",
+        rowBase: neutralRow,
+        rowHover: neutralHover,
+        iconSurface: "bg-muted",
         iconColor: "text-accent-amber",
       };
     case "skipped":
       return {
         text: "text-muted-foreground",
-        rowBase: "border border-border/65 bg-muted/30",
-        rowHover: "hover:bg-muted/45",
-        iconSurface: "bg-muted/55",
+        rowBase: neutralRow,
+        rowHover: neutralHover,
+        iconSurface: "bg-muted",
         iconColor: "text-muted-foreground",
       };
     case "running":
       return {
         text: "text-foreground",
-        rowBase: "border border-focus/20 bg-focus/6",
-        rowHover: "hover:bg-focus/10",
-        iconSurface: "bg-focus/12",
+        rowBase: neutralRow,
+        rowHover: neutralHover,
+        iconSurface: "bg-muted",
         iconColor: "text-focus",
       };
     default:
       return {
         text: "text-foreground",
-        rowBase: "border border-accent-emerald/20 bg-accent-emerald/6",
-        rowHover: "hover:bg-accent-emerald/10",
-        iconSurface: "bg-accent-emerald/12",
+        rowBase: neutralRow,
+        rowHover: neutralHover,
+        iconSurface: "bg-muted",
         iconColor: "text-accent-emerald",
       };
   }
@@ -568,7 +570,11 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
     return (
       <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
-        <span className="absolute inset-0 rounded-md bg-focus/15 animate-pulsing-dot-fade" />
+        <span
+          className="pointer-events-none absolute inset-0 rounded-md animate-pulsing-dot-fade"
+          style={{ backgroundColor: "color-mix(in srgb, var(--color-focus) 18%, transparent)" }}
+          aria-hidden
+        />
       </span>
     );
   }
@@ -631,32 +637,32 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
 /* State badge shown next to the title */
 function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: TFn }) {
-  const baseClass = "status-pill border";
+  const baseClass = "status-pill chip-muted";
   switch (state) {
     case "planning":
       return (
-        <span className={cn(baseClass, "border-accent-amber/30 bg-accent-amber/10 text-accent-amber")}>
+        <span className={cn(baseClass, "text-accent-amber")}>
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className={cn(baseClass, "border-focus/25 bg-focus/10 text-focus")}>
+        <span className={cn(baseClass, "text-focus")}>
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
     case "complete":
       return (
-        <span className={cn(baseClass, "border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald")}>
+        <span className={cn(baseClass, "text-accent-emerald")}>
           <CircleCheck className="h-3 w-3" />
           {t("progress.stateComplete")}
         </span>
       );
     case "error":
       return (
-        <span className={cn(baseClass, "border-destructive/30 bg-destructive/10 text-destructive")}>
+        <span className={cn(baseClass, "text-destructive")}>
           <CircleX className="h-3 w-3" />
           {t("progress.stateError")}
         </span>
@@ -734,7 +740,7 @@ export function AgentProgressCard({
   const taskStateAnnouncement = getTaskStateAnnouncement(taskState, t);
   return (
     <motion.div
-      className="surface-panel overflow-hidden border-border-strong/75 shadow-[var(--shadow-card-hover)]"
+      className="overflow-hidden rounded-lg border border-border bg-card shadow-card"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
@@ -744,27 +750,27 @@ export function AgentProgressCard({
       </div>
 
       {/* Header */}
-      <div className="flex items-center gap-2.5 border-b border-border/70 bg-muted/25 px-3 py-2.5">
+      <div className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5">
         <button
           type="button"
           aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
           onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors duration-150 hover:border-border-strong hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <Monitor className="h-3.5 w-3.5" />
+          <Monitor className="h-4 w-4" />
         </button>
         <span className="label-mono flex-1 truncate text-muted-foreground">{t("progress.title")}</span>
         <TaskStateBadge state={taskState} t={t} />
         <span
           className={cn(
-            "status-pill tabular-nums",
+            "status-pill chip-muted tabular-nums",
             taskState === "complete"
-              ? "border-accent-emerald/30 bg-accent-emerald/10 text-accent-emerald"
+              ? "text-accent-emerald"
               : taskState === "error"
-                ? "border-destructive/30 bg-destructive/10 text-destructive"
+                ? "text-destructive"
                 : isRunning
-                  ? "border-focus/25 bg-focus/10 text-focus"
-                  : "border-border bg-muted text-muted-foreground",
+                  ? "text-focus"
+                  : "text-muted-foreground",
           )}
         >
           {completedCount}/{totalCount}
@@ -776,14 +782,14 @@ export function AgentProgressCard({
           aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
           aria-expanded={expanded}
           onClick={() => setExpanded((prev) => !prev)}
-          className="border border-transparent text-muted-foreground hover:border-border/60 hover:bg-muted/45 hover:text-foreground"
+          className="cursor-pointer border border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground"
         >
           <motion.span
             animate={{ rotate: expanded ? 180 : 0 }}
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex items-center"
           >
-            <ChevronDown className="h-3.5 w-3.5" />
+            <ChevronDown className="h-4 w-4" />
           </motion.span>
         </Button>
       </div>
@@ -792,7 +798,7 @@ export function AgentProgressCard({
       <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-1 rounded-full bg-border/60"
+          className="h-1 rounded-full bg-muted"
           indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
@@ -816,7 +822,7 @@ export function AgentProgressCard({
                     const rowClassName = cn(
                       "flex items-start gap-2.5 rounded-md px-2 py-1.5",
                       stepVisual.rowBase,
-                      isClickable && "cursor-pointer transition-colors",
+                      isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
                       isClickable &&
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

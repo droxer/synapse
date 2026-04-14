@@ -15,8 +15,8 @@ import type { AgentStatus, ToolCallInfo } from "@/shared/types";
 function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly label: string }) {
   if (tc.success !== undefined) {
     return tc.success === false
-      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-destructive" role="img" aria-label={label} />
-      : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" role="img" aria-label={label} />;
+      ? <CircleX className="h-4 w-4 shrink-0 text-destructive" role="img" aria-label={label} />
+      : <CircleCheck className="h-4 w-4 shrink-0 text-accent-emerald" role="img" aria-label={label} />;
   }
   return <PulsingDot size="sm" aria-label={label} />;
 }
@@ -44,29 +44,29 @@ export function AgentStatusRow({
   const rowClassName = cn(
     EVENT_ROW_BASE_CLASSES,
     "flex w-full items-center gap-2 text-left text-sm transition-colors",
-    hasTools && "cursor-pointer hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    hasTools && "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
   );
 
   const rowContent = (
     <>
         {agent.status === "complete" ? (
-          <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />
+          <CircleCheck className="h-4 w-4 shrink-0 text-accent-emerald" />
         ) : agent.status === "skipped" ? (
-          <Minus className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
         ) : agent.status === "replan_required" ? (
-          <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-accent-amber" />
+          <AlertTriangle className="h-4 w-4 shrink-0 text-accent-amber" />
         ) : agent.status === "error" ? (
-          <CircleX className="h-3.5 w-3.5 shrink-0 text-destructive" />
+          <CircleX className="h-4 w-4 shrink-0 text-destructive" />
         ) : (
           <PulsingDot size="sm" />
         )}
-        <GitFork className={cn("h-3.5 w-3.5 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
+        <GitFork className={cn("h-4 w-4 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
         <div className="min-w-0 flex-1">
           <span className={cn("block truncate text-sm font-medium", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
             {agent.description.includes(" → ") ? (
               <>
                 {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
-                <ArrowRightLeft className="mx-1 inline h-3.5 w-3.5 text-muted-foreground" />
+                <ArrowRightLeft className="mx-1 inline h-4 w-4 text-muted-foreground" />
                 {agent.description.split(" → ").slice(1).join(" → ")}
               </>
             ) : (
@@ -88,7 +88,7 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex items-center"
           >
-            <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-muted-foreground" />
           </motion.span>
         )}
     </>
