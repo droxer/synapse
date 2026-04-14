@@ -3,12 +3,9 @@
 from __future__ import annotations
 
 import asyncio
-import json
 import time
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import Any, Literal
-from uuid import uuid4
 
 from agent.llm.client import AnthropicClient, format_llm_failure
 from agent.runtime.helpers import (
@@ -36,36 +33,6 @@ from loguru import logger
 
 FailureMode = Literal["cancel_downstream", "degrade", "replan"]
 DependencyFailureMode = Literal["inherit", "cancel_downstream", "degrade", "replan"]
-_DEBUG_LOG_PATH = Path("/Users/feihe/Workspace/Synapse/.cursor/debug-caca61.log")
-_DEBUG_SESSION_ID = "caca61"
-
-
-def _emit_debug_log(
-    *,
-    run_id: str,
-    hypothesis_id: str,
-    location: str,
-    message: str,
-    data: dict[str, Any],
-) -> None:
-    payload = {
-        "sessionId": _DEBUG_SESSION_ID,
-        "id": f"log_{uuid4().hex}",
-        "timestamp": int(time.time() * 1000),
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-    }
-    try:
-        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        return
-
-
 @dataclass(frozen=True)
 class TaskAgentConfig:
     """Immutable configuration for a task agent."""
@@ -397,25 +364,6 @@ class TaskAgentRunner:
             )
 
         llm_model = self._config.model or settings.TASK_MODEL
-        message_chars = sum(
-            len(json.dumps(message, ensure_ascii=True)) for message in state.messages
-        )
-        # region agent log
-        _emit_debug_log(
-            run_id="initial",
-            hypothesis_id="H7",
-            location="backend/agent/runtime/task_runner.py:_run_iteration:pre_call",
-            message="Task runner pre-LLM payload stats",
-            data={
-                "model": llm_model,
-                "iteration": state.iteration,
-                "messageCount": len(state.messages),
-                "messageChars": message_chars,
-                "toolCount": len(tools),
-                "systemPromptChars": len(system_prompt),
-            },
-        )
-        # endregion
         try:
 
             async def _on_text_delta(delta: str) -> None:
@@ -432,20 +380,6 @@ class TaskAgentRunner:
                 on_text_delta=_on_text_delta,
             )
         except Exception as exc:
-            # region agent log
-            _emit_debug_log(
-                run_id="initial",
-                hypothesis_id="H7",
-                location="backend/agent/runtime/task_runner.py:_run_iteration:exception",
-                message="Task runner captured LLM exception",
-                data={
-                    "model": llm_model,
-                    "iteration": state.iteration,
-                    "errorType": type(exc).__name__,
-                    "errorText": str(exc)[:500],
-                },
-            )
-            # endregion
             logger.error("llm_call_failed model={} error={}", llm_model, exc)
             return state.mark_error(format_llm_failure(exc))
 

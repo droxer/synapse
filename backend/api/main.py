@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import time
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from pathlib import Path
-from uuid import uuid4
 
 import uvicorn
 from fastapi import FastAPI
@@ -47,55 +43,12 @@ from api.routes import (
 )
 from config.settings import get_settings
 
-_DEBUG_LOG_PATH = Path("/Users/feihe/Workspace/Synapse/.cursor/debug-caca61.log")
-_DEBUG_SESSION_ID = "caca61"
-
-
-def _emit_debug_log(
-    *,
-    run_id: str,
-    hypothesis_id: str,
-    location: str,
-    message: str,
-    data: dict[str, object],
-) -> None:
-    payload = {
-        "sessionId": _DEBUG_SESSION_ID,
-        "id": f"log_{uuid4().hex}",
-        "timestamp": int(time.time() * 1000),
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-    }
-    try:
-        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        return
-
-
 def _create_app() -> FastAPI:
     """Create and configure the FastAPI application."""
     from agent.logging import setup_logging
 
     settings = get_settings()
     setup_logging(log_level=settings.LOG_LEVEL)
-    # region agent log
-    _emit_debug_log(
-        run_id="initial",
-        hypothesis_id="H6",
-        location="backend/api/main.py:_create_app",
-        message="Backend process loaded instrumented code",
-        data={
-            "taskModel": settings.TASK_MODEL,
-            "logLevel": settings.LOG_LEVEL,
-        },
-    )
-    # endregion
-
     # Build sandbox provider once at import time
     sandbox_provider, sandbox_pool = _build_sandbox_provider()
 

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
-import { parseSSEEvent, shouldScheduleReconnect } from "./use-sse";
+import {
+  clearPendingReconnectTimer,
+  parseSSEEvent,
+  shouldScheduleReconnect,
+} from "./use-sse";
 
 describe("shouldScheduleReconnect", () => {
   it("returns false when stopped", () => {
@@ -68,5 +72,25 @@ describe("parseSSEEvent", () => {
     expect(parsed?.type).toBe("skill_setup_failed");
     expect(parsed?.data.name).toBe("docx");
     expect(parsed?.data.phase).toBe("dependencies");
+  });
+});
+
+describe("clearPendingReconnectTimer", () => {
+  it("clears and nulls an active reconnect timer", () => {
+    const timerRef: { current: ReturnType<typeof setTimeout> | null } = {
+      current: setTimeout(() => undefined, 1_000),
+    };
+
+    clearPendingReconnectTimer(timerRef);
+    expect(timerRef.current).toBeNull();
+  });
+
+  it("keeps null timer refs unchanged", () => {
+    const timerRef: { current: ReturnType<typeof setTimeout> | null } = {
+      current: null,
+    };
+
+    clearPendingReconnectTimer(timerRef);
+    expect(timerRef.current).toBeNull();
   });
 });
