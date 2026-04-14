@@ -108,7 +108,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
           {/* Icon container */}
           <div
             role="img"
-            aria-label={isComplete ? (isError ? t("skills.activity.skillFailed") : t("skills.activity.skillLoaded")) : t("skills.activity.skillLoading")}
+            aria-label={isError ? t("skills.activity.skillFailed") : isComplete ? t("skills.activity.skillLoaded") : t("skills.activity.skillLoading")}
             className={cn(
               "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
               isError
@@ -144,7 +144,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             ) : (
               <>
                 <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
-                <span className="absolute inset-0 rounded-md bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
+                <span className="absolute inset-0 rounded-md bg-focus/15 animate-pulsing-dot-fade" />
               </>
             )}
           </div>

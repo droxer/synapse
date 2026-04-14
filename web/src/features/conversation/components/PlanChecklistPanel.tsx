@@ -28,7 +28,7 @@ function StepIndicator({ status }: { readonly status: PlanStep["status"] }) {
   if (status === "running") {
     return (
       <span className="relative flex h-4 w-4 items-center justify-center flex-shrink-0">
-        <span className="absolute h-2 w-2 rounded-full bg-focus opacity-30 animate-[pulsing-dot-ring_2s_ease-out_infinite]" />
+        <span className="absolute h-2 w-2 rounded-full bg-focus opacity-30 animate-pulsing-dot-ring" />
         <span className="h-1.5 w-1.5 rounded-full bg-focus" />
       </span>
     );

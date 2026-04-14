@@ -628,13 +628,22 @@ pre, code {
 /* ─── Streaming Cursor (Inline) ─── */
 @keyframes blink-cursor {
   0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
+  50% { opacity: 0.2; }
 }
 
 .markdown-body.streaming-active:empty::after,
-.markdown-body.streaming-active > *:last-child::after,
+.markdown-body.streaming-active > p:last-child::after,
+.markdown-body.streaming-active > ul:last-child > li:last-child::after,
+.markdown-body.streaming-active > ol:last-child > li:last-child::after,
+.markdown-body.streaming-active > blockquote:last-child > p:last-child::after,
+.markdown-body.streaming-active > h1:last-child::after,
+.markdown-body.streaming-active > h2:last-child::after,
+.markdown-body.streaming-active > h3:last-child::after,
+.markdown-body.streaming-active > h4:last-child::after,
 .markdown-reasoning.streaming-active:empty::after,
-.markdown-reasoning.streaming-active > *:last-child::after {
+.markdown-reasoning.streaming-active > p:last-child::after,
+.markdown-reasoning.streaming-active > ul:last-child > li:last-child::after,
+.markdown-reasoning.streaming-active > ol:last-child > li:last-child::after {
   content: "";
   display: inline-block;
   vertical-align: baseline;
@@ -643,7 +652,7 @@ pre, code {
   background-color: var(--color-ai-glow);
   margin-left: 0.25em;
   border-radius: var(--radius-sm);
-  animation: blink-cursor 1.5s ease-in-out infinite;
+  animation: blink-cursor 1.2s ease-in-out infinite;
 }
 
 /* ─── Conversation response surface (Cursor-style) ─── */
@@ -673,7 +682,7 @@ pre, code {
 
 .conversation-markdown blockquote {
   margin-left: 0;
-  border-left: 2px solid color-mix(in srgb, var(--color-focus), transparent 65%);
+  border-left: 2px solid var(--color-border-strong);
   padding-left: 0.8rem;
   color: var(--color-muted-foreground);
 }
@@ -685,6 +694,12 @@ pre, code {
 
 .conversation-markdown li::marker {
   color: var(--color-muted-foreground);
+}
+
+/* ─── Thinking Block scroll fade ─── */
+.thinking-scroll-mask {
+  mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 2rem), transparent 100%);
+  -webkit-mask-image: linear-gradient(to bottom, black 0%, black calc(100% - 2rem), transparent 100%);
 }
 
 /* ─── Markdown Reasoning (for Thinking Blocks) ─── */

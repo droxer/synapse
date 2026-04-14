@@ -62,8 +62,8 @@ const components: Components = {
     const codeString = extractText(children);
 
     return (
-      <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-muted/35 not-prose shadow-card">
-        <div className="flex items-center justify-between border-b border-border-strong bg-muted/45 px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
+      <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary/50 not-prose shadow-card">
+        <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
           <span>{language}</span>
           <CopyButton text={codeString} />
         </div>
@@ -147,7 +147,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     <div
       style={markdownVars}
       className={cn(
-        "markdown-body conversation-markdown font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-p:leading-normal prose-pre:p-0",
+        "markdown-body conversation-markdown font-sans prose prose-sm dark:prose-invert max-w-none break-words prose-pre:p-0",
         "prose-p:text-current prose-headings:text-current prose-li:text-current prose-strong:text-current prose-li:marker:text-current",
         isStreaming && "streaming-active",
         className

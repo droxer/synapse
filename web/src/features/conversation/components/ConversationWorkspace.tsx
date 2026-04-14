@@ -210,8 +210,8 @@ const MessageRow = memo(function MessageRow({
             </div>
 
             {msg.timestamp && (
-              <div className="mt-1 flex items-center gap-1.5 text-muted-foreground-dim">
-                <span className="text-micro font-mono text-muted-foreground-dim tabular-nums">
+              <div className="mt-2 flex items-center gap-1.5">
+                <span className="text-micro font-mono text-muted-foreground-dim/70 tabular-nums select-none">
                   {formatClockTime(msg.timestamp, locale)}
                 </span>
               </div>

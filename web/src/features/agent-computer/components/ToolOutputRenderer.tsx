@@ -356,25 +356,25 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const entries = Object.entries(results);
         return (
           <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
-          <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
-            <GitFork className="h-3 w-3" />
-            <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentResults")}</span>
+            <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
+              <GitFork className="h-3 w-3" />
+              <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentResults")}</span>
+            </div>
+            <div className="space-y-1">
+              {entries.map(([agentId, result]) => (
+                <div key={agentId} className="flex items-start gap-2.5 rounded-lg px-2 py-1 text-sm text-muted-foreground">
+                  {result.success ? (
+                    <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                  ) : (
+                    <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                  )}
+                  <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
+                  <span className="min-w-0 break-words">{result.error ?? result.summary}</span>
+                </div>
+              ))}
+            </div>
           </div>
-          <div className="space-y-1">
-            {entries.map(([agentId, result]) => (
-              <div key={agentId} className="flex items-start gap-2.5 rounded-lg px-2 py-1 text-sm text-muted-foreground">
-                {result.success ? (
-                  <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-                ) : (
-                  <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
-                )}
-                <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
-                <span className="min-w-0 break-words">{result.error ?? result.summary}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
+        );
     } catch {
       // Fall through to generic renderer
     }
@@ -384,7 +384,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (toolName === "agent_receive") {
     if (output === "No pending messages." || output === "[]") {
       return (
-          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+        <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
           <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
             <MessageSquare className="h-3 w-3" />
             <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.noMessages")}</span>
@@ -430,7 +430,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         if (Array.isArray(rows) && rows.length > 0) {
           const columns = Object.keys(rows[0]);
           return (
-          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+            <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
               <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
                 <Database className="h-3 w-3" />
                 <span className={OUTPUT_HEADER_LABEL_CLASSES}>{summaryLine}</span>

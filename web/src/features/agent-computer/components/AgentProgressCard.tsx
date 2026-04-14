@@ -568,7 +568,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
     return (
       <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
-        <span className="absolute inset-0 rounded-md bg-focus/15 animate-[pulsing-dot-fade_2s_ease-in-out_infinite]" />
+        <span className="absolute inset-0 rounded-md bg-focus/15 animate-pulsing-dot-fade" />
       </span>
     );
   }
@@ -810,7 +810,7 @@ export function AgentProgressCard({
                 ref={stepsScrollRef}
                 className="mt-2 max-h-56 space-y-1 overflow-y-auto text-sm"
               >
-                  {steps.map((step, index) => {
+                {steps.map((step, index) => {
                     const isClickable = isTimelineStepActionable(step.id);
                     const stepVisual = getStepStatusVisual(step.status);
                     const rowClassName = cn(
@@ -879,8 +879,8 @@ export function AgentProgressCard({
                         {rowContent}
                       </motion.div>
                     );
-                  })}
-                </div>
+                })}
+              </div>
               </motion.div>
             )}
           </AnimatePresence>

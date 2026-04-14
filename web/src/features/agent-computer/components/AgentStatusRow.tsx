@@ -15,7 +15,7 @@ import type { AgentStatus, ToolCallInfo } from "@/shared/types";
 function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly label: string }) {
   if (tc.success !== undefined) {
     return tc.success === false
-      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" role="img" aria-label={label} />
+      ? <CircleX className="h-3.5 w-3.5 shrink-0 text-destructive" role="img" aria-label={label} />
       : <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" role="img" aria-label={label} />;
   }
   return <PulsingDot size="sm" aria-label={label} />;
@@ -41,19 +41,14 @@ export function AgentStatusRow({
   const hasTools = toolCalls && toolCalls.length > 0;
   const [expanded, setExpanded] = useState(agent.status === "running");
 
-  return (
-    <div>
-      <button
-        type="button"
-        onClick={() => hasTools && setExpanded((prev) => !prev)}
-        aria-label={hasTools ? (expanded ? t("a11y.collapse") : t("a11y.expand")) : undefined}
-        className={cn(
-          EVENT_ROW_BASE_CLASSES,
-          "flex w-full items-center gap-2 text-left text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          hasTools && "cursor-pointer hover:bg-muted/20",
-          !hasTools && "cursor-default",
-        )}
-      >
+  const rowClassName = cn(
+    EVENT_ROW_BASE_CLASSES,
+    "flex w-full items-center gap-2 text-left text-sm transition-colors",
+    hasTools && "cursor-pointer hover:bg-muted/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+  );
+
+  const rowContent = (
+    <>
         {agent.status === "complete" ? (
           <CircleCheck className="h-3.5 w-3.5 shrink-0 text-accent-emerald" />
         ) : agent.status === "skipped" ? (
@@ -61,7 +56,7 @@ export function AgentStatusRow({
         ) : agent.status === "replan_required" ? (
           <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-accent-amber" />
         ) : agent.status === "error" ? (
-          <CircleX className="h-3.5 w-3.5 shrink-0 text-accent-rose" />
+          <CircleX className="h-3.5 w-3.5 shrink-0 text-destructive" />
         ) : (
           <PulsingDot size="sm" />
         )}
@@ -96,10 +91,28 @@ export function AgentStatusRow({
             <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
           </motion.span>
         )}
-      </button>
+    </>
+  );
+
+  return (
+    <div>
+      {hasTools ? (
+        <button
+          type="button"
+          onClick={() => setExpanded((prev) => !prev)}
+          aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
+          className={rowClassName}
+        >
+          {rowContent}
+        </button>
+      ) : (
+        <div className={rowClassName}>
+          {rowContent}
+        </div>
+      )}
 
       {/* Nested tool calls */}
-      <AnimatePresence>
+      <AnimatePresence initial={false}>
         {expanded && hasTools && (
           <motion.div
             initial={{ height: 0, opacity: 0 }}
