@@ -62,6 +62,24 @@ interface ConversationWorkspaceProps {
 // Prevents non-streaming messages from re-rendering when only the last
 // (streaming) message content changes.
 
+/** True when `thinkingContent` duplicates what is already shown via `thinkingEntries`. */
+function isThinkingContentRedundantWithEntries(
+  thinkingContent: string | undefined,
+  entries: readonly ThinkingEntry[] | undefined,
+): boolean {
+  const trimmed = thinkingContent?.trim();
+  if (!trimmed || !entries?.length) return false;
+  const combined = entries
+    .map((e) => e.content.trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+  if (!combined) return false;
+  if (trimmed === combined) return true;
+  const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
+  return collapse(trimmed) === collapse(combined);
+}
+
 interface MessageRowProps {
   readonly msg: ChatMessage;
   readonly isLastAssistant: boolean;
@@ -113,7 +131,11 @@ const MessageRow = memo(function MessageRow({
 
   const imageUrls = getImageUrlsForMessage(msg);
   const hasPlanHere = index === planMessageIndex && planSteps.length > 0;
-  const hasThinking = Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0);
+  const showOrphanThinkingContent =
+    Boolean(msg.thinkingContent?.trim())
+    && !isThinkingContentRedundantWithEntries(msg.thinkingContent, msg.thinkingEntries);
+  const hasThinking =
+    Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0) || showOrphanThinkingContent;
   const trimmedContent = msg.content.trim();
   const showMarkdown = trimmedContent.length > 0 || isStreamingThis;
   const showEmptyAssistantPlaceholder =
@@ -174,21 +196,31 @@ const MessageRow = memo(function MessageRow({
           )}
         >
           <div className="relative">
-            {/* Thinking blocks for this assistant message */}
-            {msg.thinkingEntries && msg.thinkingEntries.length > 0 && (
+            {/* Reasoning: event-sourced entries first, then inline-only thinkingContent (not duplicated). */}
+            {hasThinking ? (
               <div className="mb-3 space-y-2">
-                {msg.thinkingEntries.map((entry, idx) => (
+                {msg.thinkingEntries?.map((entry, idx) => (
                   <ThinkingBlock
-                    key={`${msg.timestamp}-thinking-${idx}`}
+                    key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
                     content={entry.content}
                     isThinking={isLastAssistant && assistantPhase.phase === "thinking"}
                     isTurnStreaming={isLastAssistant ? isStreaming : false}
                     durationMs={entry.durationMs}
                   />
                 ))}
+                {showOrphanThinkingContent ? (
+                  <ThinkingBlock
+                    key={`${msg.messageId ?? msg.timestamp}-thinking-content`}
+                    content={msg.thinkingContent!}
+                    isThinking={false}
+                    isTurnStreaming={isLastAssistant ? isStreaming : false}
+                    durationMs={0}
+                    summaryLabel={t("thinking.reasoning")}
+                  />
+                ) : null}
               </div>
-            )}
-            {/* Message body */}
+            ) : null}
+            {/* Message body: prose, then images, then embedded plan (matches read order). */}
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
               {showMarkdown ? (
                 <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />

@@ -89,6 +89,7 @@
   "progress.reasoningLive": "思考中...",
   "thinking.thinking": "思考中...",
   "thinking.thoughtFor": "思考了 {seconds} 秒",
+  "thinking.reasoning": "推理",
   "progress.complete": "完成",
   "progress.stateIdle": "就緒",
   "progress.statePlanning": "規劃中",

@@ -89,6 +89,7 @@
   "progress.reasoningLive": "Thinking...",
   "thinking.thinking": "Thinking...",
   "thinking.thoughtFor": "Thought for {seconds}s",
+  "thinking.reasoning": "Reasoning",
   "progress.complete": "Complete",
   "progress.stateIdle": "Idle",
   "progress.statePlanning": "Planning",
