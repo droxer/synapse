@@ -640,10 +640,20 @@ pre, code {
 .markdown-body.streaming-active > h2:last-child::after,
 .markdown-body.streaming-active > h3:last-child::after,
 .markdown-body.streaming-active > h4:last-child::after,
+.markdown-body.streaming-active > h5:last-child::after,
+.markdown-body.streaming-active > h6:last-child::after,
+.markdown-body.streaming-active > div:not(.not-prose):last-child pre:last-child::after,
+.markdown-body.streaming-active > pre:last-child::after,
 .markdown-reasoning.streaming-active:empty::after,
 .markdown-reasoning.streaming-active > p:last-child::after,
 .markdown-reasoning.streaming-active > ul:last-child > li:last-child::after,
-.markdown-reasoning.streaming-active > ol:last-child > li:last-child::after {
+.markdown-reasoning.streaming-active > ol:last-child > li:last-child::after,
+.markdown-reasoning.streaming-active > h1:last-child::after,
+.markdown-reasoning.streaming-active > h2:last-child::after,
+.markdown-reasoning.streaming-active > h3:last-child::after,
+.markdown-reasoning.streaming-active > h4:last-child::after,
+.markdown-reasoning.streaming-active > h5:last-child::after,
+.markdown-reasoning.streaming-active > h6:last-child::after {
   content: "";
   display: inline-block;
   vertical-align: baseline;

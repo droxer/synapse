@@ -70,6 +70,7 @@
   "conversation.copy": "Copy",
   "conversation.retry": "Retry",
   "conversation.imageAlt": "AI-generated image artifact",
+  "conversation.emptyAssistantBody": "No text in this reply.",
 
   "progress.taskStarted": "Task Started",
   "progress.reasoning": "Thinking",

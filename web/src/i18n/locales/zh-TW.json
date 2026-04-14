@@ -70,6 +70,7 @@
   "conversation.copy": "複製",
   "conversation.retry": "重試",
   "conversation.imageAlt": "AI 生成的圖片",
+  "conversation.emptyAssistantBody": "此則回覆沒有文字內容。",
 
   "progress.taskStarted": "任務已開始",
   "progress.reasoning": "思考中",

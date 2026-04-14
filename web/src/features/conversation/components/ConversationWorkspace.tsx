@@ -111,6 +111,17 @@ const MessageRow = memo(function MessageRow({
     [conversationId],
   );
 
+  const imageUrls = getImageUrlsForMessage(msg);
+  const hasPlanHere = index === planMessageIndex && planSteps.length > 0;
+  const hasThinking = Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0);
+  const trimmedContent = msg.content.trim();
+  const showMarkdown = trimmedContent.length > 0 || isStreamingThis;
+  const showEmptyAssistantPlaceholder =
+    !showMarkdown &&
+    imageUrls.length === 0 &&
+    !hasPlanHere &&
+    !hasThinking;
+
   return (
     <div data-role={msg.role} className={cn(index > 0 && "mt-4")}>
       {msg.role === "user" ? (
@@ -179,27 +190,29 @@ const MessageRow = memo(function MessageRow({
             )}
             {/* Message body */}
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
-              <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
+              {showMarkdown ? (
+                <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
+              ) : null}
+              {showEmptyAssistantPlaceholder ? (
+                <p className="text-muted-foreground">{t("conversation.emptyAssistantBody")}</p>
+              ) : null}
 
               {/* Inline images for this message */}
-              {(() => {
-                const imageUrls = getImageUrlsForMessage(msg);
-                return imageUrls.length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {imageUrls.map((url) => (
-                      <img
-                        key={url}
-                        src={url}
-                        alt={t("conversation.imageAlt")}
-                        className="max-h-72 max-w-full rounded-md object-contain"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+              {imageUrls.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {imageUrls.map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt={t("conversation.imageAlt")}
+                      className="max-h-72 max-w-full rounded-md object-contain"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
 
               {/* Plan checklist embedded in this message */}
               {index === planMessageIndex && planSteps.length > 0 && (
@@ -431,8 +444,7 @@ export function ConversationWorkspace({
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
-                // Stable key: role + timestamp (no array index)
-                const messageKey = `${msg.role}-${msg.timestamp}`;
+                const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
 
                 return (
                   <MessageRow

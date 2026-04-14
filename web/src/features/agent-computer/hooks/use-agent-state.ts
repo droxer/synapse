@@ -2,16 +2,25 @@
 
 import { useMemo, useRef } from "react";
 
-// Some LLM providers (e.g. Qwen3 via DashScope) embed thinking content in
-// the response text using <think>…</think> tags rather than returning it as
-// a separate content block.  Split them out so we can display the reasoning
-// in a dedicated ThinkingBlock instead of raw prose.
-const THINK_TAG_RE = /^<think>([\s\S]*?)<\/think>\s*/;
+// Some models embed chain-of-thought in the assistant text using `<redacted_thinking>…</redacted_thinking>`
+// (see `agent/llm/client._split_think_tags`) or legacy `<redacted_thinking>…</think>` pairs.
+// Strip every block so reasoning appears in ThinkingBlock, not in the markdown body.
+const INLINE_THINK_PATTERNS = [
+  /<redacted_thinking>([\s\S]*?)<\/redacted_thinking>/gi,
+  /<redacted_thinking>([\s\S]*?)<\/think>/gi,
+];
 
 function splitThinkTag(text: string): { thinking: string; content: string } {
-  const m = THINK_TAG_RE.exec(text);
-  if (!m) return { thinking: "", content: text };
-  return { thinking: m[1].trim(), content: text.slice(m[0].length) };
+  const thinkingParts: string[] = [];
+  let clean = text;
+  for (const re of INLINE_THINK_PATTERNS) {
+    clean = clean.replace(re, (_match, inner: string) => {
+      const trimmed = inner.trim();
+      if (trimmed) thinkingParts.push(trimmed);
+      return "";
+    });
+  }
+  return { thinking: thinkingParts.join("\n\n"), content: clean.trim() };
 }
 
 import type {
