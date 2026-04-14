@@ -150,6 +150,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
               msg.thinkingEntries && msg.thinkingEntries.length > 0
                 ? [...(existing.thinkingEntries ?? []), ...msg.thinkingEntries]
                 : existing.thinkingEntries,
+            thinkingContent: existing.thinkingContent || msg.thinkingContent,
           };
         }
       }
