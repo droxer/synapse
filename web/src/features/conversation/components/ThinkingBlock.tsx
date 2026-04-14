@@ -12,6 +12,8 @@ interface ThinkingBlockProps {
   readonly isThinking: boolean;
   readonly isTurnStreaming: boolean;
   readonly durationMs?: number;
+  /** When set, used instead of "Thought for Ns" when not actively thinking (e.g. inline-extracted reasoning). */
+  readonly summaryLabel?: string;
 }
 
 export function ThinkingBlock({
@@ -19,6 +21,7 @@ export function ThinkingBlock({
   isThinking,
   isTurnStreaming,
   durationMs = 0,
+  summaryLabel,
 }: ThinkingBlockProps) {
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
@@ -66,7 +69,7 @@ export function ThinkingBlock({
   const durationSeconds = Math.max(Math.round(durationMs / 1000), 1);
   const label = isThinking
     ? t("thinking.thinking")
-    : t("thinking.thoughtFor", { seconds: durationSeconds });
+    : (summaryLabel ?? t("thinking.thoughtFor", { seconds: durationSeconds }));
 
   return (
     <div className="overflow-hidden border-l border-border-strong pl-2">

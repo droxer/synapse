@@ -3,6 +3,46 @@ import { deriveAgentState } from "./use-agent-state";
 import type { AgentEvent } from "../../../shared/types";
 
 describe("deriveAgentState", () => {
+  it("strips inline redacted_thinking blocks from llm_response text into thinkingContent", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "llm_response",
+        data: {
+          text: "<redacted_thinking>plan A</redacted_thinking>\n\nHello **world**",
+        },
+        timestamp: 1,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Hello **world**");
+    expect(state.messages[0]?.thinkingContent).toBe("plan A");
+  });
+
+  it("strips legacy think blocks and merges with prior thinking events", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "thinking",
+        data: { thinking: "from event" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "<redacted_thinking>inline</think>Done." },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages[0]?.content).toBe("Done.");
+    expect(state.messages[0]?.thinkingContent).toContain("from event");
+    expect(state.messages[0]?.thinkingContent).toContain("inline");
+  });
+
   it("uses llm_response.content when text is missing", () => {
     const events: AgentEvent[] = [
       {

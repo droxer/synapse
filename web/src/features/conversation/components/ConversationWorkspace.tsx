@@ -18,6 +18,10 @@ import {
   getLatestTurnMode,
   getPlanMessageIndex,
 } from "./conversation-mode";
+import {
+  buildAssistantCopyText,
+  isThinkingContentRedundantWithEntries,
+} from "../lib/assistant-copy-text";
 import { cn } from "@/shared/lib/utils";
 import { formatClockTime } from "@/shared/lib/date-time";
 import { useTranslation } from "@/i18n";
@@ -111,6 +115,29 @@ const MessageRow = memo(function MessageRow({
     [conversationId],
   );
 
+  const imageUrls = getImageUrlsForMessage(msg);
+  const hasPlanHere = index === planMessageIndex && planSteps.length > 0;
+  const showOrphanThinkingContent =
+    Boolean(msg.thinkingContent?.trim())
+    && !isThinkingContentRedundantWithEntries(msg.thinkingContent, msg.thinkingEntries);
+  const hasThinking =
+    Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0) || showOrphanThinkingContent;
+  const trimmedContent = msg.content.trim();
+  const showMarkdown = trimmedContent.length > 0 || isStreamingThis;
+  const showEmptyAssistantPlaceholder =
+    !showMarkdown &&
+    imageUrls.length === 0 &&
+    !hasPlanHere &&
+    !hasThinking;
+
+  const thinkingEntryCount = msg.thinkingEntries?.length ?? 0;
+  const copyAssistantText = buildAssistantCopyText(msg, {
+    hasEmbeddedPlan: hasPlanHere,
+    planSteps,
+    imageUrls,
+    t,
+  });
+
   return (
     <div data-role={msg.role} className={cn(index > 0 && "mt-4")}>
       {msg.role === "user" ? (
@@ -163,43 +190,59 @@ const MessageRow = memo(function MessageRow({
           )}
         >
           <div className="relative">
-            {/* Thinking blocks for this assistant message */}
-            {msg.thinkingEntries && msg.thinkingEntries.length > 0 && (
+            {/* Reasoning: event-sourced entries first, then inline-only thinkingContent (not duplicated). */}
+            {hasThinking ? (
               <div className="mb-3 space-y-2">
-                {msg.thinkingEntries.map((entry, idx) => (
+                {msg.thinkingEntries?.map((entry, idx) => (
                   <ThinkingBlock
-                    key={`${msg.timestamp}-thinking-${idx}`}
+                    key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
                     content={entry.content}
-                    isThinking={isLastAssistant && assistantPhase.phase === "thinking"}
+                    isThinking={
+                      isLastAssistant
+                      && assistantPhase.phase === "thinking"
+                      && idx === thinkingEntryCount - 1
+                    }
                     isTurnStreaming={isLastAssistant ? isStreaming : false}
                     durationMs={entry.durationMs}
                   />
                 ))}
+                {showOrphanThinkingContent ? (
+                  <ThinkingBlock
+                    key={`${msg.messageId ?? msg.timestamp}-thinking-content`}
+                    content={msg.thinkingContent!}
+                    isThinking={false}
+                    isTurnStreaming={isLastAssistant ? isStreaming : false}
+                    durationMs={0}
+                    summaryLabel={t("thinking.reasoning")}
+                  />
+                ) : null}
               </div>
-            )}
-            {/* Message body */}
+            ) : null}
+            {/* Message body: prose, then images, then embedded plan (matches read order). */}
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
-              <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
+              {showMarkdown ? (
+                <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
+              ) : null}
+              {showEmptyAssistantPlaceholder ? (
+                <p className="text-muted-foreground">{t("conversation.emptyAssistantBody")}</p>
+              ) : null}
 
               {/* Inline images for this message */}
-              {(() => {
-                const imageUrls = getImageUrlsForMessage(msg);
-                return imageUrls.length > 0 ? (
-                  <div className="mt-4 flex flex-wrap gap-3">
-                    {imageUrls.map((url) => (
-                      <img
-                        key={url}
-                        src={url}
-                        alt={t("conversation.imageAlt")}
-                        className="max-h-72 max-w-full rounded-md object-contain"
-                        onError={(e) => {
-                          (e.currentTarget as HTMLImageElement).style.display = "none";
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : null;
-              })()}
+              {imageUrls.length > 0 ? (
+                <div className="mt-4 flex flex-wrap gap-3">
+                  {imageUrls.map((url) => (
+                    <img
+                      key={url}
+                      src={url}
+                      alt={t("conversation.imageAlt")}
+                      className="max-h-72 max-w-full rounded-md object-contain"
+                      onError={(e) => {
+                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                      }}
+                    />
+                  ))}
+                </div>
+              ) : null}
 
               {/* Plan checklist embedded in this message */}
               {index === planMessageIndex && planSteps.length > 0 && (
@@ -226,7 +269,7 @@ const MessageRow = memo(function MessageRow({
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => onCopy(msg.content)}
+                      onClick={() => onCopy(copyAssistantText.trim() || msg.content)}
                       className="text-muted-foreground-dim hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
                     >
                       {copied
@@ -431,8 +474,7 @@ export function ConversationWorkspace({
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
-                // Stable key: role + timestamp (no array index)
-                const messageKey = `${msg.role}-${msg.timestamp}`;
+                const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
 
                 return (
                   <MessageRow
