@@ -18,6 +18,10 @@ import {
   getLatestTurnMode,
   getPlanMessageIndex,
 } from "./conversation-mode";
+import {
+  buildAssistantCopyText,
+  isThinkingContentRedundantWithEntries,
+} from "../lib/assistant-copy-text";
 import { cn } from "@/shared/lib/utils";
 import { formatClockTime } from "@/shared/lib/date-time";
 import { useTranslation } from "@/i18n";
@@ -61,24 +65,6 @@ interface ConversationWorkspaceProps {
 // ── Memoized message row ─────────────────────────────────────────────
 // Prevents non-streaming messages from re-rendering when only the last
 // (streaming) message content changes.
-
-/** True when `thinkingContent` duplicates what is already shown via `thinkingEntries`. */
-function isThinkingContentRedundantWithEntries(
-  thinkingContent: string | undefined,
-  entries: readonly ThinkingEntry[] | undefined,
-): boolean {
-  const trimmed = thinkingContent?.trim();
-  if (!trimmed || !entries?.length) return false;
-  const combined = entries
-    .map((e) => e.content.trim())
-    .filter(Boolean)
-    .join("\n\n")
-    .trim();
-  if (!combined) return false;
-  if (trimmed === combined) return true;
-  const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
-  return collapse(trimmed) === collapse(combined);
-}
 
 interface MessageRowProps {
   readonly msg: ChatMessage;
@@ -144,6 +130,14 @@ const MessageRow = memo(function MessageRow({
     !hasPlanHere &&
     !hasThinking;
 
+  const thinkingEntryCount = msg.thinkingEntries?.length ?? 0;
+  const copyAssistantText = buildAssistantCopyText(msg, {
+    hasEmbeddedPlan: hasPlanHere,
+    planSteps,
+    imageUrls,
+    t,
+  });
+
   return (
     <div data-role={msg.role} className={cn(index > 0 && "mt-4")}>
       {msg.role === "user" ? (
@@ -203,7 +197,11 @@ const MessageRow = memo(function MessageRow({
                   <ThinkingBlock
                     key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
                     content={entry.content}
-                    isThinking={isLastAssistant && assistantPhase.phase === "thinking"}
+                    isThinking={
+                      isLastAssistant
+                      && assistantPhase.phase === "thinking"
+                      && idx === thinkingEntryCount - 1
+                    }
                     isTurnStreaming={isLastAssistant ? isStreaming : false}
                     durationMs={entry.durationMs}
                   />
@@ -271,7 +269,7 @@ const MessageRow = memo(function MessageRow({
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => onCopy(msg.content)}
+                      onClick={() => onCopy(copyAssistantText.trim() || msg.content)}
                       className="text-muted-foreground-dim hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
                     >
                       {copied

@@ -71,6 +71,10 @@
   "conversation.retry": "重试",
   "conversation.imageAlt": "AI 生成的图片",
   "conversation.emptyAssistantBody": "此回复没有文字内容。",
+  "conversation.copySectionReasoning": "推理",
+  "conversation.copySectionAnswer": "回答",
+  "conversation.copySectionPlan": "计划",
+  "conversation.copySectionImages": "图片",
 
   "progress.taskStarted": "任务已开始",
   "progress.reasoning": "思考中",

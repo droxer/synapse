@@ -71,6 +71,10 @@
   "conversation.retry": "Retry",
   "conversation.imageAlt": "AI-generated image artifact",
   "conversation.emptyAssistantBody": "No text in this reply.",
+  "conversation.copySectionReasoning": "Reasoning",
+  "conversation.copySectionAnswer": "Answer",
+  "conversation.copySectionPlan": "Plan",
+  "conversation.copySectionImages": "Images",
 
   "progress.taskStarted": "Task Started",
   "progress.reasoning": "Thinking",
