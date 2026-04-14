@@ -1,5 +1,5 @@
 import { describe, expect, it } from "@jest/globals";
-import { deriveAgentState } from "./use-agent-state";
+import { deriveAgentState, stabilizeDerivedAgentState } from "./use-agent-state";
 import type { AgentEvent } from "../../../shared/types";
 
 describe("deriveAgentState", () => {
@@ -160,6 +160,54 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Deep research summary");
   });
 
+  it("does not duplicate when message_user matches streamed text (task agents emit no llm_response)", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Full research " },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "report" },
+        timestamp: 20,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "Full research report" },
+        timestamp: 30,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Full research report");
+  });
+
+  it("does not duplicate when turn_complete matches streamed text without a terminal llm_response", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Same body" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Same body" },
+        timestamp: 40,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Same body");
+  });
+
   it("serializes non-string tool_result output", () => {
     const events: AgentEvent[] = [
       {
@@ -272,6 +320,26 @@ describe("deriveAgentState", () => {
     expect(state.toolCalls[0]?.name).toBe("activate_skill");
     expect(state.toolCalls[0]?.input.name).toBe("frontend-design");
     expect(state.toolCalls[0]?.success).toBe(true);
+  });
+
+  it("prefers tool_name over name when both appear on tool_call (backend canonical field)", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "tool_call",
+        data: {
+          tool_id: "tool-x",
+          name: "docx",
+          tool_name: "activate_skill",
+          tool_input: { name: "docx" },
+        },
+        timestamp: 1,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.name).toBe("activate_skill");
   });
 
   it("marks activate_skill as failed immediately when tool_result reports success false", () => {
@@ -398,5 +466,41 @@ describe("deriveAgentState", () => {
     const state = deriveAgentState(events);
     expect(state.agentStatuses).toHaveLength(1);
     expect(state.agentStatuses[0]?.status).toBe("replan_required");
+  });
+
+  it("reuses unchanged earlier message objects when only the streaming tail grows", () => {
+    const earlyEvents: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "Part 1" },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+    const laterEvents: AgentEvent[] = [
+      ...earlyEvents,
+      {
+        type: "text_delta",
+        data: { delta: " and Part 2" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const prev = deriveAgentState(earlyEvents);
+    const next = deriveAgentState(laterEvents);
+    const stabilized = stabilizeDerivedAgentState(prev, next);
+
+    expect(stabilized.messages).toHaveLength(2);
+    expect(stabilized.messages[0]).toBe(prev.messages[0]);
+    expect(stabilized.messages[1]).not.toBe(prev.messages[1]);
+    expect(stabilized.messages[1]?.messageId).toBe(prev.messages[1]?.messageId);
+    expect(stabilized.messages[1]?.content).toBe("Part 1 and Part 2");
   });
 });

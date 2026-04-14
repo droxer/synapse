@@ -28,6 +28,10 @@ import {
   isTaskStateLive,
 } from "@/features/agent-computer/lib/task-state-display";
 import {
+  getActivityKindVisual,
+  type ActivityEntryKind,
+} from "@/features/agent-computer/lib/format-tools";
+import {
   HIDDEN_ACTIVITY_TOOLS,
   normalizeToolNameI18n,
   normalizeAgentName,
@@ -37,10 +41,11 @@ import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import type { TFn } from "@/shared/types/i18n";
 
 interface AgentProgressCardProps {
-  events: AgentEvent[];
-  toolCalls: ToolCallInfo[];
-  agentStatuses: AgentStatus[];
+  events: readonly AgentEvent[];
+  toolCalls: readonly ToolCallInfo[];
+  agentStatuses: readonly AgentStatus[];
   taskState: TaskState;
+  isWaitingForAgent?: boolean;
   onClick?: () => void;
   onStepClick?: (stepId: string) => void;
   panelOpen?: boolean;
@@ -70,6 +75,12 @@ interface StatusVisual {
   readonly rowHover: string;
   readonly iconSurface: string;
   readonly iconColor: string;
+}
+
+function getStepActivityKind(step: TimelineStep): ActivityEntryKind {
+  if (step.kind === "tool") return "tool";
+  if (step.kind === "skill") return "skill";
+  return "neutral";
 }
 
 interface ToolCallIndexes {
@@ -185,7 +196,7 @@ function mapAgentStepStatus(value: unknown): TimelineStepStatus {
 }
 
 export function buildSteps(
-  events: AgentEvent[],
+  events: readonly AgentEvent[],
   indexes: ToolCallIndexes,
   t: TFn,
   agentNameMap: ReadonlyMap<string, string>,
@@ -250,7 +261,7 @@ export function buildSteps(
 
 
       case "tool_call": {
-        const toolName = String(event.data.name ?? event.data.tool_name ?? "unknown");
+        const toolName = String(event.data.tool_name ?? event.data.name ?? "unknown");
         if (HIDDEN_ACTIVITY_TOOLS.has(toolName)) {
           break;
         }
@@ -449,6 +460,25 @@ export function isTimelineStepActionable(stepId: string): boolean {
   return stepId.startsWith("tool-") || stepId.startsWith("agent-");
 }
 
+export function buildDisplaySteps(
+  steps: readonly TimelineStep[],
+  taskState: TaskState,
+  isWaitingForAgent: boolean,
+  t: TFn,
+): TimelineStep[] {
+  if (steps.length > 0) return [...steps];
+  const shouldShowPreparingStep = isTaskStateLive(taskState) || isWaitingForAgent;
+  if (!shouldShowPreparingStep) return [];
+  return [
+    {
+      id: "pending-start",
+      kind: "start",
+      title: t("progress.taskStarted"),
+      status: "running",
+    },
+  ];
+}
+
 /** Emphasize `name` in `title` only on first occurrence; avoids split() edge cases. */
 function StepTitleLine({
   title,
@@ -514,46 +544,45 @@ function stepGlyphIcon(step: TimelineStep) {
 }
 
 function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
-  const neutralRow = "border border-border bg-muted/30";
-  const neutralHover = "hover:border-border-strong hover:bg-muted/40";
+  const rowHover = "hover:border-border-strong hover:bg-muted/40";
   switch (status) {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: neutralRow,
-        rowHover: neutralHover,
+        rowBase: "border border-destructive bg-muted",
+        rowHover,
         iconSurface: "bg-muted",
         iconColor: "text-destructive",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
-        rowBase: neutralRow,
-        rowHover: neutralHover,
+        rowBase: "border border-border bg-muted",
+        rowHover,
         iconSurface: "bg-muted",
         iconColor: "text-accent-amber",
       };
     case "skipped":
       return {
         text: "text-muted-foreground",
-        rowBase: neutralRow,
-        rowHover: neutralHover,
+        rowBase: "border border-border bg-muted",
+        rowHover,
         iconSurface: "bg-muted",
         iconColor: "text-muted-foreground",
       };
     case "running":
       return {
         text: "text-foreground",
-        rowBase: neutralRow,
-        rowHover: neutralHover,
-        iconSurface: "bg-muted",
+        rowBase: "border border-terminal-border bg-terminal-surface",
+        rowHover,
+        iconSurface: "bg-secondary",
         iconColor: "text-focus",
       };
     default:
       return {
         text: "text-foreground",
-        rowBase: neutralRow,
-        rowHover: neutralHover,
+        rowBase: "border border-terminal-border bg-card",
+        rowHover,
         iconSurface: "bg-muted",
         iconColor: "text-accent-emerald",
       };
@@ -564,17 +593,14 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
 function StepIcon({ step }: { readonly step: TimelineStep }) {
   const Icon = stepGlyphIcon(step);
   const visual = getStepStatusVisual(step.status);
+  const kindVisual = getActivityKindVisual(getStepActivityKind(step));
   const useDistinctGlyph = step.kind === "tool" || step.kind === "skill";
 
   if (step.status === "running") {
     return (
-      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
-        <span
-          className="pointer-events-none absolute inset-0 rounded-md animate-pulsing-dot-fade"
-          style={{ backgroundColor: "color-mix(in srgb, var(--color-focus) 18%, transparent)" }}
-          aria-hidden
-        />
+        <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
       </span>
     );
   }
@@ -582,7 +608,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
   if (step.status === "error") {
     if (useDistinctGlyph) {
       return (
-        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
           <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -593,7 +619,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
       );
     }
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
         <CircleX className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -601,7 +627,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "replan_required") {
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
         <AlertTriangle className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -609,7 +635,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "skipped") {
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
         <Minus className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -617,7 +643,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (useDistinctGlyph) {
     return (
-      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
         <Check
           className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
@@ -629,7 +655,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
   }
 
   return (
-    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
       <Check className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.5} />
     </span>
   );
@@ -641,28 +667,28 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
   switch (state) {
     case "planning":
       return (
-        <span className={cn(baseClass, "text-accent-amber")}>
+        <span className={cn(baseClass, "border-border bg-muted text-accent-amber")}>
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className={cn(baseClass, "text-focus")}>
+        <span className={cn(baseClass, "border-border bg-muted text-accent-purple/70")}>
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
     case "complete":
       return (
-        <span className={cn(baseClass, "text-accent-emerald")}>
+        <span className={cn(baseClass, "border-border bg-muted text-accent-emerald")}>
           <CircleCheck className="h-3 w-3" />
           {t("progress.stateComplete")}
         </span>
       );
     case "error":
       return (
-        <span className={cn(baseClass, "text-destructive")}>
+        <span className={cn(baseClass, "border-destructive bg-muted text-destructive")}>
           <CircleX className="h-3 w-3" />
           {t("progress.stateError")}
         </span>
@@ -677,6 +703,7 @@ export function AgentProgressCard({
   toolCalls,
   agentStatuses,
   taskState,
+  isWaitingForAgent = false,
   onClick,
   onStepClick,
   panelOpen = false,
@@ -722,83 +749,98 @@ export function AgentProgressCard({
     };
   }, [expanded, stepsScrollKey, steps.length]);
 
-  const completedCount = steps.filter((s) => s.status === "complete").length;
-  const totalCount = steps.length;
+  const displaySteps = useMemo(
+    () => buildDisplaySteps(steps, taskState, isWaitingForAgent, t),
+    [steps, taskState, isWaitingForAgent, t],
+  );
+  const completedCount = displaySteps.filter((s) => s.status === "complete").length;
+  const totalCount = displaySteps.length;
   const isRunning = isTaskStateLive(taskState);
   const progressPercent = useMemo(
     () => computeAgentTaskProgressPercent(taskState, completedCount, totalCount),
     [taskState, completedCount, totalCount],
   );
 
-  const runningStepTitle = useMemo(() => {
-    if (!isRunning) return undefined;
-    const runningStep = [...steps].reverse().find((s) => s.status === "running");
-    return runningStep?.title;
-  }, [steps, isRunning]);
+  const headerProgressLine = useMemo(() => {
+    if (displaySteps.length === 0) return undefined;
+    if (isRunning) {
+      const runningStep = [...displaySteps].reverse().find((s) => s.status === "running");
+      if (runningStep?.title) return runningStep.title;
+    }
+    return displaySteps[displaySteps.length - 1]?.title;
+  }, [displaySteps, isRunning]);
 
   if (totalCount === 0) return null;
   const taskStateAnnouncement = getTaskStateAnnouncement(taskState, t);
   return (
     <motion.div
-      className="overflow-hidden rounded-lg border border-border bg-card shadow-card"
+      className="surface-panel overflow-hidden border-border shadow-[var(--shadow-card-hover)]"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
     >
       <div role="status" aria-live="polite" className="sr-only">
-        {runningStepTitle ? `${taskStateAnnouncement}: ${runningStepTitle}` : taskStateAnnouncement}
+        {headerProgressLine ? `${taskStateAnnouncement}: ${headerProgressLine}` : taskStateAnnouncement}
       </div>
 
       {/* Header */}
-      <div className="flex items-center gap-2.5 border-b border-border bg-card px-3 py-2.5">
-        <button
-          type="button"
-          aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
-          onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-          className="flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-md border border-border text-muted-foreground transition-colors duration-150 hover:border-border-strong hover:bg-muted/40 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Monitor className="h-4 w-4" />
-        </button>
-        <span className="label-mono flex-1 truncate text-muted-foreground">{t("progress.title")}</span>
-        <TaskStateBadge state={taskState} t={t} />
-        <span
-          className={cn(
-            "status-pill chip-muted tabular-nums",
-            taskState === "complete"
-              ? "text-accent-emerald"
-              : taskState === "error"
-                ? "text-destructive"
-                : isRunning
-                  ? "text-focus"
-                  : "text-muted-foreground",
-          )}
-        >
-          {completedCount}/{totalCount}
-        </span>
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
-          aria-expanded={expanded}
-          onClick={() => setExpanded((prev) => !prev)}
-          className="cursor-pointer border border-transparent text-muted-foreground hover:border-border hover:bg-muted/40 hover:text-foreground"
-        >
-          <motion.span
-            animate={{ rotate: expanded ? 180 : 0 }}
-            transition={{ duration: 0.15, ease: "easeOut" }}
-            className="flex items-center"
+      <div className="border-b border-border bg-muted/25 px-3 py-2.5">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
+            onClick={(e) => { e.stopPropagation(); onClick?.(); }}
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
-            <ChevronDown className="h-4 w-4" />
-          </motion.span>
-        </Button>
+            <Monitor className="h-3.5 w-3.5" />
+          </button>
+          <span className="label-mono flex-1 truncate text-muted-foreground">{t("progress.title")}</span>
+          <TaskStateBadge state={taskState} t={t} />
+          <span
+            className={cn(
+              "status-pill tabular-nums",
+              taskState === "complete"
+                ? "border-border bg-muted text-accent-emerald"
+                : taskState === "error"
+                  ? "border-destructive bg-muted text-destructive"
+                  : isRunning
+                    ? "border-border bg-muted text-accent-purple/70"
+                    : "border-border bg-muted text-muted-foreground",
+            )}
+          >
+            {completedCount}/{totalCount}
+          </span>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
+            aria-expanded={expanded}
+            onClick={() => setExpanded((prev) => !prev)}
+            className="border border-transparent text-muted-foreground hover:border-border hover:bg-muted/45 hover:text-foreground"
+          >
+            <motion.span
+              animate={{ rotate: expanded ? 180 : 0 }}
+              transition={{ duration: 0.15, ease: "easeOut" }}
+              className="flex items-center"
+            >
+              <ChevronDown className="h-3.5 w-3.5" />
+            </motion.span>
+          </Button>
+        </div>
+
+        {headerProgressLine && (!expanded || isRunning) && (
+          <p className="mt-1.5 break-words text-xs text-muted-foreground">
+            {headerProgressLine}
+          </p>
+        )}
       </div>
 
       {/* Progress bar */}
       <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-1 rounded-full bg-muted"
+          className="h-1 rounded-full bg-border"
           indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
@@ -816,16 +858,19 @@ export function AgentProgressCard({
                 ref={stepsScrollRef}
                 className="mt-2 max-h-56 space-y-1 overflow-y-auto text-sm"
               >
-                {steps.map((step, index) => {
+                {displaySteps.map((step, index) => {
                     const isClickable = isTimelineStepActionable(step.id);
                     const stepVisual = getStepStatusVisual(step.status);
+                    const kindVisual = getActivityKindVisual(getStepActivityKind(step));
                     const rowClassName = cn(
-                      "flex items-start gap-2.5 rounded-md px-2 py-1.5",
+                      "flex items-start gap-2.5 rounded-md border-l-2 px-2 py-1.5 transition-colors duration-150",
                       stepVisual.rowBase,
+                      kindVisual.rowAccent,
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
+                      isClickable && kindVisual.rowHoverAccent,
                       isClickable &&
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     );
                     const rowContent = (
                       <>

@@ -37,7 +37,7 @@ const PHASE_CONFIG: Record<
   },
   using_tool: {
     icon: Wrench,
-    badgeClass: "bg-focus/5 border border-focus/15 text-muted-foreground",
+    badgeClass: "bg-focus/5 border border-focus/20 text-muted-foreground",
     dotClass: "bg-focus",
   },
 };

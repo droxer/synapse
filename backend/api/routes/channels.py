@@ -290,6 +290,7 @@ async def _handle_channel_message(
             mcp_state=state.mcp_state,
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
+            compaction_runtime="channel_conversation",
         )
 
         entry = ConversationEntry(
@@ -349,7 +350,11 @@ async def _handle_channel_message(
         if entry is None:
             from api.routes.conversations import _reconstruct_conversation, _run_turn
 
-            entry = await _reconstruct_conversation(state, conversation_id_str)
+            entry = await _reconstruct_conversation(
+                state,
+                conversation_id_str,
+                compaction_runtime="channel_conversation",
+            )
             if entry is None:
                 await provider.send_text(
                     message.provider_chat_id,

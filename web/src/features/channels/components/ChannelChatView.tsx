@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSSE, useSessionFilteredArtifacts } from "@/shared/hooks";
-import { useAgentState } from "@/features/agent-computer";
-import { ConversationWorkspace, usePendingAsk, mergeUniqueEvents } from "@/features/conversation";
+import { ConversationWorkspace, usePendingAsk } from "@/features/conversation";
+import { useConversationTranscript } from "@/features/conversation/hooks/use-conversation-transcript";
 import {
   sendFollowUpMessage,
   cancelTurn,
@@ -98,65 +98,22 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     return () => { cancelled = true; };
   }, [conversationId]);
 
-  // Merge history + live events, deduplicating by event key to avoid
-  // duplicate processing when SSE queue buffers events also present in DB history.
-  const effectiveEvents = useMemo(
-    () => mergeUniqueEvents(historyEvents, sseEvents),
-    [historyEvents, sseEvents],
-  );
-
   const {
-    messages: eventMessages,
-    toolCalls,
-    taskState,
-    agentStatuses,
-    planSteps,
-    artifacts: rawArtifacts,
-    currentThinkingEntries,
-    isStreaming,
-    assistantPhase,
-  } = useAgentState(effectiveEvents);
+    effectiveEvents,
+    messages,
+    agentState: {
+      toolCalls,
+      taskState,
+      agentStatuses,
+      planSteps,
+      artifacts: rawArtifacts,
+      currentThinkingEntries,
+      isStreaming,
+      assistantPhase,
+    },
+  } = useConversationTranscript(historyMessages, historyEvents, sseEvents, isLive);
 
   const artifacts = useSessionFilteredArtifacts(rawArtifacts);
-
-  // Merge DB messages + event-derived messages (de-duplicate)
-  const messages = useMemo<ChatMessage[]>(() => {
-    const merged = [...historyMessages];
-    for (const msg of eventMessages) {
-      const isDuplicate = merged.some(
-        (m) =>
-          m.role === msg.role &&
-          m.content === msg.content &&
-          Math.abs(m.timestamp - msg.timestamp) < 30_000,
-      );
-      if (!isDuplicate) {
-        merged.push(msg);
-      } else {
-        const idx = merged.findIndex(
-          (m) =>
-            m.role === msg.role &&
-            m.content === msg.content &&
-            Math.abs(m.timestamp - msg.timestamp) < 30_000,
-        );
-        if (idx !== -1) {
-          const existing = merged[idx];
-          merged[idx] = {
-            ...existing,
-            imageArtifactIds:
-              msg.imageArtifactIds && msg.imageArtifactIds.length > 0
-                ? [...(existing.imageArtifactIds ?? []), ...msg.imageArtifactIds]
-                : existing.imageArtifactIds,
-            thinkingEntries:
-              msg.thinkingEntries && msg.thinkingEntries.length > 0
-                ? [...(existing.thinkingEntries ?? []), ...msg.thinkingEntries]
-                : existing.thinkingEntries,
-            thinkingContent: existing.thinkingContent || msg.thinkingContent,
-          };
-        }
-      }
-    }
-    return merged.sort((a, b) => a.timestamp - b.timestamp);
-  }, [historyMessages, eventMessages]);
 
   // Local pending user messages (optimistic)
   const [pendingMessages, setPendingMessages] = useState<ChatMessage[]>([]);

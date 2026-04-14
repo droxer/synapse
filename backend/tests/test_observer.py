@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from agent.runtime.observer import (
+from agent.context.compaction import (
     Observer,
     compaction_summary_for_persistence,
     _build_tool_use_map,
@@ -607,6 +607,23 @@ class TestCompact:
         assert _estimate_tokens(result) <= 220
         assert result[0] == _user_msg("task")
 
+    @pytest.mark.asyncio
+    async def test_compact_can_shrink_oversized_anchor_message(self) -> None:
+        obs = Observer(max_full_interactions=1, token_budget=220)
+        msgs = (
+            _user_msg("anchor " * 500),
+            _tool_use_msg("old_tool", {"query": "alpha"}),
+            _tool_result_msg("x" * 2000, tool_use_id="call_old_tool"),
+            _tool_use_msg("new_tool", {"query": "beta"}),
+            _tool_result_msg("done", tool_use_id="call_new_tool"),
+        )
+
+        result = await obs.compact(msgs)
+
+        assert _estimate_tokens(result) <= 220
+        assert result[0]["role"] == "user"
+        assert "original task truncated" in str(result[0]["content"])
+
 
 # ------------------------------------------------------------------
 # Error preservation
@@ -730,6 +747,30 @@ class TestDialogueCompaction:
         out = await obs.compact(msgs, "")
         assert len(out) < len(msgs)
         assert "## Earlier conversation" in out[1]["content"]
+
+    @pytest.mark.asyncio
+    async def test_dialogue_compaction_can_shrink_oversized_anchor_message(
+        self,
+    ) -> None:
+        chunk = "anchor " * 500
+        msgs = (
+            _user_msg(chunk),
+            _assistant_msg("ack"),
+            _user_msg("follow-up " * 100),
+            _assistant_msg("response " * 100),
+        )
+        obs = Observer(
+            token_budget=180,
+            max_full_dialogue_turns=1,
+            claude_client=None,
+            summary_model="",
+        )
+
+        out = await obs.compact(msgs, "")
+
+        assert _estimate_tokens(out) <= 180
+        assert out[0]["role"] == "user"
+        assert "original task truncated" in str(out[0]["content"])
 
 
 class TestCompactionSummaryForPersistence:

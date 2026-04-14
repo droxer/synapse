@@ -29,6 +29,7 @@ export default function ChannelsPage() {
   const [conversationCount, setConversationCount] = useState<number | null>(null);
   const [telegramConfigured, setTelegramConfigured] = useState(false);
   const [isTelegramModalOpen, setIsTelegramModalOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     void Promise.all([
@@ -43,8 +44,10 @@ export default function ChannelsPage() {
       });
       setConversationCount(sorted.length);
       setAutoConversation(sorted[0] ?? null);
-    }).catch(() => {
+      setError(null);
+    }).catch((err) => {
       setConversationCount(0);
+      setError(err instanceof Error ? err.message : "Failed to load channels");
     });
   }, []);
 
@@ -92,6 +95,11 @@ export default function ChannelsPage() {
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
+        {error && (
+          <div className="mx-4 mt-4 rounded-lg border border-destructive bg-destructive/5 px-4 py-2.5 text-sm text-destructive">
+            {error}
+          </div>
+        )}
         {renderContent()}
       </div>
     </div>

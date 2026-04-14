@@ -17,6 +17,7 @@ from agent.llm.client import (
     format_llm_failure,
     is_content_policy_error,
 )
+from agent.context.profiles import CompactionProfile, resolve_compaction_profile
 from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.memory.store import PersistentMemoryStore
 from agent.runtime.helpers import (
@@ -28,7 +29,7 @@ from agent.runtime.message_chain import (
     collect_message_chain_warnings,
     tool_calls_fingerprint,
 )
-from agent.runtime.observer import Observer, compaction_summary_for_persistence
+from agent.context.compaction import Observer, compaction_summary_for_persistence
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_setup import (
@@ -124,6 +125,7 @@ class AgentOrchestrator:
         system_prompt: str,
         max_iterations: int = 50,
         observer: Observer | None = None,
+        compaction_profile: CompactionProfile | None = None,
         initial_messages: tuple[dict[str, Any], ...] = (),
         thinking_budget: int = 0,
         skill_registry: SkillRegistry | None = None,
@@ -138,12 +140,18 @@ class AgentOrchestrator:
         self._emitter = event_emitter
         self._system_prompt = system_prompt
         self._max_iterations = max_iterations
+        resolved_profile = compaction_profile or resolve_compaction_profile(
+            settings, "web_conversation"
+        )
         self._observer = observer or Observer(
-            max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
-            max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
-            token_budget=settings.COMPACT_TOKEN_BUDGET,
+            profile=resolved_profile,
             claude_client=claude_client,
-            summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+            summary_model=resolved_profile.summary_model or settings.LITE_MODEL,
+        )
+        self._compaction_profile = (
+            getattr(observer, "profile", resolved_profile)
+            if observer is not None
+            else resolved_profile
         )
         self._persistent_store = persistent_store
         self._thinking_budget = thinking_budget
@@ -588,7 +596,10 @@ class AgentOrchestrator:
         # Compact message history before the LLM call if needed
         if self._observer.should_compact(state.messages, effective_prompt):
             logger.debug("compacting_message_history")
-            if settings.COMPACT_MEMORY_FLUSH and self._persistent_store is not None:
+            if (
+                self._compaction_profile.memory_flush
+                and self._persistent_store is not None
+            ):
                 await flush_heuristic_facts_from_messages(
                     self._persistent_store,
                     state.messages,
@@ -600,6 +611,8 @@ class AgentOrchestrator:
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
                     "summary_text": compaction_summary_for_persistence(compacted),
+                    "summary_scope": "conversation",
+                    "compaction_profile": self._compaction_profile.name,
                 },
                 iteration=state.iteration,
             )

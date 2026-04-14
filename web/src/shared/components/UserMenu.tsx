@@ -73,13 +73,13 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="rounded-full p-0.5 transition-shadow duration-200 hover:shadow-[0_0_0_2px_var(--color-profile-ring-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="rounded-full p-0.5 transition-shadow duration-200 hover:shadow-[0_0_0_2px_var(--color-profile-ring-hover)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                   aria-label={name ?? "User menu"}
                 >
                   <Avatar className="h-8 w-8 shadow-[0_0_0_2px_var(--color-profile-ring)]">
                     <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
                     <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-                    <AvatarBadge className="bg-accent-emerald ring-2 ring-sidebar-bg" />
+                    <AvatarBadge className="bg-accent-emerald ring-1 ring-sidebar-bg" />
                   </Avatar>
                 </button>
               </PopoverTrigger>
@@ -113,14 +113,14 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
             "flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left",
             "transition-colors duration-200",
             "hover:bg-sidebar-hover",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
         >
           <div className="rounded-full p-0.5 transition-shadow duration-200 group-hover:shadow-[0_0_0_2px_var(--color-profile-ring-hover)]">
             <Avatar className="h-9 w-9 shadow-[0_0_0_2px_var(--color-profile-ring)]">
               <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
-              <AvatarBadge className="bg-accent-emerald ring-2 ring-sidebar-bg" />
+              <AvatarBadge className="bg-accent-emerald ring-1 ring-sidebar-bg" />
             </Avatar>
           </div>
           <div className="min-w-0 flex-1">
@@ -180,7 +180,7 @@ function ProfilePopoverContent({
             "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm",
             "text-foreground transition-colors duration-150",
             "hover:bg-accent",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
         >
           <Settings className="h-4 w-4" />
@@ -193,7 +193,7 @@ function ProfilePopoverContent({
             "flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm",
             "text-destructive transition-colors duration-150",
             "hover:bg-destructive/10",
-            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           )}
         >
           <LogOut className="h-4 w-4" />

@@ -14,7 +14,6 @@ import {
   Presentation,
   AppWindow,
   Palette,
-  Settings,
   Lightbulb,
   Blocks,
   MessageSquare,
@@ -85,9 +84,12 @@ export function CommandPalette({
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     document.addEventListener("keydown", handleGlobalShortcuts);
+    const handleOpenEvent = () => setOpen(true);
+    document.addEventListener("synapse:open-command-palette", handleOpenEvent);
     return () => {
       document.removeEventListener("keydown", handleKeyDown);
       document.removeEventListener("keydown", handleGlobalShortcuts);
+      document.removeEventListener("synapse:open-command-palette", handleOpenEvent);
     };
   }, [handleKeyDown, handleGlobalShortcuts]);
 
@@ -155,7 +157,7 @@ export function CommandPalette({
               loop
             >
               {/* Search input */}
-              <div className="flex items-center gap-2 border-b border-border px-4 focus-within:ring-2 focus-within:ring-inset focus-within:ring-ring">
+              <div className="flex items-center gap-2 border-b border-border px-4 focus-within:ring-1 focus-within:ring-inset focus-within:ring-ring">
                 <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 <Command.Input
                   placeholder={t("command.placeholder")}
@@ -227,14 +229,6 @@ export function CommandPalette({
                     <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
                     {t("command.newTask")}
                     <ShortcutHint keys="⌘N" />
-                  </Command.Item>
-                  <Command.Item
-                    value={t("command.settings")}
-                    onSelect={() => setOpen(false)}
-                    className={ITEM_CLASS}
-                  >
-                    <Settings className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    {t("command.settings")}
                   </Command.Item>
                 </Command.Group>
 

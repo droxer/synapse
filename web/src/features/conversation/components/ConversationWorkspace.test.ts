@@ -1,7 +1,50 @@
-import { describe, expect, it } from "@jest/globals";
+import React from "react";
+import { describe, expect, it, jest } from "@jest/globals";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createElement } from "react";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import { getLatestTurnMode } from "./conversation-mode";
-import type { AgentEvent } from "@/shared/types";
+import { areMessageRowsEqual } from "./message-row-memo";
+import type { AgentEvent, ChatMessage, PlanStep } from "@/shared/types";
+
+jest.mock("framer-motion", () => ({
+  __esModule: true,
+  AnimatePresence: ({ children }: { children: React.ReactNode }) => createElement(React.Fragment, null, children),
+  motion: {
+    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => createElement("div", props, children),
+    span: ({ children, ...props }: React.HTMLAttributes<HTMLSpanElement>) => createElement("span", props, children),
+  },
+  useReducedMotion: () => true,
+}));
+
+jest.mock("@/shared/components", () => ({
+  __esModule: true,
+  TopBar: () => null,
+  MarkdownRenderer: ({
+    content,
+  }: {
+    content: string;
+  }) => createElement("div", { "data-testid": "markdown" }, content),
+}));
+
+jest.mock("@/shared/hooks", () => ({
+  __esModule: true,
+  usePacedStreamingText: (content: string) => content,
+}));
+
+jest.mock("@/features/agent-computer", () => ({
+  __esModule: true,
+  AgentProgressCard: () => null,
+  AgentComputerPanel: () => null,
+}));
+
+jest.mock("@/features/conversation", () => ({
+  __esModule: true,
+  ChatInput: () => null,
+}));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { MessageRow } = require("./ConversationWorkspace");
 
 describe("shouldAutoScrollToBottom", () => {
   it("scrolls on first populate", () => {
@@ -60,5 +103,114 @@ describe("getLatestTurnMode", () => {
       { type: "turn_start", data: { message: "two" }, timestamp: 2, iteration: null },
     ];
     expect(getLatestTurnMode(events)).toBeNull();
+  });
+});
+
+describe("areMessageRowsEqual", () => {
+  const baseMessage: ChatMessage = {
+    messageId: "event-turn:1:assistant:0",
+    role: "assistant",
+    content: "stable",
+    timestamp: 1,
+    source: "event",
+    turnId: "event-turn:1",
+  };
+
+  const planSteps: readonly PlanStep[] = [];
+
+  it("keeps older rows memoized when only the latest row is streaming", () => {
+    expect(
+      areMessageRowsEqual(
+        {
+          msg: baseMessage,
+          isLastAssistant: false,
+          isStreamingThis: false,
+          isThinkingThis: false,
+          messageWidthClass: "sm:max-w-[82%]",
+          embeddedPlanSteps: planSteps,
+          index: 0,
+          conversationId: "c1",
+          taskState: "executing",
+          locale: "en",
+        },
+        {
+          msg: { ...baseMessage },
+          isLastAssistant: false,
+          isStreamingThis: false,
+          isThinkingThis: false,
+          messageWidthClass: "sm:max-w-[82%]",
+          embeddedPlanSteps: planSteps,
+          index: 0,
+          conversationId: "c1",
+          taskState: "executing",
+          locale: "en",
+        },
+      ),
+    ).toBe(true);
+  });
+
+  it("invalidates the active assistant row when streamed content changes", () => {
+    expect(
+      areMessageRowsEqual(
+        {
+          msg: {
+            ...baseMessage,
+            content: "Part 1",
+          },
+          isLastAssistant: true,
+          isStreamingThis: true,
+          isThinkingThis: false,
+          messageWidthClass: "sm:max-w-[82%]",
+          embeddedPlanSteps: planSteps,
+          index: 1,
+          conversationId: "c1",
+          taskState: "executing",
+          locale: "en",
+        },
+        {
+          msg: {
+            ...baseMessage,
+            content: "Part 1 and Part 2",
+          },
+          isLastAssistant: true,
+          isStreamingThis: true,
+          isThinkingThis: false,
+          messageWidthClass: "sm:max-w-[82%]",
+          embeddedPlanSteps: planSteps,
+          index: 1,
+          conversationId: "c1",
+          taskState: "executing",
+          locale: "en",
+        },
+      ),
+    ).toBe(false);
+  });
+
+  it("renders reasoning separately before the assistant response body", () => {
+    const assistantMessage: ChatMessage = {
+      ...baseMessage,
+      thinkingEntries: [{ content: "## Inspect\n\nCheck constraints.", durationMs: 2000, timestamp: 1 }],
+      content: "Final answer body.",
+    };
+
+    const html = renderToStaticMarkup(createElement(MessageRow, {
+      msg: assistantMessage,
+      isLastAssistant: false,
+      isStreamingThis: false,
+      isThinkingThis: false,
+      messageWidthClass: "sm:max-w-[82%]",
+      embeddedPlanSteps: planSteps,
+      index: 0,
+      conversationId: "c1",
+      taskState: "idle",
+      locale: "en",
+      t: (key: string) => key,
+    }));
+
+    const thinkingIndex = html.indexOf("data-thinking-block");
+    const responseIndex = html.indexOf("conversation-response-body");
+
+    expect(thinkingIndex).toBeGreaterThanOrEqual(0);
+    expect(responseIndex).toBeGreaterThan(thinkingIndex);
   });
 });

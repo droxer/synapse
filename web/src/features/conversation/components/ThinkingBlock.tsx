@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { ChevronDown } from "lucide-react";
+import { Brain, ChevronDown } from "lucide-react";
 import { MarkdownRenderer } from "@/shared/components";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
+import { parseThinkingTimeline } from "../lib/parse-thinking-timeline";
 
 interface ThinkingBlockProps {
   readonly content: string;
@@ -14,6 +15,13 @@ interface ThinkingBlockProps {
   readonly durationMs?: number;
   /** When set, used instead of "Thought for Ns" when not actively thinking (e.g. inline-extracted reasoning). */
   readonly summaryLabel?: string;
+}
+
+export function getNextThinkingBlockExpanded(previousExpanded: boolean, wasTurnStreaming: boolean, isTurnStreaming: boolean): boolean {
+  if (wasTurnStreaming && !isTurnStreaming) {
+    return false;
+  }
+  return previousExpanded;
 }
 
 export function ThinkingBlock({
@@ -34,9 +42,7 @@ export function ThinkingBlock({
   // Auto-collapse only when the streaming turn finishes, not when the
   // assistant moves from "thinking" to "writing".
   useEffect(() => {
-    if (wasTurnStreamingRef.current && !isTurnStreaming) {
-      setExpanded(false);
-    }
+    setExpanded((prev) => getNextThinkingBlockExpanded(prev, wasTurnStreamingRef.current, isTurnStreaming));
     wasTurnStreamingRef.current = isTurnStreaming;
   }, [isTurnStreaming]);
 
@@ -70,30 +76,52 @@ export function ThinkingBlock({
   const label = isThinking
     ? t("thinking.thinking")
     : (summaryLabel ?? t("thinking.thoughtFor", { seconds: durationSeconds }));
+  const steps = parseThinkingTimeline(content);
+  const isMultiStep = steps.length > 1 || steps.some((step) => step.title);
+  const leadingVisual = isThinking
+    ? (
+      <span
+        className={cn(
+          "h-1.5 w-1.5 shrink-0 rounded-full bg-focus/90",
+          !shouldReduceMotion && "animate-pulse",
+        )}
+        aria-hidden="true"
+      />
+    )
+    : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-border-strong/80" aria-hidden="true" />;
 
   return (
-    <div className="overflow-hidden border-l border-border-strong pl-2">
+    <section
+      data-thinking-block=""
+      className={cn(
+        "overflow-hidden rounded-xl border border-ai-border bg-ai-surface/80 transition-[border-color,background-color,box-shadow] duration-150",
+        expanded && "bg-ai-surface shadow-[var(--shadow-card)]",
+      )}
+    >
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-caption font-medium tracking-[0.01em] text-muted-foreground transition-colors",
-          "hover:bg-muted/50 hover:text-foreground/90",
+          "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-caption font-medium tracking-[0.01em] text-muted-foreground transition-[background-color,color]",
+          "hover:bg-muted/35 hover:text-foreground/90",
           expanded && "text-foreground/85",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         )}
       >
-        {isThinking && (
+        <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
+          {leadingVisual}
           <span
             className={cn(
-              "h-1.5 w-1.5 shrink-0 rounded-full bg-focus/90",
-              !shouldReduceMotion && "animate-pulse",
+              "inline-flex h-6 w-6 items-center justify-center rounded-md border border-ai-border bg-background/70",
+              expanded && "text-foreground/85",
             )}
             aria-hidden="true"
-          />
-        )}
+          >
+            <Brain className="h-3.5 w-3.5" />
+          </span>
+        </span>
         <span className="min-w-0 flex-1 truncate">{label}</span>
 
         <motion.span
@@ -116,26 +144,65 @@ export function ThinkingBlock({
             transition={{ duration: 0.15 * dur, ease: [0.33, 1, 0.68, 1] }}
             className="overflow-hidden"
           >
-            <div className="pt-1">
+            <div className="px-3 pb-3 pt-0.5">
               <div
                 ref={scrollRef}
+                data-thinking-panel=""
                 className={cn(
-                  "max-h-96 overflow-y-auto px-2.5 pb-2.5",
+                  "max-h-96 overflow-y-auto rounded-lg border border-ai-border/80 bg-background/65 p-3",
                   showBottomFade && "thinking-scroll-mask",
                 )}
               >
-                <div className="border-l border-border/35 pl-3">
-                  <MarkdownRenderer
-                    content={content}
-                    isStreaming={isThinking}
-                    className="markdown-reasoning"
-                  />
-                </div>
+                {isMultiStep ? (
+                  <div data-thinking-mode="steps" className="space-y-3">
+                    {steps.map((step, idx) => (
+                      <section
+                        key={step.id}
+                        data-thinking-step={idx + 1}
+                        className={cn(
+                          "rounded-lg border border-transparent px-0.5 py-0.5",
+                          idx > 0 && "border-t border-ai-border/80 pt-3",
+                        )}
+                      >
+                        <div className="flex items-start gap-3">
+                          <span
+                            className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground"
+                            aria-hidden="true"
+                          >
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0 flex-1">
+                            {step.title ? (
+                              <h3 className="text-sm font-medium text-foreground/90">
+                                {step.title}
+                              </h3>
+                            ) : null}
+                            <div className={cn(step.title && "mt-1.5")}>
+                              <MarkdownRenderer
+                                content={step.body}
+                                isStreaming={isThinking}
+                                className="markdown-reasoning"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </section>
+                    ))}
+                  </div>
+                ) : (
+                  <div data-thinking-mode="note" className="rounded-lg border border-ai-border/70 bg-ai-surface/65 px-3 py-2.5">
+                    <MarkdownRenderer
+                      content={steps[0]?.body ?? content}
+                      isStreaming={isThinking}
+                      className="markdown-reasoning"
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </section>
   );
 }

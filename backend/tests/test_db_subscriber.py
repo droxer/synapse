@@ -98,7 +98,63 @@ async def test_updates_title_on_conversation_title_event(repo, session_factory) 
 async def test_context_compacted_merges_summary(
     mock_get_settings, repo, session_factory
 ) -> None:
-    mock_get_settings.return_value = MagicMock(COMPACT_CONTEXT_SUMMARY_MAX_CHARS=10_000)
+    mock_get_settings.return_value = MagicMock(
+        COMPACT_CONTEXT_SUMMARY_MAX_CHARS=10_000,
+        COMPACT_TOKEN_BUDGET=150_000,
+        COMPACT_TOKEN_COUNTER="weighted",
+        COMPACT_FULL_INTERACTIONS=5,
+        COMPACT_FALLBACK_PREVIEW_CHARS=500,
+        COMPACT_FALLBACK_RESULT_CHARS=1000,
+        COMPACT_SUMMARY_MODEL="",
+        COMPACT_FULL_DIALOGUE_TURNS=5,
+        COMPACT_DIALOGUE_FALLBACK_CHARS=12_000,
+        COMPACT_RECONSTRUCT_TAIL_MESSAGES=80,
+        COMPACT_MEMORY_FLUSH=False,
+        COMPACT_WEB_TOKEN_BUDGET=None,
+        COMPACT_WEB_TOKEN_COUNTER=None,
+        COMPACT_WEB_FULL_INTERACTIONS=None,
+        COMPACT_WEB_FALLBACK_PREVIEW_CHARS=None,
+        COMPACT_WEB_FALLBACK_RESULT_CHARS=None,
+        COMPACT_WEB_SUMMARY_MODEL=None,
+        COMPACT_WEB_FULL_DIALOGUE_TURNS=None,
+        COMPACT_WEB_DIALOGUE_FALLBACK_CHARS=None,
+        COMPACT_WEB_CONTEXT_SUMMARY_MAX_CHARS=None,
+        COMPACT_WEB_RECONSTRUCT_TAIL_MESSAGES=None,
+        COMPACT_WEB_MEMORY_FLUSH=None,
+        COMPACT_CHANNEL_TOKEN_BUDGET=None,
+        COMPACT_CHANNEL_TOKEN_COUNTER=None,
+        COMPACT_CHANNEL_FULL_INTERACTIONS=None,
+        COMPACT_CHANNEL_FALLBACK_PREVIEW_CHARS=None,
+        COMPACT_CHANNEL_FALLBACK_RESULT_CHARS=None,
+        COMPACT_CHANNEL_SUMMARY_MODEL=None,
+        COMPACT_CHANNEL_FULL_DIALOGUE_TURNS=None,
+        COMPACT_CHANNEL_DIALOGUE_FALLBACK_CHARS=None,
+        COMPACT_CHANNEL_CONTEXT_SUMMARY_MAX_CHARS=None,
+        COMPACT_CHANNEL_RECONSTRUCT_TAIL_MESSAGES=None,
+        COMPACT_CHANNEL_MEMORY_FLUSH=None,
+        COMPACT_PLANNER_TOKEN_BUDGET=None,
+        COMPACT_PLANNER_TOKEN_COUNTER=None,
+        COMPACT_PLANNER_FULL_INTERACTIONS=None,
+        COMPACT_PLANNER_FALLBACK_PREVIEW_CHARS=None,
+        COMPACT_PLANNER_FALLBACK_RESULT_CHARS=None,
+        COMPACT_PLANNER_SUMMARY_MODEL=None,
+        COMPACT_PLANNER_FULL_DIALOGUE_TURNS=None,
+        COMPACT_PLANNER_DIALOGUE_FALLBACK_CHARS=None,
+        COMPACT_PLANNER_CONTEXT_SUMMARY_MAX_CHARS=7777,
+        COMPACT_PLANNER_RECONSTRUCT_TAIL_MESSAGES=None,
+        COMPACT_PLANNER_MEMORY_FLUSH=None,
+        COMPACT_TASK_AGENT_TOKEN_BUDGET=None,
+        COMPACT_TASK_AGENT_TOKEN_COUNTER=None,
+        COMPACT_TASK_AGENT_FULL_INTERACTIONS=None,
+        COMPACT_TASK_AGENT_FALLBACK_PREVIEW_CHARS=None,
+        COMPACT_TASK_AGENT_FALLBACK_RESULT_CHARS=None,
+        COMPACT_TASK_AGENT_SUMMARY_MODEL=None,
+        COMPACT_TASK_AGENT_FULL_DIALOGUE_TURNS=None,
+        COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS=None,
+        COMPACT_TASK_AGENT_CONTEXT_SUMMARY_MAX_CHARS=None,
+        COMPACT_TASK_AGENT_RECONSTRUCT_TAIL_MESSAGES=None,
+        COMPACT_TASK_AGENT_MEMORY_FLUSH=None,
+    )
     conversation_id = uuid.uuid4()
     subscriber = create_db_subscriber(conversation_id, repo, session_factory)
     event = _make_event(
@@ -107,10 +163,35 @@ async def test_context_compacted_merges_summary(
             "original_messages": 10,
             "compacted_messages": 3,
             "summary_text": "## Earlier conversation\nkey point",
+            "compaction_profile": "planner",
         },
     )
     await subscriber(event)
     repo.merge_conversation_context_summary.assert_called_once()
+    args, _ = repo.merge_conversation_context_summary.call_args
+    assert args[3] == 7777
+    repo.save_event.assert_called_once()
+
+
+@patch("api.db_subscriber.get_settings")
+async def test_context_compacted_from_task_agent_does_not_merge_summary(
+    mock_get_settings, repo, session_factory
+) -> None:
+    mock_get_settings.return_value = MagicMock(COMPACT_CONTEXT_SUMMARY_MAX_CHARS=10_000)
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.CONTEXT_COMPACTED,
+        {
+            "original_messages": 10,
+            "compacted_messages": 3,
+            "summary_text": "## Previous work\nworker scratchpad",
+            "summary_scope": "task_agent",
+            "agent_id": "worker-1",
+        },
+    )
+    await subscriber(event)
+    repo.merge_conversation_context_summary.assert_not_called()
     repo.save_event.assert_called_once()
 
 

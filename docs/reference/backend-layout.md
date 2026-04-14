@@ -19,7 +19,9 @@
 | `agent/runtime/sub_agent_manager.py` | Concurrent sub-agents, failure propagation (cancel / degrade / replan), timeouts |
 | `agent/runtime/task_runner.py` | Sub-task executor; per-agent metrics (duration, iterations, tools, tokens) |
 | `agent/runtime/skill_selector.py` | LLM skill selection: explicit name → LLM pick → keyword fallback |
-| `agent/runtime/observer.py` | Token-aware context compaction, CJK-aware estimation, fallbacks |
+| `agent/context/compaction.py` | Token-aware context compaction, CJK-aware estimation, fallbacks |
+| `agent/context/profiles.py` | Runtime-specific compaction policy resolution (`web`, `channel`, `planner`, `task_agent`) |
+| `agent/runtime/observer.py` | Compatibility shim re-exporting `agent.context` compaction APIs |
 
 ## Agent systems
 

@@ -9,7 +9,7 @@ This document describes how Synapse handles **memory** in the broad sense: what 
 | Layer | Purpose | Primary location |
 | --- | --- | --- |
 | **Working context** | Messages, tool I/O, and system prompt for the current turn | In-process `AgentState.messages` + assembled system prompt |
-| **Context compaction** | Keeps estimated token usage under a budget by summarizing or truncating older content | `agent/runtime/observer.py` (`Observer`) |
+| **Context compaction** | Keeps estimated token usage under a budget by summarizing or truncating older content | `agent/context/compaction.py` (`Observer`) + `agent/context/profiles.py` |
 | **Persistent memory** | Long-lived user data the agent can read/write across conversations | PostgreSQL/SQLite via `PersistentMemoryStore` (`agent/memory/store.py`) |
 
 Additionally, **verified facts** (`memory_facts`) are a structured store used heavily in **channels** for retrieval-augmented prompt sections and optional background extraction.
@@ -66,7 +66,7 @@ This is a **separate** table from `memory_entries`, optimized for **structured f
 
 ## 3. Context compaction (`Observer`)
 
-**File:** `agent/runtime/observer.py`
+**Files:** `agent/context/compaction.py`, `agent/context/profiles.py`
 
 ### When it runs
 
@@ -81,16 +81,33 @@ Compaction returns a **new** message tuple; inputs are never mutated.
 2. **Tool-heavy threads**: recent tool interaction pairs are kept in full (**hot tier**); older regions are summarized (**warm tier**) with a small LLM call (`COMPACT_SUMMARY_MODEL` or `LITE_MODEL`), or fall back to structured truncation of tool results (`COMPACT_FALLBACK_PREVIEW_CHARS`, `COMPACT_FALLBACK_RESULT_CHARS`).
 3. **Pure dialogue** (e.g. DB replay without tool blocks): older turns are summarized into a synthetic assistant message starting with `## Earlier conversation` or `## Previous work`, or truncated per `COMPACT_DIALOGUE_FALLBACK_CHARS` if summarization is unavailable.
 
+### Runtime-specific profiles
+
+The compaction algorithm is shared across all runtimes, but the policy inputs are resolved from a runtime-specific profile in `agent/context/profiles.py`.
+
+- `web_conversation` — default web chat / SSE conversations
+- `channel_conversation` — channel-driven conversations such as Telegram
+- `planner` — planner-mode orchestration
+- `task_agent` — spawned worker agents
+
+Each profile resolves the same knob set: token budget, token counter strategy, hot-tier sizes, fallback truncation limits, summary model, rolling `context_summary` cap, reconstruction tail length, and the pre-compaction memory flush flag.
+
+Resolution order is:
+
+1. Start from the global `COMPACT_*` defaults.
+2. Apply runtime-specific overrides such as `COMPACT_CHANNEL_TOKEN_BUDGET` or `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS` when set.
+3. If no profile-specific summary model is set, fall back to `LITE_MODEL` at runtime.
+
 ### Where it is invoked
 
 - **`AgentOrchestrator`** — main ReAct loop (`agent/runtime/orchestrator.py`). Optionally runs **heuristic fact flush** before compacting when `COMPACT_MEMORY_FLUSH` is true and a `PersistentMemoryStore` is present.
 - **`TaskRunner`** — spawned sub-agents (`agent/runtime/task_runner.py`).
 - **`Planner`** — planning mode (`agent/runtime/planner.py`).
-- **`_reconstruct_conversation`** — when an SSE client reconnects and the conversation was evicted from memory (`api/routes/conversations.py`): rebuilt messages may be compacted again before the orchestrator runs.
+- **`_reconstruct_conversation`** — when an SSE client reconnects and the conversation was evicted from memory (`api/routes/conversations.py`): rebuilt messages may be compacted again before the orchestrator runs, using the owning runtime's compaction profile.
 
 ### Events and metrics
 
-- Each compaction emits **`CONTEXT_COMPACTED`** with metadata including `summary_text` when dialogue-style summaries exist (`compaction_summary_for_persistence()`).
+- Each compaction emits **`CONTEXT_COMPACTED`** with metadata including `summary_text` when dialogue-style summaries exist (`compaction_summary_for_persistence()`), plus `summary_scope` and `compaction_profile`.
 - Sub-agent runs expose **`context_compaction_count`** in metrics.
 
 ---
@@ -101,13 +118,13 @@ Compaction returns a **new** message tuple; inputs are never mutated.
 
 ### Persistence path
 
-When the DB subscriber handles **`CONTEXT_COMPACTED`** (`api/db_subscriber.py`), if `summary_text` is present it calls **`merge_conversation_context_summary`**: append the new fragment with a `---` separator, then **keep only the last `COMPACT_CONTEXT_SUMMARY_MAX_CHARS`** characters (rolling tail).
+When the DB subscriber handles **`CONTEXT_COMPACTED`** (`api/db_subscriber.py`), if `summary_text` is present and `summary_scope` belongs to the top-level conversation, it calls **`merge_conversation_context_summary`**: append the new fragment with a `---` separator, then keep only the profile-specific rolling tail length (`COMPACT_CONTEXT_SUMMARY_MAX_CHARS` by default, or an override such as `COMPACT_PLANNER_CONTEXT_SUMMARY_MAX_CHARS`).
 
 ### Reconnect / cold start
 
 When reconstructing from the DB (`_reconstruct_conversation` in `api/routes/conversations.py`):
 
-- If `context_summary` is non-empty, only the **last `COMPACT_RECONSTRUCT_TAIL_MESSAGES`** messages are loaded from `messages` instead of the full history.
+- If `context_summary` is non-empty, only the **last profile-specific reconstruct tail** messages are loaded from `messages` instead of the full history (`COMPACT_RECONSTRUCT_TAIL_MESSAGES` by default, or an override such as `COMPACT_CHANNEL_RECONSTRUCT_TAIL_MESSAGES`).
 - An initial synthetic assistant message is prepended: `## Earlier sessions (compressed)` + the stored summary.
 
 That gives the model a **compressed backbone** of older work plus recent verbatim messages, without reloading the entire thread.
@@ -115,6 +132,8 @@ That gives the model a **compressed backbone** of older work plus recent verbati
 ---
 
 ## 5. Configuration reference
+
+The global `COMPACT_*` variables are the compatibility baseline for every runtime profile. Optional runtime-specific overrides use `COMPACT_<PROFILE>_*`, where `<PROFILE>` is one of `WEB`, `CHANNEL`, `PLANNER`, or `TASK_AGENT`.
 
 | Variable | Role |
 | --- | --- |
@@ -132,6 +151,14 @@ That gives the model a **compressed backbone** of older work plus recent verbati
 | `MEMORY_FACT_TOP_K` | Max facts injected for a channel message |
 | `MEMORY_FACT_PROMPT_TOKEN_CAP` | Character cap on the verified-facts prompt section |
 
+Examples of runtime-specific overrides:
+
+- `COMPACT_CHANNEL_TOKEN_BUDGET`
+- `COMPACT_CHANNEL_RECONSTRUCT_TAIL_MESSAGES`
+- `COMPACT_PLANNER_FULL_INTERACTIONS`
+- `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS`
+- `COMPACT_WEB_SUMMARY_MODEL`
+
 Environment defaults live in `backend/config/settings.py`; see `backend/.env.example` for documented env names.
 
 ---
@@ -145,7 +172,8 @@ Environment defaults live in `backend/config/settings.py`; see `backend/.env.exa
 | Fact validation | `agent/memory/facts.py` |
 | Heuristic extraction | `agent/memory/heuristic_extract.py` |
 | Pre-compaction flush | `agent/memory/compaction_flush.py` |
-| Compaction | `agent/runtime/observer.py` |
+| Compaction | `agent/context/compaction.py` |
+| Compaction profiles | `agent/context/profiles.py` |
 | Orchestrator integration | `agent/runtime/orchestrator.py` |
 | System prompt + facts formatting | `api/builders.py` |
 | DB merge for summaries | `agent/state/repository.py` → `merge_conversation_context_summary` |

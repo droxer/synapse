@@ -1,8 +1,62 @@
-import type { ChatMessage } from "@/shared/types";
+import type { ChatMessage, ThinkingEntry } from "@/shared/types";
 
-function appendUnique<T>(source: readonly T[] | undefined, additions: readonly T[]): T[] {
+function appendUniqueStrings(source: readonly string[] | undefined, additions: readonly string[]): string[] {
   if (!source || source.length === 0) return [...additions];
-  return [...source, ...additions];
+  const merged = [...source];
+  for (const item of additions) {
+    if (!merged.includes(item)) {
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+function appendUniqueThinkingEntries(
+  source: readonly ThinkingEntry[] | undefined,
+  additions: readonly ThinkingEntry[],
+): ThinkingEntry[] {
+  if (!source || source.length === 0) return [...additions];
+  const merged = [...source];
+  for (const item of additions) {
+    const exists = merged.some(
+      (entry) =>
+        entry.content === item.content &&
+        entry.timestamp === item.timestamp &&
+        entry.durationMs === item.durationMs,
+    );
+    if (!exists) {
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
+function thinkingEntriesEqual(a: ChatMessage["thinkingEntries"], b: ChatMessage["thinkingEntries"]): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ae = a[i];
+    const be = b[i];
+    if (
+      ae?.content !== be?.content ||
+      ae?.timestamp !== be?.timestamp ||
+      ae?.durationMs !== be?.durationMs
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function stringArraysEqual(a: readonly string[] | undefined, b: readonly string[] | undefined): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
 }
 
 /**
@@ -51,15 +105,27 @@ export function mergeHistoryWithEventDerivedMessages(
       const hasNewThinking = (hm.thinkingEntries?.length ?? 0) > 0;
       const hasNewThinkingContent = Boolean(hm.thinkingContent && !existing.thinkingContent);
       if (hasNewArtifacts || hasNewThinking || hasNewThinkingContent) {
+        const mergedArtifactIds = hasNewArtifacts
+          ? appendUniqueStrings(existing.imageArtifactIds, hm.imageArtifactIds!)
+          : existing.imageArtifactIds;
+        const mergedThinkingEntries = hasNewThinking
+          ? appendUniqueThinkingEntries(existing.thinkingEntries, hm.thinkingEntries!)
+          : existing.thinkingEntries;
+        const mergedThinkingContent = existing.thinkingContent || hm.thinkingContent;
+
+        if (
+          mergedThinkingContent === existing.thinkingContent &&
+          stringArraysEqual(mergedArtifactIds, existing.imageArtifactIds) &&
+          thinkingEntriesEqual(mergedThinkingEntries, existing.thinkingEntries)
+        ) {
+          continue;
+        }
+
         merged[duplicateIdx] = {
           ...existing,
-          thinkingContent: existing.thinkingContent || hm.thinkingContent,
-          imageArtifactIds: hasNewArtifacts
-            ? appendUnique(existing.imageArtifactIds, hm.imageArtifactIds!)
-            : existing.imageArtifactIds,
-          thinkingEntries: hasNewThinking
-            ? appendUnique(existing.thinkingEntries, hm.thinkingEntries!)
-            : existing.thinkingEntries,
+          thinkingContent: mergedThinkingContent,
+          imageArtifactIds: mergedArtifactIds,
+          thinkingEntries: mergedThinkingEntries,
         };
       }
     } else {

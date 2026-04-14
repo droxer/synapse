@@ -117,7 +117,7 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
             aria-label={isDisabled ? t("mcp.enable") : t("mcp.disable")}
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isDisabled
                 ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
                 : "border border-border bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",

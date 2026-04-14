@@ -77,6 +77,55 @@ class Settings(BaseSettings):
     COMPACT_RECONSTRUCT_TAIL_MESSAGES: int = 80
     # Before compaction, persist heuristic facts from user text in dropped context
     COMPACT_MEMORY_FLUSH: bool = False
+    # Runtime-specific compaction overrides. Unset values inherit the base
+    # COMPACT_* settings above.
+    COMPACT_WEB_TOKEN_BUDGET: int | None = None
+    COMPACT_WEB_TOKEN_COUNTER: TokenCounterStrategy | None = None
+    COMPACT_WEB_FULL_INTERACTIONS: int | None = None
+    COMPACT_WEB_FALLBACK_PREVIEW_CHARS: int | None = None
+    COMPACT_WEB_FALLBACK_RESULT_CHARS: int | None = None
+    COMPACT_WEB_SUMMARY_MODEL: str | None = None
+    COMPACT_WEB_FULL_DIALOGUE_TURNS: int | None = None
+    COMPACT_WEB_DIALOGUE_FALLBACK_CHARS: int | None = None
+    COMPACT_WEB_CONTEXT_SUMMARY_MAX_CHARS: int | None = None
+    COMPACT_WEB_RECONSTRUCT_TAIL_MESSAGES: int | None = None
+    COMPACT_WEB_MEMORY_FLUSH: bool | None = None
+
+    COMPACT_CHANNEL_TOKEN_BUDGET: int | None = None
+    COMPACT_CHANNEL_TOKEN_COUNTER: TokenCounterStrategy | None = None
+    COMPACT_CHANNEL_FULL_INTERACTIONS: int | None = None
+    COMPACT_CHANNEL_FALLBACK_PREVIEW_CHARS: int | None = None
+    COMPACT_CHANNEL_FALLBACK_RESULT_CHARS: int | None = None
+    COMPACT_CHANNEL_SUMMARY_MODEL: str | None = None
+    COMPACT_CHANNEL_FULL_DIALOGUE_TURNS: int | None = None
+    COMPACT_CHANNEL_DIALOGUE_FALLBACK_CHARS: int | None = None
+    COMPACT_CHANNEL_CONTEXT_SUMMARY_MAX_CHARS: int | None = None
+    COMPACT_CHANNEL_RECONSTRUCT_TAIL_MESSAGES: int | None = None
+    COMPACT_CHANNEL_MEMORY_FLUSH: bool | None = None
+
+    COMPACT_PLANNER_TOKEN_BUDGET: int | None = None
+    COMPACT_PLANNER_TOKEN_COUNTER: TokenCounterStrategy | None = None
+    COMPACT_PLANNER_FULL_INTERACTIONS: int | None = None
+    COMPACT_PLANNER_FALLBACK_PREVIEW_CHARS: int | None = None
+    COMPACT_PLANNER_FALLBACK_RESULT_CHARS: int | None = None
+    COMPACT_PLANNER_SUMMARY_MODEL: str | None = None
+    COMPACT_PLANNER_FULL_DIALOGUE_TURNS: int | None = None
+    COMPACT_PLANNER_DIALOGUE_FALLBACK_CHARS: int | None = None
+    COMPACT_PLANNER_CONTEXT_SUMMARY_MAX_CHARS: int | None = None
+    COMPACT_PLANNER_RECONSTRUCT_TAIL_MESSAGES: int | None = None
+    COMPACT_PLANNER_MEMORY_FLUSH: bool | None = None
+
+    COMPACT_TASK_AGENT_TOKEN_BUDGET: int | None = None
+    COMPACT_TASK_AGENT_TOKEN_COUNTER: TokenCounterStrategy | None = None
+    COMPACT_TASK_AGENT_FULL_INTERACTIONS: int | None = None
+    COMPACT_TASK_AGENT_FALLBACK_PREVIEW_CHARS: int | None = None
+    COMPACT_TASK_AGENT_FALLBACK_RESULT_CHARS: int | None = None
+    COMPACT_TASK_AGENT_SUMMARY_MODEL: str | None = None
+    COMPACT_TASK_AGENT_FULL_DIALOGUE_TURNS: int | None = None
+    COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS: int | None = None
+    COMPACT_TASK_AGENT_CONTEXT_SUMMARY_MAX_CHARS: int | None = None
+    COMPACT_TASK_AGENT_RECONSTRUCT_TAIL_MESSAGES: int | None = None
+    COMPACT_TASK_AGENT_MEMORY_FLUSH: bool | None = None
     # Deprecated compatibility shim. This legacy env var is intentionally a no-op.
     # Keep it accepted to avoid startup crashes with older .env files.
     COMPACT_TOKEN_BUDGET_SCALE: float | None = None

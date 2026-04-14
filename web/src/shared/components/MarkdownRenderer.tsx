@@ -1,14 +1,15 @@
 "use client";
 
-import { memo, useState, useCallback, isValidElement, type CSSProperties, type ReactNode } from "react";
+import { memo, useState, useCallback, useMemo, isValidElement, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
 import rehypeKatex from "rehype-katex";
 import rehypeHighlight from "rehype-highlight";
 import type { Components } from "react-markdown";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, ArrowUpRight } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { getMarkdownRenderStrategy, type MarkdownRenderStrategy } from "./markdown-render-strategy";
 
 // Helper to recursively extract text from React children
 const extractText = (node: ReactNode): string => {
@@ -37,7 +38,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      className="flex items-center gap-1 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
       aria-label="Copy code"
       title="Copy code"
     >
@@ -47,31 +48,35 @@ function CopyButton({ text }: { text: string }) {
   );
 }
 
+function PreComponent({ children }: { children: ReactNode }) {
+  let language = "text";
+
+  if (isValidElement<{ className?: string }>(children)) {
+    const className = children.props.className;
+    const match = /language-(\w+)/.exec(className ?? "");
+    if (match) {
+      language = match[1];
+    }
+  }
+
+  const codeString = useMemo(() => extractText(children), [children]);
+
+  return (
+    <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary/50 not-prose shadow-card">
+      <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
+        <span>{language}</span>
+        <CopyButton text={codeString} />
+      </div>
+      <pre className="p-4 overflow-x-auto text-[length:var(--md-code-font-size,var(--text-sm))] font-mono bg-transparent m-0 border-none">
+        {children}
+      </pre>
+    </div>
+  );
+}
+
 const components: Components = {
   pre({ children }) {
-    let language = "text";
-
-    if (isValidElement<{ className?: string }>(children)) {
-      const className = children.props.className;
-      const match = /language-(\w+)/.exec(className ?? "");
-      if (match) {
-        language = match[1];
-      }
-    }
-
-    const codeString = extractText(children);
-
-    return (
-      <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary/50 not-prose shadow-card">
-        <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
-          <span>{language}</span>
-          <CopyButton text={codeString} />
-        </div>
-        <pre className="p-4 overflow-x-auto text-[length:var(--md-code-font-size,var(--text-sm))] font-mono bg-transparent m-0 border-none">
-          {children}
-        </pre>
-      </div>
-    );
+    return <PreComponent>{children}</PreComponent>;
   },
   code({ className, children, ...props }) {
     const isInline = !className;
@@ -113,14 +118,18 @@ const components: Components = {
     );
   },
   a({ href, children }) {
+    const isExternal = href?.startsWith("http://") || href?.startsWith("https://");
     return (
       <a
         href={href}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-focus underline underline-offset-2 hover:text-focus/80"
+        target={isExternal ? "_blank" : undefined}
+        rel={isExternal ? "noopener noreferrer" : undefined}
+        className="inline-flex items-center gap-0.5 text-focus underline underline-offset-2 hover:text-focus/80"
       >
         {children}
+        {isExternal && (
+          <ArrowUpRight className="h-3 w-3 shrink-0" aria-hidden="true" />
+        )}
       </a>
     );
   },
@@ -131,6 +140,26 @@ interface MarkdownRendererProps {
   className?: string;
   isStreaming?: boolean;
   compactCode?: boolean;
+  mode?: MarkdownRenderStrategy;
+}
+
+function renderInlineCodeSegments(content: string): ReactNode[] {
+  const segments = content.split(/(`[^`\n]+`)/g);
+
+  return segments.map((segment, index) => {
+    if (/^`[^`\n]+`$/.test(segment)) {
+      return (
+        <code
+          key={`inline-code-${index}`}
+          className="rounded-lg border border-border-strong bg-muted/65 px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
+        >
+          {segment.slice(1, -1)}
+        </code>
+      );
+    }
+
+    return <span key={`inline-text-${index}`}>{segment}</span>;
+  });
 }
 
 export const MarkdownRenderer = memo(function MarkdownRenderer({
@@ -138,10 +167,27 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
   className,
   isStreaming,
   compactCode = false,
+  mode,
 }: MarkdownRendererProps) {
+  const renderMode = mode ?? getMarkdownRenderStrategy(isStreaming);
   const markdownVars = compactCode
     ? ({ "--md-code-font-size": "var(--text-xs)" } as CSSProperties)
     : undefined;
+
+  if (renderMode === "streaming-light") {
+    return (
+      <div
+        style={markdownVars}
+        className={cn(
+          "markdown-body conversation-markdown font-sans max-w-none break-words whitespace-pre-wrap leading-[1.5]",
+          isStreaming && "streaming-active",
+          className,
+        )}
+      >
+        {content.length > 0 ? renderInlineCodeSegments(content) : null}
+      </div>
+    );
+  }
 
   return (
     <div

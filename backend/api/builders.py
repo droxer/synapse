@@ -9,6 +9,11 @@ from loguru import logger
 
 from agent.artifacts.manager import ArtifactManager
 from agent.artifacts.storage import StorageBackend
+from agent.context.profiles import (
+    CompactionProfile,
+    CompactionRuntimeKind,
+    resolve_compaction_profile,
+)
 from agent.llm.client import AnthropicClient
 from agent.llm.image import MiniMaxImageClient
 from agent.runtime.orchestrator import AgentOrchestrator
@@ -407,10 +412,15 @@ def _build_orchestrator(
     skill_registry: SkillRegistry | None = None,
     memory_entries: list[dict[str, str]] | None = None,
     conversation_id: str | None = None,
+    compaction_runtime: CompactionRuntimeKind = "web_conversation",
+    compaction_profile: CompactionProfile | None = None,
 ) -> tuple[AgentOrchestrator, ToolExecutor]:
     """Build an AgentOrchestrator using a callback holder to avoid two-phase construction."""
     settings = get_settings()
     callback_holder = _CallbackHolder()
+    resolved_profile = compaction_profile or resolve_compaction_profile(
+        settings, compaction_runtime
+    )
 
     resolved_mcp_state = mcp_state if mcp_state is not None else MCPState()
 
@@ -442,6 +452,7 @@ def _build_orchestrator(
         event_emitter=event_emitter,
         system_prompt=system_prompt,
         max_iterations=settings.MAX_ITERATIONS,
+        compaction_profile=resolved_profile,
         initial_messages=initial_messages,
         thinking_budget=settings.THINKING_BUDGET,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
@@ -463,12 +474,18 @@ def _build_planner_orchestrator(
     memory_entries: list[dict[str, str]] | None = None,
     conversation_id: str | None = None,
     initial_messages: tuple[dict[str, Any], ...] = (),
+    compaction_runtime: CompactionRuntimeKind = "planner",
+    compaction_profile: CompactionProfile | None = None,
 ) -> tuple[PlannerOrchestrator, ToolExecutor]:
     """Build a PlannerOrchestrator with properly wired sub-agent registries."""
     settings = get_settings()
     callback_holder = _CallbackHolder()
+    resolved_profile = compaction_profile or resolve_compaction_profile(
+        settings, compaction_runtime
+    )
 
     resolved_mcp_state = mcp_state if mcp_state is not None else MCPState()
+    artifact_manager = ArtifactManager(storage_backend=storage_backend)
 
     sub_agent_manager = SubAgentManager(
         claude_client=claude_client,
@@ -482,6 +499,8 @@ def _build_planner_orchestrator(
             registry=reg,
             sandbox_provider=sandbox_provider,
             event_emitter=event_emitter,
+            artifact_manager=artifact_manager,
+            conversation_id=conversation_id,
         ),
         event_emitter=event_emitter,
         max_concurrent=settings.MAX_CONCURRENT_AGENTS,
@@ -524,6 +543,7 @@ def _build_planner_orchestrator(
         event_emitter=event_emitter,
         sub_agent_manager=sub_agent_manager,
         max_iterations=settings.MAX_ITERATIONS,
+        compaction_profile=resolved_profile,
         system_prompt=planner_prompt,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
         initial_messages=initial_messages,

@@ -294,7 +294,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             type="button"
             onClick={() => handleJsonCopy(prettyJson)}
             aria-label={copiedJson ? t("output.copied") : t("output.copyToClipboard")}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             {copiedJson ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             {copiedJson ? t("output.copied") : t("output.copy")}

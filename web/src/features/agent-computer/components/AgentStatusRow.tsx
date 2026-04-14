@@ -8,17 +8,55 @@ import { cn } from "@/shared/lib/utils";
 import { normalizeToolName, normalizeAgentName } from "../lib/tool-constants";
 import { ToolOutputRenderer } from "./ToolOutputRenderer";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
+import { SkillActivityEntry } from "./SkillActivityEntry";
 import { useTranslation } from "@/i18n";
-import { EVENT_LEFT_RAIL_CLASSES, EVENT_META_BADGE_CLASSES, EVENT_ROW_BASE_CLASSES } from "../lib/format-tools";
+import {
+  EVENT_LEFT_RAIL_CLASSES,
+  EVENT_META_BADGE_CLASSES,
+  EVENT_ROW_BASE_CLASSES,
+  SKILL_TOOL_NAMES,
+  getActivityEntryKind,
+  getActivityKindVisual,
+  getToolCallTone,
+  getToolCallVisualClasses,
+} from "../lib/format-tools";
+import { getSkillIcon, getToolIcon } from "../lib/tool-visual-icons";
 import type { AgentStatus, ToolCallInfo } from "@/shared/types";
 
 function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly label: string }) {
+  const isSkill = SKILL_TOOL_NAMES.has(tc.name);
+  const skillId = isSkill ? String(tc.input.name ?? "").trim() : "";
+  const ToolGlyph = skillId ? getSkillIcon(skillId) : getToolIcon(tc.name);
+  const kindVisual = getActivityKindVisual(getActivityEntryKind(tc.name));
   if (tc.success !== undefined) {
     return tc.success === false
-      ? <CircleX className="h-4 w-4 shrink-0 text-destructive" role="img" aria-label={label} />
-      : <CircleCheck className="h-4 w-4 shrink-0 text-accent-emerald" role="img" aria-label={label} />;
+      ? (
+        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", kindVisual.iconInsetRing)} role="img" aria-label={label}>
+          <ToolGlyph className="h-3.5 w-3.5 text-destructive" strokeWidth={2.25} />
+          <CircleX
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+            strokeWidth={2.5}
+            aria-hidden
+          />
+        </span>
+      )
+      : (
+        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", kindVisual.iconInsetRing)} role="img" aria-label={label}>
+          <ToolGlyph className="h-3.5 w-3.5 text-accent-emerald" strokeWidth={2.25} />
+          <CircleCheck
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+            strokeWidth={2.5}
+            aria-hidden
+          />
+        </span>
+      );
   }
-  return <PulsingDot size="sm" aria-label={label} />;
+  return (
+    <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary", kindVisual.iconInsetRing)} role="img" aria-label={label}>
+      <ToolGlyph className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
+      <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
+    </span>
+  );
 }
 
 interface AgentStatusRowProps {
@@ -122,50 +160,65 @@ export function AgentStatusRow({
             className="overflow-hidden"
           >
             <div className={cn("ml-1.5 mt-1.5 space-y-2", EVENT_LEFT_RAIL_CLASSES)}>
-              {toolCalls.map((tc) => (
-                <div key={tc.id} className="rounded-sm px-0.5 py-1">
-                  <div className="flex items-start gap-2.5">
-                    <ToolStatusIcon
-                      tc={tc}
-                      label={
-                        tc.success !== undefined
-                          ? tc.success === false
-                            ? t("a11y.toolFailed")
-                            : t("a11y.toolSuccess")
-                          : t("a11y.toolRunning")
-                      }
-                    />
-                    <span className="text-sm text-foreground">
-                      {normalizeToolName(tc.name)}
-                    </span>
-                    {tc.success === undefined && (
-                      <span className="text-sm text-muted-foreground">
-                        {t("computer.running")}
+              {toolCalls.map((tc) => {
+                if (SKILL_TOOL_NAMES.has(tc.name)) {
+                  return <SkillActivityEntry key={tc.id} toolCall={tc} />;
+                }
+                const visual = getToolCallVisualClasses(getToolCallTone(tc));
+                const kindVisual = getActivityKindVisual(getActivityEntryKind(tc.name));
+                return (
+                  <div
+                    key={tc.id}
+                    className={cn(
+                      "rounded-md border-l-2 px-2 py-1 transition-colors duration-150",
+                      visual.row,
+                      visual.rowHover,
+                      kindVisual.rowAccent,
+                    )}
+                  >
+                    <div className="flex items-start gap-2.5">
+                      <ToolStatusIcon
+                        tc={tc}
+                        label={
+                          tc.success !== undefined
+                            ? tc.success === false
+                              ? t("a11y.toolFailed")
+                              : t("a11y.toolSuccess")
+                            : t("a11y.toolRunning")
+                        }
+                      />
+                      <span className={cn("text-sm", tc.success === false ? "text-destructive" : "text-foreground")}>
+                        {normalizeToolName(tc.name)}
                       </span>
+                      {tc.success === undefined && (
+                        <span className="text-sm text-accent-purple/70">
+                          {t("computer.running")}
+                        </span>
+                      )}
+                    </div>
+                    {Object.keys(tc.input).length > 0 && (
+                      <div className="mt-1 mb-0.5 pl-2">
+                        <ToolArgsDisplay input={tc.input} compact />
+                      </div>
+                    )}
+                    {tc.output !== undefined && (
+                      <div className="mt-1 mb-1 pl-2">
+                        <ToolOutputRenderer
+                          output={tc.output}
+                          toolName={tc.name}
+                          success={tc.success}
+                          contentType={tc.contentType}
+                          conversationId={conversationId ?? null}
+                          artifactIds={tc.artifactIds}
+                          browserMetadata={tc.browserMetadata}
+                          computerUseMetadata={tc.computerUseMetadata}
+                          agentNameMap={agentNameMap}
+                        />
+                      </div>
                     )}
                   </div>
-                  {Object.keys(tc.input).length > 0 && (
-                    <div className="mt-1 mb-0.5 pl-2">
-                      <ToolArgsDisplay input={tc.input} compact />
-                    </div>
-                  )}
-                  {tc.output !== undefined && (
-                    <div className="mt-1 mb-1 pl-2">
-                      <ToolOutputRenderer
-                        output={tc.output}
-                        toolName={tc.name}
-                        success={tc.success}
-                        contentType={tc.contentType}
-                        conversationId={conversationId ?? null}
-                        artifactIds={tc.artifactIds}
-                        browserMetadata={tc.browserMetadata}
-                        computerUseMetadata={tc.computerUseMetadata}
-                        agentNameMap={agentNameMap}
-                      />
-                    </div>
-                  )}
-                </div>
-              ))}
+                );
+              })}
             </div>
           </motion.div>
         )}

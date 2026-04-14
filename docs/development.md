@@ -116,6 +116,9 @@ Synapse/
 │   │   ├── sse.py            # SSE streaming utilities
 │   │   └── db_subscriber.py  # Persists events to database
 │   ├── agent/
+│   │   ├── context/          # Shared context-compaction engine and policy profiles
+│   │   │   ├── compaction.py # Observer — token-aware tiered context compaction
+│   │   │   └── profiles.py   # Runtime-specific compaction profile resolution
 │   │   ├── runtime/          # Agent orchestration engine
 │   │   │   ├── orchestrator.py       # AgentOrchestrator — single-agent ReAct loop
 │   │   │   ├── planner.py           # PlannerOrchestrator — task decomposition
@@ -123,7 +126,7 @@ Synapse/
 │   │   │   ├── task_runner.py       # TaskAgentRunner — focused sub-task execution
 │   │   │   ├── skill_selector.py    # Shared LLM-driven skill selector (explicit > model > keyword)
 │   │   │   ├── helpers.py           # apply_response_to_state, process_tool_calls
-│   │   │   └── observer.py          # Token-aware tiered context compaction
+│   │   │   └── observer.py          # Compatibility shim re-exporting context compaction
 │   │   ├── llm/
 │   │   │   └── client.py    # ClaudeClient — async Anthropic SDK wrapper
 │   │   ├── tools/
@@ -397,7 +400,7 @@ The runtime engine implements the ReAct (Reason + Act) loop:
 
 - **`TaskAgentRunner`** — Executes a single sub-task with its own sandbox. Returns `AgentResult` (frozen) with success status, summary, artifacts, and per-agent metrics (duration, iterations, tool call counts, token usage). Metrics are emitted in the `agent_complete` event and aggregated by `GET /conversations/{id}/metrics`.
 
-- **`Observer`** — Token-aware tiered context compaction. Estimates token usage via a weighted heuristic (ASCII chars ÷ 4, non-ASCII chars × 1.5 for CJK accuracy) and triggers compaction when the budget is exceeded (default 150K tokens). Uses a two-tier strategy: the **hot tier** keeps the last N tool interactions verbatim (default 5), while the **warm tier** applies a layered fallback — structured summary via LLM (Haiku) → larger text preview → minimal marker — to older interactions. Emits a `CONTEXT_COMPACTED` event with before/after message counts.
+- **`Observer`** — Token-aware tiered context compaction in `agent/context/compaction.py`. The algorithm is shared across web chat, channels, planner mode, and task agents; `agent/context/profiles.py` resolves runtime-specific policy inputs (budget, hot-tier sizes, fallback limits, reconstruction tail length, summary model, memory flush) from global `COMPACT_*` defaults plus optional `COMPACT_<PROFILE>_*` overrides. The compactor estimates token usage via a weighted heuristic (ASCII chars ÷ 4, non-ASCII chars × 1.5 for CJK accuracy) and triggers compaction when the budget is exceeded. It keeps recent tool interactions verbatim (hot tier) and applies layered summarisation/truncation to older context (warm tier). Emits a `CONTEXT_COMPACTED` event with before/after message counts, `summary_scope`, and `compaction_profile`.
 
 - **`SkillSelector`** — Shared LLM-driven skill selector used by both `AgentOrchestrator` and `TaskAgentRunner`. Implements a three-tier priority: (1) explicit user selection by name, (2) LLM pick from the skill catalog (configurable via `SKILL_SELECTOR_MODEL`), (3) keyword overlap fallback. Replaces the previous keyword-only matching.
 
@@ -517,6 +520,7 @@ Synapse works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `COMPACT_FALLBACK_PREVIEW_CHARS` | `500` | Char limit for text preview in layered compaction fallback |
 | `COMPACT_FALLBACK_RESULT_CHARS` | `1000` | Char limit for result preview in layered compaction fallback |
 | `COMPACT_SUMMARY_MODEL` | (uses `LITE_MODEL`) | Model for warm-tier summarisation of older interactions |
+| `COMPACT_<PROFILE>_*` | — | Optional runtime-specific compaction overrides for `WEB`, `CHANNEL`, `PLANNER`, `TASK_AGENT`; unset values inherit the global `COMPACT_*` defaults |
 | `SKILL_SELECTOR_MODEL` | (uses `LITE_MODEL`) | Model for LLM-driven skill selection (tier 2 of 3) |
 
 ### Optional

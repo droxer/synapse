@@ -10,13 +10,14 @@ from pathlib import Path
 from typing import Any, Literal
 from uuid import uuid4
 
+from agent.context.profiles import CompactionProfile, resolve_compaction_profile
 from agent.llm.client import AnthropicClient, format_llm_failure
 from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
     process_tool_calls,
 )
-from agent.runtime.observer import Observer, compaction_summary_for_persistence
+from agent.context.compaction import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_runtime import split_allowed_tools
@@ -164,6 +165,7 @@ class TaskAgentRunner:
         event_emitter: EventEmitter,
         max_iterations: int = 50,
         observer: Observer | None = None,
+        compaction_profile: CompactionProfile | None = None,
         skill_registry: SkillRegistry | None = None,
     ) -> None:
         if not agent_id:
@@ -180,12 +182,18 @@ class TaskAgentRunner:
         self._emitter = event_emitter
         self._max_iterations = max_iterations
         self._skill_registry = skill_registry
+        resolved_profile = compaction_profile or resolve_compaction_profile(
+            settings, "task_agent"
+        )
         self._observer = observer or Observer(
-            max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
-            max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
-            token_budget=settings.COMPACT_TOKEN_BUDGET,
+            profile=resolved_profile,
             claude_client=claude_client,
-            summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+            summary_model=resolved_profile.summary_model or settings.LITE_MODEL,
+        )
+        self._compaction_profile = (
+            getattr(observer, "profile", resolved_profile)
+            if observer is not None
+            else resolved_profile
         )
         self._system_prompt = _build_system_prompt(config)
         self._turn_base_prompt = self._system_prompt
@@ -387,6 +395,9 @@ class TaskAgentRunner:
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
                     "summary_text": compaction_summary_for_persistence(compacted),
+                    "summary_scope": "task_agent",
+                    "agent_id": self._agent_id,
+                    "compaction_profile": self._compaction_profile.name,
                 },
             )
             state = replace(state, messages=compacted)

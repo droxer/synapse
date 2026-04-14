@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { buildSteps, buildToolCallIndexes, isTimelineStepActionable } from "./AgentProgressCard";
+import {
+  buildDisplaySteps,
+  buildSteps,
+  buildToolCallIndexes,
+  isTimelineStepActionable,
+} from "./AgentProgressCard";
 import type { AgentEvent, ToolCallInfo } from "../../../shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
@@ -338,5 +343,34 @@ describe("buildSteps runtime phrase mapping", () => {
     const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
     expect(steps.find((step) => step.id.startsWith("agent-agent-skip-"))?.status).toBe("skipped");
     expect(steps.find((step) => step.id.startsWith("agent-agent-replan-"))?.status).toBe("replan_required");
+  });
+});
+
+describe("buildDisplaySteps", () => {
+  const t = createTestTranslator();
+
+  it("returns existing steps unchanged when events already produced timeline rows", () => {
+    const existing = [
+      {
+        id: "start-1",
+        kind: "start",
+        title: "progress.taskStarted",
+        status: "complete",
+      },
+    ] as const;
+    const output = buildDisplaySteps(existing, "executing", false, t);
+    expect(output).toHaveLength(1);
+    expect(output[0]?.id).toBe("start-1");
+  });
+
+  it("shows a running bootstrap step while waiting for first event", () => {
+    const output = buildDisplaySteps([], "idle", true, t);
+    expect(output).toHaveLength(1);
+    expect(output[0]?.status).toBe("running");
+    expect(output[0]?.title).toBe("progress.taskStarted");
+  });
+
+  it("keeps timeline empty when idle and not waiting", () => {
+    expect(buildDisplaySteps([], "idle", false, t)).toHaveLength(0);
   });
 });

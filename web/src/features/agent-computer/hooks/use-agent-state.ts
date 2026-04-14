@@ -50,20 +50,20 @@ function mapAgentTerminalStatus(value: unknown): AgentStatusState {
   }
 }
 
-interface DerivedAgentState {
-  readonly messages: ChatMessage[];
-  readonly toolCalls: ToolCallInfo[];
+export interface DerivedAgentState {
+  readonly messages: readonly ChatMessage[];
+  readonly toolCalls: readonly ToolCallInfo[];
   readonly taskState: TaskState;
-  readonly agentStatuses: AgentStatus[];
-  readonly planSteps: PlanStep[];
+  readonly agentStatuses: readonly AgentStatus[];
+  readonly planSteps: readonly PlanStep[];
   readonly currentIteration: number;
-  readonly reasoningSteps: string[];
+  readonly reasoningSteps: readonly string[];
   readonly thinkingContent: string;
   readonly thinkingDurationMs: number;
-  readonly currentThinkingEntries: ThinkingEntry[];
+  readonly currentThinkingEntries: readonly ThinkingEntry[];
   readonly isStreaming: boolean;
   readonly assistantPhase: AssistantPhase;
-  readonly artifacts: ArtifactInfo[];
+  readonly artifacts: readonly ArtifactInfo[];
 }
 
 function toThinkingEntry(event: AgentEvent): ThinkingEntry | null {
@@ -99,6 +99,129 @@ function normalizeComparableMessageContent(content: string): string {
   return content.trim();
 }
 
+function stringArrayEqual(
+  a: readonly string[] | undefined,
+  b: readonly string[] | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+function thinkingEntriesEqual(
+  a: readonly ThinkingEntry[] | undefined,
+  b: readonly ThinkingEntry[] | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ae = a[i];
+    const be = b[i];
+    if (
+      ae?.content !== be?.content ||
+      ae?.timestamp !== be?.timestamp ||
+      ae?.durationMs !== be?.durationMs
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function browserMetadataEqual(
+  a: BrowserMetadata | undefined,
+  b: BrowserMetadata | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return (
+    a.steps === b.steps &&
+    a.isDone === b.isDone &&
+    a.maxSteps === b.maxSteps &&
+    a.url === b.url &&
+    a.task === b.task
+  );
+}
+
+function computerUseMetadataEqual(
+  a: ComputerUseMetadata | undefined,
+  b: ComputerUseMetadata | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return (
+    a.action === b.action &&
+    a.x === b.x &&
+    a.y === b.y &&
+    a.text === b.text &&
+    a.endX === b.endX &&
+    a.endY === b.endY &&
+    a.amount === b.amount
+  );
+}
+
+function messagesEqualValue(a: ChatMessage, b: ChatMessage): boolean {
+  return (
+    a.messageId === b.messageId &&
+    a.role === b.role &&
+    a.content === b.content &&
+    a.timestamp === b.timestamp &&
+    a.thinkingContent === b.thinkingContent &&
+    a.source === b.source &&
+    a.turnId === b.turnId &&
+    stringArrayEqual(a.imageArtifactIds, b.imageArtifactIds) &&
+    thinkingEntriesEqual(a.thinkingEntries, b.thinkingEntries)
+  );
+}
+
+function toolCallsEqualValue(a: ToolCallInfo, b: ToolCallInfo): boolean {
+  return (
+    a.id === b.id &&
+    a.toolUseId === b.toolUseId &&
+    a.name === b.name &&
+    a.output === b.output &&
+    a.success === b.success &&
+    a.contentType === b.contentType &&
+    a.timestamp === b.timestamp &&
+    a.agentId === b.agentId &&
+    a.thinkingText === b.thinkingText &&
+    stringArrayEqual(a.artifactIds, b.artifactIds) &&
+    browserMetadataEqual(a.browserMetadata, b.browserMetadata) &&
+    computerUseMetadataEqual(a.computerUseMetadata, b.computerUseMetadata)
+  );
+}
+
+function shareStableArray<T>(
+  previous: readonly T[],
+  next: readonly T[],
+  isEqual: (a: T, b: T) => boolean,
+): readonly T[] {
+  if (previous.length !== next.length) {
+    return next.map((item, index) =>
+      index < previous.length && isEqual(previous[index]!, item) ? previous[index]! : item,
+    );
+  }
+
+  let changed = false;
+  const shared = next.map((item, index) => {
+    const prior = previous[index]!;
+    if (isEqual(prior, item)) {
+      return prior;
+    }
+    changed = true;
+    return item;
+  });
+
+  return changed ? shared : previous;
+}
+
 export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentState {
   const messages: ChatMessage[] = [];
   const artifacts: ArtifactInfo[] = [];
@@ -124,8 +247,48 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let pendingToolCallThinking = "";
   let toolCallSeq = 0;
   let planSteps: PlanStep[] = [];
+  let turnSequence = 0;
+  let currentTurnId = "event-turn:0";
+  let assistantMessageSequence = 0;
   const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
+
+  const nextAssistantMessageId = () =>
+    `${currentTurnId}:assistant:${assistantMessageSequence}`;
+
+  const finalizeAssistantMessage = (message: Omit<ChatMessage, "messageId" | "source" | "turnId">): ChatMessage => {
+    const finalized: ChatMessage = {
+      ...message,
+      messageId: nextAssistantMessageId(),
+      source: "event",
+      turnId: currentTurnId,
+    };
+    assistantMessageSequence += 1;
+    return finalized;
+  };
+
+  const buildUserMessage = (content: string, timestamp: number): ChatMessage => ({
+    role: "user",
+    content,
+    timestamp,
+    messageId: `${currentTurnId}:user:0`,
+    source: "event",
+    turnId: currentTurnId,
+  });
+
+  const buildStreamingAssistantMessage = (
+    content: string,
+    timestamp: number,
+    extras: Pick<ChatMessage, "thinkingContent" | "imageArtifactIds" | "thinkingEntries"> = {},
+  ): ChatMessage => ({
+    role: "assistant",
+    content,
+    timestamp,
+    ...extras,
+    messageId: nextAssistantMessageId(),
+    source: "event",
+    turnId: currentTurnId,
+  });
 
   const resolveToolResultRow = (apiToolId: string): string | undefined => {
     if (!apiToolId) return undefined;
@@ -280,7 +443,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         const { thinking: inlineThinking, content } = splitThinkTag(rawText);
         const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
         const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
-        let message: ChatMessage = {
+        let message = finalizeAssistantMessage({
           role: "assistant",
           content,
           // Use response completion time so ordering matches emit order when
@@ -288,7 +451,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           timestamp: event.timestamp,
           ...(thinkingContent ? { thinkingContent } : {}),
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
-        };
+        });
         message = attachPendingThinking(message);
         messages.push(message);
         pendingImageArtifactIds = [];
@@ -298,7 +461,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       streamingTimestamp = 0;
     } else if (event.type === "tool_call") {
       const toolId = String(event.data.tool_id ?? event.data.id ?? "");
-      const toolName = String(event.data.name ?? event.data.tool_name ?? "tool");
+      const toolName = String(event.data.tool_name ?? event.data.name ?? "tool");
       pendingToolIds.add(toolId);
       assistantPhase = { phase: "using_tool", toolName };
 
@@ -472,21 +635,24 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       }
     } else if (event.type === "message_user") {
       const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
-      let message: ChatMessage = {
+      let message = finalizeAssistantMessage({
         role: "assistant",
         content: String(event.data.message ?? event.data.content ?? ""),
         timestamp: event.timestamp,
         ...(thinkingContent ? { thinkingContent } : {}),
         ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
-      };
+      });
       message = attachPendingThinking(message);
       messages.push(message);
       pendingImageArtifactIds = [];
       pendingThinkingParts = [];
     } else if (event.type === "turn_start") {
       const userText = String(event.data.message ?? "");
+      turnSequence += 1;
+      currentTurnId = `event-turn:${turnSequence}`;
+      assistantMessageSequence = 0;
       if (userText) {
-        messages.push({ role: "user", content: userText, timestamp: event.timestamp });
+        messages.push(buildUserMessage(userText, event.timestamp));
       }
       planSteps = [];
       pendingThinkingEntries = [];
@@ -496,13 +662,14 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       isStreaming = false;
       if (streamingText) {
         const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
-        let message: ChatMessage = {
-          role: "assistant",
-          content: streamingText,
-          timestamp: streamingTimestamp,
-          ...(thinkingContent ? { thinkingContent } : {}),
-          ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
-        };
+        let message = finalizeAssistantMessage(buildStreamingAssistantMessage(
+          streamingText,
+          streamingTimestamp,
+          {
+            ...(thinkingContent ? { thinkingContent } : {}),
+            ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+          },
+        ));
         message = attachPendingThinking(message);
         messages.push(message);
         pendingImageArtifactIds = [];
@@ -534,13 +701,13 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         if (!alreadyShown) {
           const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
           const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
-          let message: ChatMessage = {
+          let message = finalizeAssistantMessage({
             role: "assistant",
             content,
             timestamp: event.timestamp,
             ...(thinkingContent ? { thinkingContent } : {}),
             ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
-          };
+          });
           message = attachPendingThinking(message);
           messages.push(message);
           pendingImageArtifactIds = [];
@@ -592,8 +759,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           role: "assistant",
           content: `Error: ${error}`,
           timestamp: event.timestamp,
+          messageId: nextAssistantMessageId(),
+          source: "event",
+          turnId: currentTurnId,
         }),
       );
+      assistantMessageSequence += 1;
       pendingImageArtifactIds = [];
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
@@ -724,17 +895,24 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   }
 
   if (streamingText) {
-    const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
-    let message: ChatMessage = {
-      role: "assistant",
-      content: streamingText,
-      timestamp: streamingTimestamp,
-      ...(thinkingContent ? { thinkingContent } : {}),
-      ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
-    };
-    message = attachPendingThinking(message);
-    messages.push(message);
-    pendingImageArtifactIds = [];
+    const normalizedStream = normalizeComparableMessageContent(streamingText);
+    const lastAssistant = messages.findLast((m) => m.role === "assistant");
+    const isDuplicateOfLastAssistant =
+      lastAssistant !== undefined
+      && normalizeComparableMessageContent(lastAssistant.content) === normalizedStream;
+    // Task agents emit `text_delta` but not `llm_response`, so `streamingText` is never
+    // cleared mid-turn. The same body is often materialized again via `message_user` or
+    // `turn_complete`; skip a second bubble with identical normalized content.
+    if (!isDuplicateOfLastAssistant) {
+      const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
+      let message = buildStreamingAssistantMessage(streamingText, streamingTimestamp, {
+        ...(thinkingContent ? { thinkingContent } : {}),
+        ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+      });
+      message = attachPendingThinking(message);
+      messages.push(message);
+      pendingImageArtifactIds = [];
+    }
   }
 
   attachPendingArtifactsToLastAssistant();
@@ -793,14 +971,7 @@ function messagesEqual(a: readonly ChatMessage[], b: readonly ChatMessage[]): bo
   for (let i = 0; i < a.length; i++) {
     const am = a[i];
     const bm = b[i];
-    if (
-      am.role !== bm.role ||
-      am.content !== bm.content ||
-      am.timestamp !== bm.timestamp ||
-      am.thinkingContent !== bm.thinkingContent ||
-      am.thinkingEntries !== bm.thinkingEntries ||
-      am.imageArtifactIds !== bm.imageArtifactIds
-    ) {
+    if (!messagesEqualValue(am, bm)) {
       return false;
     }
   }
@@ -810,14 +981,7 @@ function messagesEqual(a: readonly ChatMessage[], b: readonly ChatMessage[]): bo
 function toolCallsEqual(a: readonly ToolCallInfo[], b: readonly ToolCallInfo[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    const at = a[i];
-    const bt = b[i];
-    if (
-      at.id !== bt.id ||
-      at.output !== bt.output ||
-      at.success !== bt.success ||
-      at.name !== bt.name
-    ) {
+    if (!toolCallsEqualValue(a[i]!, b[i]!)) {
       return false;
     }
   }
@@ -840,29 +1004,7 @@ export function useAgentState(events: AgentEvent[]) {
     const prev = prevRef.current;
 
     if (prev) {
-      // Reuse previous references for arrays that haven't changed,
-      // so downstream useMemo dependencies stay stable.
-      const stable: DerivedAgentState = {
-        messages: messagesEqual(prev.messages, next.messages) ? prev.messages : next.messages,
-        toolCalls: toolCallsEqual(prev.toolCalls, next.toolCalls) ? prev.toolCalls : next.toolCalls,
-        taskState: next.taskState,
-        agentStatuses: shallowArrayEqual(prev.agentStatuses, next.agentStatuses) ? prev.agentStatuses : next.agentStatuses,
-        planSteps: planStepsEqual(prev.planSteps, next.planSteps) ? prev.planSteps : next.planSteps,
-        currentIteration: next.currentIteration,
-        reasoningSteps: shallowArrayEqual(prev.reasoningSteps, next.reasoningSteps) ? prev.reasoningSteps : next.reasoningSteps,
-        thinkingContent: next.thinkingContent,
-        thinkingDurationMs: next.thinkingDurationMs,
-        currentThinkingEntries: shallowArrayEqual(prev.currentThinkingEntries, next.currentThinkingEntries)
-          ? prev.currentThinkingEntries
-          : next.currentThinkingEntries,
-        isStreaming: next.isStreaming,
-        assistantPhase:
-          prev.assistantPhase.phase === next.assistantPhase.phase &&
-          (prev.assistantPhase as Record<string, unknown>).toolName === (next.assistantPhase as Record<string, unknown>).toolName
-            ? prev.assistantPhase
-            : next.assistantPhase,
-        artifacts: shallowArrayEqual(prev.artifacts, next.artifacts) ? prev.artifacts : next.artifacts,
-      };
+      const stable = stabilizeDerivedAgentState(prev, next);
       prevRef.current = stable;
       return stable;
     }
@@ -870,4 +1012,34 @@ export function useAgentState(events: AgentEvent[]) {
     prevRef.current = next;
     return next;
   }, [events]);
+}
+
+export function stabilizeDerivedAgentState(
+  prev: DerivedAgentState,
+  next: DerivedAgentState,
+): DerivedAgentState {
+  const stableMessages = shareStableArray(prev.messages, next.messages, messagesEqualValue);
+  const stableToolCalls = shareStableArray(prev.toolCalls, next.toolCalls, toolCallsEqualValue);
+
+  return {
+    messages: messagesEqual(prev.messages, stableMessages) ? prev.messages : stableMessages,
+    toolCalls: toolCallsEqual(prev.toolCalls, stableToolCalls) ? prev.toolCalls : stableToolCalls,
+    taskState: next.taskState,
+    agentStatuses: shallowArrayEqual(prev.agentStatuses, next.agentStatuses) ? prev.agentStatuses : next.agentStatuses,
+    planSteps: planStepsEqual(prev.planSteps, next.planSteps) ? prev.planSteps : next.planSteps,
+    currentIteration: next.currentIteration,
+    reasoningSteps: shallowArrayEqual(prev.reasoningSteps, next.reasoningSteps) ? prev.reasoningSteps : next.reasoningSteps,
+    thinkingContent: next.thinkingContent,
+    thinkingDurationMs: next.thinkingDurationMs,
+    currentThinkingEntries: shallowArrayEqual(prev.currentThinkingEntries, next.currentThinkingEntries)
+      ? prev.currentThinkingEntries
+      : next.currentThinkingEntries,
+    isStreaming: next.isStreaming,
+    assistantPhase:
+      prev.assistantPhase.phase === next.assistantPhase.phase &&
+      (prev.assistantPhase as Record<string, unknown>).toolName === (next.assistantPhase as Record<string, unknown>).toolName
+        ? prev.assistantPhase
+        : next.assistantPhase,
+    artifacts: shallowArrayEqual(prev.artifacts, next.artifacts) ? prev.artifacts : next.artifacts,
+  };
 }

@@ -29,7 +29,12 @@ from api.models import (
     UserInputRequest,
 )
 from api.auth import AuthUser, common_dependencies, get_current_user
-from agent.runtime.observer import Observer
+from agent.context.compaction import Observer
+from agent.context.profiles import (
+    CompactionProfile,
+    CompactionRuntimeKind,
+    resolve_compaction_profile,
+)
 from api.builders import (
     _build_orchestrator,
     _build_planner_orchestrator,
@@ -309,6 +314,7 @@ async def _load_initial_messages_for_conversation(
     convo: Any,
     memory_entries: list[dict[str, str]],
     user_skill_registry: Any,
+    compaction_profile: CompactionProfile,
 ) -> list[dict[str, Any]]:
     """Load reconstructed message history in Claude API message format."""
     settings = get_settings()
@@ -318,7 +324,7 @@ async def _load_initial_messages_for_conversation(
             db_messages = await state.db_repo.get_recent_messages(
                 session,
                 conv_uuid,
-                settings.COMPACT_RECONSTRUCT_TAIL_MESSAGES,
+                compaction_profile.reconstruct_tail_messages,
             )
         else:
             db_messages = await state.db_repo.get_messages(session, conv_uuid)
@@ -347,11 +353,9 @@ async def _load_initial_messages_for_conversation(
 
     effective_sp = build_agent_system_prompt(memory_entries, user_skill_registry)
     obs = Observer(
-        max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
-        max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
-        token_budget=settings.COMPACT_TOKEN_BUDGET,
+        profile=compaction_profile,
         claude_client=state.claude_client,
-        summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+        summary_model=compaction_profile.summary_model or settings.LITE_MODEL,
     )
     msg_tuple = tuple(initial_messages)
     if obs.should_compact(msg_tuple, effective_sp):
@@ -367,6 +371,8 @@ async def _load_initial_messages_for_conversation(
 async def _reconstruct_conversation(
     state: AppState,
     conversation_id: str,
+    *,
+    compaction_runtime: CompactionRuntimeKind | None = None,
 ) -> ConversationEntry | None:
     """Reconstruct a conversation from DB history when it's been evicted from memory.
 
@@ -377,6 +383,18 @@ async def _reconstruct_conversation(
         convo = await state.db_repo.get_conversation(session, conv_uuid)
         if convo is None:
             return None
+    mode = (
+        convo.orchestrator_mode
+        if convo.orchestrator_mode in (ORCHESTRATOR_AGENT, ORCHESTRATOR_PLANNER)
+        else ORCHESTRATOR_AGENT
+    )
+    settings = get_settings()
+    effective_runtime: CompactionRuntimeKind
+    if mode == ORCHESTRATOR_PLANNER:
+        effective_runtime = "planner"
+    else:
+        effective_runtime = compaction_runtime or "web_conversation"
+    compaction_profile = resolve_compaction_profile(settings, effective_runtime)
 
     emitter = EventEmitter()
     event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
@@ -402,12 +420,7 @@ async def _reconstruct_conversation(
         convo,
         memory_entries,
         user_skill_registry,
-    )
-
-    mode = (
-        convo.orchestrator_mode
-        if convo.orchestrator_mode in (ORCHESTRATOR_AGENT, ORCHESTRATOR_PLANNER)
-        else ORCHESTRATOR_AGENT
+        compaction_profile,
     )
     if mode == ORCHESTRATOR_PLANNER:
         orchestrator, executor = _build_planner_orchestrator(
@@ -421,6 +434,7 @@ async def _reconstruct_conversation(
             memory_entries=memory_entries,
             conversation_id=conversation_id,
             initial_messages=tuple(initial_messages),
+            compaction_profile=compaction_profile,
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -434,6 +448,7 @@ async def _reconstruct_conversation(
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
             conversation_id=conversation_id,
+            compaction_profile=compaction_profile,
         )
 
     entry = ConversationEntry(

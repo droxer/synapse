@@ -169,7 +169,7 @@ function TreeNode({
         className={cn(
           "flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left font-sans text-xs",
           "hover:bg-secondary transition-colors",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
           isSelected && "bg-secondary text-foreground",
           !isSelected && "text-muted-foreground",
         )}

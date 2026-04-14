@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Library, LayoutGrid, List } from "lucide-react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
@@ -65,8 +65,19 @@ export function LibraryPage() {
   const { t } = useTranslation();
   const { groups, isLoading, error, filter, setFilter, loadMore, hasMore, removeArtifactsById } =
     useLibrary();
-  const [dismissedError, setDismissedError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<ViewMode>(readStoredViewMode);
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const lastDismissedErrorRef = useRef<string | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+
+  useEffect(() => {
+    setViewMode(readStoredViewMode());
+  }, []);
+
+  useEffect(() => {
+    if (error && error !== lastDismissedErrorRef.current) {
+      setDismissedAt(null);
+    }
+  }, [error]);
 
   const handleSetViewMode = useCallback((mode: ViewMode) => {
     setViewMode(mode);
@@ -135,8 +146,11 @@ export function LibraryPage() {
       <div className="flex flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
         <div className="mx-auto flex w-full max-w-5xl flex-1 flex-col gap-5 overflow-hidden">
           {/* Error */}
-          {error && error !== dismissedError && (
-            <ErrorBanner message={error} onDismiss={() => setDismissedError(error)} />
+          {error && dismissedAt === null && (
+            <ErrorBanner message={error} onDismiss={() => {
+              lastDismissedErrorRef.current = error;
+              setDismissedAt(Date.now());
+            }} />
           )}
 
           {/* Filter bar */}

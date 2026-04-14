@@ -345,6 +345,13 @@ async def test_run_returns_metrics_for_successful_execution(monkeypatch):
     assert result.metrics.duration_seconds >= 0.0
 
     assert [event for event in events if event.type == EventType.AGENT_COMPLETE] == []
+    compaction_events = [
+        event for event in events if event.type == EventType.CONTEXT_COMPACTED
+    ]
+    assert len(compaction_events) == 1
+    assert compaction_events[0].data["summary_scope"] == "task_agent"
+    assert compaction_events[0].data["agent_id"] == "agent-success"
+    assert compaction_events[0].data["compaction_profile"] == "task_agent"
 
 
 @pytest.mark.asyncio

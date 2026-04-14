@@ -6,6 +6,8 @@
  * - text-micro: badges, counters, metadata chips
  * Keep mono only for IDs/counters/code payloads.
  */
+import type { ToolCallInfo } from "@/shared/types";
+
 /** Tool / panel markdown: body tone + spacing; links and code use MarkdownRenderer defaults. */
 export const PROSE_CLASSES = "text-sm leading-relaxed text-muted-foreground";
 export const TOOL_OUTPUT_MARKDOWN_CLASSES = "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5";
@@ -18,6 +20,87 @@ export const OUTPUT_META_TEXT_CLASSES = "text-micro text-muted-foreground-dim";
 export const EVENT_ROW_BASE_CLASSES = "rounded-md border border-border bg-card px-3 py-2";
 export const EVENT_META_BADGE_CLASSES = "inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground";
 export const EVENT_LEFT_RAIL_CLASSES = "border-l border-border pl-2.5";
+export const SKILL_TOOL_NAMES = new Set(["activate_skill", "load_skill"]);
+
+export type ActivityEntryKind = "tool" | "skill" | "neutral";
+
+/** Terminal / activity row tone from tool call resolution state. */
+export type ToolCallTone = "running" | "complete" | "error";
+
+export function getToolCallTone(tc: ToolCallInfo): ToolCallTone {
+  if (tc.success === false) return "error";
+  if (tc.success === true || tc.output !== undefined) return "complete";
+  return "running";
+}
+
+/** Shared hover for activity rows — design guide: border-strong + muted wash (not shadow lift). */
+const ACTIVITY_ROW_HOVER = "hover:border-border-strong hover:bg-muted/40";
+
+export function getToolCallVisualClasses(tone: ToolCallTone): {
+  readonly row: string;
+  readonly rowHover: string;
+  readonly text: string;
+  readonly doneBadge: string;
+} {
+  switch (tone) {
+    case "error":
+      return {
+        row: "border border-destructive bg-muted",
+        rowHover: ACTIVITY_ROW_HOVER,
+        text: "text-destructive",
+        doneBadge: "border border-border-strong bg-muted text-destructive",
+      };
+    case "complete":
+      return {
+        row: "border border-terminal-border bg-card",
+        rowHover: ACTIVITY_ROW_HOVER,
+        text: "text-foreground",
+        doneBadge: "border border-border-strong bg-muted text-accent-emerald",
+      };
+    default:
+      return {
+        row: "border border-terminal-border bg-terminal-surface",
+        rowHover: ACTIVITY_ROW_HOVER,
+        text: "text-foreground",
+        doneBadge: "border border-border bg-muted text-accent-purple/70",
+      };
+  }
+}
+
+interface ActivityKindVisual {
+  readonly rowAccent: string;
+  readonly rowHoverAccent: string;
+  readonly iconInsetRing: string;
+}
+
+/** Tool stripe: canonical focus blue. Skill stripe: AI signal token (style guide — use accent-purple, not indigo/violet). */
+const TOOL_ACTIVITY_VISUAL: ActivityKindVisual = {
+  rowAccent: "border-l-2 border-l-focus",
+  rowHoverAccent: "hover:border-l-border-active",
+  iconInsetRing: "ring-1 ring-inset ring-ring",
+};
+
+const SKILL_ACTIVITY_VISUAL: ActivityKindVisual = {
+  rowAccent: "border-l-2 border-l-accent-purple",
+  rowHoverAccent: "hover:border-l-border-active",
+  iconInsetRing: "ring-1 ring-inset ring-accent-purple",
+};
+
+const NEUTRAL_ACTIVITY_VISUAL: ActivityKindVisual = {
+  rowAccent: "",
+  rowHoverAccent: "",
+  iconInsetRing: "",
+};
+
+export function getActivityEntryKind(toolName: string): ActivityEntryKind {
+  return SKILL_TOOL_NAMES.has(toolName) ? "skill" : "tool";
+}
+
+export function getActivityKindVisual(kind: ActivityEntryKind): ActivityKindVisual {
+  if (kind === "tool") return TOOL_ACTIVITY_VISUAL;
+  if (kind === "skill") return SKILL_ACTIVITY_VISUAL;
+  return NEUTRAL_ACTIVITY_VISUAL;
+}
 
 export function formatInput(input: Record<string, unknown>): string {
   return Object.entries(input)

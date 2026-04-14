@@ -8,7 +8,7 @@ from typing import Any
 from loguru import logger
 
 from agent.llm.client import AnthropicClient
-from agent.runtime.observer import Observer
+from agent.context.compaction import Observer
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.tools.base import ToolResult
 from agent.tools.registry import ToolRegistry

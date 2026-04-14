@@ -11,11 +11,11 @@
   /* Registered for Tailwind utilities — must match :root light tokens; .dark overrides at runtime */
   --color-background: #FFFFFF;
   --color-foreground: #000000;
-  --color-primary: #000000;
-  --color-primary-foreground: #FFFFFF;
-  --color-secondary: #F7F8F9;
-  --color-secondary-foreground: #000000;
-  --color-muted: #F7F8F9;
+  --color-primary: #2563EB;
+  --color-primary-foreground: #F8FAFC;
+  --color-secondary: #EEF4FF;
+  --color-secondary-foreground: #102244;
+  --color-muted: #F4F7FB;
   --color-muted-foreground: #5B6573;
   --color-destructive: #DE1135;
   --color-border: #E4E6EB;
@@ -39,12 +39,13 @@
   --color-accent-emerald: #0E8345;
   --color-accent-amber: #9F6402;
   --color-accent-rose: #DE1135;
-  --color-focus: #276EF1;
-  --color-accent-purple: var(--color-focus);
-  --color-accent-blue: #276EF1;
-  --color-ai-glow: #8D96A5;
+  --color-focus: #3B82F6;
+  --color-accent-indigo: #4F46E5;
+  --color-accent-purple: #6366F1;
+  --color-accent-blue: #3B82F6;
+  --color-ai-glow: #6366F1;
 
-  --color-accent: var(--color-secondary);
+  --color-accent: #F7FAFF;
   --color-accent-foreground: var(--color-foreground);
 
   --color-user-accent: #000000;
@@ -55,8 +56,8 @@
   --color-overlay: rgba(0, 0, 0, 0.5);
 
   --color-sidebar-bg: #F8FAFD;
-  --color-sidebar-active: #E8EDF5;
-  --color-sidebar-hover: #EEF2F8;
+  --color-sidebar-active: #E6EEFF;
+  --color-sidebar-hover: #F1F5FF;
   --color-sidebar-foreground-muted: #5B6573;
 
   --color-profile-ring: rgba(0, 0, 0, 0.18);
@@ -177,11 +178,11 @@
 
   --color-background: #FFFFFF;
   --color-foreground: #000000;
-  --color-primary: #000000;
-  --color-primary-foreground: #FFFFFF;
-  --color-secondary: #F7F8F9;
-  --color-secondary-foreground: #000000;
-  --color-muted: #F7F8F9;
+  --color-primary: #2563EB;
+  --color-primary-foreground: #F8FAFC;
+  --color-secondary: #EEF4FF;
+  --color-secondary-foreground: #102244;
+  --color-muted: #F4F7FB;
   --color-muted-foreground: #5B6573;
   --color-destructive: #DE1135;
   --color-border: #E4E6EB;
@@ -198,11 +199,12 @@
   --color-accent-emerald: #0E8345;
   --color-accent-amber: #9F6402;
   --color-accent-rose: #DE1135;
-  --color-focus: #276EF1;
-  --color-accent-purple: var(--color-focus);
-  --color-accent-blue: #276EF1;
-  --color-ai-glow: #8D96A5;
-  --color-accent: var(--color-secondary);
+  --color-focus: #3B82F6;
+  --color-accent-indigo: #4F46E5;
+  --color-accent-purple: #6366F1;
+  --color-accent-blue: #3B82F6;
+  --color-ai-glow: #6366F1;
+  --color-accent: #F7FAFF;
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #000000;
   --color-user-accent-dim: rgba(0, 0, 0, 0.04);
@@ -210,8 +212,8 @@
   --color-ai-border: rgba(15, 23, 42, 0.1);
   --color-input-glow: rgba(15, 23, 42, 0.08);
   --color-sidebar-bg: #F8FAFD;
-  --color-sidebar-active: #E8EDF5;
-  --color-sidebar-hover: #EEF2F8;
+  --color-sidebar-active: #E6EEFF;
+  --color-sidebar-hover: #F1F5FF;
   --color-sidebar-foreground-muted: #5B6573;
   --color-profile-ring: rgba(0, 0, 0, 0.18);
   --color-profile-ring-hover: rgba(0, 0, 0, 0.28);
@@ -239,11 +241,11 @@
 
   --color-background: #101114;
   --color-foreground: #FFFFFF;
-  --color-primary: #FFFFFF;
-  --color-primary-foreground: #101114;
-  --color-secondary: #181A1E;
-  --color-secondary-foreground: #FFFFFF;
-  --color-muted: #181A1E;
+  --color-primary: #5B8CFF;
+  --color-primary-foreground: #081120;
+  --color-secondary: #172033;
+  --color-secondary-foreground: #E6EEFF;
+  --color-muted: #1A1F2B;
   --color-muted-foreground: #B1B9C7;
   --color-destructive: #DE5B5D;
   --color-border: #2A2D33;
@@ -260,11 +262,12 @@
   --color-accent-emerald: #5C9D70;
   --color-accent-amber: #AE8523;
   --color-accent-rose: #DE5B5D;
-  --color-focus: #5E8BDB;
-  --color-accent-purple: var(--color-focus);
-  --color-accent-blue: #5E8BDB;
-  --color-ai-glow: #7E8796;
-  --color-accent: var(--color-secondary);
+  --color-focus: #7AA2FF;
+  --color-accent-indigo: #818CF8;
+  --color-accent-purple: #8B8FFF;
+  --color-accent-blue: #7AA2FF;
+  --color-ai-glow: #8B8FFF;
+  --color-accent: #1D2432;
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #DEDEDE;
   --color-user-accent-dim: rgba(255, 255, 255, 0.08);
@@ -272,8 +275,8 @@
   --color-ai-border: rgba(255, 255, 255, 0.1);
   --color-input-glow: rgba(255, 255, 255, 0.08);
   --color-sidebar-bg: #12151B;
-  --color-sidebar-active: #262C38;
-  --color-sidebar-hover: #1F2530;
+  --color-sidebar-active: #1D2840;
+  --color-sidebar-hover: #162033;
   --color-sidebar-foreground-muted: #B1B9C7;
   --color-profile-ring: rgba(222, 222, 222, 0.24);
   --color-profile-ring-hover: rgba(222, 222, 222, 0.36);
@@ -438,7 +441,7 @@ body {
 /* Design contract:
    - Panels/surfaces use rounded-xl (see docs/reference/design-system.md).
    - Controls (inputs, buttons, badges) use rounded-lg.
-   - Focus ring uses ring-2/ring-ring/ring-offset-2/ring-offset-background, where ring maps to the accent focus color. */
+   - Focus ring uses ring-1/ring-ring/ring-offset-1/ring-offset-background, where ring maps to the accent focus color. */
 
 html,
 body {
@@ -714,15 +717,15 @@ pre, code {
 
 /* ─── Markdown Reasoning (for Thinking Blocks) ─── */
 .markdown-reasoning {
-  line-height: 1.6;
+  line-height: 1.55;
   word-wrap: break-word;
   font-size: var(--text-sm);
-  color: var(--color-muted-foreground);
-  letter-spacing: 0.002em;
+  color: color-mix(in srgb, var(--color-foreground), transparent 28%);
+  letter-spacing: 0.001em;
 }
 
 .markdown-reasoning p {
-  margin: 0.6em 0;
+  margin: 0.45em 0;
   white-space: pre-wrap;
 }
 
@@ -735,29 +738,29 @@ pre, code {
 .markdown-reasoning h4,
 .markdown-reasoning h5,
 .markdown-reasoning h6 {
-  margin: 1.2em 0 0.5em;
+  margin: 0.9em 0 0.35em;
   font-weight: 600;
   color: var(--color-foreground);
-  opacity: 0.8;
+  opacity: 0.92;
 }
 
 .markdown-reasoning ul,
 .markdown-reasoning ol {
-  margin: 0.5em 0;
-  padding-left: 1.5em;
+  margin: 0.4em 0;
+  padding-left: 1.3em;
 }
 
 .markdown-reasoning ul { list-style-type: disc; }
 .markdown-reasoning ol { list-style-type: decimal; }
 
-.markdown-reasoning li { margin: 0.25em 0; }
+.markdown-reasoning li { margin: 0.2em 0; }
 
 .markdown-reasoning pre {
-  margin: 0.5em 0;
-  background: var(--color-background);
-  border: 1px solid var(--color-border);
+  margin: 0.45em 0;
+  background: color-mix(in srgb, var(--color-background), var(--color-ai-surface) 28%);
+  border: 1px solid color-mix(in srgb, var(--color-border-strong), transparent 24%);
   border-radius: var(--radius-lg);
-  padding: 0.75em 1em;
+  padding: 0.7em 0.9em;
 }
 
 .markdown-reasoning code {
@@ -765,7 +768,7 @@ pre, code {
 }
 
 .markdown-reasoning :not(pre) > code {
-  background: var(--color-muted);
+  background: color-mix(in srgb, var(--color-muted), transparent 10%);
   border-radius: var(--radius-md);
   padding: 0.15em 0.3em;
 }

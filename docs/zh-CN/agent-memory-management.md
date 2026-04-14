@@ -9,7 +9,7 @@
 | 层级 | 作用 | 主要位置 |
 | --- | --- | --- |
 | **工作上下文** | 当前轮次的消息、工具 I/O 与系统提示 | 进程内 `AgentState.messages` + 组装的 system prompt |
-| **上下文压缩** | 通过摘要或截断将估算 token 控制在预算内 | `agent/runtime/observer.py`（`Observer`） |
+| **上下文压缩** | 通过摘要或截断将估算 token 控制在预算内 | `agent/context/compaction.py`（`Observer`）+ `agent/context/profiles.py` |
 | **持久化内存** | 用户可跨会话读写的长期数据 | 经 `PersistentMemoryStore`（`agent/memory/store.py`）访问 PostgreSQL/SQLite |
 
 此外，**已验证事实**（`memory_facts`）是独立于 KV 的结构化存储，在**通道**场景中用于检索增强的提示片段以及可选的后台抽取。
@@ -66,7 +66,7 @@
 
 ## 3. 上下文压缩（`Observer`）
 
-**文件：** `agent/runtime/observer.py`
+**文件：** `agent/context/compaction.py`、`agent/context/profiles.py`
 
 ### 何时触发
 
@@ -81,16 +81,33 @@
 2. **工具密集线程**：近期工具交互对完整保留（**热层**）；更旧区间经小型 LLM 调用摘要（**温层**，`COMPACT_SUMMARY_MODEL` 或 `LITE_MODEL`），失败则对工具结果做结构化截断（`COMPACT_FALLBACK_PREVIEW_CHARS`、`COMPACT_FALLBACK_RESULT_CHARS`）。
 3. **纯对话**（例如无 tool 块的 DB 回放）：更旧轮次摘要为以 `## Earlier conversation` 或 `## Previous work` 开头的合成 assistant 消息；若摘要不可用则按 `COMPACT_DIALOGUE_FALLBACK_CHARS` 截断。
 
+### 运行时 profile
+
+压缩算法本身在所有运行时之间共享，但策略输入现在通过 `agent/context/profiles.py` 中的运行时 profile 解析。
+
+- `web_conversation` — 默认 Web / SSE 会话
+- `channel_conversation` — Telegram 等通道会话
+- `planner` — 规划模式
+- `task_agent` — 子智能体
+
+每个 profile 解析同一组参数：token 预算、token 估算策略、热层大小、回退截断长度、摘要模型、滚动 `context_summary` 上限、重建尾部消息数，以及压缩前的 memory flush 开关。
+
+解析顺序为：
+
+1. 先使用全局 `COMPACT_*` 默认值。
+2. 若存在运行时覆盖项，例如 `COMPACT_CHANNEL_TOKEN_BUDGET` 或 `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS`，则覆盖对应字段。
+3. 若 profile 未显式配置摘要模型，则运行时回退到 `LITE_MODEL`。
+
 ### 调用位置
 
 - **`AgentOrchestrator`** — 主 ReAct 循环（`agent/runtime/orchestrator.py`）。当 `COMPACT_MEMORY_FLUSH` 为 true 且存在 `PersistentMemoryStore` 时，可在压缩前执行**启发式事实刷盘**。
 - **`TaskRunner`** — 子智能体（`agent/runtime/task_runner.py`）。
 - **`Planner`** — 规划模式（`agent/runtime/planner.py`）。
-- **`_reconstruct_conversation`** — SSE 客户端重连且会话已从内存淘汰时（`api/routes/conversations.py`）：重建的消息在编排器运行前可能再次压缩。
+- **`_reconstruct_conversation`** — SSE 客户端重连且会话已从内存淘汰时（`api/routes/conversations.py`）：重建的消息在编排器运行前可能再次压缩，并使用所属运行时的 compaction profile。
 
 ### 事件与指标
 
-- 每次压缩发出 **`CONTEXT_COMPACTED`**，在存在对话式摘要时元数据含 `summary_text`（`compaction_summary_for_persistence()`）。
+- 每次压缩发出 **`CONTEXT_COMPACTED`**，在存在对话式摘要时元数据含 `summary_text`（`compaction_summary_for_persistence()`），并带上 `summary_scope` 与 `compaction_profile`。
 - 子智能体运行指标中含 **`context_compaction_count`**。
 
 ---
@@ -101,13 +118,13 @@
 
 ### 持久化路径
 
-当 DB 订阅者处理 **`CONTEXT_COMPACTED`**（`api/db_subscriber.py`）时，若存在 `summary_text`，则调用 **`merge_conversation_context_summary`**：用 `---` 分隔符追加新片段，再**只保留末尾 `COMPACT_CONTEXT_SUMMARY_MAX_CHARS` 个字符**（滚动尾部）。
+当 DB 订阅者处理 **`CONTEXT_COMPACTED`**（`api/db_subscriber.py`）时，若存在 `summary_text` 且 `summary_scope` 属于顶层会话，则调用 **`merge_conversation_context_summary`**：用 `---` 分隔符追加新片段，再按对应 profile 的滚动上限保留尾部字符数（默认 `COMPACT_CONTEXT_SUMMARY_MAX_CHARS`，也可被如 `COMPACT_PLANNER_CONTEXT_SUMMARY_MAX_CHARS` 这样的覆盖项替换）。
 
 ### 重连 / 冷启动
 
 从数据库重建（`api/routes/conversations.py` 中的 `_reconstruct_conversation`）时：
 
-- 若 `context_summary` 非空，仅从 `messages` 加载**最后 `COMPACT_RECONSTRUCT_TAIL_MESSAGES` 条**，而非全量历史。
+- 若 `context_summary` 非空，仅从 `messages` 加载**profile 对应的尾部消息数**，而非全量历史（默认 `COMPACT_RECONSTRUCT_TAIL_MESSAGES`，也可被如 `COMPACT_CHANNEL_RECONSTRUCT_TAIL_MESSAGES` 这样的覆盖项替换）。
 - 在开头插入一条合成 assistant 消息：`## Earlier sessions (compressed)` + 已存储的摘要。
 
 这样模型获得**压缩后的早期主干** + **近期原文消息**，无需重载整条线程。
@@ -115,6 +132,8 @@
 ---
 
 ## 5. 配置参考
+
+全局 `COMPACT_*` 变量是所有运行时 profile 的兼容性基线。可选的运行时覆盖变量使用 `COMPACT_<PROFILE>_*` 形式，其中 `<PROFILE>` 为 `WEB`、`CHANNEL`、`PLANNER` 或 `TASK_AGENT`。
 
 | 变量 | 作用 |
 | --- | --- |
@@ -132,6 +151,14 @@
 | `MEMORY_FACT_TOP_K` | 单条通道消息注入的事实条数上限 |
 | `MEMORY_FACT_PROMPT_TOKEN_CAP` | 已验证事实提示段的字符上限 |
 
+运行时覆盖变量示例：
+
+- `COMPACT_CHANNEL_TOKEN_BUDGET`
+- `COMPACT_CHANNEL_RECONSTRUCT_TAIL_MESSAGES`
+- `COMPACT_PLANNER_FULL_INTERACTIONS`
+- `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS`
+- `COMPACT_WEB_SUMMARY_MODEL`
+
 环境默认值在 `backend/config/settings.py`；环境变量名见 `backend/.env.example`。
 
 ---
@@ -145,7 +172,8 @@
 | 事实校验 | `agent/memory/facts.py` |
 | 启发式抽取 | `agent/memory/heuristic_extract.py` |
 | 压缩前刷盘 | `agent/memory/compaction_flush.py` |
-| 压缩逻辑 | `agent/runtime/observer.py` |
+| 压缩逻辑 | `agent/context/compaction.py` |
+| 压缩 profile | `agent/context/profiles.py` |
 | 编排器集成 | `agent/runtime/orchestrator.py` |
 | 系统提示与事实格式化 | `api/builders.py` |
 | 摘要 DB 合并 | `agent/state/repository.py` → `merge_conversation_context_summary` |

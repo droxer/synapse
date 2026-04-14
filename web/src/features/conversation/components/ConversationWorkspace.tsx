@@ -1,17 +1,19 @@
 "use client";
 
 import { memo, useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
 import { TopBar, MarkdownRenderer } from "@/shared/components";
+import { usePacedStreamingText } from "@/shared/hooks";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
 import { NON_ARTIFACT_TOOLS } from "@/features/agent-computer/lib/tool-constants";
 import { ChatInput } from "@/features/conversation";
 import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
+import { areMessageRowsEqual, type MessageRowMemoProps } from "./message-row-memo";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import {
   getIsCurrentTurnAutoDetected,
@@ -25,7 +27,6 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { formatClockTime } from "@/shared/lib/date-time";
 import { useTranslation } from "@/i18n";
-import type { Locale } from "@/i18n/types";
 import type {
   AgentEvent,
   ArtifactInfo,
@@ -41,14 +42,14 @@ import type {
 interface ConversationWorkspaceProps {
   conversationId: string | null;
   conversationTitle?: string;
-  events: AgentEvent[];
-  messages: ChatMessage[];
-  toolCalls: ToolCallInfo[];
-  agentStatuses: AgentStatus[];
-  planSteps: PlanStep[];
-  artifacts: ArtifactInfo[];
+  events: readonly AgentEvent[];
+  messages: readonly ChatMessage[];
+  toolCalls: readonly ToolCallInfo[];
+  agentStatuses: readonly AgentStatus[];
+  planSteps: readonly PlanStep[];
+  artifacts: readonly ArtifactInfo[];
   taskState: TaskState;
-  currentThinkingEntries: ThinkingEntry[];
+  currentThinkingEntries: readonly ThinkingEntry[];
   isStreaming: boolean;
   assistantPhase: AssistantPhase;
   isConnected: boolean;
@@ -66,43 +67,37 @@ interface ConversationWorkspaceProps {
 // Prevents non-streaming messages from re-rendering when only the last
 // (streaming) message content changes.
 
-interface MessageRowProps {
-  readonly msg: ChatMessage;
-  readonly isLastAssistant: boolean;
-  readonly isStreamingThis: boolean;
-  readonly assistantPhase: AssistantPhase;
-  readonly isStreaming: boolean;
-  readonly messageWidthClass: string;
-  readonly planMessageIndex: number | null;
-  readonly planSteps: PlanStep[];
-  readonly index: number;
-  readonly conversationId: string | null;
-  readonly taskState: TaskState;
-  readonly locale: Locale;
-  readonly onCopy: (text: string) => void;
-  readonly copied: boolean;
+interface MessageRowProps extends MessageRowMemoProps {
   readonly onRetry?: () => void;
   readonly t: (key: string) => string;
 }
 
-const MessageRow = memo(function MessageRow({
+export const MessageRow = memo(function MessageRow({
   msg,
   isLastAssistant,
   isStreamingThis,
-  assistantPhase,
-  isStreaming,
+  isThinkingThis,
   messageWidthClass,
-  planMessageIndex,
-  planSteps,
+  embeddedPlanSteps,
   index,
   conversationId,
   taskState,
   locale,
-  onCopy,
-  copied,
   onRetry,
   t,
 }: MessageRowProps) {
+  const shouldReduceMotion = useReducedMotion();
+  const [copied, setCopied] = useState(false);
+  const displayContent = usePacedStreamingText(msg.content, isStreamingThis);
+
+  const handleCopy = useCallback((text: string) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }).catch(() => {
+      // ignore
+    });
+  }, []);
   const getImageUrlsForMessage = useCallback(
     (m: ChatMessage): string[] => {
       if (!conversationId || !m.imageArtifactIds || m.imageArtifactIds.length === 0) {
@@ -116,13 +111,13 @@ const MessageRow = memo(function MessageRow({
   );
 
   const imageUrls = getImageUrlsForMessage(msg);
-  const hasPlanHere = index === planMessageIndex && planSteps.length > 0;
+  const hasPlanHere = embeddedPlanSteps.length > 0;
   const showOrphanThinkingContent =
     Boolean(msg.thinkingContent?.trim())
     && !isThinkingContentRedundantWithEntries(msg.thinkingContent, msg.thinkingEntries);
   const hasThinking =
     Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0) || showOrphanThinkingContent;
-  const trimmedContent = msg.content.trim();
+  const trimmedContent = displayContent.trim();
   const showMarkdown = trimmedContent.length > 0 || isStreamingThis;
   const showEmptyAssistantPlaceholder =
     !showMarkdown &&
@@ -133,7 +128,7 @@ const MessageRow = memo(function MessageRow({
   const thinkingEntryCount = msg.thinkingEntries?.length ?? 0;
   const copyAssistantText = buildAssistantCopyText(msg, {
     hasEmbeddedPlan: hasPlanHere,
-    planSteps,
+    planSteps: embeddedPlanSteps,
     imageUrls,
     t,
   });
@@ -143,9 +138,9 @@ const MessageRow = memo(function MessageRow({
       {msg.role === "user" ? (
         /* ─── User message ─── right-aligned command surface */
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.12, ease: "easeOut" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
           className="flex justify-end"
         >
           <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
@@ -181,9 +176,9 @@ const MessageRow = memo(function MessageRow({
       ) : (
         /* ─── Assistant message ─── left-aligned, bounded width */
         <motion.div
-          initial={{ opacity: 0, y: 4 }}
+          initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.12, ease: "easeOut" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
           className={cn(
             "conversation-assistant-message group relative max-w-full min-w-0",
             messageWidthClass,
@@ -197,12 +192,8 @@ const MessageRow = memo(function MessageRow({
                   <ThinkingBlock
                     key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
                     content={entry.content}
-                    isThinking={
-                      isLastAssistant
-                      && assistantPhase.phase === "thinking"
-                      && idx === thinkingEntryCount - 1
-                    }
-                    isTurnStreaming={isLastAssistant ? isStreaming : false}
+                    isThinking={isThinkingThis && idx === thinkingEntryCount - 1}
+                    isTurnStreaming={isStreamingThis || isThinkingThis}
                     durationMs={entry.durationMs}
                   />
                 ))}
@@ -211,7 +202,7 @@ const MessageRow = memo(function MessageRow({
                     key={`${msg.messageId ?? msg.timestamp}-thinking-content`}
                     content={msg.thinkingContent!}
                     isThinking={false}
-                    isTurnStreaming={isLastAssistant ? isStreaming : false}
+                    isTurnStreaming={isStreamingThis || isThinkingThis}
                     durationMs={0}
                     summaryLabel={t("thinking.reasoning")}
                   />
@@ -221,7 +212,11 @@ const MessageRow = memo(function MessageRow({
             {/* Message body: prose, then images, then embedded plan (matches read order). */}
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
               {showMarkdown ? (
-                <MarkdownRenderer content={msg.content} isStreaming={isStreamingThis} />
+                <MarkdownRenderer
+                  content={displayContent}
+                  isStreaming={isStreamingThis}
+                  mode={isStreamingThis ? "streaming-light" : "settled"}
+                />
               ) : null}
               {showEmptyAssistantPlaceholder ? (
                 <p className="text-muted-foreground">{t("conversation.emptyAssistantBody")}</p>
@@ -235,9 +230,17 @@ const MessageRow = memo(function MessageRow({
                       key={url}
                       src={url}
                       alt={t("conversation.imageAlt")}
+                      width={288}
+                      height={288}
+                      loading="lazy"
                       className="max-h-72 max-w-full rounded-md object-contain"
                       onError={(e) => {
-                        (e.currentTarget as HTMLImageElement).style.display = "none";
+                        const img = e.currentTarget as HTMLImageElement;
+                        img.classList.add("hidden");
+                        const fallback = document.createElement("span");
+                        fallback.className = "text-sm text-muted-foreground";
+                        fallback.textContent = t("conversation.imageUnavailable");
+                        img.parentElement?.appendChild(fallback);
                       }}
                     />
                   ))}
@@ -245,9 +248,9 @@ const MessageRow = memo(function MessageRow({
               ) : null}
 
               {/* Plan checklist embedded in this message */}
-              {index === planMessageIndex && planSteps.length > 0 && (
+              {hasPlanHere && (
                 <div className="mt-4">
-                  <PlanChecklistPanel planSteps={planSteps} />
+                  <PlanChecklistPanel planSteps={embeddedPlanSteps} />
                 </div>
               )}
             </div>
@@ -261,7 +264,7 @@ const MessageRow = memo(function MessageRow({
             )}
 
             {/* Message action bar */}
-            {isLastAssistant && !isStreaming && (taskState === "idle" || taskState === "complete") && (
+            {isLastAssistant && !isStreamingThis && (taskState === "idle" || taskState === "complete") && (
               <div className="mt-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -269,7 +272,7 @@ const MessageRow = memo(function MessageRow({
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      onClick={() => onCopy(copyAssistantText.trim() || msg.content)}
+                      onClick={() => handleCopy(copyAssistantText.trim() || msg.content)}
                       className="text-muted-foreground-dim hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
                     >
                       {copied
@@ -307,7 +310,7 @@ const MessageRow = memo(function MessageRow({
       )}
     </div>
   );
-});
+}, areMessageRowsEqual);
 
 export function ConversationWorkspace({
   conversationId,
@@ -335,17 +338,10 @@ export function ConversationWorkspace({
   const { t, locale } = useTranslation();
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const activityCountRef = useRef(0);
+  const shouldReduceMotion = useReducedMotion();
   const [panelOpen, setPanelOpen] = useState(false);
   const autoOpenedRef = useRef(false);
-  const [copied, setCopied] = useState(false);
   const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
-
-  const handleCopy = useCallback((text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
-    });
-  }, []);
 
   useEffect(() => {
     activityCountRef.current = 0;
@@ -474,6 +470,12 @@ export function ConversationWorkspace({
               {messages.map((msg, i) => {
                 const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
                 const isStreamingThis = isStreaming && isLastAssistant;
+                const isThinkingThis =
+                  msg.role === "assistant" &&
+                  isLastAssistant &&
+                  assistantPhase.phase === "thinking";
+                const embeddedPlanSteps =
+                  i === planMessageIndex && planSteps.length > 0 ? planSteps : [];
                 const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
 
                 return (
@@ -482,17 +484,13 @@ export function ConversationWorkspace({
                     msg={msg}
                     isLastAssistant={isLastAssistant}
                     isStreamingThis={isStreamingThis}
-                    assistantPhase={assistantPhase}
-                    isStreaming={isStreaming}
+                    isThinkingThis={isThinkingThis}
                     messageWidthClass={messageWidthClass}
-                    planMessageIndex={planMessageIndex}
-                    planSteps={planSteps}
+                    embeddedPlanSteps={embeddedPlanSteps}
                     index={i}
                     conversationId={conversationId}
                     taskState={taskState}
                     locale={locale}
-                    onCopy={handleCopy}
-                    copied={copied}
                     onRetry={onRetry}
                     t={t}
                   />
@@ -531,7 +529,7 @@ export function ConversationWorkspace({
 
           </div>
 
-          {events.length > 0 && (
+          {(events.length > 0 || isWaitingForAgent || taskState === "planning" || taskState === "executing") && (
             <div
               className={cn(
                 "px-4 py-3 sm:px-6",
@@ -544,6 +542,7 @@ export function ConversationWorkspace({
                 toolCalls={toolCalls}
                 agentStatuses={agentStatuses}
                 taskState={taskState}
+                isWaitingForAgent={isWaitingForAgent}
                 onClick={handleProgressCardClick}
                 onStepClick={handleStepClick}
                 panelOpen={panelOpen}
@@ -564,10 +563,10 @@ export function ConversationWorkspace({
         {/* Right pane: Synapse's Computer */}
         {panelOpen && (
           <motion.div
-            className="flex w-full flex-col border-l border-border/70 bg-secondary/25 md:w-[44%]"
-            initial={{ opacity: 0, x: 12 }}
+            className="flex w-full flex-col border-l border-border bg-secondary/25 md:w-[44%]"
+            initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.12, ease: "easeOut" }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
           >
             <AgentComputerPanel
               conversationId={conversationId}

@@ -96,6 +96,8 @@ async function readDirectoryEntries(
   return files;
 }
 
+const ACCEPTED_FILE_TYPES = [".zip", ".md"];
+
 export function SkillsPage() {
   const { t } = useTranslation();
   const { getAllSkills, refetch, isLoading } = useSkillsCache();
@@ -160,6 +162,10 @@ export function SkillsPage() {
     }
   };
 
+  const isAcceptedFile = useCallback((file: File) => {
+    return ACCEPTED_FILE_TYPES.some((ext) => file.name.toLowerCase().endsWith(ext));
+  }, []);
+
   const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     setIsDragging(true);
@@ -179,17 +185,26 @@ export function SkillsPage() {
     const entry = items[0].webkitGetAsEntry?.();
     if (entry?.isDirectory) {
       const files = await readDirectoryEntries(entry as FileSystemDirectoryEntry, entry.name);
-      if (files.length > 0) {
-        setSelectedFiles(files);
+      const accepted = files.filter(isAcceptedFile);
+      if (accepted.length > 0) {
+        setSelectedFiles(accepted);
         setIsFolderUpload(true);
         setFolderName(entry.name);
+      } else if (files.length > 0) {
+        setError("Only .zip and .md files are supported");
       }
     } else if (e.dataTransfer.files.length > 0) {
-      setSelectedFiles(Array.from(e.dataTransfer.files));
-      setIsFolderUpload(false);
-      setFolderName("");
+      const dropped = Array.from(e.dataTransfer.files);
+      const accepted = dropped.filter(isAcceptedFile);
+      if (accepted.length > 0) {
+        setSelectedFiles(accepted);
+        setIsFolderUpload(false);
+        setFolderName("");
+      } else {
+        setError("Only .zip and .md files are supported");
+      }
     }
-  }, [setFolderName, setIsDragging, setIsFolderUpload, setSelectedFiles]);
+  }, [isAcceptedFile, setFolderName, setIsDragging, setIsFolderUpload, setSelectedFiles]);
 
   const handleDelete = useCallback(async () => {
     if (!skillToDelete) return;
@@ -439,10 +454,10 @@ export function SkillsPage() {
                     key={src}
                     type="button"
                     onClick={() => { if (src !== "git") setInstallSource(src); }}
-                    disabled={src === "git"}
+                    aria-disabled={src === "git"}
                     className={cn(
                       "flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                       src === "git"
                         ? "cursor-not-allowed text-muted-foreground-dim opacity-60"
                         : installSource === src
@@ -485,7 +500,7 @@ export function SkillsPage() {
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 transition-colors duration-150",
+                      "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-8 transition-colors duration-150",
                       isDragging
                         ? "border-border-active bg-secondary"
                         : "border-border hover:border-border-strong hover:bg-secondary",
@@ -501,7 +516,7 @@ export function SkillsPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
                       {t("chat.attachFile")}
                     </button>
@@ -560,7 +575,7 @@ export function SkillsPage() {
                           setIsFolderUpload(false);
                           setFolderName("");
                         }}
-                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       >
                         <X className="h-3 w-3" />
                       </button>

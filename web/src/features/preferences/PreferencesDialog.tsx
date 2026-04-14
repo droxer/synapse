@@ -69,7 +69,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   onClick={() => setActiveId(id)}
                   className={cn(
                     "relative mb-1 flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-sm transition-[color,background-color,border-color] duration-150 ease-out",
-                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     isActive
                       ? "border border-border bg-background text-foreground font-semibold shadow-card"
                       : "border border-transparent text-muted-foreground hover:bg-background/80 hover:text-foreground",

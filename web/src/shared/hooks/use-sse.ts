@@ -27,6 +27,13 @@ function isEventType(value: unknown): value is EventType {
   return typeof value === "string" && EVENT_TYPE_SET.has(value);
 }
 
+/** Backend may send numeric IDs; coerce so tool_call / tool_result correlation stays stable. */
+function coerceToolId(value: unknown): string | undefined {
+  if (typeof value === "string" && value.trim()) return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
 function normalizeEventText(value: unknown): string | undefined {
   if (value === undefined || value === null) return undefined;
   if (typeof value === "string") return value;
@@ -108,10 +115,11 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
   }
 
   if (eventType === "tool_call") {
+    const toolId = coerceToolId(data.tool_id) ?? coerceToolId(data.id);
     return {
       ...data,
-      tool_id: typeof data.tool_id === "string" ? data.tool_id : undefined,
-      id: typeof data.id === "string" ? data.id : undefined,
+      tool_id: toolId,
+      id: coerceToolId(data.id),
       name: typeof data.name === "string" ? data.name : undefined,
       tool_name: typeof data.tool_name === "string" ? data.tool_name : undefined,
       input: isRecord(data.input) ? data.input : undefined,
@@ -122,10 +130,11 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
   }
 
   if (eventType === "tool_result") {
+    const toolId = coerceToolId(data.tool_id) ?? coerceToolId(data.id);
     return {
       ...data,
-      tool_id: typeof data.tool_id === "string" ? data.tool_id : undefined,
-      id: typeof data.id === "string" ? data.id : undefined,
+      tool_id: toolId,
+      id: coerceToolId(data.id),
       output: normalizeEventText(data.output),
       result: normalizeEventText(data.result),
       success: typeof data.success === "boolean" ? data.success : undefined,
@@ -213,11 +222,12 @@ const FLUSH_IMMEDIATELY = new Set<string>([
   "task_complete",
   "turn_complete",
   "turn_cancelled",
-  "llm_response",
   "message_user",
-  "skill_activated",
-  "skill_setup_failed",
 ]);
+
+export function shouldFlushEventImmediately(eventType: string): boolean {
+  return FLUSH_IMMEDIATELY.has(eventType);
+}
 
 export function useSSE(conversationId: string | null, isLive = true) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
@@ -243,7 +253,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
   const enqueueEvent = useCallback(
     (agentEvent: AgentEvent) => {
       bufferRef.current.push(agentEvent);
-      if (FLUSH_IMMEDIATELY.has(agentEvent.type)) {
+      if (shouldFlushEventImmediately(agentEvent.type)) {
         // Cancel pending RAF and flush synchronously for important events.
         if (rafIdRef.current !== null) {
           cancelAnimationFrame(rafIdRef.current);

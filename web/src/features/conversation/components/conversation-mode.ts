@@ -1,6 +1,6 @@
 import type { AgentEvent, ChatMessage, TaskState } from "@/shared/types";
 
-export function getCurrentTurnEventSlice(events: AgentEvent[]): AgentEvent[] {
+export function getCurrentTurnEventSlice(events: readonly AgentEvent[]): readonly AgentEvent[] {
   let lastCompleteIdx = -1;
   for (let i = 0; i < events.length; i++) {
     if (events[i]?.type === "turn_complete") {
@@ -11,13 +11,13 @@ export function getCurrentTurnEventSlice(events: AgentEvent[]): AgentEvent[] {
   return events.slice(lastCompleteIdx + 1);
 }
 
-export function hasPlannerSignalsSinceLastTurnComplete(events: AgentEvent[]): boolean {
+export function hasPlannerSignalsSinceLastTurnComplete(events: readonly AgentEvent[]): boolean {
   return getCurrentTurnEventSlice(events).some((e) => e.type === "plan_created");
 }
 
 export function getPlanMessageIndex(
-  events: AgentEvent[],
-  messages: ChatMessage[],
+  events: readonly AgentEvent[],
+  messages: readonly ChatMessage[],
 ): number | null {
   let planEventIdx = -1;
   for (let i = events.length - 1; i >= 0; i--) {
@@ -66,7 +66,7 @@ export interface PlannerModeBadgeContext {
 }
 
 export function shouldShowPlannerModeBadge(
-  events: AgentEvent[],
+  events: readonly AgentEvent[],
   ctx: PlannerModeBadgeContext,
 ): boolean {
   if (ctx.taskState === "planning") return true;
@@ -77,7 +77,7 @@ export function shouldShowPlannerModeBadge(
   return false;
 }
 
-export function getLatestTurnMode(events: AgentEvent[]): "agent" | "planner" | null {
+export function getLatestTurnMode(events: readonly AgentEvent[]): "agent" | "planner" | null {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
     if (event?.type !== "turn_start") continue;
@@ -95,7 +95,7 @@ export function getLatestTurnMode(events: AgentEvent[]): "agent" | "planner" | n
  * by the complexity classifier (not manually toggled by the user).
  * Looks for a `planner_auto_selected` event just before the latest `turn_start`.
  */
-export function getIsCurrentTurnAutoDetected(events: AgentEvent[]): boolean {
+export function getIsCurrentTurnAutoDetected(events: readonly AgentEvent[]): boolean {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
     if (event?.type !== "turn_start") continue;

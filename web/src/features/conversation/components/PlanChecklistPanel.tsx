@@ -7,7 +7,7 @@ import { cn } from "@/shared/lib/utils";
 import type { PlanStep } from "@/shared/types";
 
 interface PlanChecklistPanelProps {
-  readonly planSteps: PlanStep[];
+  readonly planSteps: readonly PlanStep[];
 }
 
 function StepIndicator({ status }: { readonly status: PlanStep["status"] }) {

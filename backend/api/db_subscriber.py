@@ -28,6 +28,7 @@ from agent.state.repository import (
     SkillRepository,
     UsageRepository,
 )
+from agent.context.profiles import resolve_compaction_profile_by_name
 from api.events import AgentEvent, EventType, SubscriberCallback
 from config.settings import get_settings
 
@@ -386,12 +387,23 @@ def create_db_subscriber(
 
                 elif event.type == EventType.CONTEXT_COMPACTED:
                     summary = clean.get("summary_text")
-                    if isinstance(summary, str) and summary.strip():
+                    summary_scope = clean.get("summary_scope")
+                    should_merge_summary = summary_scope != "task_agent"
+                    if (
+                        should_merge_summary
+                        and isinstance(summary, str)
+                        and summary.strip()
+                    ):
+                        settings = get_settings()
+                        compaction_profile = resolve_compaction_profile_by_name(
+                            settings,
+                            clean.get("compaction_profile"),
+                        )
                         await repo.merge_conversation_context_summary(
                             session,
                             conversation_id,
                             summary.strip(),
-                            get_settings().COMPACT_CONTEXT_SUMMARY_MAX_CHARS,
+                            compaction_profile.context_summary_max_chars,
                         )
                     await repo.save_event(
                         session,

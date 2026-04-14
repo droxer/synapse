@@ -26,19 +26,19 @@
 
 ### Design Philosophy
 
-The palette is built on **deep zinc neutrals** — high-contrast flats and deep darks, paired with a minimal violet accent. This creates a precise, professional feel aligned with modern developer tools like VS Code, Vercel, and Cursor, conveying technical capability and clarity.
+The palette is built on **cool technical neutrals** with a **chromatic blue action layer** and a restrained violet AI signal. This keeps the workspace precise and professional while making primary actions unmistakable.
 
 ### Core Palette (Light Mode — Default)
 
 | Token | Hex | Role |
 |-------|-----|------|
 | `background` | `#FFFFFF` | Page canvas — flat white |
-| `foreground` | `#09090B` | Primary text — deep zinc |
-| `primary` | `#18181b` | Action buttons, interactive fills |
-| `primary-foreground` | `#FAFAFA` | Text on primary surfaces |
-| `secondary` | `#F4F4F5` | Muted backgrounds, user messages |
-| `secondary-foreground` | `#18181B` | Text on secondary surfaces |
-| `muted` | `#F4F4F5` | Inactive/disabled backgrounds |
+| `foreground` | `#09090B` | Primary text — deep neutral ink |
+| `primary` | `#2563EB` | Primary CTA, submit actions, key interactive fills |
+| `primary-foreground` | `#F8FAFC` | Text on primary surfaces |
+| `secondary` | `#EEF4FF` | Cool support surfaces, inline panels, selected helpers |
+| `secondary-foreground` | `#102244` | Text on secondary surfaces |
+| `muted` | `#F4F7FB` | Dense neutral backgrounds, quiet product surfaces |
 | `muted-foreground` | `#71717A` | Secondary text, hints, timestamps |
 | `muted-foreground-dim` | `#94A3B8` | Tertiary text with WCAG AA contrast (replaces `/60` and `/40` opacity modifiers) |
 | `card` | `#FFFFFF` | Card/elevated surfaces (white on cool bg for natural contrast) |
@@ -46,6 +46,7 @@ The palette is built on **deep zinc neutrals** — high-contrast flats and deep 
 | `popover` | `#FFFFFF` | Dropdown/popover bg |
 | `popover-foreground` | `#0F172A` | Text in popovers |
 | `destructive` | `#EF4444` | Error states, delete actions |
+| `accent` | `#F7FAFF` | Hover/highlight surface for ghost and outline interactions |
 
 ### Core Palette (Dark Mode)
 
@@ -53,11 +54,11 @@ The palette is built on **deep zinc neutrals** — high-contrast flats and deep 
 |-------|-----|------|
 | `background` | `#09090B` | Page canvas — deep zinc (strict minimal developer tool feel) |
 | `foreground` | `#FAFAFA` | Primary text — crisp white |
-| `primary` | `#FFFFFF` | Action buttons, interactive fills |
-| `primary-foreground` | `#0F172A` | Text on primary surfaces |
-| `secondary` | `#18181B` | Muted backgrounds (flat dark zinc) |
-| `secondary-foreground` | `#E2E8F0` | Text on secondary surfaces |
-| `muted` | `#1A1D27` | Inactive/disabled backgrounds |
+| `primary` | `#5B8CFF` | Primary CTA, submit actions, key interactive fills |
+| `primary-foreground` | `#081120` | Text on primary surfaces |
+| `secondary` | `#172033` | Cool support surfaces |
+| `secondary-foreground` | `#E6EEFF` | Text on secondary surfaces |
+| `muted` | `#1A1F2B` | Dense neutral backgrounds |
 | `muted-foreground` | `#94A3B8` | Secondary text (slate-400) |
 | `muted-foreground-dim` | `#64748B` | Tertiary text with WCAG 3:1 contrast (replaces `/60` and `/40` opacity modifiers) |
 | `card` | `#09090B` | Card/elevated surfaces |
@@ -65,6 +66,7 @@ The palette is built on **deep zinc neutrals** — high-contrast flats and deep 
 | `popover` | `#09090B` | Dropdown/popover bg |
 | `popover-foreground` | `#E2E8F0` | Text in popovers |
 | `destructive` | `#F87171` | Error states, delete actions |
+| `accent` | `#1D2432` | Hover/highlight surface for ghost and outline interactions |
 
 ### Borders
 
@@ -77,7 +79,7 @@ The palette is built on **deep zinc neutrals** — high-contrast flats and deep 
 
 ### Accent & Semantic Colors
 
-Used sparingly for status indicators and semantic meaning. Never as dominant surface colors.
+Used sparingly for status indicators and semantic meaning. Never as dominant surface colors, and never as a replacement for the primary CTA blue.
 
 | Token | Hex (light / dark) | Semantic |
 |-------|-----|----------|
@@ -85,9 +87,9 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 | `accent-emerald` | `#10B981` / `#34D399` | Success, running, progress |
 | `accent-amber` | `#B45309` / `#D97706` | Warning, thinking |
 | `accent-rose` | `#EF4444` / `#F87171` | Error, failure |
-| `color-focus` | `#1B7EF2` / `#3B8EF5` | Canonical interactive blue token |
-| `accent-purple` | `var(--color-focus)` | Legacy alias for interactive blue (kept for compatibility) |
-| `ai-glow` | `var(--color-focus)` | Legacy alias for AI active blue (kept for compatibility) |
+| `color-focus` | `#3B82F6` / `#7AA2FF` | Canonical action and focus blue token |
+| `accent-purple` | `#6366F1` / `#8B8FFF` | AI-only signal, task state, AI-specific accents |
+| `ai-glow` | `#6366F1` / `#8B8FFF` | AI activity indicator, not a CTA token |
 
 ### Sidebar
 
@@ -112,11 +114,12 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 ### Token Rules
 
 - **Always use semantic tokens** — never raw Tailwind palette classes like `text-emerald-500`. Use `text-accent-emerald` instead.
+- **`primary` is action color, not text color** — body copy and headings must use `foreground` / `card-foreground`.
 - **Framer Motion `style`/`animate` props** — always use `var(--color-*)` CSS custom property references, never hardcoded hex/rgba values. Example: `background: "linear-gradient(90deg, var(--color-accent-purple), var(--color-accent-emerald))"`.
 - **Text on destructive surfaces** — use `text-primary-foreground`, not `text-white`.
 - **Subtle dividers** — use `bg-border/40`, not `bg-white/[0.04]` (which is invisible in light mode).
 - **Inline code backgrounds** — use `bg-muted` or rely on `.markdown-body` CSS rules. Never use `bg-black/5` (breaks in dark mode).
-- **Use cool slate neutrals** — use slate-based grays throughout. Never use warm stone/brown-tinted gray tokens.
+- **Use cool technical neutrals** — use cool neutral/slate-based surfaces throughout. Never use warm stone/brown-tinted gray tokens in the product UI.
 - **No opacity-modified borders** — use `border-border` (default), `border-border-strong` (hover), or `border-border-active` (focus). Never use `border-border/60`, `bg-border/60`, or other opacity modifiers on borders.
 - **No opacity-modified text for contrast** — use `text-muted-foreground-dim` instead of `text-muted-foreground/60` or `text-muted-foreground/40`. The dim token maintains WCAG AA contrast ratios.
 - **Iframe isolated content** — For HTML content inside iframes (e.g., document previews), use CSS custom properties with fallbacks: `color: var(--color-foreground, #0f172a)`.

@@ -2,6 +2,8 @@
 
 # Synapse Brand Guidelines
 
+> Product UI note: the live application color system is defined by `docs/DESIGN_STYLE_GUIDE.md` and `docs/reference/design-system.md`. This file remains brand and voice reference and should not override the app token contract.
+
 ## Brand Identity
 
 Synapse is an intelligent AI agent platform. The brand communicates **capability**, **warmth**, and **approachable confidence** through a warm cream-first aesthetic with organic softness, generous whitespace, and professional polish.

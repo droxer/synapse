@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { usePathname } from "next/navigation";
 import { HomeScreen } from "./HomeScreen";
@@ -44,8 +44,30 @@ export function ConversationView() {
   );
   const pendingNewTask = useAppStore((s) => s.pendingNewTask);
   const clearPendingNewTask = useAppStore((s) => s.clearPendingNewTask);
+  const [isOptimisticallyStarting, setIsOptimisticallyStarting] = useState(false);
 
-  const isActive = shouldShowConversationWorkspace(conversationId, isWaitingForAgent);
+  const isActuallyActive = shouldShowConversationWorkspace(conversationId, isWaitingForAgent);
+  const isActive = isActuallyActive || isOptimisticallyStarting;
+
+  useEffect(() => {
+    if (isActuallyActive) {
+      setIsOptimisticallyStarting(false);
+    }
+  }, [isActuallyActive]);
+
+  useEffect(() => {
+    if (createError && !isActuallyActive) {
+      setIsOptimisticallyStarting(false);
+    }
+  }, [createError, isActuallyActive]);
+
+  const handleSubmitFromHome = useCallback(
+    (task: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
+      setIsOptimisticallyStarting(true);
+      handleCreateConversation(task, files, skills, usePlanner);
+    },
+    [handleCreateConversation],
+  );
 
   useEffect(() => {
     if (!pendingNewTask) {
@@ -86,7 +108,7 @@ export function ConversationView() {
           transition={{ duration: 0.08 }}
         >
           <HomeScreen
-            onSubmitTask={handleCreateConversation}
+            onSubmitTask={handleSubmitFromHome}
             error={createError}
             isLoading={isWaitingForAgent}
           />

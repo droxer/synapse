@@ -4,7 +4,7 @@ import { ArtifactExplorer } from "@/shared/components/ArtifactExplorer";
 import type { ArtifactInfo } from "@/shared/types";
 
 interface ArtifactFilesPanelProps {
-  readonly artifacts: ArtifactInfo[];
+  readonly artifacts: readonly ArtifactInfo[];
   readonly conversationId: string | null;
 }
 

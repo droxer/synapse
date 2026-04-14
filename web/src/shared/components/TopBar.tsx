@@ -35,15 +35,13 @@ export function TopBar({
   const { usage: convUsage } = useConversationTokenUsage(conversationId ?? null);
 
   const handleOpenCommandPalette = useCallback(() => {
-    document.dispatchEvent(
-      new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }),
-    );
+    document.dispatchEvent(new CustomEvent("synapse:open-command-palette"));
   }, []);
 
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border/90 bg-background/95 px-4 backdrop-blur-sm">
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border/50 bg-background/95 px-4 backdrop-blur-sm">
       {/* Left: Breadcrumb */}
       <div className="min-w-0 flex items-center gap-1.5">
         <Button
@@ -57,7 +55,7 @@ export function TopBar({
         </Button>
         {isActive && conversationTitle && (
           <>
-            <span className="text-sm text-muted-foreground-dim">/</span>
+            <span className="text-sm text-muted-foreground-dim" aria-hidden="true">/</span>
             <span className="truncate text-sm font-medium text-foreground">
               {conversationTitle}
             </span>
@@ -87,7 +85,7 @@ export function TopBar({
           <span
             role="status"
             aria-live="polite"
-            className="status-pill ml-1.5 shrink-0 border border-focus/25 bg-focus/10 text-focus"
+            className="status-pill ml-1.5 shrink-0 border border-focus/30 bg-focus/10 text-focus"
           >
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-focus opacity-60" aria-hidden="true" />

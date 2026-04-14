@@ -169,7 +169,7 @@ function LoginForm() {
                   type="button"
                   onClick={handleSignIn}
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 >
                   {isLoading ? (
                     <span role="status">
@@ -208,7 +208,7 @@ function LoginForm() {
 
             {/* Desktop: waiting for browser auth */}
             {waitingForBrowser && (
-              <div className="flex w-full flex-col items-center gap-2 text-center">
+              <div className="flex w-full flex-col items-center gap-3 text-center">
                 <span role="status">
                   <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
                   <span className="sr-only">Waiting for browser authentication...</span>
@@ -216,6 +216,19 @@ function LoginForm() {
                 <p className="text-sm text-muted-foreground">
                   Complete sign-in in your browser, then return here.
                 </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (pollingRef.current) {
+                      clearInterval(pollingRef.current);
+                      pollingRef.current = null;
+                    }
+                    setWaitingForBrowser(false);
+                  }}
+                  className="text-xs text-muted-foreground-dim underline underline-offset-2 hover:text-foreground"
+                >
+                  Cancel
+                </button>
               </div>
             )}
           </div>

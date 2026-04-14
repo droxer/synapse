@@ -12,42 +12,12 @@ import {
   fileCategoryBorderColor,
 } from "@/features/agent-computer/lib/artifact-helpers";
 import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
+import { formatRelativeDate } from "@/shared/lib/format-relative-date";
 import type { ArtifactExplorerItem, ConversationNode } from "./artifactExplorerUtils";
 import { ExplorerListRow } from "./ExplorerListRow";
 
 // Exported so LibraryPage skeleton can mirror the same grid layout
 export const GRID_COLS_CLASS = "grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4";
-
-// ---------------------------------------------------------------------------
-// Date formatting
-// ---------------------------------------------------------------------------
-
-function formatRelativeDate(dateStr: string, locale: string): { relative: string; absolute: string } {
-  const date = new Date(dateStr);
-  const absolute = date.toLocaleString(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const diffMs = Date.now() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDays = Math.floor(diffHr / 24);
-
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-
-  let relative: string;
-  if (diffSec < 60) relative = rtf.format(0, "second");
-  else if (diffMin < 60) relative = rtf.format(-diffMin, "minute");
-  else if (diffHr < 24) relative = rtf.format(-diffHr, "hour");
-  else if (diffDays < 7) relative = rtf.format(-diffDays, "day");
-  else relative = absolute;
-
-  return { relative, absolute };
-}
 
 // ---------------------------------------------------------------------------
 // Thumbnail
@@ -84,6 +54,8 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
           <img
             src={artifactUrl}
             alt={item.name}
+            width={48}
+            height={48}
             className="w-full h-full object-cover"
             loading="lazy"
           />
@@ -107,6 +79,8 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
         <img
           src={artifactUrl}
           alt={item.name}
+          width={400}
+          height={144}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200 ease-out"
           loading="lazy"
         />
@@ -159,14 +133,14 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
       <div className={`h-36 overflow-hidden ${bg} flex items-center justify-center relative`}>
         <div className="relative flex items-center justify-center w-16 h-20">
           {/* Page body */}
-          <div className="absolute inset-0 rounded-sm border-2 border-current opacity-20" />
+          <div className="absolute inset-0 rounded-sm border border-current opacity-20" />
           {/* Page fold corner */}
           <div
             className={`absolute top-0 right-0 w-4 h-4 ${bg}`}
             style={{ clipPath: "polygon(0 0, 100% 100%, 100% 0)" }}
           />
           <div
-            className="absolute top-0 right-0 w-4 h-4 border-l-2 border-b-2 border-current opacity-25"
+            className="absolute top-0 right-0 w-4 h-4 border-l border-b border-current opacity-25"
             style={{ clipPath: "polygon(0 0, 100% 100%, 0 100%)" }}
           />
           {/* PDF text lines */}
@@ -307,9 +281,9 @@ function FileCard({
       <motion.div
         className={[
           "rounded-lg bg-card border overflow-hidden transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
-          "border-l-2",
+          "border-l",
           isPreviewOpen
-            ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-border-strong"
+            ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong"
             : "border-border hover:border-border-strong hover:bg-muted/40",
         ].join(" ")}
         style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
@@ -323,7 +297,7 @@ function FileCard({
             type="button"
             data-file-card-preview="true"
             onClick={() => onPreview(item)}
-            className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             <FileThumbnail item={item} layout="grid" />
           </button>
@@ -333,7 +307,7 @@ function FileCard({
               type="button"
               data-slot="button"
               aria-label={`Download ${item.name}`}
-              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               onClick={(e) => { e.stopPropagation(); onDownload(item); }}
             >
               <Download className="h-3.5 w-3.5 text-foreground" />
@@ -344,7 +318,7 @@ function FileCard({
                 type="button"
                 data-slot="button"
                 aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
               >
                 <Trash2 className="h-3.5 w-3.5 text-foreground" />
@@ -357,7 +331,7 @@ function FileCard({
           type="button"
           data-file-card-preview="true"
           onClick={() => onPreview(item)}
-          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
         >
           <div className="flex flex-col gap-1">
             <p className="truncate text-xs font-medium text-foreground leading-snug" title={item.name}>
@@ -385,9 +359,9 @@ function FileCard({
     <motion.div
       className={[
         "rounded-lg bg-card border p-2.5 transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
-        "border-l-2",
+        "border-l",
         isPreviewOpen
-          ? "ring-2 ring-ring ring-offset-2 ring-offset-background border-border border-l-border-strong bg-muted/50"
+          ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong bg-muted/50"
           : "border-border hover:border-border-strong hover:bg-secondary",
       ].join(" ")}
       style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
@@ -399,7 +373,7 @@ function FileCard({
         type="button"
         data-file-card-preview="true"
         onClick={() => onPreview(item)}
-        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
       >
         {/* Small thumbnail */}
         <FileThumbnail item={item} layout="list" />
@@ -430,7 +404,7 @@ function FileCard({
             type="button"
             data-slot="button"
             aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-            className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
             onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
           >
             <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -440,7 +414,7 @@ function FileCard({
           type="button"
           data-slot="button"
           aria-label={`Download ${item.name}`}
-          className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-border-strong hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-border-strong hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           onClick={(e) => { e.stopPropagation(); onDownload(item); }}
         >
           <Download className={cn("h-3.5 w-3.5", iconColor)} />

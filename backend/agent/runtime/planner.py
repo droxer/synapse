@@ -8,6 +8,7 @@ from typing import Any, Protocol
 
 from loguru import logger
 
+from agent.context.profiles import CompactionProfile, resolve_compaction_profile
 from agent.llm.client import (
     AnthropicClient,
     LLMResponse,
@@ -19,7 +20,7 @@ from agent.runtime.helpers import (
     extract_final_text,
     process_tool_calls,
 )
-from agent.runtime.observer import Observer, compaction_summary_for_persistence
+from agent.context.compaction import Observer, compaction_summary_for_persistence
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.orchestrator import AgentState
 from agent.runtime.skill_runtime import split_allowed_tools
@@ -100,6 +101,7 @@ class PlannerOrchestrator:
         sub_agent_manager: SubAgentManagerProtocol,
         max_iterations: int = 30,
         observer: Observer | None = None,
+        compaction_profile: CompactionProfile | None = None,
         system_prompt: str = "",
         skill_registry: SkillRegistry | None = None,
         initial_messages: tuple[dict[str, Any], ...] = (),
@@ -112,12 +114,18 @@ class PlannerOrchestrator:
         self._sub_agent_manager = sub_agent_manager
         self._emitter = event_emitter
         self._max_iterations = max_iterations
+        resolved_profile = compaction_profile or resolve_compaction_profile(
+            settings, "planner"
+        )
         self._observer = observer or Observer(
-            max_full_interactions=settings.COMPACT_FULL_INTERACTIONS,
-            max_full_dialogue_turns=settings.COMPACT_FULL_DIALOGUE_TURNS,
-            token_budget=settings.COMPACT_TOKEN_BUDGET,
+            profile=resolved_profile,
             claude_client=claude_client,
-            summary_model=settings.COMPACT_SUMMARY_MODEL or settings.LITE_MODEL,
+            summary_model=resolved_profile.summary_model or settings.LITE_MODEL,
+        )
+        self._compaction_profile = (
+            getattr(observer, "profile", resolved_profile)
+            if observer is not None
+            else resolved_profile
         )
         self._task_complete_summary: str | None = None
         self._system_prompt = system_prompt or PLANNER_SYSTEM_PROMPT
@@ -346,6 +354,8 @@ class PlannerOrchestrator:
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
                     "summary_text": compaction_summary_for_persistence(compacted),
+                    "summary_scope": "conversation",
+                    "compaction_profile": self._compaction_profile.name,
                 },
                 iteration=state.iteration,
             )

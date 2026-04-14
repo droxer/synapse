@@ -1,6 +1,6 @@
 # Design system
 
-Synapse now uses a **Base Web-inspired token system** built from Uber's public, MIT-licensed token model and adapted for Synapse product surfaces.
+Synapse now uses a **cool technical token system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and restrained blue-tinted support layers.
 
 Token source is `web/src/app/globals.css`:
 - `@theme` registers Tailwind token names.
@@ -14,6 +14,7 @@ Token source is `web/src/app/globals.css`:
 - Use semantic tokens (`background`, `foreground`, `border`, `focus`) instead of hardcoded colors.
 - Keep light/dark parity by changing variables, not component class structure.
 - Preserve Synapse's dense product UI with restrained shadows and small radii.
+- Use chroma intentionally: `primary` for actions, `secondary` for cool support surfaces, `accent` for hover/highlight.
 - Keep font licensing clean: use `Geist` + system/CJK fallbacks, not proprietary fonts.
 
 ---
@@ -34,16 +35,21 @@ Token source is `web/src/app/globals.css`:
 
 ### Light mode semantic mapping
 
-| Role | Token | Value | Base Web intent |
+| Role | Token | Value | Intent |
 |------|-------|-------|-----------------|
 | App background | `--color-background` | `#FFFFFF` | `backgroundPrimary` |
-| Raised neutral bg | `--color-secondary`, `--color-muted` | `#F7F8F9` | `backgroundSecondary` |
-| Main text | `--color-foreground`, `--color-primary` | `#000000` | `contentPrimary` |
+| CTA/action fill | `--color-primary` | `#2563EB` | primary interactive fill |
+| CTA text | `--color-primary-foreground` | `#F8FAFC` | text on primary actions |
+| Cool support bg | `--color-secondary` | `#EEF4FF` | low-chroma support surface |
+| Support surface text | `--color-secondary-foreground` | `#102244` | text on tinted support surfaces |
+| Dense neutral bg | `--color-muted` | `#F4F7FB` | quiet product surface |
+| Main text | `--color-foreground` | `#000000` | `contentPrimary` |
 | Muted text | `--color-muted-foreground` | `#5B6573` | `contentTertiary` |
 | Border | `--color-border` | `#E4E6EB` | gray scale border |
 | Strong border | `--color-border-strong` | `#C7CEDA` | emphasized border |
 | Active border | `--color-border-active` | `#7F8A9B` | strong neutral border |
-| Focus ring | `--color-focus`, `--color-ring` | `#276EF1` | brand accent (`blue600`) |
+| Hover/highlight surface | `--color-accent` | `#F7FAFF` | interactive hover surface |
+| Focus ring | `--color-focus`, `--color-ring` | `#3B82F6` | action blue |
 | Positive | `--color-accent-emerald` | `#0E8345` | positive track |
 | Warning | `--color-accent-amber` | `#9F6402` | warning track |
 | Negative | `--color-accent-rose`, `--color-destructive` | `#DE1135` | negative track |
@@ -51,30 +57,36 @@ Token source is `web/src/app/globals.css`:
 
 ### Dark mode semantic mapping
 
-| Role | Token | Value | Base Web dark primitive |
+| Role | Token | Value | Intent |
 |------|-------|-------|-------------------------|
 | App background | `--color-background` | `#101114` | `gray50Dark` |
-| Surface bg | `--color-secondary`, `--color-card`, `--color-popover` | `#181A1E` | `gray100Dark` |
+| CTA/action fill | `--color-primary` | `#5B8CFF` | primary interactive fill |
+| CTA text | `--color-primary-foreground` | `#081120` | text on primary actions |
+| Cool support bg | `--color-secondary` | `#172033` | low-chroma support surface |
+| Support surface text | `--color-secondary-foreground` | `#E6EEFF` | text on tinted support surfaces |
+| Dense neutral bg | `--color-muted` | `#1A1F2B` | quiet product surface |
+| Surface bg | `--color-card`, `--color-popover` | `#181A1E` | neutral elevated surface |
 | Border | `--color-border` | `#2A2D33` | `gray200Dark` |
 | Border strong | `--color-border-strong` | `#3A404B` | `gray300Dark` |
 | Active border | `--color-border-active` | `#6F7A8D` | `gray500Dark` |
-| Main text | `--color-foreground`, `--color-primary` | `#FFFFFF` | high-contrast content |
+| Main text | `--color-foreground` | `#FFFFFF` | high-contrast content |
 | Muted text | `--color-muted-foreground` | `#B1B9C7` | `gray700Dark` |
-| Focus ring | `--color-focus`, `--color-ring` | `#5E8BDB` | `blue600Dark` |
+| Hover/highlight surface | `--color-accent` | `#1D2432` | interactive hover surface |
+| Focus ring | `--color-focus`, `--color-ring` | `#7AA2FF` | action blue |
 | Positive | `--color-accent-emerald` | `#5C9D70` | `green600Dark` |
 | Warning | `--color-accent-amber` | `#AE8523` | `yellow600Dark` |
 | Negative | `--color-accent-rose`, `--color-destructive` | `#DE5B5D` | `red600Dark` |
 
 ### Product-specific derived tokens
 
-These remain Synapse-specific and now favor neutral, low-chroma surfaces for cleaner IDE-style chrome:
+These remain Synapse-specific and favor neutral product surfaces with a distinct AI signal:
 
 - `--color-ai-surface`, `--color-ai-border`, `--color-ai-glow`
 - `--color-input-glow`
 - `--color-profile-ring`, `--color-profile-ring-hover`
 - `--color-user-accent`, `--color-user-accent-dim`
 
-`--color-ai-surface` / `--color-ai-border` should be used as subtle structural hints (badges, assistant surfaces), not as primary brand accents.
+`--color-ai-surface` / `--color-ai-border` should be used as subtle structural hints (badges, assistant surfaces), not as CTA colors. `--color-accent-purple` and `--color-ai-glow` are reserved for AI-specific signaling and should not replace `primary`.
 
 ---
 
@@ -121,7 +133,7 @@ Standard focus ring:
 
 `focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`
 
-`--color-ring` intentionally aliases `--color-focus` so all focus states are accent-blue in both themes.
+`--color-ring` intentionally aliases `--color-focus` so all focus states use the action-blue focus token in both themes.
 
 ---
 
@@ -139,7 +151,8 @@ This keeps the UI closer to professional IDE products (Cursor/Manus style) where
 
 ## Implementation notes
 
-- Do not hardcode old legacy blues (`#1B7EF2`, `#3B8EF5`) or zinc border values in components.
+- Do not treat `primary` as neutral ink. Body text should use `foreground` / `card-foreground`; links and CTAs may use `focus` / `primary` depending on intent.
+- Do not hardcode CTA blues, legacy Base Web neutrals, or old opacity-derived hover fills in components.
 - Prefer tokens from `globals.css` through Tailwind classes (`bg-background`, `border-border`, `text-muted-foreground`, `ring-ring`).
 - If adding a new semantic color, define it in `@theme`, `:root`, and `.dark` together.
 

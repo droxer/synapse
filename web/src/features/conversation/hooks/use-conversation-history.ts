@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { useAppStore } from "@/shared/stores";
 import { fetchMessages, fetchEvents } from "../api/history-api";
 import { EVENT_TYPES } from "@/shared/types";
@@ -10,6 +11,10 @@ const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
 
 function isEventType(value: string): value is EventType {
   return EVENT_TYPE_SET.has(value);
+}
+
+function isConversationNotFoundError(err: unknown): boolean {
+  return err instanceof Error && err.message.includes("404");
 }
 
 export function isConversationHistoryLoading(
@@ -30,12 +35,16 @@ export function isConversationHistoryLoading(
 export function useConversationHistory(
   conversationId: string | null,
 ) {
+  const router = useRouter();
   const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
   const [historyEvents, setHistoryEvents] = useState<AgentEvent[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
   const prevConversationId = useRef<string | null>(null);
   const resetConversation = useAppStore((state) => state.resetConversation);
+  const clearPendingConversationRoute = useAppStore(
+    (state) => state.clearPendingConversationRoute,
+  );
 
   // Clear history immediately when switching conversations so stale
   // transcript/events do not flash while the next fetch is in flight.
@@ -105,11 +114,13 @@ export function useConversationHistory(
       })
       .catch((err) => {
         if (!cancelled) {
-          if (err instanceof Error && err.message.includes("404")) {
+          if (isConversationNotFoundError(err)) {
             setHistoryMessages([]);
             setHistoryEvents([]);
             setLoadedConversationId(null);
+            clearPendingConversationRoute();
             resetConversation();
+            router.replace("/");
           }
           console.error("Failed to load conversation history:", err);
         }
@@ -121,7 +132,7 @@ export function useConversationHistory(
     return () => {
       cancelled = true;
     };
-  }, [conversationId, resetConversation]);
+  }, [conversationId, clearPendingConversationRoute, resetConversation, router]);
 
   return {
     historyMessages,

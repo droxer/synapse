@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Square, Plus, ArrowUp, GitFork } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { FileAttachmentChip } from "@/shared/components/FileAttachmentChip";
@@ -21,8 +21,8 @@ interface ChatInputProps {
 
 export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRunning = false, variant = "default", autoFocus = false }: ChatInputProps) {
   const { t } = useTranslation();
+  const shouldReduceMotion = useReducedMotion();
   const [input, setInput] = useState("");
-  const [isFocused, setIsFocused] = useState(false);
   const [attachedFiles, setAttachedFiles] = useState<AttachedFile[]>([]);
   const [isDragOver, setIsDragOver] = useState(false);
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
@@ -163,15 +163,6 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
         <div
           className={cn(
             "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out",
-            isWelcome && "focus-within:ring-2 focus-within:ring-ring/45 focus-within:ring-offset-2 focus-within:ring-offset-background",
-            isFocused
-              ? cn(
-                  "border-border-active bg-background",
-                  isWelcome
-                    ? "shadow-[0_0_0_1px_var(--color-border-active),0_0_0_4px_var(--color-input-glow)]"
-                    : "shadow-card-hover",
-                )
-              : "",
             isDragOver && "border-dashed border-border-active bg-secondary/80",
           )}
         >
@@ -182,7 +173,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: "auto", opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                transition={{ duration: 0.12, ease: "easeOut" }}
+                transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
                 className="overflow-hidden"
               >
                 <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3 pb-2">
@@ -193,7 +184,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -4 }}
-                        transition={{ duration: 0.15 }}
+                        transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
                       >
                         <FileAttachmentChip
                           name={af.file.name}
@@ -215,8 +206,6 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            onFocus={() => setIsFocused(true)}
-            onBlur={() => setIsFocused(false)}
             onPaste={handlePaste}
             placeholder={disabled ? t("chat.placeholderWorking") : t("chat.placeholder")}
             disabled={disabled}
@@ -285,13 +274,13 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             {/* Right: send / cancel */}
             <AnimatePresence mode="wait">
               {isAgentRunning ? (
-                <motion.div
-                  key="cancel"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
+                  <motion.div
+                    key="cancel"
+                    initial={{ opacity: shouldReduceMotion ? 1 : 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: shouldReduceMotion ? 1 : 0 }}
+                    transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
+                  >
                   <Button
                     type="button"
                     size="icon"
@@ -311,10 +300,10 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
               ) : (
                 <motion.div
                   key="send"
-                  initial={{ opacity: 0 }}
+                  initial={{ opacity: shouldReduceMotion ? (hasContent ? 1 : 0.4) : 0 }}
                   animate={{ opacity: hasContent ? 1 : 0.4 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
+                  exit={{ opacity: shouldReduceMotion ? (hasContent ? 1 : 0.4) : 0 }}
+                  transition={{ duration: shouldReduceMotion ? 0 : 0.15 }}
                 >
                   <Button
                     type="submit"

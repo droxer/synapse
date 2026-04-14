@@ -15,8 +15,10 @@ from agent.sandbox.base import SANDBOX_HOME_DIR
 from agent.tools.sandbox.constants import ARTIFACT_EXTENSIONS
 
 # Directories scanned for auto-detected output files.
-# Skills stage resources under ~/skills/, so we scan that in addition
-# to the default /workspace working directory.
+# /workspace is a symlink to SANDBOX_HOME_DIR but some ``find``
+# implementations don't follow symlinks for starting points, so we
+# list both.  Skills stage resources under ~/skills/ and code_run
+# scripts may write to /tmp, so include those too.
 _SKILL_DIR = f"{SANDBOX_HOME_DIR}/skills"
 # Staged skill copies live here; auto-detection must not treat them as user outputs.
 _SKILL_ROOT_PREFIX = f"{_SKILL_DIR}/"

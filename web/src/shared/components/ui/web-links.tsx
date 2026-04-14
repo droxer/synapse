@@ -49,7 +49,7 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
               href={r.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-start gap-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+              className="flex items-start gap-2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
             >
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-medium text-user-accent group-hover:underline">

@@ -283,7 +283,8 @@ export function FilePreview({
           const html = await convertXlsxToHtml(inlineUrl);
           if (!cancelled) setContent({ status: "ready", html });
         }
-      } catch {
+      } catch (err) {
+        console.error("FilePreview fetch failed:", err);
         if (!cancelled) setContent({ status: "error" });
       }
     };
@@ -341,6 +342,9 @@ export function FilePreview({
           <img
             src={inlineUrl}
             alt={fileName}
+            width={800}
+            height={600}
+            loading="lazy"
             className={
               imageZoomed
                 ? "max-w-none cursor-zoom-out"
@@ -389,6 +393,7 @@ export function FilePreview({
         <iframe
           src={inlineUrl}
           title={fileName}
+          sandbox="allow-same-origin"
           className="h-[70vh] w-full rounded-md border border-border"
         />
       </div>

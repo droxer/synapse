@@ -11,37 +11,8 @@ import {
   fileCategoryBorderColor,
 } from "@/features/agent-computer/lib/artifact-helpers";
 import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
+import { formatRelativeDate } from "@/shared/lib/format-relative-date";
 import type { ArtifactExplorerItem } from "./artifactExplorerUtils";
-
-// ---------------------------------------------------------------------------
-// Date formatting (duplicated from ExplorerFileList to keep files independent)
-// ---------------------------------------------------------------------------
-
-function formatRelativeDate(dateStr: string, locale: string): { relative: string; absolute: string } {
-  const date = new Date(dateStr);
-  const absolute = date.toLocaleString(locale, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-  });
-  const diffMs = Date.now() - date.getTime();
-  const diffSec = Math.floor(diffMs / 1000);
-  const diffMin = Math.floor(diffSec / 60);
-  const diffHr = Math.floor(diffMin / 60);
-  const diffDays = Math.floor(diffHr / 24);
-  const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-
-  let relative: string;
-  if (diffSec < 60) relative = rtf.format(0, "second");
-  else if (diffMin < 60) relative = rtf.format(-diffMin, "minute");
-  else if (diffHr < 24) relative = rtf.format(-diffHr, "hour");
-  else if (diffDays < 7) relative = rtf.format(-diffDays, "day");
-  else relative = absolute;
-
-  return { relative, absolute };
-}
 
 // ---------------------------------------------------------------------------
 // Props
@@ -85,7 +56,7 @@ export function ExplorerListRow({
     <motion.div
       className={cn(
         "flex items-center gap-3 px-3 border-b border-border last:border-b-0",
-        "border-l-2 transition-colors duration-150 ease-out group relative",
+        "border-l transition-colors duration-150 ease-out group relative",
         isPreviewOpen
           ? "bg-secondary/70 border-l-border-strong"
           : "hover:bg-secondary/50",
@@ -110,7 +81,7 @@ export function ExplorerListRow({
         data-file-card-preview="true"
         aria-label={`Preview ${item.name}`}
         onClick={() => onPreview(item)}
-        className="flex-1 min-w-0 py-[11px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
+        className="flex-1 min-w-0 py-[11px] text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
       >
         <p className="truncate text-sm font-medium text-foreground leading-snug" title={item.name}>
           {item.name}
@@ -142,7 +113,7 @@ export function ExplorerListRow({
           type="button"
           aria-label={t("explorer.deleteFileLabel", { name: item.name })}
           onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
-          className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           <Trash2 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
@@ -151,7 +122,7 @@ export function ExplorerListRow({
         type="button"
         aria-label={`Download ${item.name}`}
         onClick={(e) => { e.stopPropagation(); onDownload(item); }}
-        className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
       >
         <Download aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
       </button>
