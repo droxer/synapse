@@ -44,6 +44,15 @@ interface ReconnectGuardInput {
   readonly hasPendingTimer: boolean;
 }
 
+export function clearPendingReconnectTimer(
+  timerRef: { current: ReturnType<typeof setTimeout> | null },
+): void {
+  if (timerRef.current !== null) {
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+}
+
 export function shouldScheduleReconnect({
   isStopped,
   retryCount,
@@ -263,10 +272,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
     }
     flushBuffer();
 
-    if (retryTimerRef.current !== null) {
-      clearTimeout(retryTimerRef.current);
-      retryTimerRef.current = null;
-    }
+    clearPendingReconnectTimer(retryTimerRef);
 
     const es = eventSourceRef.current;
     if (es) {
@@ -291,6 +297,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
 
       es.onopen = () => {
         setIsConnected(true);
+        clearPendingReconnectTimer(retryTimerRef);
         retryCountRef.current = 0;
       };
 

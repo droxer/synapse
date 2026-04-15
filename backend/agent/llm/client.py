@@ -3,9 +3,6 @@
 import asyncio
 import json
 import re
-import time
-from pathlib import Path
-from uuid import uuid4
 from collections.abc import Callable, Coroutine
 from dataclasses import dataclass
 from typing import Any
@@ -20,36 +17,6 @@ _CONTENT_POLICY_ERROR_SUMMARY = (
     "Model provider rejected the request because the prompt or recent tool "
     "output triggered content inspection."
 )
-_DEBUG_LOG_PATH = Path("/Users/feihe/Workspace/Synapse/.cursor/debug-caca61.log")
-_DEBUG_SESSION_ID = "caca61"
-
-
-def _emit_debug_log(
-    *,
-    run_id: str,
-    hypothesis_id: str,
-    location: str,
-    message: str,
-    data: dict[str, Any],
-) -> None:
-    payload = {
-        "sessionId": _DEBUG_SESSION_ID,
-        "id": f"log_{uuid4().hex}",
-        "timestamp": int(time.time() * 1000),
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-    }
-    try:
-        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        return
-
-
 class LLMContentPolicyError(RuntimeError):
     """Raised when the provider rejects a request due to content inspection."""
 
@@ -467,57 +434,9 @@ class AnthropicClient:
             if kwargs["max_tokens"] < min_max_tokens:
                 kwargs["max_tokens"] = min_max_tokens
 
-        message_chars = sum(
-            len(json.dumps(message, ensure_ascii=True)) for message in messages
-        )
-        tool_chars = len(json.dumps(tools or [], ensure_ascii=True))
-        # region agent log
-        _emit_debug_log(
-            run_id="initial",
-            hypothesis_id="H1",
-            location="backend/agent/llm/client.py:create_message_stream:request",
-            message="Prepared stream request payload stats",
-            data={
-                "model": effective_model,
-                "messageCount": len(messages),
-                "messageChars": message_chars,
-                "systemChars": len(system),
-                "toolCount": len(tools or []),
-                "toolSchemaChars": tool_chars,
-            },
-        )
-        # endregion
-        # region agent log
-        _emit_debug_log(
-            run_id="initial",
-            hypothesis_id="H2",
-            location="backend/agent/llm/client.py:create_message_stream:thinking",
-            message="Prepared stream token budget settings",
-            data={
-                "model": effective_model,
-                "thinkingBudget": thinking_budget,
-                "maxTokens": kwargs["max_tokens"],
-                "thinkingEnabled": "thinking" in kwargs,
-            },
-        )
-        # endregion
-
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):
             try:
-                # region agent log
-                _emit_debug_log(
-                    run_id="initial",
-                    hypothesis_id="H4",
-                    location="backend/agent/llm/client.py:create_message_stream:attempt",
-                    message="Starting stream attempt",
-                    data={
-                        "model": effective_model,
-                        "attempt": attempt + 1,
-                        "maxRetries": _MAX_RETRIES,
-                    },
-                )
-                # endregion
                 async with self._client.messages.stream(**kwargs) as stream:
                     thinking_snapshot = ""
                     emitted_thinking = False
@@ -575,21 +494,7 @@ class AnthropicClient:
                 )
                 if attempt < _MAX_RETRIES - 1:
                     await asyncio.sleep(2**attempt)
-            except Exception as exc:
-                # region agent log
-                _emit_debug_log(
-                    run_id="initial",
-                    hypothesis_id="H5",
-                    location="backend/agent/llm/client.py:create_message_stream:error",
-                    message="Non-retryable stream error details",
-                    data={
-                        "model": effective_model,
-                        "errorType": type(exc).__name__,
-                        "errorText": str(exc)[:500],
-                        "providerPayload": _extract_error_payload(exc),
-                    },
-                )
-                # endregion
+            except Exception:
                 raise
 
         raise last_exc  # type: ignore[misc]

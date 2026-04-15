@@ -13,6 +13,8 @@ from loguru import logger
 from api.events import AgentEvent, EventType
 from api.models import ConversationEntry
 
+_SSE_KEEPALIVE_SECONDS = 25.0
+
 
 def _create_queue_subscriber(
     queue: asyncio.Queue[AgentEvent | None],
@@ -56,7 +58,10 @@ async def _event_generator(
         while True:
             # Wait for next event (blocks between turns — that's intentional)
             try:
-                event = await asyncio.wait_for(entry.event_queue.get(), timeout=300.0)
+                event = await asyncio.wait_for(
+                    entry.event_queue.get(),
+                    timeout=_SSE_KEEPALIVE_SECONDS,
+                )
             except asyncio.TimeoutError:
                 # Send keepalive comment to prevent proxy/browser timeout
                 yield ": keepalive\n\n"
