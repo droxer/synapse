@@ -18,7 +18,14 @@ from agent.tools.sandbox.constants import ARTIFACT_EXTENSIONS
 # Skills stage resources under ~/skills/, so we scan that in addition
 # to the default /workspace working directory.
 _SKILL_DIR = f"{SANDBOX_HOME_DIR}/skills"
+# Staged skill copies live here; auto-detection must not treat them as user outputs.
+_SKILL_ROOT_PREFIX = f"{_SKILL_DIR}/"
 DEFAULT_SEARCH_ROOTS: tuple[str, ...] = ("/workspace", _SKILL_DIR)
+
+# When the model does not pass output_files, skip plain-text and structured-text
+# outputs from auto-detection — they are usually outlines or build logs, not the
+# final deliverable (e.g. .pptx / .pdf / images).
+_AUTO_DETECT_SKIP_EXTENSIONS = frozenset({".txt", ".md", ".json", ".xml"})
 
 ArtifactSnapshot = dict[str, tuple[int, str]]
 
@@ -140,9 +147,27 @@ async def find_new_output_files(
                 continue
             seen.add(path)
             result.append(path)
-        return result
+        return _filter_auto_detected_paths(result)
     except Exception:
         return []
+
+
+def _filter_auto_detected_paths(paths: list[str]) -> list[str]:
+    """Drop paths that are almost never the user's final deliverable."""
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in paths:
+        path = raw.strip()
+        if not path or path in seen:
+            continue
+        if path.startswith(_SKILL_ROOT_PREFIX):
+            continue
+        _, ext = os.path.splitext(path)
+        if ext.lower() in _AUTO_DETECT_SKIP_EXTENSIONS:
+            continue
+        seen.add(path)
+        out.append(path)
+    return out
 
 
 def build_artifact_paths(
@@ -151,26 +176,42 @@ def build_artifact_paths(
     *,
     exclude_paths: tuple[str, ...] = (),
 ) -> list[str]:
-    """Merge explicit and auto-detected artifact paths.
+    """Resolve artifact paths for sandbox extraction.
 
-    Deduplicates results and excludes any paths whose basename matches
-    *exclude_paths* (e.g. the script file itself).
+    When *explicit* is non-empty (e.g. ``output_files`` from the model), only
+    those paths are used — auto-detection is ignored so intermediate files
+    (another export in the same run, staged skill assets, etc.) are not shown.
+
+    When *explicit* is empty, *auto_found* is used after filtering out staged
+    skill files and common text intermediates.
     """
     exclude_basenames = frozenset(os.path.basename(p) for p in exclude_paths)
 
+    def _passes_excludes(p: str) -> bool:
+        return os.path.basename(p) not in exclude_basenames and p not in exclude_paths
+
+    explicit_clean: list[str] = []
+    seen_exp: set[str] = set()
+    for path in explicit:
+        path = path.strip()
+        if not path or path in seen_exp:
+            continue
+        if not _passes_excludes(path):
+            continue
+        seen_exp.add(path)
+        explicit_clean.append(path)
+
+    if explicit_clean:
+        return explicit_clean
+
     seen: set[str] = set()
     result: list[str] = []
-
-    for path in explicit + auto_found:
-        path = path.strip()
-        if not path:
+    for path in _filter_auto_detected_paths(auto_found):
+        if path in seen:
             continue
-        if os.path.basename(path) in exclude_basenames:
+        if not _passes_excludes(path):
             continue
-        if path in exclude_paths:
-            continue
-        if path not in seen:
-            seen.add(path)
-            result.append(path)
+        seen.add(path)
+        result.append(path)
 
     return result

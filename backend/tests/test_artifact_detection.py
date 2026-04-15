@@ -62,10 +62,16 @@ class TestFindNewOutputFiles:
         assert "/workspace/data.csv" in result
 
     @pytest.mark.asyncio
-    async def test_finds_files_in_skill_directory(self) -> None:
+    async def test_filters_text_intermediates_from_auto(self) -> None:
+        session = _make_session("/workspace/outline.txt\n/workspace/slides.pptx\n")
+        result = await find_new_output_files(session, "/tmp/marker")
+        assert result == ["/workspace/slides.pptx"]
+
+    @pytest.mark.asyncio
+    async def test_skill_directory_files_not_auto_artifacts(self) -> None:
         session = _make_session("/home/user/skills/pdf/output.pdf\n")
         result = await find_new_output_files(session, "/tmp/marker")
-        assert "/home/user/skills/pdf/output.pdf" in result
+        assert result == []
 
     @pytest.mark.asyncio
     async def test_excludes_specified_paths(self) -> None:
@@ -178,14 +184,15 @@ class TestSnapshotOutputFiles:
 
 
 class TestBuildArtifactPaths:
-    """build_artifact_paths should merge and deduplicate paths."""
+    """build_artifact_paths prefers explicit output_files over auto-detection."""
 
-    def test_merges_explicit_and_auto(self) -> None:
+    def test_explicit_wins_over_auto(self) -> None:
+        """When output_files is set, auto-detected paths are ignored."""
         result = build_artifact_paths(
             ["/workspace/a.pdf"],
             ["/workspace/b.csv"],
         )
-        assert result == ["/workspace/a.pdf", "/workspace/b.csv"]
+        assert result == ["/workspace/a.pdf"]
 
     def test_deduplicates(self) -> None:
         result = build_artifact_paths(
@@ -218,9 +225,25 @@ class TestBuildArtifactPaths:
         result = build_artifact_paths([], [])
         assert result == []
 
-    def test_skill_directory_paths_preserved(self) -> None:
+    def test_skill_directory_auto_paths_dropped(self) -> None:
+        """Staged skill copies must not appear as user artifacts."""
         result = build_artifact_paths(
             [],
             ["/home/user/skills/pdf/output.pdf"],
         )
-        assert result == ["/home/user/skills/pdf/output.pdf"]
+        assert result == []
+
+    def test_explicit_skill_path_allowed(self) -> None:
+        """Model may still name a deliverable under the skill dir via output_files."""
+        result = build_artifact_paths(
+            ["/home/user/skills/pdf/final-deck.pptx"],
+            ["/workspace/other.pptx"],
+        )
+        assert result == ["/home/user/skills/pdf/final-deck.pptx"]
+
+    def test_auto_skips_text_intermediates(self) -> None:
+        result = build_artifact_paths(
+            [],
+            ["/workspace/outline.txt", "/workspace/slides.pptx"],
+        )
+        assert result == ["/workspace/slides.pptx"]

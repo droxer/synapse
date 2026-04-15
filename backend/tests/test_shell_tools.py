@@ -305,8 +305,8 @@ class TestShellWait:
         )
 
     @pytest.mark.asyncio
-    async def test_auto_detection_merges_with_manifest(self) -> None:
-        """Auto-detected artifacts are merged with explicit manifest paths."""
+    async def test_manifest_only_no_merge_with_auto_detect(self) -> None:
+        """Explicit manifest paths win; auto-detected extras are not merged in."""
         session = MockSession(
             {
                 "/pid": ExecResult(stdout="1234"),
@@ -324,10 +324,7 @@ class TestShellWait:
         result = await tool.execute(session=session, id="build", timeout=5)
         assert result.success
         paths = (result.metadata or {}).get("artifact_paths", [])
-        assert "/workspace/report.pdf" in paths
-        assert "/workspace/deck.pptx" in paths
-        # No duplicates
-        assert len(paths) == len(set(paths))
+        assert paths == ["/workspace/report.pdf"]
 
 
 # ------------------------------------------------------------------

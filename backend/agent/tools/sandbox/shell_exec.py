@@ -81,10 +81,10 @@ class ShellExec(SandboxTool):
                         "type": "array",
                         "items": {"type": "string"},
                         "description": (
-                            "Absolute paths of files created or modified by "
-                            "this command that should be saved as downloadable "
-                            "artifacts. Only include files the user would want "
-                            "to view or download."
+                            "Absolute paths of final deliverables only (e.g. the "
+                            "exported .pptx or .pdf). When set, only these paths "
+                            "are registered as artifacts — omit to fall back to "
+                            "auto-detection under /workspace."
                         ),
                     },
                     "id": {
