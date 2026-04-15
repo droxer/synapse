@@ -68,10 +68,11 @@ class CodeRun(SandboxTool):
                         "type": "array",
                         "items": {"type": "string"},
                         "description": (
-                            "Absolute paths of OUTPUT files written to disk by "
-                            "the code during execution (e.g. /workspace/report.docx). "
-                            "Do NOT include the script file itself. "
-                            "Only list files the code creates or writes as results."
+                            "Absolute paths of final OUTPUT files only (e.g. "
+                            "/workspace/report.docx). When set, only these paths "
+                            "are registered as artifacts. Do NOT include the "
+                            "script file itself. Omit to use auto-detection under "
+                            "/workspace."
                         ),
                     },
                 },
