@@ -41,6 +41,7 @@ def build_skill_prompt_content(skill: SkillContent) -> str:
     lines = [f'<skill_content name="{skill.metadata.name}">']
     lines.append(skill.instructions)
     lines.append("")
+    lines.append(f"Skill directory: {sandbox_dir}")
     lines.append(f"Sandbox skill directory: {sandbox_dir}")
     lines.append("Resolve execution paths against this sandbox directory.")
     lines.append(f"Host skill directory (reference only): {skill.directory_path}")

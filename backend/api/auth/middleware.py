@@ -107,11 +107,20 @@ class _RateLimiter:
         return True
 
 
-# IP-based rate limiter (for unauthenticated requests)
-_ip_rate_limiter = _RateLimiter(max_requests=get_settings().RATE_LIMIT_PER_MINUTE)
+_limiter_cache: dict[str, tuple[int, _RateLimiter]] = {}
 
-# User-based rate limiter (for authenticated requests) - higher limit
-_user_rate_limiter = _RateLimiter(max_requests=get_settings().RATE_LIMIT_PER_MINUTE * 2)
+
+def _get_rate_limiter(kind: str, max_requests: int) -> _RateLimiter:
+    """Return a cached limiter, refreshing it when config changes."""
+    cached = _limiter_cache.get(kind)
+    if cached is not None:
+        cached_max, limiter = cached
+        if cached_max == max_requests:
+            return limiter
+
+    limiter = _RateLimiter(max_requests=max_requests)
+    _limiter_cache[kind] = (max_requests, limiter)
+    return limiter
 
 
 async def _check_rate_limit(
@@ -128,11 +137,11 @@ async def _check_rate_limit(
     # Use user ID if authenticated, otherwise fall back to IP
     if auth_user is not None:
         key = f"user:{auth_user.google_id}"
-        limiter = _user_rate_limiter
+        limiter = _get_rate_limiter("user", settings.RATE_LIMIT_PER_MINUTE * 2)
     else:
         client_ip = request.client.host if request.client else "unknown"
         key = f"ip:{client_ip}"
-        limiter = _ip_rate_limiter
+        limiter = _get_rate_limiter("ip", settings.RATE_LIMIT_PER_MINUTE)
 
     if not limiter.check(key):
         raise HTTPException(status_code=429, detail="Rate limit exceeded")

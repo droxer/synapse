@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import json
+import re
+
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 
 from api.auth.middleware import AuthUser, common_dependencies, get_current_user
 from api.dependencies import AppState, get_app_state
+from config.settings import get_settings
 
 router = APIRouter(prefix="/auth", tags=["auth"], dependencies=common_dependencies)
 
 _VALID_THEMES = {"light", "dark", "system"}
 _VALID_LOCALES = {"en", "zh-CN", "zh-TW"}
+_NONCE_PATTERN = re.compile(r"^[A-Fa-f0-9]{32}$")
+_DESKTOP_TOKEN_TTL_SECONDS = 120
 
 
 def _user_response(user) -> dict:
@@ -45,6 +51,88 @@ class PreferencesUpdate(BaseModel):
         if v is not None and v not in _VALID_LOCALES:
             raise ValueError(f"locale must be one of {_VALID_LOCALES}")
         return v
+
+
+class DesktopTokenStoreRequest(BaseModel):
+    """Payload stored during desktop OAuth handoff."""
+
+    nonce: str
+    email: str
+    name: str = ""
+    image: str = ""
+    googleId: str = ""
+
+    @field_validator("nonce")
+    @classmethod
+    def validate_nonce(cls, value: str) -> str:
+        if not _NONCE_PATTERN.fullmatch(value):
+            raise ValueError("nonce must be a 32-character hexadecimal string")
+        return value
+
+
+def _desktop_nonce_key(nonce: str) -> str:
+    return f"desktop-token:{nonce}"
+
+
+async def _open_redis():
+    """Open a Redis client for desktop auth token exchange."""
+    from redis import asyncio as redis_asyncio
+
+    return redis_asyncio.from_url(get_settings().REDIS_URL, decode_responses=True)
+
+
+async def store_desktop_token(body: DesktopTokenStoreRequest) -> dict[str, bool]:
+    """Store a short-lived desktop auth token payload."""
+    client = await _open_redis()
+    try:
+        payload = {
+            "email": body.email,
+            "name": body.name,
+            "image": body.image,
+            "googleId": body.googleId,
+        }
+        await client.set(
+            _desktop_nonce_key(body.nonce),
+            json.dumps(payload),
+            ex=_DESKTOP_TOKEN_TTL_SECONDS,
+        )
+    finally:
+        await client.aclose()
+    return {"ok": True}
+
+
+async def consume_desktop_token(nonce: str) -> dict[str, object]:
+    """Consume a single-use desktop auth token payload."""
+    if not _NONCE_PATTERN.fullmatch(nonce):
+        raise HTTPException(status_code=400, detail="Invalid nonce")
+
+    client = await _open_redis()
+    try:
+        payload = await client.getdel(_desktop_nonce_key(nonce))
+    finally:
+        await client.aclose()
+
+    if payload is None:
+        raise HTTPException(status_code=404, detail="Desktop token pending")
+
+    try:
+        parsed = json.loads(payload)
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=404, detail="Desktop token pending") from exc
+
+    email = str(parsed.get("email", "")).strip()
+    if not email:
+        raise HTTPException(status_code=404, detail="Desktop token pending")
+
+    return {
+        "status": "complete",
+        "user": {
+            "email": email,
+            "name": str(parsed.get("name", "")),
+            "image": str(parsed.get("image", "")),
+            "googleId": str(parsed.get("googleId", "")),
+        },
+    }
 
 
 @router.post("/me")

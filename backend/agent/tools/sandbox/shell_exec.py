@@ -125,10 +125,14 @@ class ShellExec(SandboxTool):
                 session, command, clean_id, workdir, output_files
             )
 
-        # Place a timestamp marker before execution so we can find new files.
-        before_snapshot = await snapshot_output_files(session)
-        ts_marker = f"/tmp/_se_ts_{os.urandom(4).hex()}"
-        await session.exec(f"touch {shlex.quote(ts_marker)}")
+        detect_artifacts = bool(output_files)
+        before_snapshot: dict[str, tuple[int, float]] | None = None
+        ts_marker: str | None = None
+
+        if detect_artifacts:
+            before_snapshot = await snapshot_output_files(session)
+            ts_marker = f"/tmp/_se_ts_{os.urandom(4).hex()}"
+            await session.exec(f"touch {shlex.quote(ts_marker)}")
 
         try:
             use_streaming = event_emitter is not None and isinstance(
@@ -147,7 +151,8 @@ class ShellExec(SandboxTool):
             else:
                 result = await session.exec(command, timeout=timeout, workdir=workdir)
         except boxlite.BoxliteError as exc:
-            await session.exec(f"rm -f {shlex.quote(ts_marker)}")
+            if ts_marker is not None:
+                await session.exec(f"rm -f {shlex.quote(ts_marker)}")
             if "invalidated" in str(exc).lower() or "stop" in str(exc).lower():
                 return ToolResult.fail(
                     "The sandbox session is no longer available. "
@@ -155,16 +160,18 @@ class ShellExec(SandboxTool):
                 )
             return ToolResult.fail(f"Sandbox error: {exc}")
         except Exception as exc:
-            await session.exec(f"rm -f {shlex.quote(ts_marker)}")
+            if ts_marker is not None:
+                await session.exec(f"rm -f {shlex.quote(ts_marker)}")
             return ToolResult.fail(f"Shell execution failed: {exc}")
 
-        # Auto-detect output files created during execution.
-        auto_found = await find_new_output_files(
-            session,
-            ts_marker,
-            before_snapshot=before_snapshot,
-        )
-        await session.exec(f"rm -f {shlex.quote(ts_marker)}")
+        auto_found: list[str] = []
+        if ts_marker is not None:
+            auto_found = await find_new_output_files(
+                session,
+                ts_marker,
+                before_snapshot=before_snapshot,
+            )
+            await session.exec(f"rm -f {shlex.quote(ts_marker)}")
 
         combined = result.stdout
         if result.stderr:

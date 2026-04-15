@@ -107,6 +107,18 @@ def _tool_batch_allows_parallel_execution(tool_calls: tuple[ToolCall, ...]) -> b
     )
 
 
+def _resolve_tool_call_event_payload(
+    executor: Any,
+    tool_name: str,
+    tool_input: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    """Return the canonical tool call payload when supported by the executor."""
+    resolver = getattr(executor, "canonical_tool_call_event_payload", None)
+    if callable(resolver):
+        return resolver(tool_name, tool_input)
+    return tool_name, tool_input
+
+
 async def _emit_and_execute_single_tool(
     state: AgentState,
     tc: ToolCall,
@@ -115,7 +127,8 @@ async def _emit_and_execute_single_tool(
     agent_id: str | None,
 ) -> tuple[ToolResult, dict[str, Any]]:
     """Run one tool after emitting TOOL_CALL; return (ToolResult, result_data dict)."""
-    event_tool_name, event_tool_input = executor.canonical_tool_call_event_payload(
+    event_tool_name, event_tool_input = _resolve_tool_call_event_payload(
+        executor,
         tc.name,
         tc.input,
     )
@@ -231,8 +244,10 @@ async def process_tool_calls(
 
         emit_tasks = []
         for tc in tool_calls:
-            event_tool_name, event_tool_input = (
-                executor.canonical_tool_call_event_payload(tc.name, tc.input)
+            event_tool_name, event_tool_input = _resolve_tool_call_event_payload(
+                executor,
+                tc.name,
+                tc.input,
             )
             emit_tasks.append(
                 emitter.emit(

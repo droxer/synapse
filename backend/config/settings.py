@@ -161,6 +161,8 @@ class Settings(BaseSettings):
     MEMORY_FACT_CONFIDENCE_THRESHOLD: float = 0.85
     MEMORY_FACT_TOP_K: int = 8
     MEMORY_FACT_PROMPT_TOKEN_CAP: int = 1200
+    MEMORY_PROMPT_ENTRY_MAX_CHARS: int = 300
+    MEMORY_PROMPT_MAX_CHARS: int = 4000
 
     DEFAULT_SYSTEM_PROMPT: str = (
         "You are the user's coding and research copilot with access to a sandboxed environment "
