@@ -9,7 +9,11 @@ import rehypeHighlight from "rehype-highlight";
 import type { Components } from "react-markdown";
 import { Copy, Check, ArrowUpRight } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
-import { getMarkdownRenderStrategy, type MarkdownRenderStrategy } from "./markdown-render-strategy";
+import {
+  getMarkdownRenderStrategy,
+  splitStreamingMarkdown,
+  type MarkdownRenderStrategy,
+} from "./markdown-render-strategy";
 
 // Helper to recursively extract text from React children
 const extractText = (node: ReactNode): string => {
@@ -162,6 +166,21 @@ function renderInlineCodeSegments(content: string): ReactNode[] {
   });
 }
 
+function renderLightweightTail(content: string, className?: string): ReactNode {
+  if (!content.length) return null;
+
+  return (
+    <div
+      className={cn(
+        "markdown-streaming-tail whitespace-pre-wrap break-words leading-[1.5]",
+        className,
+      )}
+    >
+      {renderInlineCodeSegments(content)}
+    </div>
+  );
+}
+
 export const MarkdownRenderer = memo(function MarkdownRenderer({
   content,
   className,
@@ -179,15 +198,19 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
       <div
         style={markdownVars}
         className={cn(
-          "markdown-body conversation-markdown font-sans max-w-none break-words whitespace-pre-wrap leading-[1.5]",
+          "markdown-body conversation-markdown font-sans max-w-none break-words",
           isStreaming && "streaming-active",
           className,
         )}
       >
-        {content.length > 0 ? renderInlineCodeSegments(content) : null}
+        {renderLightweightTail(content)}
       </div>
     );
   }
+
+  const { stableContent, tailContent } = renderMode === "streaming-hybrid"
+    ? splitStreamingMarkdown(content)
+    : { stableContent: content, tailContent: "" };
 
   return (
     <div
@@ -199,13 +222,18 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
         className
       )}
     >
-      <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkMath]}
-        rehypePlugins={[rehypeKatex, rehypeHighlight]}
-        components={components}
-      >
-        {content}
-      </ReactMarkdown>
+      {stableContent ? (
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm, remarkMath]}
+          rehypePlugins={[rehypeKatex, rehypeHighlight]}
+          components={components}
+        >
+          {stableContent}
+        </ReactMarkdown>
+      ) : null}
+      {renderMode === "streaming-hybrid"
+        ? renderLightweightTail(tailContent, stableContent ? "mt-[0.8rem]" : undefined)
+        : null}
     </div>
   );
 });

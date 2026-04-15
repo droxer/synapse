@@ -215,7 +215,6 @@ export const MessageRow = memo(function MessageRow({
                 <MarkdownRenderer
                   content={displayContent}
                   isStreaming={isStreamingThis}
-                  mode={isStreamingThis ? "streaming-light" : "settled"}
                 />
               ) : null}
               {showEmptyAssistantPlaceholder ? (

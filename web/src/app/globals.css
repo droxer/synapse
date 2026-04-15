@@ -649,6 +649,7 @@ pre, code {
 .markdown-body.streaming-active > h4:last-child::after,
 .markdown-body.streaming-active > h5:last-child::after,
 .markdown-body.streaming-active > h6:last-child::after,
+.markdown-body.streaming-active > .markdown-streaming-tail:last-child::after,
 .markdown-body.streaming-active > div:not(.not-prose):last-child pre:last-child::after,
 .markdown-body.streaming-active > pre:last-child::after,
 .markdown-reasoning.streaming-active:empty::after,
@@ -711,6 +712,10 @@ pre, code {
 
 .conversation-markdown li::marker {
   color: var(--color-muted-foreground);
+}
+
+.markdown-streaming-tail > * {
+  display: inline;
 }
 
 /* ─── Thinking Block scroll fade ─── */
