@@ -57,7 +57,7 @@ export function BrowserOutput({
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
 
   return (
-    <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-l border-l-focus")}>
+    <div className={OUTPUT_CARD_BASE_CLASSES}>
       {/* Header */}
       <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "mb-2")}>
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />

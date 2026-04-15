@@ -9,6 +9,7 @@
     "start": "next start",
     "lint": "eslint src/",
     "typecheck": "tsc --noEmit",
+    "audit:design-tokens": "bash ./scripts/audit-design-tokens.sh",
     "test": "jest --config jest.config.cjs --runInBand",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",

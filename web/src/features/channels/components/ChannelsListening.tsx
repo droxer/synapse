@@ -2,8 +2,10 @@
 
 import { motion } from "framer-motion";
 import { ChannelProviderIcon } from "./ChannelProviderIcon";
+import { useTranslation } from "@/i18n";
 
 export function ChannelsListening() {
+  const { t } = useTranslation();
   return (
     <div className="flex h-full items-center justify-center bg-background px-8 welcome-radial-bg">
       <motion.div
@@ -37,10 +39,10 @@ export function ChannelsListening() {
               <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
             </span>
-            <h3 className="text-sm font-semibold text-foreground">Bot is active</h3>
+            <h3 className="text-sm font-semibold text-foreground">{t("channels.listening.activeTitle")}</h3>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground max-w-[22ch] mx-auto">
-            Send any message to your Telegram bot to start a conversation.
+            {t("channels.listening.activeDescription")}
           </p>
         </div>
 
@@ -52,9 +54,9 @@ export function ChannelsListening() {
               </svg>
             </div>
             <div className="text-left">
-              <p className="text-xs font-medium text-foreground">Open Telegram</p>
+              <p className="text-xs font-medium text-foreground">{t("channels.listening.openTelegram")}</p>
               <p className="mt-0.5 text-xs text-muted-foreground leading-normal">
-                Search for your bot and send{" "}
+                {t("channels.listening.openTelegramHintPrefix")}{" "}
                 <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs text-foreground">/start</code>
               </p>
             </div>

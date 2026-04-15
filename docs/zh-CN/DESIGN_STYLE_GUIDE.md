@@ -4,6 +4,9 @@
 
 > 简洁、精准、以内容为中心的 AI 界面，拥有充裕的留白和技术清晰感。
 
+本指南定义设计原则与组件使用规范。
+令牌真实数值以 `web/src/app/globals.css` 与 `docs/reference/design-system.md` 为准。
+
 ---
 
 ## 核心原则
@@ -26,54 +29,54 @@
 
 ### 设计理念
 
-调色板基于**深锌色中性色调**构建 — 高对比度的纯平白色与深邃暗色，搭配极简的紫罗兰强调色。这营造出一种精准、专业的感觉，与 VS Code、Vercel、Cursor 等现代开发者工具保持一致，传达技术能力和清晰感。
+调色板基于**冷色技术中性色**构建，并叠加**蓝色交互层**与克制的 AI 紫色信号。该策略在保持专业感的同时，确保主操作与状态反馈清晰可辨。
 
 ### 核心调色板（亮色模式 — 默认）
 
 | 令牌 | Hex | 用途 |
 |------|-----|------|
 | `background` | `#FFFFFF` | 页面画布 — 纯白色 |
-| `foreground` | `#09090B` | 主文字 — 深锌色 |
-| `primary` | `#18181b` | 操作按钮、交互填充 |
-| `primary-foreground` | `#FAFAFA` | 主色表面上的文字 |
-| `secondary` | `#F4F4F5` | 柔和背景、用户消息 |
-| `secondary-foreground` | `#18181B` | 次色表面上的文字 |
-| `muted` | `#F4F4F5` | 非活跃/禁用背景 |
+| `foreground` | `#000000` | 主文字 — 深色墨水 |
+| `primary` | `#2563EB` | 操作按钮、交互填充 |
+| `primary-foreground` | `#F8FAFC` | 主色表面上的文字 |
+| `secondary` | `#EEF4FF` | 冷色辅助表面、支持性区域 |
+| `secondary-foreground` | `#102244` | 次色表面上的文字 |
+| `muted` | `#F4F7FB` | 非活跃/低强调背景 |
 | `muted-foreground` | `#71717A` | 次要文字、提示、时间戳 |
 | `muted-foreground-dim` | `#94A3B8` | 三级文字，符合 WCAG AA 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
 | `card` | `#FFFFFF` | 卡片/抬升表面（冷色背景上的白色形成自然对比） |
 | `card-foreground` | `#0F172A` | 卡片上的文字 |
 | `popover` | `#FFFFFF` | 下拉菜单/弹出框背景 |
 | `popover-foreground` | `#0F172A` | 弹出框中的文字 |
-| `destructive` | `#EF4444` | 错误状态、删除操作 |
+| `destructive` | `#DE1135` | 错误状态、删除操作 |
 
 ### 核心调色板（暗色模式）
 
 | 令牌 | Hex | 用途 |
 |------|-----|------|
-| `background` | `#09090B` | 页面画布 — 深锌色（极致极简的开发者工具风格） |
-| `foreground` | `#FAFAFA` | 主文字 — 清晰纯白 |
-| `primary` | `#FFFFFF` | 操作按钮、交互填充 |
-| `primary-foreground` | `#0F172A` | 主色表面上的文字 |
-| `secondary` | `#18181B` | 柔和背景（扁平深锌色） |
-| `secondary-foreground` | `#E2E8F0` | 次色表面上的文字 |
+| `background` | `#101114` | 页面画布 — 深锌色（极致极简的开发者工具风格） |
+| `foreground` | `#FFFFFF` | 主文字 — 清晰纯白 |
+| `primary` | `#5B8CFF` | 操作按钮、交互填充 |
+| `primary-foreground` | `#081120` | 主色表面上的文字 |
+| `secondary` | `#172033` | 冷色辅助表面 |
+| `secondary-foreground` | `#E6EEFF` | 次色表面上的文字 |
 | `muted` | `#1A1D27` | 非活跃/禁用背景 |
-| `muted-foreground` | `#94A3B8` | 次要文字 (slate-400) |
+| `muted-foreground` | `#B1B9C7` | 次要文字 (slate-400) |
 | `muted-foreground-dim` | `#64748B` | 三级文字，符合 WCAG 3:1 对比度（替代 `/60` 和 `/40` 透明度修饰符） |
-| `card` | `#09090B` | 卡片/抬升表面 |
-| `card-foreground` | `#E2E8F0` | 卡片上的文字 |
-| `popover` | `#09090B` | 下拉菜单/弹出框背景 |
-| `popover-foreground` | `#E2E8F0` | 弹出框中的文字 |
-| `destructive` | `#F87171` | 错误状态、删除操作 |
+| `card` | `#181A1E` | 卡片/抬升表面 |
+| `card-foreground` | `#FFFFFF` | 卡片上的文字 |
+| `popover` | `#181A1E` | 下拉菜单/弹出框背景 |
+| `popover-foreground` | `#FFFFFF` | 弹出框中的文字 |
+| `destructive` | `#DE5B5D` | 错误状态、删除操作 |
 
 ### 边框
 
 | 令牌 | 亮色 | 暗色 | 用途 |
 |------|------|------|------|
-| `border` | `#E4E4E7` | `#27272A` | 默认边框、分隔线（1px，扁平纯色） |
-| `border-strong` | `#CBD5E1` | `#3A3D47` | 强调边框 |
-| `border-active` | `#94A3B8` | `#64748B` | 聚焦状态、活跃输入框边框 |
-| `input` | `#E2E8F0` | `#2A2D37` | 输入框边框 |
+| `border` | `#E4E6EB` | `#2A2D33` | 默认边框、分隔线（1px，扁平纯色） |
+| `border-strong` | `#C7CEDA` | `#3A404B` | 强调边框 |
+| `border-active` | `#7F8A9B` | `#6F7A8D` | 聚焦状态、活跃输入框边框 |
+| `input` | `#E4E6EB` | `#2A2D33` | 输入框边框 |
 
 ### 强调色与语义色
 
@@ -81,21 +84,21 @@
 
 | 令牌 | Hex（亮色 / 暗色） | 语义 |
 |------|-----|------|
-| `user-accent` | `#18181B` / `#FAFAFA` | 用户消息强调色 |
-| `accent-emerald` | `#10B981` / `#34D399` | 成功、运行中、进度 |
-| `accent-amber` | `#B45309` / `#D97706` | 警告、思考中 |
-| `accent-rose` | `#EF4444` / `#F87171` | 错误、失败 |
-| `color-focus` | `#1B7EF2` / `#3B8EF5` | 规范化交互蓝色令牌 |
-| `accent-purple` | `var(--color-focus)` | 兼容旧代码的交互蓝色别名 |
-| `ai-glow` | `var(--color-focus)` | 兼容旧代码的 AI 活跃蓝色别名 |
+| `user-accent` | `#000000` / `#DEDEDE` | 用户消息强调色 |
+| `accent-emerald` | `#0E8345` / `#5C9D70` | 成功、运行中、进度 |
+| `accent-amber` | `#9F6402` / `#AE8523` | 警告、思考中 |
+| `accent-rose` | `#DE1135` / `#DE5B5D` | 错误、失败 |
+| `color-focus` | `#3B82F6` / `#7AA2FF` | 规范化交互蓝色令牌 |
+| `accent-purple` | `#6366F1` / `#8B8FFF` | AI 专用信号色 |
+| `ai-glow` | `#6366F1` / `#8B8FFF` | AI 活跃状态提示色 |
 
 ### 侧边栏
 
 | 令牌 | 亮色 | 暗色 |
 |------|------|------|
-| `sidebar-bg` | `#F5F5F6` | `#0C0C0E` |
-| `sidebar-active` | `#E4E4E7` | `#27272A` |
-| `sidebar-hover` | `#EBEBEC` | `#18181B` |
+| `sidebar-bg` | `#F8FAFD` | `#12151B` |
+| `sidebar-active` | `#E6EEFF` | `#1D2840` |
+| `sidebar-hover` | `#F1F5FF` | `#162033` |
 
 `sidebar-bg` 与 `background`（`#FFFFFF` / `#09090B`）刻意保持差异，以创造侧边栏与主内容区域之间可见的层次分离。导航项必须使用 `bg-sidebar-active`（而非 `bg-secondary`）表示活跃状态，使用 `hover:bg-sidebar-hover`（而非 `hover:bg-secondary`）表示悬停状态 — 在侧边栏中使用通用的 secondary 令牌会导致亮色模式下对比度几乎不可见。
 
@@ -105,9 +108,9 @@
 |------|------|------|------|
 | `terminal-bg` | `#F8FAFC` | `#0F1117` | 面板背景 |
 | `terminal-surface` | `#F1F5F9` | `#1A1D27` | 面板内的抬升表面 |
-| `terminal-border` | `#E2E8F0` | `#2A2D37` | 面板边框 |
-| `terminal-text` | `#1E293B` | `#CBD5E1` | 终端主文字 |
-| `terminal-dim` | `#94A3B8` | `#64748B` | 终端中的弱化图标、次要文字 |
+| `terminal-border` | `#E4E6EB` | `#2A2D33` | 面板边框 |
+| `terminal-text` | `#252A33` | `#E3E8F1` | 终端主文字 |
+| `terminal-dim` | `#717C8E` | `#8D96A5` | 终端中的弱化图标、次要文字 |
 
 ### 令牌规则
 
@@ -120,6 +123,8 @@
 - **禁止透明度修饰的边框** — 使用 `border-border`（默认）、`border-border-strong`（悬停）或 `border-border-active`（聚焦）。禁止使用 `border-border/60`、`bg-border/60` 或其他边框透明度修饰符。
 - **禁止透明度修饰的文字对比度** — 使用 `text-muted-foreground-dim` 替代 `text-muted-foreground/60` 或 `text-muted-foreground/40`。dim 令牌可确保 WCAG AA 对比度。
 - **Iframe 隔离内容** — 对于 iframe 内的 HTML 内容（如文档预览），使用带后备值的 CSS 自定义属性：`color: var(--color-foreground, #0f172a)`。
+- **品牌例外（允许）** — 在渠道提供商身份识别 UI（如 Telegram/Discord/Slack 图标或徽章）中，可为识别度使用官方品牌色。此类颜色必须仅限于提供商身份组件，不能作为通用产品语义色复用。
+- **隔离预览例外（允许）** — 无法继承应用 CSS 变量的嵌入式预览文档可使用本地后备色。后备色必须映射到语义令牌意图，并在 `globals.css` 令牌更新时同步维护。
 
 ---
 
@@ -375,10 +380,10 @@ Agent Computer 面板底部的单一整合状态栏：
 
 | 令牌 | 值 | Tailwind | 用途 |
 |------|------|----------|------|
-| `--radius-sm` | 2px | `rounded-sm` | 小型药丸标签、行内代码 |
-| `--radius-md` | 4px | `rounded-md` | 侧边栏项、小按钮、发送/取消按钮 |
-| `--radius-lg` | 6px | `rounded-lg` | 卡片、输入框、容器、对话框、聊天输入 |
-| `--radius-xl` | 8px | `rounded-xl` | 保留 — 大多数表面优先使用 `rounded-lg` |
+| `--radius-sm` | 4px | `rounded-sm` | 小型药丸标签、行内代码 |
+| `--radius-md` | 6px | `rounded-md` | 侧边栏项、小按钮、发送/取消按钮 |
+| `--radius-lg` | 8px | `rounded-lg` | 卡片、输入框、容器、对话框、聊天输入 |
+| `--radius-xl` | 12px | `rounded-xl` | 大型面板和抬升表面 |
 
 ### 滚动条
 

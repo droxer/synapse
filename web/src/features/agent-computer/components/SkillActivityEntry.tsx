@@ -10,7 +10,7 @@ import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
 import { useTranslation } from "@/i18n";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import {
-  getActivityKindVisual,
+  getIconRingClass,
   getToolCallTone,
   getToolCallVisualClasses,
 } from "../lib/format-tools";
@@ -48,6 +48,7 @@ function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key
           onClick={() => setExpanded((p) => !p)}
           className="mt-0.5 rounded text-micro font-medium text-destructive transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           aria-label={expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
+          aria-expanded={expanded}
         >
           {expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
         </button>
@@ -90,7 +91,8 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
   const sourceLabelKey = skillMeta?.source_type
     ? SOURCE_LABEL_KEY[skillMeta.source_type]
     : null;
-  const skillKindVisual = getActivityKindVisual("skill");
+  const skillStatus = isError ? "error" : isComplete ? "complete" : "running";
+  const ringClass = getIconRingClass(skillStatus, "skill");
   const tone = getToolCallTone(toolCall);
   const visual = getToolCallVisualClasses(tone);
 
@@ -101,10 +103,9 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
       className={cn(
-        "rounded-md border-l-2 px-2 py-1 transition-colors duration-150",
+        "rounded-lg px-3 py-2 transition-colors duration-150",
         visual.row,
         visual.rowHover,
-        skillKindVisual.rowAccent,
       )}
     >
         {/* Main content */}
@@ -115,7 +116,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             aria-label={isError ? t("skills.activity.skillFailed") : isComplete ? t("skills.activity.skillLoaded") : t("skills.activity.skillLoading")}
             className={cn(
               "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-              skillKindVisual.iconInsetRing,
+              ringClass,
               isError
                 ? "bg-muted"
                 : isComplete
@@ -139,7 +140,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
                 className="relative flex items-center justify-center"
               >
-                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-accent-emerald" strokeWidth={2.25} />
+                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-foreground" strokeWidth={2.25} />
                 <Check
                   className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
                   strokeWidth={3}
@@ -176,7 +177,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {!isResolved && (
-                <span className="status-pill chip-muted">
+                <span className="status-pill border border-border bg-secondary text-secondary-foreground">
                   {t("skills.activity.loading")}
                 </span>
               )}
@@ -258,6 +259,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               onClick={toggleRaw}
               className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground-dim transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               aria-label={showRaw ? t("skills.activity.hideInstructions") : t("skills.activity.showInstructions")}
+              aria-expanded={showRaw}
             >
               <motion.span
                 animate={{ rotate: showRaw ? 90 : 0 }}

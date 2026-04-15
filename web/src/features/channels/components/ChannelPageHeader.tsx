@@ -4,6 +4,7 @@ import { useCallback } from "react";
 import { Radio, Settings, Search } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
+import { useTranslation } from "@/i18n";
 
 interface ChannelPageHeaderProps {
   telegramConfigured: boolean;
@@ -11,6 +12,7 @@ interface ChannelPageHeaderProps {
 }
 
 export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: ChannelPageHeaderProps) {
+  const { t } = useTranslation();
   const handleOpenCommandPalette = useCallback(() => {
     document.dispatchEvent(
       new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }),
@@ -22,14 +24,14 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
       {/* Left: title + live badge */}
       <div className="flex items-center gap-2">
         <Radio className="h-4 w-4 text-muted-foreground" />
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">Channels</h1>
+        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t("channels.title")}</h1>
         {telegramConfigured && (
           <span className="status-pill rounded-full bg-accent-emerald/10 text-accent-emerald ring-1 ring-accent-emerald/20">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
             </span>
-            Live
+            {t("channels.header.live")}
           </span>
         )}
       </div>
@@ -42,6 +44,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
               variant="ghost"
               size="icon"
               onClick={onOpenSettings}
+              aria-label={t("channels.header.telegramSettings")}
               className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
             >
               <Settings className="h-4 w-4" />
@@ -50,7 +53,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
               )}
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Telegram settings</TooltipContent>
+          <TooltipContent>{t("channels.header.telegramSettings")}</TooltipContent>
         </Tooltip>
 
         <Button
@@ -61,7 +64,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
           className="shrink-0 gap-2 text-muted-foreground hover:text-foreground"
         >
           <Search className="h-4 w-4" />
-          <span className="hidden sm:inline">Search</span>
+          <span className="hidden sm:inline">{t("channels.header.search")}</span>
           <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
         </Button>
       </div>

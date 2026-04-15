@@ -307,7 +307,7 @@ function FileCard({
               type="button"
               data-slot="button"
               aria-label={`Download ${item.name}`}
-              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               onClick={(e) => { e.stopPropagation(); onDownload(item); }}
             >
               <Download className="h-3.5 w-3.5 text-foreground" />
@@ -318,7 +318,7 @@ function FileCard({
                 type="button"
                 data-slot="button"
                 aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background/95 shadow-sm backdrop-blur-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
               >
                 <Trash2 className="h-3.5 w-3.5 text-foreground" />

@@ -28,7 +28,7 @@ import {
   isTaskStateLive,
 } from "@/features/agent-computer/lib/task-state-display";
 import {
-  getActivityKindVisual,
+  getIconRingClass,
   type ActivityEntryKind,
 } from "@/features/agent-computer/lib/format-tools";
 import {
@@ -89,7 +89,7 @@ interface ToolCallIndexes {
 }
 
 const STEP_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-md";
-const STEP_ICON_GLYPH_CLASS = "h-3 w-3";
+const STEP_ICON_GLYPH_CLASS = "h-3.5 w-3.5";
 
 const SEARCH_LIKE_TOOLS = new Set([
   "web_search",
@@ -544,12 +544,12 @@ function stepGlyphIcon(step: TimelineStep) {
 }
 
 function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
-  const rowHover = "hover:border-border-strong hover:bg-muted/40";
+  const rowHover = "hover:border-border-strong hover:bg-accent";
   switch (status) {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: "border border-destructive bg-muted",
+        rowBase: "border border-destructive/50 bg-card",
         rowHover,
         iconSurface: "bg-muted",
         iconColor: "text-destructive",
@@ -573,7 +573,7 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
     case "running":
       return {
         text: "text-foreground",
-        rowBase: "border border-terminal-border bg-terminal-surface",
+        rowBase: "border border-border bg-secondary/35",
         rowHover,
         iconSurface: "bg-secondary",
         iconColor: "text-focus",
@@ -581,10 +581,10 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
     default:
       return {
         text: "text-foreground",
-        rowBase: "border border-terminal-border bg-card",
+        rowBase: "border border-border bg-card",
         rowHover,
         iconSurface: "bg-muted",
-        iconColor: "text-accent-emerald",
+        iconColor: "text-foreground",
       };
   }
 }
@@ -593,12 +593,13 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
 function StepIcon({ step }: { readonly step: TimelineStep }) {
   const Icon = stepGlyphIcon(step);
   const visual = getStepStatusVisual(step.status);
-  const kindVisual = getActivityKindVisual(getStepActivityKind(step));
+  const kind = getStepActivityKind(step);
+  const ringClass = getIconRingClass(step.status, kind);
   const useDistinctGlyph = step.kind === "tool" || step.kind === "skill";
 
   if (step.status === "running") {
     return (
-      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
         <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
       </span>
@@ -608,7 +609,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
   if (step.status === "error") {
     if (useDistinctGlyph) {
       return (
-        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
           <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -619,7 +620,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
       );
     }
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
         <CircleX className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -627,7 +628,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "replan_required") {
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
         <AlertTriangle className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -635,7 +636,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "skipped") {
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
         <Minus className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -643,7 +644,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (useDistinctGlyph) {
     return (
-      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
         <Check
           className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
@@ -655,7 +656,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
   }
 
   return (
-    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, kindVisual.iconInsetRing)}>
+    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
       <Check className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.5} />
     </span>
   );
@@ -674,7 +675,7 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
       );
     case "executing":
       return (
-        <span className={cn(baseClass, "border-border bg-muted text-accent-purple/70")}>
+        <span className={cn(baseClass, "border-border bg-secondary text-secondary-foreground")}>
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
@@ -774,7 +775,7 @@ export function AgentProgressCard({
   const taskStateAnnouncement = getTaskStateAnnouncement(taskState, t);
   return (
     <motion.div
-      className="surface-panel overflow-hidden border-border shadow-[var(--shadow-card-hover)]"
+      className="surface-panel overflow-hidden border-border shadow-[var(--shadow-card)]"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
@@ -784,7 +785,7 @@ export function AgentProgressCard({
       </div>
 
       {/* Header */}
-      <div className="border-b border-border bg-muted/25 px-3 py-2.5">
+      <div className="border-b border-border bg-card px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
@@ -800,11 +801,11 @@ export function AgentProgressCard({
             className={cn(
               "status-pill tabular-nums",
               taskState === "complete"
-                ? "border-border bg-muted text-accent-emerald"
+                ? "border-border bg-muted text-muted-foreground"
                 : taskState === "error"
                   ? "border-destructive bg-muted text-destructive"
                   : isRunning
-                    ? "border-border bg-muted text-accent-purple/70"
+                    ? "border-border bg-secondary text-secondary-foreground"
                     : "border-border bg-muted text-muted-foreground",
             )}
           >
@@ -840,7 +841,7 @@ export function AgentProgressCard({
       <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-1 rounded-full bg-border"
+          className="h-1.5 rounded-full bg-muted"
           indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
@@ -861,14 +862,11 @@ export function AgentProgressCard({
                 {displaySteps.map((step, index) => {
                     const isClickable = isTimelineStepActionable(step.id);
                     const stepVisual = getStepStatusVisual(step.status);
-                    const kindVisual = getActivityKindVisual(getStepActivityKind(step));
                     const rowClassName = cn(
-                      "flex items-start gap-2.5 rounded-md border-l-2 px-2 py-1.5 transition-colors duration-150",
+                      "flex items-start gap-2.5 rounded-lg px-3 py-2 transition-colors duration-150",
                       stepVisual.rowBase,
-                      kindVisual.rowAccent,
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
-                      isClickable && kindVisual.rowHoverAccent,
                       isClickable &&
                         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     );
@@ -877,7 +875,7 @@ export function AgentProgressCard({
                         <StepIcon step={step} />
                         <span
                           className={cn(
-                            "min-w-0 flex-1 truncate",
+                            "min-w-0 flex-1 truncate leading-6",
                             stepVisual.text,
                           )}
                         >
@@ -906,7 +904,7 @@ export function AgentProgressCard({
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          delay: index * 0.015,
+                          delay: index * 0.03,
                           duration: 0.12,
                           ease: "easeOut",
                         }}
@@ -921,7 +919,7 @@ export function AgentProgressCard({
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{
-                          delay: index * 0.015,
+                          delay: index * 0.03,
                           duration: 0.12,
                           ease: "easeOut",
                         }}

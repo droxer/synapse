@@ -4,6 +4,9 @@
 
 > Clean, precise, content-focused AI interface with generous whitespace and technical clarity.
 
+This guide defines styling principles and usage patterns.
+Canonical live token values come from `web/src/app/globals.css` and `docs/reference/design-system.md`.
+
 ---
 
 ## Core Principles
@@ -33,49 +36,49 @@ The palette is built on **cool technical neutrals** with a **chromatic blue acti
 | Token | Hex | Role |
 |-------|-----|------|
 | `background` | `#FFFFFF` | Page canvas — flat white |
-| `foreground` | `#09090B` | Primary text — deep neutral ink |
+| `foreground` | `#000000` | Primary text — deep neutral ink |
 | `primary` | `#2563EB` | Primary CTA, submit actions, key interactive fills |
 | `primary-foreground` | `#F8FAFC` | Text on primary surfaces |
 | `secondary` | `#EEF4FF` | Cool support surfaces, inline panels, selected helpers |
 | `secondary-foreground` | `#102244` | Text on secondary surfaces |
 | `muted` | `#F4F7FB` | Dense neutral backgrounds, quiet product surfaces |
-| `muted-foreground` | `#71717A` | Secondary text, hints, timestamps |
+| `muted-foreground` | `#5B6573` | Secondary text, hints, timestamps |
 | `muted-foreground-dim` | `#94A3B8` | Tertiary text with WCAG AA contrast (replaces `/60` and `/40` opacity modifiers) |
 | `card` | `#FFFFFF` | Card/elevated surfaces (white on cool bg for natural contrast) |
 | `card-foreground` | `#0F172A` | Text on cards |
 | `popover` | `#FFFFFF` | Dropdown/popover bg |
 | `popover-foreground` | `#0F172A` | Text in popovers |
-| `destructive` | `#EF4444` | Error states, delete actions |
+| `destructive` | `#DE1135` | Error states, delete actions |
 | `accent` | `#F7FAFF` | Hover/highlight surface for ghost and outline interactions |
 
 ### Core Palette (Dark Mode)
 
 | Token | Hex | Role |
 |-------|-----|------|
-| `background` | `#09090B` | Page canvas — deep zinc (strict minimal developer tool feel) |
-| `foreground` | `#FAFAFA` | Primary text — crisp white |
+| `background` | `#101114` | Page canvas — deep zinc (strict minimal developer tool feel) |
+| `foreground` | `#FFFFFF` | Primary text — crisp white |
 | `primary` | `#5B8CFF` | Primary CTA, submit actions, key interactive fills |
 | `primary-foreground` | `#081120` | Text on primary surfaces |
 | `secondary` | `#172033` | Cool support surfaces |
 | `secondary-foreground` | `#E6EEFF` | Text on secondary surfaces |
 | `muted` | `#1A1F2B` | Dense neutral backgrounds |
-| `muted-foreground` | `#94A3B8` | Secondary text (slate-400) |
+| `muted-foreground` | `#B1B9C7` | Secondary text (slate-400) |
 | `muted-foreground-dim` | `#64748B` | Tertiary text with WCAG 3:1 contrast (replaces `/60` and `/40` opacity modifiers) |
-| `card` | `#09090B` | Card/elevated surfaces |
-| `card-foreground` | `#E2E8F0` | Text on cards |
-| `popover` | `#09090B` | Dropdown/popover bg |
-| `popover-foreground` | `#E2E8F0` | Text in popovers |
-| `destructive` | `#F87171` | Error states, delete actions |
+| `card` | `#181A1E` | Card/elevated surfaces |
+| `card-foreground` | `#FFFFFF` | Text on cards |
+| `popover` | `#181A1E` | Dropdown/popover bg |
+| `popover-foreground` | `#FFFFFF` | Text in popovers |
+| `destructive` | `#DE5B5D` | Error states, delete actions |
 | `accent` | `#1D2432` | Hover/highlight surface for ghost and outline interactions |
 
 ### Borders
 
 | Token | Light | Dark | Usage |
 |-------|-------|------|-------|
-| `border` | `#E4E4E7` | `#27272A` | Default borders, dividers (1px, flat) |
-| `border-strong` | `#CBD5E1` | `#3A3D47` | Emphasized borders |
-| `border-active` | `#94A3B8` | `#64748B` | Focus state, active input borders |
-| `input` | `#E2E8F0` | `#2A2D37` | Input field borders |
+| `border` | `#E4E6EB` | `#2A2D33` | Default borders, dividers (1px, flat) |
+| `border-strong` | `#C7CEDA` | `#3A404B` | Emphasized borders |
+| `border-active` | `#7F8A9B` | `#6F7A8D` | Focus state, active input borders |
+| `input` | `#E4E6EB` | `#2A2D33` | Input field borders |
 
 ### Accent & Semantic Colors
 
@@ -83,10 +86,10 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 
 | Token | Hex (light / dark) | Semantic |
 |-------|-----|----------|
-| `user-accent` | `#18181B` / `#FAFAFA` | User message accent |
-| `accent-emerald` | `#10B981` / `#34D399` | Success, running, progress |
-| `accent-amber` | `#B45309` / `#D97706` | Warning, thinking |
-| `accent-rose` | `#EF4444` / `#F87171` | Error, failure |
+| `user-accent` | `#000000` / `#DEDEDE` | User message accent |
+| `accent-emerald` | `#0E8345` / `#5C9D70` | Success, running, progress |
+| `accent-amber` | `#9F6402` / `#AE8523` | Warning, thinking |
+| `accent-rose` | `#DE1135` / `#DE5B5D` | Error, failure |
 | `color-focus` | `#3B82F6` / `#7AA2FF` | Canonical action and focus blue token |
 | `accent-purple` | `#6366F1` / `#8B8FFF` | AI-only signal, task state, AI-specific accents |
 | `ai-glow` | `#6366F1` / `#8B8FFF` | AI activity indicator, not a CTA token |
@@ -95,9 +98,9 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 
 | Token | Light | Dark |
 |-------|-------|------|
-| `sidebar-bg` | `#F5F5F6` | `#0C0C0E` |
-| `sidebar-active` | `#E4E4E7` | `#27272A` |
-| `sidebar-hover` | `#EBEBEC` | `#18181B` |
+| `sidebar-bg` | `#F8FAFD` | `#12151B` |
+| `sidebar-active` | `#E6EEFF` | `#1D2840` |
+| `sidebar-hover` | `#F1F5FF` | `#162033` |
 
 `sidebar-bg` is intentionally distinct from `background` (`#FFFFFF` / `#09090B`) to create visible depth separation between the sidebar and main content. Nav items must use `bg-sidebar-active` (not `bg-secondary`) for active state and `hover:bg-sidebar-hover` (not `hover:bg-secondary`) for hover — using the generic secondary token in the sidebar causes imperceptible contrast in light mode.
 
@@ -107,9 +110,9 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 |-------|-------|------|-------|
 | `terminal-bg` | `#F8FAFC` | `#0F1117` | Panel background |
 | `terminal-surface` | `#F1F5F9` | `#1A1D27` | Elevated surfaces within panel |
-| `terminal-border` | `#E2E8F0` | `#2A2D37` | Panel borders |
-| `terminal-text` | `#1E293B` | `#CBD5E1` | Primary terminal text |
-| `terminal-dim` | `#94A3B8` | `#64748B` | Dimmed icons, secondary text in terminal |
+| `terminal-border` | `#E4E6EB` | `#2A2D33` | Panel borders |
+| `terminal-text` | `#252A33` | `#E3E8F1` | Primary terminal text |
+| `terminal-dim` | `#717C8E` | `#8D96A5` | Dimmed icons, secondary text in terminal |
 
 ### Token Rules
 
@@ -123,6 +126,8 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 - **No opacity-modified borders** — use `border-border` (default), `border-border-strong` (hover), or `border-border-active` (focus). Never use `border-border/60`, `bg-border/60`, or other opacity modifiers on borders.
 - **No opacity-modified text for contrast** — use `text-muted-foreground-dim` instead of `text-muted-foreground/60` or `text-muted-foreground/40`. The dim token maintains WCAG AA contrast ratios.
 - **Iframe isolated content** — For HTML content inside iframes (e.g., document previews), use CSS custom properties with fallbacks: `color: var(--color-foreground, #0f172a)`.
+- **Approved brand exception** — Provider identity UI (e.g., Telegram/Discord/Slack channel badges/icons) may use official brand colors when required for recognition. Keep these usages scoped to provider identity components and do not reuse them as general product semantic colors.
+- **Approved isolated-preview exception** — Embedded preview documents that cannot inherit app CSS variables may define local fallback colors. Fallbacks must map to semantic token intent and must be kept in sync with `globals.css` token updates.
 
 ---
 
@@ -378,10 +383,10 @@ A single consolidated status bar at the bottom of the Agent Computer Panel:
 
 | Token | Value | Tailwind | Usage |
 |-------|-------|----------|-------|
-| `--radius-sm` | 2px | `rounded-sm` | Small pills, inline code |
-| `--radius-md` | 4px | `rounded-md` | Sidebar items, small buttons, send/cancel buttons |
-| `--radius-lg` | 6px | `rounded-lg` | Cards, inputs, containers, dialogs, chat input |
-| `--radius-xl` | 8px | `rounded-xl` | Reserved — prefer `rounded-lg` for most surfaces |
+| `--radius-sm` | 4px | `rounded-sm` | Small pills, inline code |
+| `--radius-md` | 6px | `rounded-md` | Sidebar items, small buttons, send/cancel buttons |
+| `--radius-lg` | 8px | `rounded-lg` | Cards, inputs, containers, dialogs, chat input |
+| `--radius-xl` | 12px | `rounded-xl` | Large panels and elevated surfaces |
 
 ### Scrollbar
 

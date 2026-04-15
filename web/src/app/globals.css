@@ -34,7 +34,7 @@
   --color-border-strong: #C7CEDA;
   --color-border-active: #7F8A9B;
   --color-placeholder: #8993A3;
-  --color-muted-foreground-dim: #717C8E;
+  --color-muted-foreground-dim: #94A3B8;
 
   --color-accent-emerald: #0E8345;
   --color-accent-amber: #9F6402;
@@ -195,7 +195,7 @@
   --color-border-strong: #C7CEDA;
   --color-border-active: #7F8A9B;
   --color-placeholder: #8993A3;
-  --color-muted-foreground-dim: #717C8E;
+  --color-muted-foreground-dim: #94A3B8;
   --color-accent-emerald: #0E8345;
   --color-accent-amber: #9F6402;
   --color-accent-rose: #DE1135;
@@ -258,7 +258,7 @@
   --color-border-strong: #3A404B;
   --color-border-active: #6F7A8D;
   --color-placeholder: #95A0B2;
-  --color-muted-foreground-dim: #95A0B2;
+  --color-muted-foreground-dim: #64748B;
   --color-accent-emerald: #5C9D70;
   --color-accent-amber: #AE8523;
   --color-accent-rose: #DE5B5D;
@@ -441,7 +441,11 @@ body {
 /* Design contract:
    - Panels/surfaces use rounded-xl (see docs/reference/design-system.md).
    - Controls (inputs, buttons, badges) use rounded-lg.
+   - Text-entry controls use `border-input` at rest and `border-border-active` on focus.
    - Focus ring uses ring-1/ring-ring/ring-offset-1/ring-offset-background, where ring maps to the accent focus color. */
+/* Exception pattern:
+   - Wrapper-driven text inputs (e.g. search bars inside command palettes/composite controls)
+     may use `focus-within` on the wrapper and keep inset rings when required by layout. */
 
 html,
 body {

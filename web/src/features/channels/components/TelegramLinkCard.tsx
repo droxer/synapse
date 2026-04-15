@@ -1,8 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent, type MouseEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { ChevronDown, ChevronUp, Copy, Check, ExternalLink, AlertCircle, X, Settings, Link } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/components/ui/dialog";
+import { Input } from "@/shared/components/ui/input";
 import {
   createLinkToken,
   deleteTelegramBotConfig,
@@ -29,25 +31,31 @@ interface LinkTokenData {
   expires_in_minutes: number;
 }
 
-function StatusPill({ status }: { status: "linked" | "configured" | "not_configured" }) {
+function StatusPill({
+  status,
+  t,
+}: {
+  status: "linked" | "configured" | "not_configured";
+  t: (key: string, params?: Record<string, string | number>) => string;
+}) {
   if (status === "linked") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground uppercase">
-        Linked
+        {t("channels.telegram.statusLinked")}
       </span>
     );
   }
   if (status === "configured") {
     return (
       <span className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground uppercase">
-        Ready
+        {t("channels.telegram.statusConfigured")}
       </span>
     );
   }
   return (
     <span className="inline-flex items-center gap-1 rounded-sm bg-accent-amber/8 px-1.5 py-0.5 text-micro font-medium text-accent-amber ring-1 ring-accent-amber/25 uppercase">
       <span className="h-1 w-1 rounded-full bg-accent-amber" />
-      Setup
+      {t("channels.telegram.statusNotConfigured")}
     </span>
   );
 }
@@ -67,6 +75,8 @@ interface TelegramConfigModalProps {
   configured: boolean;
   linked: boolean;
   canGenerateLinkToken: boolean;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
   onClose: () => void;
   onBotTokenChange: (value: string) => void;
   onSaveBot: () => void;
@@ -92,6 +102,8 @@ function TelegramConfigModal({
   configured,
   linked,
   canGenerateLinkToken,
+  open,
+  onOpenChange,
   onClose,
   onBotTokenChange,
   onSaveBot,
@@ -103,37 +115,24 @@ function TelegramConfigModal({
   onStartEditToken,
   onCancelEditToken,
 }: TelegramConfigModalProps) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  const handleOverlayClick = (e: MouseEvent<HTMLDivElement>) => {
-    if (e.target === overlayRef.current) onClose();
-  };
-
-  useEffect(() => {
-    const handler = (e: globalThis.KeyboardEvent) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", handler);
-    return () => document.removeEventListener("keydown", handler);
-  }, [onClose]);
+  const { t, locale } = useTranslation();
 
   return (
-    <div
-      ref={overlayRef}
-      onClick={handleOverlayClick}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-overlay p-4 transition-opacity duration-200"
-    >
-      <div className="animate-in fade-in slide-in-from-bottom-2 duration-150 relative w-full max-w-md overflow-hidden rounded-lg border border-border bg-background shadow-elevated">
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent showCloseButton={false} className="max-w-md overflow-hidden rounded-lg border border-border bg-background p-0">
         {/* Header */}
         <div className="relative flex items-center gap-3.5 px-6 py-4 border-b border-border overflow-hidden">
           <ChannelProviderIcon provider="telegram" size="lg" className="relative rounded-xl ring-1 ring-border" />
           <div className="relative flex-1 min-w-0">
-            <h2 className="text-lg font-semibold tracking-tight text-foreground">Telegram Integration</h2>
-            <p className="text-caption text-muted-foreground truncate">
-              Configure your bot and link your account.
-            </p>
+            <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">{t("channels.telegram.title")}</DialogTitle>
+            <DialogDescription className="text-caption text-muted-foreground truncate">
+              {t("channels.telegram.description")}
+            </DialogDescription>
           </div>
           <button
             type="button"
             onClick={onClose}
+            aria-label={t("a11y.close")}
             className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             <X className="h-4 w-4" />
@@ -155,9 +154,9 @@ function TelegramConfigModal({
             <div className="space-y-4">
               <div className="space-y-1.5">
                 <label className="block text-sm font-medium text-foreground" htmlFor="tg-bot-token">
-                  API Token
+                  {t("channels.telegram.botTokenLabel")}
                 </label>
-                <input
+                <Input
                   id="tg-bot-token"
                   type="password"
                   value={botTokenInput}
@@ -165,9 +164,9 @@ function TelegramConfigModal({
                   onKeyDown={(e: ReactKeyboardEvent<HTMLInputElement>) => {
                     if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot();
                   }}
-                  placeholder="123456789:AAFx..."
+                  placeholder={t("channels.telegram.botTokenPlaceholder")}
                   autoFocus
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus-visible:border-border-active focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  className="w-full"
                 />
               </div>
 
@@ -176,22 +175,23 @@ function TelegramConfigModal({
                 <button
                   type="button"
                   onClick={onHelpToggle}
+                  aria-expanded={helpOpen}
                   className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 >
                   <span className="flex items-center gap-2">
                     <ExternalLink className="h-3.5 w-3.5" />
-                    How to acquire token
+                    {t("channels.telegram.helpTitle")}
                   </span>
                   {helpOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
                 {helpOpen && (
                   <ol className="space-y-2 border-t border-border bg-secondary px-4 py-3 leading-normal text-muted-foreground">
                     {[
-                      "Message @BotFather on Telegram",
-                      "Send /newbot and follow prompts",
-                      "Copy the HTTP API Token",
-                      "Paste token above",
-                      "Save and verify connection",
+                      t("channels.telegram.helpStep1"),
+                      t("channels.telegram.helpStep2"),
+                      t("channels.telegram.helpStep3"),
+                      t("channels.telegram.helpStep4"),
+                      t("channels.telegram.helpStep5"),
                     ].map((step, idx) => (
                       <li key={idx} className="flex items-start gap-2.5">
                         <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-micro font-semibold text-muted-foreground">
@@ -210,7 +210,7 @@ function TelegramConfigModal({
                 onClick={onSaveBot}
                 className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {actionLoading ? "Verifying..." : "Initialize"}
+                {actionLoading ? t("channels.telegram.verifyingButton") : t("channels.telegram.saveButton")}
               </button>
             </div>
           )}
@@ -234,7 +234,9 @@ function TelegramConfigModal({
                         : "bg-accent-amber/10 text-accent-amber ring-accent-amber/20"
                     }`}
                   >
-                    {status.webhook_status}
+                    {status.webhook_status === "active"
+                      ? t("channels.telegram.webhookActive")
+                      : t("channels.telegram.webhookNeedsAttention")}
                   </span>
                 </div>
               </div>
@@ -249,9 +251,9 @@ function TelegramConfigModal({
               {isEditingToken && (
                 <div className="rounded-md border border-border bg-secondary p-3 space-y-2">
                   <p className="text-sm font-medium text-foreground">
-                    Update Token
+                    {t("channels.telegram.updateToken")}
                   </p>
-                  <input
+                  <Input
                     type="password"
                     value={botTokenInput}
                     onChange={(e: ChangeEvent<HTMLInputElement>) => onBotTokenChange(e.target.value)}
@@ -259,9 +261,9 @@ function TelegramConfigModal({
                       if (e.key === "Enter" && botTokenInput.trim() && !actionLoading) onSaveBot();
                       if (e.key === "Escape") onCancelEditToken();
                     }}
-                    placeholder="New API Token..."
+                    placeholder={t("channels.telegram.newTokenPlaceholder")}
                     autoFocus
-                    className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground outline-none transition-colors focus-visible:border-border-active focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    className="w-full"
                   />
                   <div className="flex gap-2 pt-1">
                     <button
@@ -270,14 +272,14 @@ function TelegramConfigModal({
                       onClick={onSaveBot}
                       className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
                     >
-                      {actionLoading ? "Saving..." : "Confirm"}
+                      {actionLoading ? t("channels.telegram.workingButton") : t("channels.telegram.updateToken")}
                     </button>
                     <button
                       type="button"
                       onClick={onCancelEditToken}
                       className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
-                      Cancel
+                      {t("channels.telegram.cancel")}
                     </button>
                   </div>
                 </div>
@@ -291,7 +293,7 @@ function TelegramConfigModal({
                   className="col-span-2 flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Link className="h-4 w-4" />
-                  {actionLoading ? "Generating..." : "Generate Link Token"}
+                  {actionLoading ? t("channels.telegram.workingButton") : t("channels.telegram.generateLinkToken")}
                 </button>
 
                 {!isEditingToken && (
@@ -301,7 +303,7 @@ function TelegramConfigModal({
                     disabled={actionLoading}
                     className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
                   >
-                    Update Token
+                    {t("channels.telegram.updateToken")}
                   </button>
                 )}
                 <button
@@ -310,13 +312,13 @@ function TelegramConfigModal({
                   disabled={actionLoading}
                   className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-destructive hover:bg-secondary hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
                 >
-                  Disable Bot
+                  {t("channels.telegram.disableBot")}
                 </button>
               </div>
 
               {!canGenerateLinkToken && (
                 <p className="text-center text-xs text-muted-foreground mt-2">
-                  System awaits valid webhook status.
+                  {t("channels.telegram.fixSetupHint")}
                 </p>
               )}
             </div>
@@ -332,11 +334,13 @@ function TelegramConfigModal({
                 className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 active:scale-[0.98]"
               >
                 <ExternalLink className="h-4 w-4" />
-                Open in Telegram
+                {t("channels.listening.openTelegram")}
               </a>
 
               <p className="text-xs text-muted-foreground text-center px-1">
-                Or copy this command and send it to <strong className="text-foreground">@{status.bot_username}</strong>
+                {t("channels.telegram.linkInstructionsPre")}
+                <strong className="text-foreground">@{status.bot_username}</strong>
+                {t("channels.telegram.linkInstructionsPost")}
               </p>
 
               <div className="flex items-center gap-0 rounded-lg border border-border overflow-hidden bg-secondary">
@@ -349,12 +353,12 @@ function TelegramConfigModal({
                   className="flex shrink-0 items-center justify-center gap-1.5 border-l border-border bg-card px-3 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                 >
                   {copied ? <Check className="h-3.5 w-3.5 text-foreground" /> : <Copy className="h-3.5 w-3.5" />}
-                  {copied ? "Copied" : "Copy"}
+                  {copied ? t("channels.telegram.copiedButton") : t("channels.telegram.copyButton")}
                 </button>
               </div>
 
               <p className="text-micro text-muted-foreground-dim text-center">
-                Expires in {linkToken.expires_in_minutes} min
+                {t("channels.telegram.tokenExpiry", { minutes: linkToken.expires_in_minutes })}
               </p>
             </div>
           )}
@@ -370,7 +374,9 @@ function TelegramConfigModal({
                   {account.display_name ?? account.provider_user_id}
                 </p>
                 <p className="text-xs text-muted-foreground-dim">
-                  {new Date(account.linked_at).toLocaleDateString()}
+                  {t("channels.telegram.linkedAt", {
+                    date: new Date(account.linked_at).toLocaleDateString(locale),
+                  })}
                 </p>
               </div>
               <button
@@ -379,13 +385,13 @@ function TelegramConfigModal({
                 disabled={actionLoading}
                 className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
               >
-                Unlink
+                {t("channels.telegram.unlinkChat")}
               </button>
             </div>
           )}
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -558,9 +564,9 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
           <div className="flex items-center gap-2.5">
             <ChannelProviderIcon provider="telegram" size="md" />
             <div className="space-y-0.5">
-              <span className="text-sm font-semibold text-foreground">Telegram</span>
+              <span className="text-sm font-semibold text-foreground">{t("channels.telegram.title")}</span>
               <div className="flex items-center">
-                <StatusPill status={cardStatus} />
+                <StatusPill status={cardStatus} t={t} />
               </div>
             </div>
           </div>
@@ -591,6 +597,14 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
           linked={linked}
           canGenerateLinkToken={canGenerateLinkToken}
           onClose={handleCloseModal}
+          open={modalOpen}
+          onOpenChange={(nextOpen) => {
+            if (!nextOpen) {
+              handleCloseModal();
+              return;
+            }
+            setModalOpen(true);
+          }}
           onBotTokenChange={setBotTokenInput}
           onSaveBot={handleSaveBot}
           onDeleteBot={handleDeleteBot}

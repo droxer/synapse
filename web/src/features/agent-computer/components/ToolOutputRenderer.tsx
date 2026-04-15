@@ -52,17 +52,17 @@ interface CategoryStyle {
 }
 
 const CATEGORY_STYLES: Record<ToolCategory, CategoryStyle> = {
-  code: { border: "border-l border-l-focus", badge: "bg-focus/10 text-focus", icon: Terminal, labelKey: "output.category.code" },
-  file: { border: "border-l border-l-border-strong", badge: "bg-muted/60 text-foreground", icon: FileCode, labelKey: "output.category.file" },
-  search: { border: "border-l border-l-accent-emerald", badge: "bg-accent-emerald/10 text-accent-emerald", icon: Globe, labelKey: "output.category.search" },
-  memory: { border: "border-l border-l-accent-amber", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.memory" },
-  browser: { border: "border-l border-l-focus", badge: "bg-focus/10 text-focus", icon: Globe, labelKey: "output.category.browser" },
-  computer: { border: "border-l border-l-border-active", badge: "bg-muted/60 text-foreground", icon: Monitor, labelKey: "output.category.computer" },
-  preview: { border: "border-l border-l-border-active", badge: "bg-muted/60 text-foreground", icon: Play, labelKey: "output.category.preview" },
-  mcp: { border: "border-l border-l-accent-amber", badge: "bg-accent-amber/10 text-accent-amber", icon: Plug, labelKey: "output.category.mcp" },
-  agent: { border: "border-l border-l-accent-emerald", badge: "bg-accent-emerald/10 text-accent-emerald", icon: GitFork, labelKey: "output.category.agent" },
-  database: { border: "border-l border-l-accent-amber", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.database" },
-  default: { border: "border-l border-l-border", badge: "bg-muted/60 text-muted-foreground", icon: FileText, labelKey: "" },
+  code: { border: "", badge: "bg-focus/10 text-focus", icon: Terminal, labelKey: "output.category.code" },
+  file: { border: "", badge: "bg-muted/60 text-foreground", icon: FileCode, labelKey: "output.category.file" },
+  search: { border: "", badge: "bg-secondary text-secondary-foreground", icon: Globe, labelKey: "output.category.search" },
+  memory: { border: "", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.memory" },
+  browser: { border: "", badge: "bg-focus/10 text-focus", icon: Globe, labelKey: "output.category.browser" },
+  computer: { border: "", badge: "bg-muted/60 text-foreground", icon: Monitor, labelKey: "output.category.computer" },
+  preview: { border: "", badge: "bg-muted/60 text-foreground", icon: Play, labelKey: "output.category.preview" },
+  mcp: { border: "", badge: "bg-accent-amber/10 text-accent-amber", icon: Plug, labelKey: "output.category.mcp" },
+  agent: { border: "", badge: "bg-muted/60 text-foreground", icon: GitFork, labelKey: "output.category.agent" },
+  database: { border: "", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.database" },
+  default: { border: "", badge: "bg-muted/60 text-muted-foreground", icon: FileText, labelKey: "" },
 };
 
 interface SearchPayload {

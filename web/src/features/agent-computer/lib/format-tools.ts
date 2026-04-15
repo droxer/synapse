@@ -12,12 +12,12 @@ import type { ToolCallInfo } from "@/shared/types";
 export const PROSE_CLASSES = "text-sm leading-relaxed text-muted-foreground";
 export const TOOL_OUTPUT_MARKDOWN_CLASSES = "[&_p]:my-1.5 [&_p:first-child]:mt-0 [&_p:last-child]:mb-0 [&_ul]:my-1.5 [&_ol]:my-1.5 [&_li]:my-0.5 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5";
 export const OUTPUT_COLLAPSE_THRESHOLD = 500;
-export const OUTPUT_CARD_BASE_CLASSES = "mt-2 rounded-lg border border-border-strong bg-card px-3 py-2";
-export const OUTPUT_CARD_DENSE_CLASSES = "rounded-md bg-muted px-2 py-1.5";
+export const OUTPUT_CARD_BASE_CLASSES = "mt-2 rounded-lg border border-border bg-card px-3 py-2";
+export const OUTPUT_CARD_DENSE_CLASSES = "rounded-md border border-border bg-muted/55 px-2 py-1.5";
 export const OUTPUT_HEADER_ROW_CLASSES = "mb-2 flex items-center gap-1.5";
 export const OUTPUT_HEADER_LABEL_CLASSES = "text-sm font-medium text-muted-foreground";
 export const OUTPUT_META_TEXT_CLASSES = "text-micro text-muted-foreground-dim";
-export const EVENT_ROW_BASE_CLASSES = "rounded-md border border-border bg-card px-3 py-2";
+export const EVENT_ROW_BASE_CLASSES = "rounded-lg border border-border bg-card px-3 py-2.5";
 export const EVENT_META_BADGE_CLASSES = "inline-flex items-center rounded-md border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground";
 export const EVENT_LEFT_RAIL_CLASSES = "border-l border-border pl-2.5";
 export const SKILL_TOOL_NAMES = new Set(["activate_skill", "load_skill"]);
@@ -34,7 +34,7 @@ export function getToolCallTone(tc: ToolCallInfo): ToolCallTone {
 }
 
 /** Shared hover for activity rows — design guide: border-strong + muted wash (not shadow lift). */
-const ACTIVITY_ROW_HOVER = "hover:border-border-strong hover:bg-muted/40";
+const ACTIVITY_ROW_HOVER = "hover:border-border-strong hover:bg-accent";
 
 export function getToolCallVisualClasses(tone: ToolCallTone): {
   readonly row: string;
@@ -45,24 +45,24 @@ export function getToolCallVisualClasses(tone: ToolCallTone): {
   switch (tone) {
     case "error":
       return {
-        row: "border border-destructive bg-muted",
+        row: "border border-destructive/50 bg-card",
         rowHover: ACTIVITY_ROW_HOVER,
         text: "text-destructive",
         doneBadge: "border border-border-strong bg-muted text-destructive",
       };
     case "complete":
       return {
-        row: "border border-terminal-border bg-card",
+        row: "border border-border bg-card",
         rowHover: ACTIVITY_ROW_HOVER,
         text: "text-foreground",
-        doneBadge: "border border-border-strong bg-muted text-accent-emerald",
+        doneBadge: "border border-border bg-muted text-muted-foreground",
       };
     default:
       return {
-        row: "border border-terminal-border bg-terminal-surface",
+        row: "border border-border bg-secondary/35",
         rowHover: ACTIVITY_ROW_HOVER,
         text: "text-foreground",
-        doneBadge: "border border-border bg-muted text-accent-purple/70",
+        doneBadge: "border border-border bg-muted text-muted-foreground",
       };
   }
 }
@@ -73,17 +73,17 @@ interface ActivityKindVisual {
   readonly iconInsetRing: string;
 }
 
-/** Tool stripe: canonical focus blue. Skill stripe: AI signal token (style guide — use accent-purple, not indigo/violet). */
+/** Keep activity rows neutral without accent border highlights. */
 const TOOL_ACTIVITY_VISUAL: ActivityKindVisual = {
-  rowAccent: "border-l-2 border-l-focus",
-  rowHoverAccent: "hover:border-l-border-active",
-  iconInsetRing: "ring-1 ring-inset ring-ring",
+  rowAccent: "",
+  rowHoverAccent: "",
+  iconInsetRing: "",
 };
 
 const SKILL_ACTIVITY_VISUAL: ActivityKindVisual = {
-  rowAccent: "border-l-2 border-l-accent-purple",
-  rowHoverAccent: "hover:border-l-border-active",
-  iconInsetRing: "ring-1 ring-inset ring-accent-purple",
+  rowAccent: "",
+  rowHoverAccent: "",
+  iconInsetRing: "",
 };
 
 const NEUTRAL_ACTIVITY_VISUAL: ActivityKindVisual = {
@@ -92,8 +92,24 @@ const NEUTRAL_ACTIVITY_VISUAL: ActivityKindVisual = {
   iconInsetRing: "",
 };
 
+/** Border/ring highlights are intentionally disabled for activity icons. */
+export function getIconRingClass(
+  _status: "running" | "complete" | "error" | "skipped" | "replan_required",
+  _kind: ActivityEntryKind,
+): string {
+  return "";
+}
+
 export function getActivityEntryKind(toolName: string): ActivityEntryKind {
   return SKILL_TOOL_NAMES.has(toolName) ? "skill" : "tool";
+}
+
+/** Left-border highlight stripes are intentionally disabled. */
+export function getRowStripeClass(
+  _status: "running" | "complete" | "error" | "skipped" | "replan_required",
+  _kind: ActivityEntryKind,
+): string {
+  return "";
 }
 
 export function getActivityKindVisual(kind: ActivityEntryKind): ActivityKindVisual {

@@ -2,7 +2,6 @@
 
 import { useCallback, useState } from "react";
 import { Monitor } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
 import { ArtifactScreenshotGallery } from "./ArtifactScreenshotGallery";
@@ -95,7 +94,7 @@ export function ComputerUseOutput({
   const hasOutputText = displayText.trim().length > 0;
 
   return (
-    <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-l border-l-border-active")}>
+    <div className={OUTPUT_CARD_BASE_CLASSES}>
       {/* Header */}
       <div className={OUTPUT_HEADER_ROW_CLASSES}>
         <Monitor className="h-3.5 w-3.5 text-muted-foreground" />

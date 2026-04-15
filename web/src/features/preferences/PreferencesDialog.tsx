@@ -72,7 +72,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                     "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     isActive
                       ? "border border-border bg-background text-foreground font-semibold shadow-card"
-                      : "border border-transparent text-muted-foreground hover:bg-background/80 hover:text-foreground",
+                      : "border border-transparent text-muted-foreground hover:bg-background hover:text-foreground",
                   )}
                   aria-current={isActive ? "page" : undefined}
                 >

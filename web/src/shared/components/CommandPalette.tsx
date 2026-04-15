@@ -157,7 +157,7 @@ export function CommandPalette({
               loop
             >
               {/* Search input */}
-              <div className="flex items-center gap-2 border-b border-border px-4 focus-within:ring-1 focus-within:ring-inset focus-within:ring-ring">
+              <div className="flex items-center gap-2 border-b border-border px-4">
                 <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
                 <Command.Input
                   placeholder={t("command.placeholder")}

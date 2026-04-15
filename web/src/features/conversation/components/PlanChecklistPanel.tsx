@@ -122,7 +122,7 @@ export function PlanChecklistPanel({ planSteps }: PlanChecklistPanelProps) {
   return (
     <div className="surface-panel overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3 px-3 py-2 border-b border-border/60">
+      <div className="flex items-center gap-3 border-b border-border px-3 py-2">
         <span className="label-mono text-muted-foreground flex-1">
           {t("plan.title")}
         </span>

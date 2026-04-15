@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft, AlertTriangle, Minus } from "lucide-react";
+import { Check, CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft, AlertTriangle, Minus } from "lucide-react";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { cn } from "@/shared/lib/utils";
 import { normalizeToolName, normalizeAgentName } from "../lib/tool-constants";
@@ -16,7 +16,7 @@ import {
   EVENT_ROW_BASE_CLASSES,
   SKILL_TOOL_NAMES,
   getActivityEntryKind,
-  getActivityKindVisual,
+  getIconRingClass,
   getToolCallTone,
   getToolCallVisualClasses,
 } from "../lib/format-tools";
@@ -27,11 +27,13 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
   const isSkill = SKILL_TOOL_NAMES.has(tc.name);
   const skillId = isSkill ? String(tc.input.name ?? "").trim() : "";
   const ToolGlyph = skillId ? getSkillIcon(skillId) : getToolIcon(tc.name);
-  const kindVisual = getActivityKindVisual(getActivityEntryKind(tc.name));
+  const kind = getActivityEntryKind(tc.name);
+  const tcStatus = tc.success === undefined ? "running" : tc.success ? "complete" : "error";
+  const ringClass = getIconRingClass(tcStatus, kind);
   if (tc.success !== undefined) {
     return tc.success === false
       ? (
-        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", kindVisual.iconInsetRing)} role="img" aria-label={label}>
+        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", ringClass)} role="img" aria-label={label}>
           <ToolGlyph className="h-3.5 w-3.5 text-destructive" strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -41,18 +43,18 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
         </span>
       )
       : (
-        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", kindVisual.iconInsetRing)} role="img" aria-label={label}>
-          <ToolGlyph className="h-3.5 w-3.5 text-accent-emerald" strokeWidth={2.25} />
-          <CircleCheck
+        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", ringClass)} role="img" aria-label={label}>
+          <ToolGlyph className="h-3.5 w-3.5 text-foreground" strokeWidth={2.25} />
+          <Check
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
-            strokeWidth={2.5}
+            strokeWidth={3}
             aria-hidden
           />
         </span>
       );
   }
   return (
-    <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary", kindVisual.iconInsetRing)} role="img" aria-label={label}>
+    <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary", ringClass)} role="img" aria-label={label}>
       <ToolGlyph className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
       <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
     </span>
@@ -69,13 +71,12 @@ interface AgentStatusRowProps {
 
 export function AgentStatusRow({
   agent,
-  variant = "light",
+  variant: _variant = "light",
   toolCalls,
   conversationId,
   agentNameMap,
 }: AgentStatusRowProps) {
   const { t } = useTranslation();
-  const isDark = variant === "dark";
   const hasTools = toolCalls && toolCalls.length > 0;
   const [expanded, setExpanded] = useState(agent.status === "running");
 
@@ -98,20 +99,20 @@ export function AgentStatusRow({
         ) : (
           <PulsingDot size="sm" />
         )}
-        <GitFork className={cn("h-4 w-4 shrink-0", isDark ? "text-terminal-dim" : "text-muted-foreground-dim")} />
+        <GitFork className="h-4 w-4 shrink-0 text-muted-foreground-dim" />
         <div className="min-w-0 flex-1">
-          <span className={cn("block truncate text-sm font-medium", isDark ? "text-[var(--color-terminal-text)]" : "text-foreground")}>
+          <span className="block truncate text-sm font-medium text-foreground">
             {agent.description.includes(" → ") ? (
               <>
                 {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
-                <ArrowRightLeft className="mx-1 inline h-4 w-4 text-muted-foreground" />
+                <ArrowRightLeft className="mx-1 inline h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {agent.description.split(" → ").slice(1).join(" → ")}
               </>
             ) : (
               normalizeAgentName(agent.name || agent.description)
             )}
           </span>
-          <span className={cn("mt-0.5 block font-mono text-micro", isDark ? "text-[var(--color-terminal-dim)]" : "text-muted-foreground-dim")}>
+          <span className="mt-0.5 block font-mono text-micro text-muted-foreground-dim">
             {agent.agentId.slice(0, 8)}
           </span>
         </div>
@@ -139,6 +140,7 @@ export function AgentStatusRow({
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
           aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
+          aria-expanded={expanded}
           className={rowClassName}
         >
           {rowContent}
@@ -165,15 +167,13 @@ export function AgentStatusRow({
                   return <SkillActivityEntry key={tc.id} toolCall={tc} />;
                 }
                 const visual = getToolCallVisualClasses(getToolCallTone(tc));
-                const kindVisual = getActivityKindVisual(getActivityEntryKind(tc.name));
                 return (
                   <div
                     key={tc.id}
                     className={cn(
-                      "rounded-md border-l-2 px-2 py-1 transition-colors duration-150",
+                      "rounded-lg px-3 py-2 transition-colors duration-150",
                       visual.row,
                       visual.rowHover,
-                      kindVisual.rowAccent,
                     )}
                   >
                     <div className="flex items-start gap-2.5">
@@ -187,11 +187,11 @@ export function AgentStatusRow({
                             : t("a11y.toolRunning")
                         }
                       />
-                      <span className={cn("text-sm", tc.success === false ? "text-destructive" : "text-foreground")}>
+                      <span className={cn("text-sm leading-6", tc.success === false ? "text-destructive" : "text-foreground")}>
                         {normalizeToolName(tc.name)}
                       </span>
                       {tc.success === undefined && (
-                        <span className="text-sm text-accent-purple/70">
+                        <span className="text-sm text-muted-foreground">
                           {t("computer.running")}
                         </span>
                       )}

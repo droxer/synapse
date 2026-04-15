@@ -2,18 +2,20 @@
 
 import { motion } from "framer-motion";
 import { ChannelProviderIcon } from "./ChannelProviderIcon";
-
-const STEPS = [
-  { label: "Configure Bot", sub: "Add your Telegram bot token" },
-  { label: "Link Account", sub: "Generate a link token and run /start" },
-  { label: "Receive Messages", sub: "Conversations appear here automatically" },
-] as const;
+import { useTranslation } from "@/i18n";
 
 interface ChannelsOnboardingProps {
   onConfigureBot: () => void;
 }
 
 export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) {
+  const { t } = useTranslation();
+  const steps = [
+    { label: t("channels.onboarding.step1.label"), sub: t("channels.onboarding.step1.sub") },
+    { label: t("channels.onboarding.step2.label"), sub: t("channels.onboarding.step2.sub") },
+    { label: t("channels.onboarding.step3.label"), sub: t("channels.onboarding.step3.sub") },
+  ] as const;
+
   return (
     <div className="flex h-full items-center justify-center bg-background px-8 welcome-radial-bg">
       <motion.div
@@ -38,15 +40,15 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
 
         {/* Heading */}
         <div className="space-y-1.5">
-          <h2 className="text-lg font-semibold tracking-tight text-foreground">Connect Telegram</h2>
+          <h2 className="text-lg font-semibold tracking-tight text-foreground">{t("channels.onboarding.title")}</h2>
           <p className="text-caption leading-relaxed text-muted-foreground max-w-[18rem] mx-auto">
-            Route Telegram conversations directly into your AI agent.
+            {t("channels.onboarding.description")}
           </p>
         </div>
 
         {/* Steps */}
         <div className="w-full text-left">
-          {STEPS.map((step, idx) => {
+          {steps.map((step, idx) => {
             const isActive = idx === 0;
             return (
               <div key={step.label} className="flex gap-3.5">
@@ -60,7 +62,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
                   >
                     {idx + 1}
                   </div>
-                  {idx < STEPS.length - 1 && (
+                  {idx < steps.length - 1 && (
                     <div
                       className={`mt-1 w-px flex-1 min-h-[20px] ${
                         isActive
@@ -90,7 +92,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
         >
           <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-200 group-hover:translate-x-full" />
           <ChannelProviderIcon provider="telegram" size="sm" />
-          <span className="relative">Configure Bot</span>
+          <span className="relative">{t("channels.onboarding.cta")}</span>
         </button>
       </motion.div>
     </div>

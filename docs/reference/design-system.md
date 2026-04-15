@@ -1,6 +1,9 @@
 # Design system
 
-Synapse now uses a **cool technical token system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and restrained blue-tinted support layers.
+Synapse uses a **token-driven design system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and restrained AI signaling.
+
+Canonical source of truth for live token values is `web/src/app/globals.css`, with this reference doc as the normative mapping.
+If any value conflicts with `docs/DESIGN_STYLE_GUIDE.md`, follow `web/src/app/globals.css` + this file.
 
 Token source is `web/src/app/globals.css`:
 - `@theme` registers Tailwind token names.
@@ -48,6 +51,7 @@ Token source is `web/src/app/globals.css`:
 | Border | `--color-border` | `#E4E6EB` | gray scale border |
 | Strong border | `--color-border-strong` | `#C7CEDA` | emphasized border |
 | Active border | `--color-border-active` | `#7F8A9B` | strong neutral border |
+| Input border | `--color-input` | `#E4E6EB` | text-entry controls |
 | Hover/highlight surface | `--color-accent` | `#F7FAFF` | interactive hover surface |
 | Focus ring | `--color-focus`, `--color-ring` | `#3B82F6` | action blue |
 | Positive | `--color-accent-emerald` | `#0E8345` | positive track |
@@ -66,11 +70,12 @@ Token source is `web/src/app/globals.css`:
 | Support surface text | `--color-secondary-foreground` | `#E6EEFF` | text on tinted support surfaces |
 | Dense neutral bg | `--color-muted` | `#1A1F2B` | quiet product surface |
 | Surface bg | `--color-card`, `--color-popover` | `#181A1E` | neutral elevated surface |
-| Border | `--color-border` | `#2A2D33` | `gray200Dark` |
-| Border strong | `--color-border-strong` | `#3A404B` | `gray300Dark` |
-| Active border | `--color-border-active` | `#6F7A8D` | `gray500Dark` |
+| Border | `--color-border` | `#2A2D33` | default border |
+| Border strong | `--color-border-strong` | `#3A404B` | emphasized border |
+| Active border | `--color-border-active` | `#6F7A8D` | active border |
+| Input border | `--color-input` | `#2A2D33` | text-entry controls |
 | Main text | `--color-foreground` | `#FFFFFF` | high-contrast content |
-| Muted text | `--color-muted-foreground` | `#B1B9C7` | `gray700Dark` |
+| Muted text | `--color-muted-foreground` | `#B1B9C7` | secondary content |
 | Hover/highlight surface | `--color-accent` | `#1D2432` | interactive hover surface |
 | Focus ring | `--color-focus`, `--color-ring` | `#7AA2FF` | action blue |
 | Positive | `--color-accent-emerald` | `#5C9D70` | `green600Dark` |
@@ -87,6 +92,10 @@ These remain Synapse-specific and favor neutral product surfaces with a distinct
 - `--color-user-accent`, `--color-user-accent-dim`
 
 `--color-ai-surface` / `--color-ai-border` should be used as subtle structural hints (badges, assistant surfaces), not as CTA colors. `--color-accent-purple` and `--color-ai-glow` are reserved for AI-specific signaling and should not replace `primary`.
+
+Provider brand colors (Telegram/Discord/Slack/etc.) are allowed only as explicit brand exceptions in provider identity UI; they do not replace the semantic token system.
+
+Embedded preview surfaces (e.g. `srcDoc`/iframe office previews) may use local fallback values when app CSS variables are unavailable, but those fallback values must mirror semantic token intent and stay aligned with `globals.css` during token updates.
 
 ---
 
@@ -161,6 +170,10 @@ Token maintenance checklist:
 - Add or update every semantic token in all three locations in `globals.css`: `@theme`, `:root`, and `.dark`.
 - Keep fallback values for embedded content (iframes/previews) aligned with the same semantic token intent.
 - Prefer semantic aliases (e.g. `ring` -> `focus`) over direct literal reuse when a role already exists.
+
+Guardrail command:
+
+- Run `npm run audit:design-tokens` in `web/` to detect banned token patterns and hardcoded color literals (with approved exception allowlist).
 
 ---
 

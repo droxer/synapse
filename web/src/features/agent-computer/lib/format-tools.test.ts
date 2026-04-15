@@ -33,11 +33,11 @@ describe("activity visual helpers", () => {
     const skill = getActivityKindVisual("skill");
     const neutral = getActivityKindVisual("neutral");
 
-    expect(tool.rowAccent).not.toBe(skill.rowAccent);
-    expect(tool.iconInsetRing).toContain("ring-ring");
-    expect(skill.iconInsetRing).toContain("accent-purple");
-    expect(skill.rowAccent).toContain("accent-purple");
+    expect(tool.rowAccent).toBe("");
+    expect(skill.rowAccent).toBe("");
     expect(neutral.rowAccent).toBe("");
+    expect(tool.iconInsetRing).toBe("");
+    expect(skill.iconInsetRing).toBe("");
   });
 
   it("derives tool call tone from success and output", () => {
@@ -47,8 +47,8 @@ describe("activity visual helpers", () => {
     expect(getToolCallTone(toolCallFixture())).toBe("running");
   });
 
-  it("maps tones to row utility classes (terminal surfaces + solid semantic borders)", () => {
-    expect(getToolCallVisualClasses("running").row).toContain("terminal-surface");
+  it("maps tones to row utility classes (neutral cards + support surfaces)", () => {
+    expect(getToolCallVisualClasses("running").row).toContain("bg-secondary/35");
     expect(getToolCallVisualClasses("complete").row).toContain("bg-card");
     expect(getToolCallVisualClasses("error").row).toContain("destructive");
     expect(getToolCallVisualClasses("running").rowHover).toContain("border-border-strong");

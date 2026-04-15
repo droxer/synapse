@@ -8,18 +8,33 @@ import { listChannelConversations, type ChannelConversation } from "../api/chann
 import { deleteConversation } from "@/shared/api/conversation-list-api";
 import { useAppStore } from "@/shared/stores";
 import { getProviderColor } from "./ChannelProviderIcon";
+import { useTranslation } from "@/i18n";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
 
-function formatRelativeTime(isoString: string | null): string {
+function formatRelativeTime(
+  isoString: string | null,
+  locale: string,
+  t: (key: string, params?: Record<string, string | number>) => string,
+): string {
   if (!isoString) return "";
   const diff = Date.now() - new Date(isoString).getTime();
   const minutes = Math.floor(diff / 60_000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return t("channels.list.time.now");
+  if (minutes < 60) return t("channels.list.time.minutes", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return t("channels.list.time.hours", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(isoString).toLocaleDateString([], { month: "short", day: "numeric" });
+  if (days < 7) return t("channels.list.time.days", { count: days });
+  return new Date(isoString).toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 interface ChannelConversationListProps {
@@ -35,50 +50,55 @@ export function ChannelConversationList({
   onDeleted,
   onCountChange,
 }: ChannelConversationListProps) {
+  const { locale, t } = useTranslation();
   const [conversations, setConversations] = useState<ChannelConversation[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
 
   const fetchConversations = useCallback(async () => {
     try {
-      setError(null);
+      setLoadError(null);
       const data = await listChannelConversations();
       setConversations(data.conversations);
       onCountChange?.(data.conversations.length);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load conversations");
+      setLoadError(err instanceof Error ? err.message : t("channels.list.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, [onCountChange]);
+  }, [onCountChange, t]);
 
   useEffect(() => {
     void fetchConversations();
   }, [fetchConversations]);
 
-  const handleDelete = async (e: React.MouseEvent, conversationId: string) => {
+  const handleDeleteClick = (e: React.MouseEvent, conversationId: string) => {
     e.stopPropagation();
     e.preventDefault();
     if (deletingId) return;
+    setPendingDeleteId(conversationId);
+  };
 
-    if (!confirm("Are you sure you want to delete this conversation? This action cannot be undone.")) {
-      return;
-    }
-
+  const handleDeleteConfirm = async () => {
+    if (!pendingDeleteId) return;
     try {
-      setDeletingId(conversationId);
-      await deleteConversation(conversationId);
+      setDeletingId(pendingDeleteId);
+      setActionError(null);
+      await deleteConversation(pendingDeleteId);
       useAppStore.getState().bumpLibraryRefetch();
       setConversations((prev) => {
-        const filtered = prev.filter((c) => c.conversation_id !== conversationId);
+        const filtered = prev.filter((c) => c.conversation_id !== pendingDeleteId);
         onCountChange?.(filtered.length);
         return filtered;
       });
-      onDeleted?.(conversationId);
+      onDeleted?.(pendingDeleteId);
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Failed to delete conversation");
+      setActionError(err instanceof Error ? err.message : t("channels.list.errorDelete"));
     } finally {
+      setPendingDeleteId(null);
       setDeletingId(null);
     }
   };
@@ -100,17 +120,20 @@ export function ChannelConversationList({
     );
   }
 
-  if (error) {
+  if (loadError) {
     return (
       <div className="m-2 flex flex-col items-center gap-3 rounded-lg border border-destructive bg-destructive/5 px-4 py-8 text-center">
-        <p className="text-xs text-destructive">{error}</p>
+        <p className="text-xs text-destructive">{loadError}</p>
         <button
           type="button"
-          onClick={() => { setLoading(true); void fetchConversations(); }}
+          onClick={() => {
+            setLoading(true);
+            void fetchConversations();
+          }}
           className="inline-flex items-center gap-1.5 rounded-md border border-destructive bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
         >
           <RefreshCw className="h-3 w-3" />
-          Retry
+          {t("channels.list.retry")}
         </button>
       </div>
     );
@@ -119,9 +142,9 @@ export function ChannelConversationList({
   if (conversations.length === 0) {
     return (
       <div className="mx-2 mt-1 rounded-md border border-dashed border-border bg-secondary px-3 py-4 text-center">
-        <p className="text-xs font-medium text-muted-foreground">No conversations yet</p>
-        <p className="mt-0.5 text-micro text-muted-foreground-dim leading-normal">
-          Messages arrive automatically
+        <p className="text-xs font-medium text-muted-foreground">{t("channels.list.emptyTitle")}</p>
+        <p className="mt-0.5 text-micro leading-normal text-muted-foreground-dim">
+          {t("channels.list.emptyHint")}
         </p>
       </div>
     );
@@ -137,105 +160,121 @@ export function ChannelConversationList({
   };
 
   return (
-    <motion.div
-      variants={container}
-      initial="hidden"
-      animate="show"
-      className="space-y-0.5 px-2 py-1.5"
-    >
-      {conversations.map((conv) => {
-        const isSelected = conv.conversation_id === selectedConversationId;
-        const name = conv.display_name ?? conv.provider_chat_id;
-        const initial = name.charAt(0).toUpperCase();
-        const providerColor = getProviderColor(conv.provider);
+    <>
+      <motion.div
+        variants={container}
+        initial="hidden"
+        animate="show"
+        className="space-y-0.5 px-2 py-1.5"
+      >
+        {actionError && (
+          <div className="mx-0.5 mb-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-xs text-destructive">
+            {actionError}
+          </div>
+        )}
 
-        return (
-          <motion.div
-            key={conv.conversation_id}
-            variants={item}
-            className={cn(
-              "group relative flex w-full items-center rounded-md text-left transition-colors duration-150",
-              isSelected
-                ? "bg-muted text-foreground before:absolute before:left-0 before:top-1.5 before:bottom-1.5 before:w-0.5 before:rounded-r-full before:bg-border-strong before:content-['']"
-                : "text-foreground hover:bg-sidebar-hover",
-              deletingId === conv.conversation_id && "opacity-50 pointer-events-none"
-            )}
-          >
-            <button
-              type="button"
-              onClick={() => onSelect(conv)}
-              className="flex w-full flex-1 items-center gap-3 rounded-md px-2.5 py-2.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-            >
-              {/* Avatar */}
-              <div className="relative shrink-0">
-                <div
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-sm font-semibold text-primary-foreground"
-                  style={{
-                    background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})`,
-                  }}
-                >
-                  {initial}
-                </div>
-                {/* Provider Badge */}
-                <div
-                  className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border border-sidebar-bg"
-                  style={{ background: providerColor }}
-                />
-              </div>
+        {conversations.map((conv) => {
+          const isSelected = conv.conversation_id === selectedConversationId;
+          const name = conv.display_name ?? conv.provider_chat_id;
+          const initial = name.charAt(0).toUpperCase();
+          const providerColor = getProviderColor(conv.provider);
 
-              {/* Content */}
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline justify-between gap-1.5">
-                  <span className="truncate text-sm font-medium leading-tight text-foreground pr-6">
-                    {name}
-                  </span>
-                  {conv.last_message_at && (
-                    <span className="shrink-0 tabular-nums text-micro text-muted-foreground-dim font-medium transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
-                      {formatRelativeTime(conv.last_message_at)}
-                    </span>
-                  )}
-                </div>
-                {conv.last_message ? (
-                  <p className="mt-0.5 truncate text-xs leading-tight text-muted-foreground">
-                    {conv.last_message}
-                  </p>
-                ) : (
-                  <p className="mt-0.5 text-xs text-muted-foreground-dim italic leading-tight">
-                    New conversation
-                  </p>
-                )}
-              </div>
-
-              {/* Active session dot */}
-              {conv.session_active && (
-                <div className="shrink-0 flex items-center justify-center transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
-                  <span className="relative flex h-2 w-2">
-                    <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
-                    <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-emerald" />
-                  </span>
-                </div>
+          return (
+            <motion.div
+              key={conv.conversation_id}
+              variants={item}
+              className={cn(
+                "group relative flex w-full items-center rounded-md text-left transition-colors duration-150",
+                isSelected
+                  ? "bg-muted text-foreground before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r-full before:bg-border-strong before:content-['']"
+                  : "text-foreground hover:bg-sidebar-hover",
+                deletingId === conv.conversation_id && "pointer-events-none opacity-50",
               )}
-            </button>
-
-            {/* Actions (hover) */}
-            <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
+            >
               <button
                 type="button"
-                onClick={(e) => handleDelete(e, conv.conversation_id)}
-                className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:border-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-                title="Delete conversation"
-                aria-label="Delete conversation"
+                onClick={() => onSelect(conv)}
+                className="flex w-full flex-1 items-center gap-3 rounded-md px-2.5 py-2.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
               >
-                {deletingId === conv.conversation_id ? (
-                  <Trash2 className="h-3.5 w-3.5 animate-pulse text-destructive" aria-hidden />
-                ) : (
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                <div className="relative shrink-0">
+                  <div
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-sm font-semibold text-primary-foreground"
+                    style={{ background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})` }}
+                  >
+                    {initial}
+                  </div>
+                  <div
+                    className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border border-sidebar-bg"
+                    style={{ background: providerColor }}
+                  />
+                </div>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-baseline justify-between gap-1.5">
+                    <span className="truncate pr-6 text-sm font-medium leading-tight text-foreground">
+                      {name}
+                    </span>
+                    {conv.last_message_at && (
+                      <span className="shrink-0 font-medium tabular-nums text-micro text-muted-foreground-dim transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+                        {formatRelativeTime(conv.last_message_at, locale, t)}
+                      </span>
+                    )}
+                  </div>
+                  {conv.last_message ? (
+                    <p className="mt-0.5 truncate text-xs leading-tight text-muted-foreground">
+                      {conv.last_message}
+                    </p>
+                  ) : (
+                    <p className="mt-0.5 text-xs italic leading-tight text-muted-foreground-dim">
+                      {t("channels.list.newConversation")}
+                    </p>
+                  )}
+                </div>
+
+                {conv.session_active && (
+                  <div className="flex shrink-0 items-center justify-center transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+                    <span className="relative flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-accent-emerald" />
+                    </span>
+                  </div>
                 )}
               </button>
-            </div>
-          </motion.div>
-        );
-      })}
-    </motion.div>
+
+              <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteClick(e, conv.conversation_id)}
+                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:border-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  title={t("channels.list.deleteConversation")}
+                  aria-label={t("channels.list.deleteConversation")}
+                >
+                  {deletingId === conv.conversation_id ? (
+                    <Trash2 className="h-3.5 w-3.5 animate-pulse text-destructive" aria-hidden />
+                  ) : (
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
+
+      <AlertDialog open={pendingDeleteId !== null} onOpenChange={(open) => { if (!open) setPendingDeleteId(null); }}>
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("channels.list.deleteTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("channels.list.deleteDescription")}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("channels.list.cancel")}</AlertDialogCancel>
+            <AlertDialogAction variant="destructive" onClick={handleDeleteConfirm}>
+              {t("channels.list.delete")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }

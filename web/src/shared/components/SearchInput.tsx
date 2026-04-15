@@ -14,7 +14,13 @@ interface SearchInputProps {
 
 export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear filter", className }: SearchInputProps) {
   return (
-    <div className={cn("flex items-center gap-2 rounded-lg border border-border bg-card px-2.5 py-1.5", className)}>
+    <div
+      className={cn(
+        "flex items-center gap-2 rounded-lg border border-input bg-card px-2.5 py-1.5",
+        "focus-within:border-border-active focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-1 focus-within:ring-offset-background",
+        className,
+      )}
+    >
       <Search className="h-3.5 w-3.5 text-muted-foreground" />
       <input
         type="text"
@@ -29,7 +35,7 @@ export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear 
           type="button"
           aria-label={clearLabel}
           onClick={() => onChange("")}
-          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground"
+          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
         >
           <X className="h-3 w-3" />
         </button>
