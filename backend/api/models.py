@@ -98,8 +98,8 @@ class ConversationEntry:
         self,
         emitter: EventEmitter,
         event_queue: asyncio.Queue[AgentEvent | None],
-        orchestrator: Runnable,
-        executor: ToolExecutor,
+        orchestrator: Runnable | None,
+        executor: ToolExecutor | None,
         pending_callbacks: dict[str, Any],
         orchestrator_mode: str = "agent",
     ) -> None:

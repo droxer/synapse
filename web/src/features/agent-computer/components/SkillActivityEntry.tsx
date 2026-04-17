@@ -169,7 +169,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   animate={{ opacity: 1 }}
                   transition={{ delay: 0.15 }}
                 >
-                  <span className="status-pill chip-muted text-accent-emerald">
+                  <span className="status-pill status-ok">
                     <Check className="h-2.5 w-2.5" />
                     {t("skills.activity.loaded")}
                   </span>
@@ -177,13 +177,13 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               )}
 
               {!isResolved && (
-                <span className="status-pill border border-border bg-secondary text-secondary-foreground">
+                <span className="status-pill status-neutral">
                   {t("skills.activity.loading")}
                 </span>
               )}
 
               {isError && (
-                <span className="status-pill chip-muted text-destructive">
+                <span className="status-pill status-error">
                   {t("skills.activity.failed")}
                 </span>
               )}

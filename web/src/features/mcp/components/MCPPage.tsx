@@ -127,7 +127,7 @@ export function MCPPage() {
             </div>
           </div>
           {servers.length > 0 && (
-            <div className="status-pill chip-muted px-2.5 py-1">
+            <div className="status-pill status-neutral chip-md">
               <span
                 className={cn(
                   "h-1.5 w-1.5 rounded-full",

@@ -5,7 +5,10 @@ import { createElement } from "react";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import { getLatestTurnMode } from "./conversation-mode";
 import { areMessageRowsEqual } from "./message-row-memo";
+import { ConversationWorkspace, MessageRow } from "./ConversationWorkspace";
 import type { AgentEvent, ChatMessage, PlanStep } from "@/shared/types";
+
+let lastAgentProgressCardProps: Record<string, unknown> | null = null;
 
 jest.mock("framer-motion", () => ({
   __esModule: true,
@@ -27,14 +30,12 @@ jest.mock("@/shared/components", () => ({
   }) => createElement("div", { "data-testid": "markdown" }, content),
 }));
 
-jest.mock("@/shared/hooks", () => ({
-  __esModule: true,
-  usePacedStreamingText: (content: string) => content,
-}));
-
 jest.mock("@/features/agent-computer", () => ({
   __esModule: true,
-  AgentProgressCard: () => null,
+  AgentProgressCard: (props: Record<string, unknown>) => {
+    lastAgentProgressCardProps = props;
+    return null;
+  },
   AgentComputerPanel: () => null,
 }));
 
@@ -42,9 +43,6 @@ jest.mock("@/features/conversation", () => ({
   __esModule: true,
   ChatInput: () => null,
 }));
-
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { MessageRow } = require("./ConversationWorkspace");
 
 describe("shouldAutoScrollToBottom", () => {
   it("scrolls on first populate", () => {
@@ -212,5 +210,65 @@ describe("areMessageRowsEqual", () => {
 
     expect(thinkingIndex).toBeGreaterThanOrEqual(0);
     expect(responseIndex).toBeGreaterThan(thinkingIndex);
+  });
+
+  it("renders the full accumulated streaming content without frontend pacing", () => {
+    const streamingMessage: ChatMessage = {
+      ...baseMessage,
+      content: "Part 1 and Part 2",
+    };
+
+    const html = renderToStaticMarkup(createElement(MessageRow, {
+      msg: streamingMessage,
+      isLastAssistant: true,
+      isStreamingThis: true,
+      isThinkingThis: false,
+      messageWidthClass: "sm:max-w-[82%]",
+      embeddedPlanSteps: planSteps,
+      index: 1,
+      conversationId: "c1",
+      taskState: "executing",
+      locale: "en",
+      t: (key: string) => key,
+    }));
+
+    expect(html).toContain('data-testid="markdown"');
+    expect(html).toContain("Part 1 and Part 2");
+  });
+});
+
+describe("ConversationWorkspace activity wiring", () => {
+  it("passes optimistic selected skills through to both activity surfaces during a live turn", () => {
+    lastAgentProgressCardProps = null;
+
+    renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [{ type: "turn_start", data: { message: "Build UI" }, timestamp: 100, iteration: null }],
+      messages: [{ role: "user", content: "Build UI", timestamp: 100 }],
+      toolCalls: [{
+        id: "optimistic-skill:frontend-design:0",
+        toolUseId: "optimistic-skill:frontend-design",
+        name: "activate_skill",
+        input: { name: "frontend-design" },
+        timestamp: 100,
+      }],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "executing",
+      currentThinkingEntries: [],
+      isStreaming: true,
+      assistantPhase: { phase: "thinking" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: true,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect(lastAgentProgressCardProps).not.toBeNull();
+    const progressToolCalls = ((lastAgentProgressCardProps as { toolCalls?: unknown } | null)?.toolCalls ?? []) as Array<{ input: { name?: string } }>;
+    expect(progressToolCalls[0]?.input.name).toBe("frontend-design");
   });
 });

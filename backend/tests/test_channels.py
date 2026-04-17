@@ -20,9 +20,10 @@ from agent.memory.store import PersistentMemoryStore
 from agent.state.models import ConversationModel, MessageModel, UserModel
 from api.channels.provider import TelegramProvider
 from api.channels.repository import ChannelRepository
+from api.channels.responder import ChannelResponder
 from api.channels.router import ChannelRouter
 from api.channels.schemas import InboundMessage
-from api.events import EventEmitter
+from api.events import AgentEvent, EventEmitter, EventType
 from api.models import ConversationEntry
 from api.routes import channels as channels_routes
 
@@ -1136,3 +1137,73 @@ class TestChannelRouteMessageHandling:
         assert provider.downloaded_file_ids == []
         assert before == 0
         assert after == 0
+
+
+class TestChannelResponder:
+    @pytest.mark.asyncio
+    async def test_text_delta_uses_delta_field_for_streaming_chunks(self) -> None:
+        provider = AsyncMock()
+        repo = AsyncMock()
+        emitter = EventEmitter()
+
+        responder = ChannelResponder(
+            provider=provider,
+            chat_id="chat_1",
+            channel_repo=repo,
+            session_factory=MagicMock(),
+            channel_session_id=uuid.uuid4(),
+            conversation_id=uuid.uuid4(),
+            emitter=emitter,
+        )
+
+        await responder(AgentEvent(type=EventType.TEXT_DELTA, data={"delta": "Hello "}))
+        await responder(AgentEvent(type=EventType.TEXT_DELTA, data={"delta": "world"}))
+        await responder(
+            AgentEvent(type=EventType.TURN_COMPLETE, data={"result": "ignored"})
+        )
+
+        provider.send_text.assert_awaited_once_with("chat_1", "Hello world")
+
+    @pytest.mark.asyncio
+    async def test_task_complete_uses_summary_when_no_buffer_exists(self) -> None:
+        provider = AsyncMock()
+        repo = AsyncMock()
+        emitter = EventEmitter()
+
+        responder = ChannelResponder(
+            provider=provider,
+            chat_id="chat_2",
+            channel_repo=repo,
+            session_factory=MagicMock(),
+            channel_session_id=uuid.uuid4(),
+            conversation_id=uuid.uuid4(),
+            emitter=emitter,
+        )
+
+        await responder(
+            AgentEvent(type=EventType.TASK_COMPLETE, data={"summary": "done"})
+        )
+
+        provider.send_text.assert_awaited_once_with("chat_2", "done")
+
+    @pytest.mark.asyncio
+    async def test_terminal_fallback_accepts_legacy_result(self) -> None:
+        provider = AsyncMock()
+        repo = AsyncMock()
+        emitter = EventEmitter()
+
+        responder = ChannelResponder(
+            provider=provider,
+            chat_id="chat_3",
+            channel_repo=repo,
+            session_factory=MagicMock(),
+            channel_session_id=uuid.uuid4(),
+            conversation_id=uuid.uuid4(),
+            emitter=emitter,
+        )
+
+        await responder(
+            AgentEvent(type=EventType.TASK_COMPLETE, data={"result": "legacy"})
+        )
+
+        provider.send_text.assert_awaited_once_with("chat_3", "legacy")

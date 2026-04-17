@@ -28,10 +28,6 @@ import {
   isTaskStateLive,
 } from "@/features/agent-computer/lib/task-state-display";
 import {
-  getIconRingClass,
-  type ActivityEntryKind,
-} from "@/features/agent-computer/lib/format-tools";
-import {
   HIDDEN_ACTIVITY_TOOLS,
   normalizeToolNameI18n,
   normalizeAgentName,
@@ -75,12 +71,6 @@ interface StatusVisual {
   readonly rowHover: string;
   readonly iconSurface: string;
   readonly iconColor: string;
-}
-
-function getStepActivityKind(step: TimelineStep): ActivityEntryKind {
-  if (step.kind === "tool") return "tool";
-  if (step.kind === "skill") return "skill";
-  return "neutral";
 }
 
 interface ToolCallIndexes {
@@ -195,9 +185,23 @@ function mapAgentStepStatus(value: unknown): TimelineStepStatus {
   }
 }
 
+function buildOptimisticSkillStep(toolCall: ToolCallInfo, t: TFn): TimelineStep {
+  const skillName = normalizeSkillName(String(toolCall.input.name ?? "skill"));
+  return {
+    id: `tool-${toolCall.id}`,
+    kind: "skill",
+    title: t("progress.loadingSkill", { name: skillName }),
+    name: skillName,
+    skillKey: String(toolCall.input.name ?? "") || undefined,
+    rawToolName: toolCall.name,
+    status: "running",
+  };
+}
+
 export function buildSteps(
   events: readonly AgentEvent[],
   indexes: ToolCallIndexes,
+  toolCalls: readonly ToolCallInfo[],
   t: TFn,
   agentNameMap: ReadonlyMap<string, string>,
 ): TimelineStep[] {
@@ -452,6 +456,16 @@ export function buildSteps(
     }
   }
 
+  for (const toolCall of toolCalls) {
+    if (!["activate_skill", "load_skill"].includes(toolCall.name)) continue;
+    if (!toolCall.toolUseId.startsWith("optimistic-skill:")) continue;
+    const skillName = normalizeSkillName(String(toolCall.input.name ?? ""));
+    if (steps.some((step) => step.kind === "skill" && step.name === skillName)) {
+      continue;
+    }
+    steps = [...steps, buildOptimisticSkillStep(toolCall, t)];
+  }
+
 
   return steps;
 }
@@ -543,38 +557,47 @@ function stepGlyphIcon(step: TimelineStep) {
   }
 }
 
+/* Step status theme — one map, consistent visual ratios across statuses.
+   Contract:
+   - Active states (error/warn/running) signal via a tinted border (~40% alpha)
+     + faint matching background tint (~5%) + matching icon/text color.
+   - Skipped reads as "passed over" via a dashed neutral border, no color tint.
+   - Default (complete/idle) is fully neutral — chrome-light by design.
+   - Hover stays in-family: tinted states deepen their own tint instead of
+     flipping to the neutral `bg-accent` (avoids hue clash on warn/error rows).
+   This mirrors the same border/bg/text ratio used by the new `status-*` pill
+   variants in globals.css, so rows and pills speak one visual language. */
 function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
-  const rowHover = "hover:border-border-strong hover:bg-accent";
   switch (status) {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: "border border-destructive/50 bg-card",
-        rowHover,
-        iconSurface: "bg-muted",
+        rowBase: "border border-destructive/40 bg-destructive/5",
+        rowHover: "hover:border-destructive/60 hover:bg-destructive/10",
+        iconSurface: "bg-destructive/10",
         iconColor: "text-destructive",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
-        rowBase: "border border-border bg-muted",
-        rowHover,
-        iconSurface: "bg-muted",
+        rowBase: "border border-accent-amber/40 bg-accent-amber/5",
+        rowHover: "hover:border-accent-amber/60 hover:bg-accent-amber/10",
+        iconSurface: "bg-accent-amber/10",
         iconColor: "text-accent-amber",
       };
     case "skipped":
       return {
         text: "text-muted-foreground",
-        rowBase: "border border-border bg-muted",
-        rowHover,
+        rowBase: "border border-dashed border-border bg-card",
+        rowHover: "hover:border-border-strong hover:bg-muted",
         iconSurface: "bg-muted",
-        iconColor: "text-muted-foreground",
+        iconColor: "text-muted-foreground-dim",
       };
     case "running":
       return {
         text: "text-foreground",
-        rowBase: "border border-border bg-secondary/35",
-        rowHover,
+        rowBase: "border border-focus/40 bg-focus/5",
+        rowHover: "hover:border-focus/60 hover:bg-focus/10",
         iconSurface: "bg-secondary",
         iconColor: "text-focus",
       };
@@ -582,7 +605,7 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
       return {
         text: "text-foreground",
         rowBase: "border border-border bg-card",
-        rowHover,
+        rowHover: "hover:border-border-strong hover:bg-accent",
         iconSurface: "bg-muted",
         iconColor: "text-foreground",
       };
@@ -593,13 +616,11 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
 function StepIcon({ step }: { readonly step: TimelineStep }) {
   const Icon = stepGlyphIcon(step);
   const visual = getStepStatusVisual(step.status);
-  const kind = getStepActivityKind(step);
-  const ringClass = getIconRingClass(step.status, kind);
   const useDistinctGlyph = step.kind === "tool" || step.kind === "skill";
 
   if (step.status === "running") {
     return (
-      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
         <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
       </span>
@@ -609,7 +630,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
   if (step.status === "error") {
     if (useDistinctGlyph) {
       return (
-        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+        <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
           <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -620,7 +641,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
       );
     }
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <CircleX className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -628,7 +649,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "replan_required") {
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <AlertTriangle className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -636,7 +657,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (step.status === "skipped") {
     return (
-      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Minus className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
       </span>
     );
@@ -644,7 +665,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
   if (useDistinctGlyph) {
     return (
-      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+      <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
         <Check
           className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
@@ -656,7 +677,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
   }
 
   return (
-    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface, ringClass)}>
+    <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
       <Check className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.5} />
     </span>
   );
@@ -664,32 +685,31 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
 
 /* State badge shown next to the title */
 function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: TFn }) {
-  const baseClass = "status-pill chip-muted";
   switch (state) {
     case "planning":
       return (
-        <span className={cn(baseClass, "border-border bg-muted text-accent-amber")}>
+        <span className="status-pill status-warn">
           <Lightbulb className="h-3 w-3" />
           {t("progress.statePlanning")}
         </span>
       );
     case "executing":
       return (
-        <span className={cn(baseClass, "border-border bg-secondary text-secondary-foreground")}>
+        <span className="status-pill status-info">
           <PulsingDot size="sm" />
           {t("progress.stateExecuting")}
         </span>
       );
     case "complete":
       return (
-        <span className={cn(baseClass, "border-border bg-muted text-accent-emerald")}>
+        <span className="status-pill status-ok">
           <CircleCheck className="h-3 w-3" />
           {t("progress.stateComplete")}
         </span>
       );
     case "error":
       return (
-        <span className={cn(baseClass, "border-destructive bg-muted text-destructive")}>
+        <span className="status-pill status-error">
           <CircleX className="h-3 w-3" />
           {t("progress.stateError")}
         </span>
@@ -723,8 +743,8 @@ export function AgentProgressCard({
   }, [agentStatuses]);
 
   const steps = useMemo(
-    () => buildSteps(events, toolIndexes, t, agentNameMap),
-    [events, toolIndexes, t, agentNameMap],
+    () => buildSteps(events, toolIndexes, toolCalls, t, agentNameMap),
+    [events, toolIndexes, toolCalls, t, agentNameMap],
   );
 
   const stepsScrollKey = useMemo(() => {
@@ -800,13 +820,11 @@ export function AgentProgressCard({
           <span
             className={cn(
               "status-pill tabular-nums",
-              taskState === "complete"
-                ? "border-border bg-muted text-muted-foreground"
-                : taskState === "error"
-                  ? "border-destructive bg-muted text-destructive"
-                  : isRunning
-                    ? "border-border bg-secondary text-secondary-foreground"
-                    : "border-border bg-muted text-muted-foreground",
+              taskState === "error"
+                ? "status-error"
+                : isRunning
+                  ? "status-info"
+                  : "status-neutral",
             )}
           >
             {completedCount}/{totalCount}

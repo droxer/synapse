@@ -354,6 +354,70 @@
   line-height: var(--font-size-micro--line-height);
 }
 
+/* Semantic status-pill color variants — apply alongside `status-pill`.
+   Each variant pairs a tinted surface, a same-hue border, and a readable text color.
+   Use these instead of ad-hoc `border-X/30 bg-X/10 text-X` fragments so all pills
+   draw from one consistent palette in both light and dark themes. */
+
+@utility status-neutral {
+  border: 1px solid var(--color-border);
+  background-color: var(--color-muted);
+  color: var(--color-muted-foreground);
+}
+
+@utility status-info {
+  border: 1px solid color-mix(in srgb, var(--color-focus), transparent 70%);
+  background-color: color-mix(in srgb, var(--color-focus), transparent 90%);
+  color: var(--color-focus);
+}
+
+@utility status-ai {
+  border: 1px solid var(--color-ai-border);
+  background-color: var(--color-ai-surface);
+  color: var(--color-foreground);
+}
+
+@utility status-ok {
+  border: 1px solid color-mix(in srgb, var(--color-accent-emerald), transparent 70%);
+  background-color: color-mix(in srgb, var(--color-accent-emerald), transparent 90%);
+  color: var(--color-accent-emerald);
+}
+
+@utility status-warn {
+  border: 1px solid color-mix(in srgb, var(--color-accent-amber), transparent 70%);
+  background-color: color-mix(in srgb, var(--color-accent-amber), transparent 90%);
+  color: var(--color-accent-amber);
+}
+
+@utility status-error {
+  border: 1px solid color-mix(in srgb, var(--color-destructive), transparent 70%);
+  background-color: color-mix(in srgb, var(--color-destructive), transparent 90%);
+  color: var(--color-destructive);
+}
+
+/* Chip size rhythm — apply alongside `chip-muted` (or any color base) to enforce
+   the 8px-rooted spacing scale instead of ad-hoc px-2/px-2.5/py-0.5/py-1 combos.
+   `chip-xs` is for inline metadata, `chip-sm` for default chips,
+   `chip-md` for header chips with icons + label. */
+
+@utility chip-xs {
+  padding: 0.0625rem 0.375rem;  /* 1px 6px */
+  font-size: var(--font-size-micro);
+  line-height: var(--font-size-micro--line-height);
+}
+
+@utility chip-sm {
+  padding: 0.125rem 0.5rem;  /* 2px 8px */
+  font-size: var(--text-xs);
+  line-height: var(--lh-tight);
+}
+
+@utility chip-md {
+  padding: 0.25rem 0.625rem;  /* 4px 10px */
+  font-size: var(--text-xs);
+  line-height: var(--lh-normal);
+}
+
 @utility label-mono {
   font-family: var(--font-mono);
   font-size: var(--font-size-micro);
@@ -673,9 +737,13 @@ pre, code {
   animation: blink-cursor 1.2s ease-in-out infinite;
 }
 
-/* ─── Conversation response surface (Cursor-style) ─── */
+/* ─── Conversation response surface (Cursor-style) ───
+   Soft left rule (using the AI signaling border token) gives the assistant
+   message its own visual identity without a heavy bubble — mirrors the
+   weight of the user-message bubble while staying chrome-light. */
 .conversation-assistant-message {
   padding-left: 0.875rem;
+  border-left: 2px solid var(--color-ai-border);
 }
 
 .conversation-response-body {

@@ -10,7 +10,13 @@ from agent.llm.client import LLMResponse, TokenUsage, ToolCall
 from agent.runtime.task_runner import TaskAgentConfig, TaskAgentRunner
 from agent.skills.loader import SkillRegistry
 from agent.skills.models import SkillContent, SkillMetadata
-from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolResult
+from agent.tools.base import (
+    ExecutionContext,
+    LocalTool,
+    SandboxTool,
+    ToolDefinition,
+    ToolResult,
+)
 from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
@@ -133,6 +139,9 @@ class _TaskRunnerExecutor:
         tool = self._registry.get(name)
         if tool is None:
             return ToolResult.fail(f"Unknown tool: {name}")
+        if isinstance(tool, SandboxTool):
+            session = await self.get_sandbox_session(tool.definition().tags)
+            return await tool.execute(session=session, **tool_input)
         return await tool.execute(**tool_input)
 
 
@@ -160,6 +169,22 @@ class _FakeMCPTool(LocalTool):
         )
 
     async def execute(self, **kwargs) -> ToolResult:
+        return ToolResult.ok("ok")
+
+
+class _FakeSandboxProbeTool(SandboxTool):
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="sandbox_probe",
+            description="Touch the sandbox session.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.SANDBOX,
+            tags=("sandbox",),
+        )
+
+    async def execute(self, session, **kwargs) -> ToolResult:
+        del kwargs
+        await session.exec("true")
         return ToolResult.ok("ok")
 
 
@@ -526,3 +551,50 @@ async def test_task_runner_auto_selected_skill_applies_template_and_dependencies
     assert executor.current_template == "data_science"
     assert executor.template_requests == ["data_science", "data_science"]
     assert any("pip install pandas" in command for command in session.commands)
+
+
+@pytest.mark.asyncio
+async def test_task_runner_reapplies_configured_template_before_first_sandbox_use(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: _task_settings(timeout_seconds=5.0),
+    )
+
+    registry = ToolRegistry().register(_FakeSandboxProbeTool())
+    session = _FakeSkillSession()
+    executor = _TaskRunnerExecutor(registry, session)
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(ToolCall(id="tool-1", name="sandbox_probe", input={}),),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-config-template",
+        config=TaskAgentConfig(
+            task_description="touch the sandbox",
+            sandbox_template="browser",
+        ),
+        claude_client=client,
+        tool_registry=registry,
+        tool_executor=executor,  # type: ignore[arg-type]
+        event_emitter=EventEmitter(),
+        observer=_NoopObserver(),
+    )
+
+    result = await runner.run()
+
+    assert result.success is True
+    assert executor.current_template == "browser"
+    assert executor.template_requests == ["browser"]

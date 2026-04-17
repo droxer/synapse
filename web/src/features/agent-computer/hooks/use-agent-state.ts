@@ -23,6 +23,10 @@ function splitThinkTag(text: string): { thinking: string; content: string } {
   return { thinking: thinkingParts.join("\n\n"), content: clean.trim() };
 }
 
+function isDeepResearchSkillName(value: unknown): boolean {
+  return String(value ?? "").trim().toLowerCase() === "deep-research";
+}
+
 import type {
   AgentEvent,
   ArtifactInfo,
@@ -93,6 +97,13 @@ function toDisplayText(value: unknown): string {
   } catch {
     return String(value);
   }
+}
+
+function getTerminalResultText(event: Extract<AgentEvent, { type: "turn_complete" | "task_complete" }>): string {
+  if (event.type === "task_complete") {
+    return String(event.data.summary ?? event.data.result ?? "");
+  }
+  return String(event.data.result ?? "");
 }
 
 function normalizeComparableMessageContent(content: string): string {
@@ -252,6 +263,8 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let assistantMessageSequence = 0;
   const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
+  let isDeepResearchTurn = false;
+  let pendingDeepResearchVisibleParts: string[] = [];
 
   const nextAssistantMessageId = () =>
     `${currentTurnId}:assistant:${assistantMessageSequence}`;
@@ -309,6 +322,18 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     return undefined;
   };
 
+  const resolveToolCallRow = (apiToolId: string): string | undefined => {
+    if (!apiToolId) return undefined;
+    for (let i = toolCallOrder.length - 1; i >= 0; i--) {
+      const rowId = toolCallOrder[i]!;
+      const call = toolCallMap.get(rowId);
+      if (call && call.toolUseId === apiToolId) {
+        return rowId;
+      }
+    }
+    return undefined;
+  };
+
   const attachPendingThinking = (message: ChatMessage): ChatMessage => {
     if (pendingThinkingEntries.length === 0) return message;
     const withThinking: ChatMessage = {
@@ -341,6 +366,17 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       thinkingEntries: appendUnique(existing.thinkingEntries, pendingThinkingEntries),
     };
     pendingThinkingEntries = [];
+  };
+
+  const consumeDeepResearchFallbackContent = (content: string): string => {
+    if (pendingDeepResearchVisibleParts.length === 0) return content;
+    if (content.trim().length > 0) {
+      pendingDeepResearchVisibleParts = [];
+      return content;
+    }
+    const fallback = pendingDeepResearchVisibleParts.join("\n\n").trim();
+    pendingDeepResearchVisibleParts = [];
+    return fallback || content;
   };
 
   const resolveActiveStreamRow = (): string | undefined => {
@@ -414,6 +450,13 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       assistantPhase = { phase: "thinking" };
       const thinkingEntry = toThinkingEntry(event);
       if (thinkingEntry) {
+        if (isDeepResearchTurn) {
+          pendingDeepResearchVisibleParts = [
+            ...pendingDeepResearchVisibleParts,
+            thinkingEntry.content,
+          ];
+          continue;
+        }
         allThinkingEntries.push(thinkingEntry);
         currentThinkingEntries = [...currentThinkingEntries, thinkingEntry];
         pendingThinkingEntries = [...pendingThinkingEntries, thinkingEntry];
@@ -438,10 +481,15 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         reasoningSteps.push(responseText);
       }
 
-      const rawText = responseText;
+      const rawText = isTerminalEndTurn
+        ? responseText
+        : consumeDeepResearchFallbackContent(responseText);
       if (rawText && !isTerminalEndTurn) {
         const { thinking: inlineThinking, content } = splitThinkTag(rawText);
-        const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
+        const shouldAttachThinking = !isDeepResearchTurn;
+        const allThinking = shouldAttachThinking
+          ? [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])]
+          : [];
         const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
         let message = finalizeAssistantMessage({
           role: "assistant",
@@ -467,6 +515,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
 
       const toolUseId = toolId.length > 0 ? toolId : crypto.randomUUID();
       const input = (event.data.input ?? event.data.tool_input ?? event.data.arguments ?? {}) as Record<string, unknown>;
+      if (skillToolNames.has(toolName) && isDeepResearchSkillName(input.name)) {
+        isDeepResearchTurn = true;
+        pendingThinkingParts = [];
+        pendingThinkingEntries = [];
+        currentThinkingEntries = [];
+      }
 
       // If this is a skill tool call, reuse any synthetic placeholder row created by
       // an earlier skill_activated event instead of creating a duplicate row.
@@ -490,6 +544,21 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
               success: undefined,
             });
           }
+        }
+      }
+
+      if (!rowId) {
+        rowId = resolveToolCallRow(toolUseId);
+        const existing = rowId ? toolCallMap.get(rowId) : undefined;
+        if (rowId && existing) {
+          toolCallMap.set(rowId, {
+            ...existing,
+            name: toolName,
+            input,
+            timestamp: existing.timestamp,
+            agentId: event.data.agent_id ? String(event.data.agent_id) : existing.agentId,
+            thinkingText: existing.thinkingText ?? pendingToolCallThinking ?? undefined,
+          });
         }
       }
 
@@ -567,6 +636,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     } else if (event.type === "skill_activated") {
       const skillName = String(event.data.name ?? "");
       if (skillName) {
+        if (isDeepResearchSkillName(skillName)) {
+          isDeepResearchTurn = true;
+          pendingThinkingParts = [];
+          pendingThinkingEntries = [];
+          currentThinkingEntries = [];
+        }
         const rowId = ensureSkillRow(skillName, event.timestamp, event.data.source);
         const existing = toolCallMap.get(rowId);
         if (existing) {
@@ -579,6 +654,10 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     } else if (event.type === "skill_setup_failed") {
       const skillName = String(event.data.name ?? "");
       if (skillName) {
+        if (isDeepResearchSkillName(skillName)) {
+          isDeepResearchTurn = false;
+          pendingDeepResearchVisibleParts = [];
+        }
         const rowId = ensureSkillRow(skillName, event.timestamp, event.data.source);
         const existing = toolCallMap.get(rowId);
         if (existing) {
@@ -635,9 +714,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       }
     } else if (event.type === "message_user") {
       const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
+      const messageContent = consumeDeepResearchFallbackContent(
+        String(event.data.message ?? event.data.content ?? ""),
+      );
       let message = finalizeAssistantMessage({
         role: "assistant",
-        content: String(event.data.message ?? event.data.content ?? ""),
+        content: messageContent,
         timestamp: event.timestamp,
         ...(thinkingContent ? { thinkingContent } : {}),
         ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
@@ -657,9 +739,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       planSteps = [];
       pendingThinkingEntries = [];
       pendingThinkingParts = [];
+      pendingDeepResearchVisibleParts = [];
+      isDeepResearchTurn = false;
       currentThinkingEntries = [];
     } else if (event.type === "turn_cancelled") {
       isStreaming = false;
+      consumeDeepResearchFallbackContent(streamingText);
       if (streamingText) {
         const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
         let message = finalizeAssistantMessage(buildStreamingAssistantMessage(
@@ -680,8 +765,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
       pendingToolIds.clear();
+      pendingDeepResearchVisibleParts = [];
+      isDeepResearchTurn = false;
     } else if (event.type === "turn_complete" || event.type === "task_complete") {
       isStreaming = false;
+      streamingText = "";
+      streamingTimestamp = 0;
       if (event.type === "task_complete") {
         planSteps = planSteps.map((step) =>
           step.executionType === "planner_owned" && step.status !== "complete"
@@ -689,9 +778,10 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
             : step,
         );
       }
-      const rawResult = String(event.data.result ?? "");
+      const rawResult = getTerminalResultText(event);
       if (rawResult) {
-        const { thinking: inlineThinking, content } = splitThinkTag(rawResult);
+        const normalizedResult = consumeDeepResearchFallbackContent(rawResult);
+        const { thinking: inlineThinking, content } = splitThinkTag(normalizedResult);
         const normalizedContent = normalizeComparableMessageContent(content);
         const alreadyShown = messages.some(
           (message) =>
@@ -699,7 +789,10 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
             && normalizeComparableMessageContent(message.content) === normalizedContent,
         );
         if (!alreadyShown) {
-          const allThinking = [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])];
+          const shouldAttachThinking = !isDeepResearchTurn;
+          const allThinking = shouldAttachThinking
+            ? [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])]
+            : [];
           const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
           let message = finalizeAssistantMessage({
             role: "assistant",
@@ -745,14 +838,46 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           }
         }
       } else {
+        const fallbackOnly = consumeDeepResearchFallbackContent("");
+        if (fallbackOnly) {
+          let message = finalizeAssistantMessage({
+            role: "assistant",
+            content: fallbackOnly,
+            timestamp: event.timestamp,
+            ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+          });
+          message = attachPendingThinking(message);
+          messages.push(message);
+          pendingImageArtifactIds = [];
+        }
         attachPendingArtifactsToLastAssistant();
       }
       attachPendingThinkingToLastAssistant();
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
       pendingToolIds.clear();
+      pendingDeepResearchVisibleParts = [];
+      isDeepResearchTurn = false;
     } else if (event.type === "task_error") {
       isStreaming = false;
+      consumeDeepResearchFallbackContent(streamingText);
+      if (streamingText) {
+        const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
+        let message = finalizeAssistantMessage(buildStreamingAssistantMessage(
+          streamingText,
+          streamingTimestamp,
+          {
+            ...(thinkingContent ? { thinkingContent } : {}),
+            ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+          },
+        ));
+        message = attachPendingThinking(message);
+        messages.push(message);
+        pendingImageArtifactIds = [];
+        pendingThinkingParts = [];
+        streamingText = "";
+        streamingTimestamp = 0;
+      }
       const error = String(event.data.error ?? "An error occurred");
       messages.push(
         attachPendingThinking({
@@ -769,6 +894,8 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
       pendingToolIds.clear();
+      pendingDeepResearchVisibleParts = [];
+      isDeepResearchTurn = false;
     } else if (event.type === "artifact_created") {
       const artifactId = String(event.data.artifact_id ?? crypto.randomUUID());
       const contentType = String(event.data.content_type ?? "application/octet-stream");
@@ -895,7 +1022,8 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   }
 
   if (streamingText) {
-    const normalizedStream = normalizeComparableMessageContent(streamingText);
+    const streamContent = consumeDeepResearchFallbackContent(streamingText);
+    const normalizedStream = normalizeComparableMessageContent(streamContent);
     const lastAssistant = messages.findLast((m) => m.role === "assistant");
     const isDuplicateOfLastAssistant =
       lastAssistant !== undefined
@@ -903,9 +1031,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     // Task agents emit `text_delta` but not `llm_response`, so `streamingText` is never
     // cleared mid-turn. The same body is often materialized again via `message_user` or
     // `turn_complete`; skip a second bubble with identical normalized content.
-    if (!isDuplicateOfLastAssistant) {
+    if (!isDuplicateOfLastAssistant && streamContent) {
       const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
-      let message = buildStreamingAssistantMessage(streamingText, streamingTimestamp, {
+      let message = buildStreamingAssistantMessage(streamContent, streamingTimestamp, {
         ...(thinkingContent ? { thinkingContent } : {}),
         ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
       });

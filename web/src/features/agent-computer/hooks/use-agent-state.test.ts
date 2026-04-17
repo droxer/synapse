@@ -208,6 +208,137 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Same body");
   });
 
+  it("materializes final assistant message from task_complete.summary", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Final " },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "task_complete",
+        data: { summary: "Final answer" },
+        timestamp: 20,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Final answer");
+  });
+
+  it("accepts legacy task_complete.result fallback", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "task_complete",
+        data: { result: "Legacy result" },
+        timestamp: 20,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Legacy result");
+  });
+
+  it("renders deep-research thinking-only payloads as assistant content fallback", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Research this topic" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "tool_call",
+        data: {
+          tool_id: "tool-deep-research",
+          tool_name: "activate_skill",
+          tool_input: { name: "deep-research" },
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "thinking",
+        data: { thinking: "Deep research summary content" },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "" },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Deep research summary content");
+    expect(assistantMessages[0]?.thinkingContent).toBeUndefined();
+    expect(assistantMessages[0]?.thinkingEntries).toBeUndefined();
+  });
+
+  it("keeps non deep-research thinking in thinking metadata", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "thinking",
+        data: { thinking: "Reasoning trace" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Final answer");
+    expect(assistantMessages[0]?.thinkingContent).toContain("Reasoning trace");
+    expect(assistantMessages[0]?.thinkingEntries?.[0]?.content).toBe("Reasoning trace");
+  });
+
+  it("keeps partial streamed assistant text visible when a turn ends with task_error", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "Partial answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "task_error",
+        data: { error: "Connection to backend lost before the turn finished." },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.taskState).toBe("error");
+    expect(state.isStreaming).toBe(false);
+    expect(state.assistantPhase).toEqual({ phase: "idle" });
+    expect(state.messages).toHaveLength(3);
+    expect(state.messages[1]?.content).toBe("Partial answer");
+    expect(state.messages[2]?.content).toContain("Connection to backend lost");
+  });
+
   it("serializes non-string tool_result output", () => {
     const events: AgentEvent[] = [
       {
@@ -302,6 +433,35 @@ describe("deriveAgentState", () => {
     const state = deriveAgentState(events);
     expect(state.toolCalls).toHaveLength(1);
     expect(state.toolCalls[0]?.output).toBe("final\n");
+    expect(state.toolCalls[0]?.success).toBe(true);
+  });
+
+  it("reuses an existing non-skill tool row when tool_call is replayed", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "tool_call",
+        data: { tool_id: "tool-replay", tool_name: "web_search", tool_input: { query: "deep search" } },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "tool_result",
+        data: { tool_id: "tool-replay", output: "ok", success: true },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "tool_call",
+        data: { tool_id: "tool-replay", tool_name: "web_search", tool_input: { query: "deep search" } },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.toolCalls).toHaveLength(1);
+    expect(state.toolCalls[0]?.toolUseId).toBe("tool-replay");
+    expect(state.toolCalls[0]?.output).toBe("ok");
     expect(state.toolCalls[0]?.success).toBe(true);
   });
 

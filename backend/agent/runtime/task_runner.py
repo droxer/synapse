@@ -221,6 +221,11 @@ class TaskAgentRunner:
         reset_sandbox_template = getattr(self._executor, "reset_sandbox_template", None)
         if callable(reset_sandbox_template):
             reset_sandbox_template()
+        configured_template = self._config.sandbox_template.strip()
+        if configured_template:
+            set_sandbox_template = getattr(self._executor, "set_sandbox_template", None)
+            if callable(set_sandbox_template):
+                set_sandbox_template(configured_template)
         reset_active_skill_directory = getattr(
             self._executor, "reset_active_skill_directory", None
         )

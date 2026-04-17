@@ -2,7 +2,6 @@
 
 import asyncio
 import json
-import re
 import time
 from pathlib import Path
 from uuid import uuid4
@@ -214,43 +213,15 @@ def _extract_tool_calls(content: list) -> tuple[ToolCall, ...]:
 def _extract_thinking(content: list) -> str:
     """Extract and concatenate thinking text from thinking blocks.
 
-    Handles both Anthropic-native ``thinking`` blocks and DashScope-compatible
-    variants where the attribute may be ``reasoning_content``.
+    Only explicit provider-native ``thinking`` blocks are treated as hidden
+    reasoning. Ambiguous reasoning text should remain in visible assistant text.
     """
     parts: list[str] = []
     for block in content:
         if block.type == "thinking":
             text = getattr(block, "thinking", "") or ""
             parts.append(text)
-        elif block.type == "reasoning":
-            text = (
-                getattr(block, "reasoning_content", "")
-                or getattr(block, "text", "")
-                or ""
-            )
-            parts.append(text)
     return "".join(parts)
-
-
-_THINK_TAG_RE = re.compile(r"<think>(.*?)</think>", re.DOTALL)
-
-
-def _split_think_tags(text: str) -> tuple[str, str]:
-    """Split <think>...</think> blocks out of text.
-
-    Returns (thinking_text, clean_text) where thinking_text concatenates all
-    <think> block contents and clean_text is the remainder with tags removed.
-    Some models (e.g. Qwen3 via OpenAI-compatible proxy) embed chain-of-thought
-    reasoning inline using these tags instead of separate thinking blocks.
-    """
-    thinking_parts: list[str] = []
-
-    def _collect(m: re.Match) -> str:
-        thinking_parts.append(m.group(1).strip())
-        return ""
-
-    clean = _THINK_TAG_RE.sub(_collect, text).strip()
-    return "\n\n".join(thinking_parts), clean
 
 
 def _build_usage(usage: Any) -> TokenUsage:
@@ -264,26 +235,13 @@ def _build_usage(usage: Any) -> TokenUsage:
 def _parse_response(response: Any) -> LLMResponse:
     """Parse an API response into an immutable LLMResponse.
 
-    Supports Anthropic-native, DashScope Anthropic-compatible, and
-    OpenAI-compatible formats.  Reasoning is resolved in priority order:
-    1. Explicit thinking content blocks (Claude extended thinking).
-    2. DashScope ``reasoning_content`` top-level attribute.
-    3. Inline ``<think>`` tags (Qwen3 and similar models).
+    Supports Anthropic-compatible response formats. Hidden reasoning is extracted
+    only from explicit provider thinking blocks.
     """
     raw_text = _extract_text_blocks(response.content)
     explicit_thinking = _extract_thinking(response.content)
-
-    if explicit_thinking:
-        text = raw_text
-        thinking = explicit_thinking
-    else:
-        # DashScope fallback: reasoning_content on the response object itself
-        fallback = getattr(response, "reasoning_content", None)
-        if isinstance(fallback, str) and fallback:
-            text = raw_text
-            thinking = fallback
-        else:
-            thinking, text = _split_think_tags(raw_text)
+    text = raw_text
+    thinking = explicit_thinking
 
     return LLMResponse(
         text=text,

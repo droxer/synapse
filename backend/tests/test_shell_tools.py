@@ -571,6 +571,54 @@ class TestShellExecBackground:
         assert result.output == "hello"
 
     @pytest.mark.asyncio
+    async def test_regular_exec_auto_detects_workspace_artifacts_without_output_files(
+        self,
+    ) -> None:
+        session = MockSession(
+            {
+                "touch /tmp/_se_ts_": ExecResult(),
+                "rm -f /tmp/_se_ts_": ExecResult(),
+                "-printf '%p\\t%s\\t%T@\\n'": ExecResult(stdout=""),
+                "-newer /tmp/_se_ts_": ExecResult(stdout="/workspace/slides.pptx\n"),
+                "echo hello": ExecResult(stdout="hello", exit_code=0),
+            }
+        )
+        tool = ShellExec()
+        result = await tool.execute(session=session, command="echo hello")
+        assert result.success
+        assert result.output == "hello"
+        assert (result.metadata or {}).get("artifact_paths") == [
+            "/workspace/slides.pptx"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_regular_exec_auto_detects_skill_workdir_artifacts_without_output_files(
+        self,
+    ) -> None:
+        session = MockSession(
+            {
+                "touch /tmp/_se_ts_": ExecResult(),
+                "rm -f /tmp/_se_ts_": ExecResult(),
+                "-printf '%p\\t%s\\t%T@\\n'": ExecResult(stdout=""),
+                "-newer /tmp/_se_ts_": ExecResult(
+                    stdout="/home/user/skills/ppt/deck.pptx\n"
+                ),
+                "python build.py": ExecResult(stdout="done", exit_code=0),
+            }
+        )
+        tool = ShellExec()
+        result = await tool.execute(
+            session=session,
+            command="python build.py",
+            workdir="/home/user/skills/ppt",
+        )
+        assert result.success
+        assert result.output == "done"
+        assert (result.metadata or {}).get("artifact_paths") == [
+            "/home/user/skills/ppt/deck.pptx"
+        ]
+
+    @pytest.mark.asyncio
     async def test_empty_command(self) -> None:
         tool = ShellExec()
         result = await tool.execute(session=MockSession(), command="")

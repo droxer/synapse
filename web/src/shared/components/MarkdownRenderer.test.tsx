@@ -72,7 +72,7 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain('data-testid="parsed-markdown"');
     expect(html).toContain("# Title");
     expect(html).toContain("- one");
-    expect(html).toContain("markdown-streaming-tail");
+    expect(html).not.toContain("markdown-streaming-tail");
     expect(html).toContain("Trailing paragraph");
   });
 
@@ -101,9 +101,23 @@ describe("MarkdownRenderer", () => {
 
     expect(html).toContain('data-testid="parsed-markdown"');
     expect(html).toContain("Intro");
-    expect(html).toContain("markdown-streaming-tail");
+    expect(html).not.toContain("markdown-streaming-tail");
     expect(html).toContain("- one");
     expect(html).toContain("- two");
+  });
+
+  it("renders streaming markdown for links and emphasis instead of leaving them raw", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownRenderer
+        content={"Visit [docs](https://example.com) and **pay attention**."}
+        isStreaming
+      />,
+    );
+
+    expect(html).toContain('data-testid="parsed-markdown"');
+    expect(html).toContain("[docs](https://example.com)");
+    expect(html).toContain("**pay attention**");
+    expect(html).not.toContain("markdown-streaming-tail");
   });
 });
 

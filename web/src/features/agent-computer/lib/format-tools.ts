@@ -92,30 +92,25 @@ const NEUTRAL_ACTIVITY_VISUAL: ActivityKindVisual = {
   iconInsetRing: "",
 };
 
-/** Border/ring highlights are intentionally disabled for activity icons. */
-export function getIconRingClass(
-  _status: "running" | "complete" | "error" | "skipped" | "replan_required",
-  _kind: ActivityEntryKind,
-): string {
-  return "";
-}
-
 export function getActivityEntryKind(toolName: string): ActivityEntryKind {
   return SKILL_TOOL_NAMES.has(toolName) ? "skill" : "tool";
-}
-
-/** Left-border highlight stripes are intentionally disabled. */
-export function getRowStripeClass(
-  _status: "running" | "complete" | "error" | "skipped" | "replan_required",
-  _kind: ActivityEntryKind,
-): string {
-  return "";
 }
 
 export function getActivityKindVisual(kind: ActivityEntryKind): ActivityKindVisual {
   if (kind === "tool") return TOOL_ACTIVITY_VISUAL;
   if (kind === "skill") return SKILL_ACTIVITY_VISUAL;
   return NEUTRAL_ACTIVITY_VISUAL;
+}
+
+type IconRingStatus = "running" | "complete" | "error" | "skipped" | "replan_required";
+
+/**
+ * Backward-compatible icon ring class accessor used by activity rows.
+ * Current design keeps icon rings neutral, so this intentionally resolves to
+ * empty-string classes for all statuses while preserving import contracts.
+ */
+export function getIconRingClass(_status: IconRingStatus, kind: ActivityEntryKind): string {
+  return getActivityKindVisual(kind).iconInsetRing;
 }
 
 export function formatInput(input: Record<string, unknown>): string {

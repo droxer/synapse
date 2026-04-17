@@ -46,43 +46,55 @@ function findUnclosedFenceStartLine(lines: readonly string[]): number | null {
   return openFence?.startLine ?? null;
 }
 
-function isTableLikeLine(line: string): boolean {
-  const trimmed = line.trim();
-  return trimmed.includes("|");
-}
+function findTrailingInlineCodeStart(content: string): number | null {
+  let unmatchedIndex: number | null = null;
+  let i = 0;
 
-function isTableDelimiterLine(line: string): boolean {
-  const trimmed = line.trim();
-  if (!trimmed.includes("|")) return false;
-  const cells = trimmed.split("|").map((cell) => cell.trim()).filter(Boolean);
-  return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell));
-}
-
-function hasTrailingBlankBlock(content: string): boolean {
-  return /\n\s*\n\s*$/.test(content);
-}
-
-function getTrailingUnstableStartLine(lines: readonly string[], content: string): number | null {
-  const lastNonEmptyLine = lines.findLastIndex((line) => line.trim().length > 0);
-  if (lastNonEmptyLine === -1) return null;
-  if (hasTrailingBlankBlock(content)) return null;
-
-  if (isTableLikeLine(lines[lastNonEmptyLine])) {
-    let start = lastNonEmptyLine;
-    while (start > 0 && lines[start - 1].trim().length > 0 && isTableLikeLine(lines[start - 1])) {
-      start -= 1;
+  while (i < content.length) {
+    if (content[i] !== "`") {
+      i += 1;
+      continue;
     }
-    const blockLines = lines.slice(start, lastNonEmptyLine + 1);
-    if (blockLines.some(isTableDelimiterLine)) {
-      return start;
+
+    let j = i;
+    while (content[j] === "`") j += 1;
+    const markerLength = j - i;
+    const marker = "`".repeat(markerLength);
+    const closeIndex = content.indexOf(marker, j);
+    if (closeIndex === -1) {
+      unmatchedIndex = i;
+      break;
     }
+    i = closeIndex + markerLength;
   }
 
-  let start = lastNonEmptyLine;
-  while (start > 0 && lines[start - 1].trim().length > 0) {
-    start -= 1;
-  }
-  return start;
+  return unmatchedIndex;
+}
+
+function findTrailingLinkStart(content: string): number | null {
+  const imageMatch = /!\[[^\]]*$/.exec(content);
+  const linkMatch = /\[[^\]]*$/.exec(content);
+  const parenMatch = /\[[^\]]+\]\([^)]*$/.exec(content);
+
+  const candidates = [imageMatch?.index, linkMatch?.index, parenMatch?.index]
+    .filter((value): value is number => value !== undefined);
+
+  if (candidates.length === 0) return null;
+  return Math.min(...candidates);
+}
+
+function findTrailingEmphasisStart(content: string): number | null {
+  const lines = content.split("\n");
+  const lastLine = lines[lines.length - 1] ?? "";
+  const markerMatch = /(.*?)(\*\*|__|\*|_)([^*_]*)$/.exec(lastLine);
+  if (!markerMatch) return null;
+
+  const [, prefix, marker, suffix] = markerMatch;
+  const closingPattern = new RegExp(`${marker.replace(/([*_])/g, "\\$1")}`);
+  if (closingPattern.test(suffix)) return null;
+
+  const offset = content.length - lastLine.length;
+  return offset + prefix.length;
 }
 
 export function splitStreamingMarkdown(content: string): StreamingMarkdownSegments {
@@ -100,13 +112,18 @@ export function splitStreamingMarkdown(content: string): StreamingMarkdownSegmen
   }
 
   const unclosedFenceStartLine = findUnclosedFenceStartLine(lines);
-  const unstableStartLine = unclosedFenceStartLine ?? getTrailingUnstableStartLine(lines, content);
+  const unstableOffsets = [
+    unclosedFenceStartLine === null ? null : (lineStartOffsets[unclosedFenceStartLine] ?? 0),
+    findTrailingInlineCodeStart(content),
+    findTrailingLinkStart(content),
+    findTrailingEmphasisStart(content),
+  ].filter((value): value is number => value !== null);
 
-  if (unstableStartLine === null) {
+  if (unstableOffsets.length === 0) {
     return { stableContent: content, tailContent: "" };
   }
 
-  const splitOffset = lineStartOffsets[unstableStartLine] ?? 0;
+  const splitOffset = Math.min(...unstableOffsets);
   return {
     stableContent: content.slice(0, splitOffset),
     tailContent: content.slice(splitOffset),

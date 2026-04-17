@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from loguru import logger
 
+from agent.runtime.package_install import install_packages
 from agent.runtime.skill_dependencies import (
-    build_install_command,
     group_safe_dependencies,
 )
 from agent.tools.executor import ToolExecutor
@@ -43,14 +43,23 @@ async def install_skill_dependencies_for_turn(
             packages_str,
         )
         err_detail: str | None = None
+        error_code: str | None = None
+        retry_attempted = False
+        diagnostics: str | None = None
         try:
             session = await executor.get_sandbox_session()
-            result = await session.exec(
-                build_install_command(manager, packages), timeout=120
+            result = await install_packages(
+                session,
+                manager=manager,
+                packages=packages,
+                timeout=120,
             )
 
             if not result.success:
-                err_detail = result.stderr or result.stdout or "unknown error"
+                err_detail = result.error_message
+                error_code = result.error_code
+                retry_attempted = result.retry_attempted
+                diagnostics = result.diagnostics
                 logger.error(
                     "{}_skill_dependency_install_failed manager={} packages={} error={}",
                     context,
@@ -85,6 +94,9 @@ async def install_skill_dependencies_for_turn(
                 "error": err_detail or "unknown error",
                 "context": context,
                 "source": source,
+                "error_code": error_code,
+                "retry_attempted": retry_attempted,
+                "diagnostics": diagnostics,
             },
         )
         if skill_name and source:
@@ -97,6 +109,9 @@ async def install_skill_dependencies_for_turn(
                     "packages": packages_str,
                     "error": err_detail or "unknown error",
                     "source": source,
+                    "error_code": error_code,
+                    "retry_attempted": retry_attempted,
+                    "diagnostics": diagnostics,
                 },
             )
         if strict:

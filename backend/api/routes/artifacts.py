@@ -109,6 +109,10 @@ async def proxy_preview(
     entry = state.conversations.get(conversation_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Unknown conversation")
+    if entry.executor is None:
+        raise HTTPException(
+            status_code=503, detail="Conversation runtime is still starting"
+        )
 
     # Get the sandbox session from the executor (try "default" first, then any active session)
     sessions = entry.executor._sandbox_sessions

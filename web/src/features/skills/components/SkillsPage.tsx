@@ -267,7 +267,7 @@ export function SkillsPage() {
             </div>
           </div>
           {skills.length > 0 && (
-            <div className="status-pill chip-muted px-2.5 py-1">
+            <div className="status-pill status-neutral chip-md">
               <Package aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
               <span className="text-xs font-medium text-muted-foreground">
                 {t("skills.builtIn", { count: bundledSkills.length })}
@@ -328,8 +328,10 @@ export function SkillsPage() {
             >
               <EmptyState
                 icon={Search}
+                title={t("skills.noSkillsMatchingTitle", { defaultValue: "No matching skills" })}
                 description={t("skills.noSkillsMatching", { filter })}
                 dashed
+                className="w-full max-w-xl mx-auto"
               />
             </motion.div>
           ) : skills.length === 0 ? (
@@ -343,6 +345,7 @@ export function SkillsPage() {
                 title={t("skills.noSkillsAvailable")}
                 description={t("skills.noSkillsHint")}
                 dashed
+                className="w-full max-w-xl mx-auto"
               />
             </motion.div>
           ) : filter ? (
@@ -405,6 +408,7 @@ export function SkillsPage() {
                       title={t("skills.noInstalledSkills")}
                       description={t("skills.noInstalledSkillsHint")}
                       dashed
+                      className="w-full max-w-xl mx-auto"
                     />
                   </motion.div>
                 ) : (

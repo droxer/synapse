@@ -92,6 +92,7 @@ async def find_new_output_files(
     exclude_paths: tuple[str, ...] = (),
     search_roots: tuple[str, ...] = DEFAULT_SEARCH_ROOTS,
     before_snapshot: ArtifactSnapshot | None = None,
+    allow_prefixes: tuple[str, ...] = (),
 ) -> list[str]:
     """Return paths of output-type files created after *ts_marker*.
 
@@ -105,6 +106,11 @@ async def find_new_output_files(
         ts_marker: Path to a marker file touched before execution.
         exclude_paths: Paths (basenames) to exclude from results.
         search_roots: Directories to scan.
+        allow_prefixes: Directory prefixes that should still be treated as
+            candidate deliverables even when they live under the staged skill
+            root. This allows commands executed inside an active skill
+            directory to emit final outputs without exposing unrelated staged
+            skill assets.
     """
     try:
         from agent.sandbox.base import ExecResult
@@ -149,12 +155,45 @@ async def find_new_output_files(
                 continue
             seen.add(path)
             result.append(path)
-        return _filter_auto_detected_paths(result)
+        return _filter_auto_detected_paths(result, allow_prefixes=allow_prefixes)
     except Exception:
         return []
 
 
-def _filter_auto_detected_paths(paths: list[str]) -> list[str]:
+async def _path_exists(session: Any, path: str) -> bool:
+    """Return True when *path* exists as a regular file in the sandbox."""
+    try:
+        from agent.sandbox.base import ExecResult
+
+        result = await session.exec(f"test -f {shlex.quote(path)}")
+        return isinstance(result, ExecResult) and result.success
+    except Exception:
+        return False
+
+
+def _normalize_prefixes(prefixes: tuple[str, ...]) -> tuple[str, ...]:
+    normalized: list[str] = []
+    for raw in prefixes:
+        prefix = raw.strip()
+        if not prefix:
+            continue
+        normalized.append(prefix.rstrip("/"))
+    return tuple(normalized)
+
+
+def _is_allowed_skill_output(path: str, allow_prefixes: tuple[str, ...]) -> bool:
+    normalized_path = path.rstrip("/")
+    for prefix in _normalize_prefixes(allow_prefixes):
+        if normalized_path == prefix or normalized_path.startswith(f"{prefix}/"):
+            return True
+    return False
+
+
+def _filter_auto_detected_paths(
+    paths: list[str],
+    *,
+    allow_prefixes: tuple[str, ...] = (),
+) -> list[str]:
     """Drop paths that are almost never the user's final deliverable."""
     out: list[str] = []
     seen: set[str] = set()
@@ -162,7 +201,9 @@ def _filter_auto_detected_paths(paths: list[str]) -> list[str]:
         path = raw.strip()
         if not path or path in seen:
             continue
-        if path.startswith(_SKILL_ROOT_PREFIX):
+        if path.startswith(_SKILL_ROOT_PREFIX) and not _is_allowed_skill_output(
+            path, allow_prefixes
+        ):
             continue
         _, ext = os.path.splitext(path)
         if ext.lower() in _AUTO_DETECT_SKIP_EXTENSIONS:
@@ -177,6 +218,7 @@ def build_artifact_paths(
     auto_found: list[str],
     *,
     exclude_paths: tuple[str, ...] = (),
+    allow_prefixes: tuple[str, ...] = (),
 ) -> list[str]:
     """Resolve artifact paths for sandbox extraction.
 
@@ -185,7 +227,9 @@ def build_artifact_paths(
     (another export in the same run, staged skill assets, etc.) are not shown.
 
     When *explicit* is empty, *auto_found* is used after filtering out staged
-    skill files and common text intermediates.
+    skill files and common text intermediates. ``allow_prefixes`` keeps the
+    active command workdir eligible even when it lives under the staged skill
+    tree.
     """
     exclude_basenames = frozenset(os.path.basename(p) for p in exclude_paths)
 
@@ -208,7 +252,10 @@ def build_artifact_paths(
 
     seen: set[str] = set()
     result: list[str] = []
-    for path in _filter_auto_detected_paths(auto_found):
+    for path in _filter_auto_detected_paths(
+        auto_found,
+        allow_prefixes=allow_prefixes,
+    ):
         if path in seen:
             continue
         if not _passes_excludes(path):
@@ -217,3 +264,37 @@ def build_artifact_paths(
         result.append(path)
 
     return result
+
+
+async def resolve_artifact_paths(
+    session: Any,
+    explicit: list[str],
+    auto_found: list[str],
+    *,
+    exclude_paths: tuple[str, ...] = (),
+    allow_prefixes: tuple[str, ...] = (),
+) -> list[str]:
+    """Prefer explicit artifact paths when they exist, otherwise fall back.
+
+    This keeps the current contract that explicit ``output_files`` win over
+    auto-detection, but avoids emitting dead artifact references when the model
+    names a file path that was never actually written.
+    """
+    explicit_clean = build_artifact_paths(
+        explicit,
+        [],
+        exclude_paths=exclude_paths,
+    )
+    if explicit_clean:
+        missing = [
+            path for path in explicit_clean if not await _path_exists(session, path)
+        ]
+        if not missing:
+            return explicit_clean
+
+    return build_artifact_paths(
+        [],
+        auto_found,
+        exclude_paths=exclude_paths,
+        allow_prefixes=allow_prefixes,
+    )

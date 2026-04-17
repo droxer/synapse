@@ -7,6 +7,9 @@ import { useConversation } from "../hooks/use-conversation";
 import { useConversationHistory } from "../hooks/use-conversation-history";
 import { usePendingAsk } from "../hooks/use-pending-ask";
 import { useConversationTranscript } from "../hooks/use-conversation-transcript";
+import { shouldConnectConversationEvents } from "./conversation-event-connection";
+import { buildOptimisticSkillToolCalls } from "@/features/agent-computer/lib/optimistic-skill-tool-calls";
+import type { PendingSelectedSkill } from "../hooks/use-conversation";
 import type {
   AgentEvent,
   ArtifactInfo,
@@ -37,6 +40,7 @@ export interface ConversationContextValue {
   readonly assistantPhase: AssistantPhase;
   readonly artifacts: readonly ArtifactInfo[];
   readonly allMessages: readonly ChatMessage[];
+  readonly pendingSelectedSkills: readonly PendingSelectedSkill[];
   readonly isWaitingForAgent: boolean;
   readonly userCancelled: boolean;
   readonly handleSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
@@ -62,9 +66,19 @@ interface ConversationProviderProps {
 export function ConversationProvider({ children }: ConversationProviderProps) {
   const conversationId = useAppStore((s) => s.conversationId);
   const isLive = useAppStore((s) => s.isLiveConversation);
+  const pendingConversationRouteId = useAppStore((s) => s.pendingConversationRouteId);
 
-  const { events, isConnected, clearLastTurn } = useSSE(conversationId, isLive);
   const { historyMessages, historyEvents, isLoading: isLoadingHistory } = useConversationHistory(conversationId);
+  const shouldConnectEvents = shouldConnectConversationEvents(
+    conversationId,
+    isLive,
+    isLoadingHistory,
+    pendingConversationRouteId,
+  );
+  const { events, isConnected, clearLastTurn } = useSSE(
+    conversationId,
+    shouldConnectEvents,
+  );
 
   const {
     effectiveEvents,
@@ -97,6 +111,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
 
   const {
     allMessages,
+    pendingSelectedSkills,
     isWaitingForAgent,
     userCancelled,
     createError,
@@ -116,6 +131,10 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const effectiveIsStreaming = isLive ? isStreaming : false;
   const effectiveIsWaitingForAgent = isLive ? isWaitingForAgent : (!conversationId && isWaitingForAgent);
   const effectiveUserCancelled = isLive ? userCancelled : false;
+  const effectiveToolCalls = useMemo(
+    () => [...buildOptimisticSkillToolCalls(pendingSelectedSkills, toolCalls), ...toolCalls],
+    [pendingSelectedSkills, toolCalls],
+  );
 
   const value = useMemo<ConversationContextValue>(
     () => ({
@@ -123,7 +142,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       events: effectiveEvents,
       isConnected,
       messages: effectiveMessages,
-      toolCalls,
+      toolCalls: effectiveToolCalls,
       taskState: effectiveTaskState,
       agentStatuses,
       planSteps,
@@ -136,6 +155,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       assistantPhase,
       artifacts,
       allMessages,
+      pendingSelectedSkills,
       isWaitingForAgent: effectiveIsWaitingForAgent,
       userCancelled: effectiveUserCancelled,
       handleSendMessage,
@@ -152,10 +172,10 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     }),
     [
       conversationId, effectiveEvents, isConnected, effectiveMessages,
-      toolCalls, effectiveTaskState, agentStatuses, planSteps,
+      effectiveToolCalls, effectiveTaskState, agentStatuses, planSteps,
       currentIteration, reasoningSteps, thinkingContent, thinkingDurationMs,
       currentThinkingEntries, effectiveIsStreaming, assistantPhase, artifacts,
-      allMessages, effectiveIsWaitingForAgent, effectiveUserCancelled,
+      allMessages, pendingSelectedSkills, effectiveIsWaitingForAgent, effectiveUserCancelled,
       handleSendMessage, handleCreateConversation, handleSwitchConversation,
       handleNewConversation, handleCancel, handleRetry, createError,
       pendingAsk, handlePromptSubmit, respondError, isLoadingHistory,

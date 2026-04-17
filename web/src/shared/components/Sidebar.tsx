@@ -205,7 +205,7 @@ export function Sidebar({
                     "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     activePath === "/" && !activeTaskId
                       ? "border-border-strong bg-sidebar-active text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover hover:border-border",
+                      : "text-muted-foreground bg-sidebar-hover/40 hover:text-foreground hover:bg-sidebar-hover hover:border-border",
                   )}
                 >
                   <Plus className="h-4 w-4 transition-transform duration-200 group-hover/new:rotate-90" />
@@ -222,7 +222,7 @@ export function Sidebar({
                     "w-full",
                     activePath === "/channels"
                       ? "bg-sidebar-active text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                      : "text-muted-foreground bg-sidebar-hover/40 hover:text-foreground hover:bg-sidebar-hover",
                   )}
                   asChild
                 >
@@ -242,7 +242,7 @@ export function Sidebar({
                     "w-full",
                     activePath === "/library"
                       ? "bg-sidebar-active text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                      : "text-muted-foreground bg-sidebar-hover/40 hover:text-foreground hover:bg-sidebar-hover",
                   )}
                   asChild
                 >
@@ -263,7 +263,7 @@ export function Sidebar({
                     "w-full",
                     activePath === "/skills"
                       ? "bg-sidebar-active text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                      : "text-muted-foreground bg-sidebar-hover/40 hover:text-foreground hover:bg-sidebar-hover",
                   )}
                   asChild
                 >
@@ -283,7 +283,7 @@ export function Sidebar({
                     "w-full",
                     activePath === "/mcp"
                       ? "bg-sidebar-active text-foreground"
-                      : "text-muted-foreground hover:text-foreground hover:bg-sidebar-hover",
+                      : "text-muted-foreground bg-sidebar-hover/40 hover:text-foreground hover:bg-sidebar-hover",
                   )}
                   asChild
                 >

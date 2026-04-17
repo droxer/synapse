@@ -12,6 +12,35 @@ import {
 import { getConversationPath } from "../lib/routes";
 import type { AgentEvent, AssistantPhase, ChatMessage, TaskState } from "@/shared/types";
 
+export interface PendingSelectedSkill {
+  readonly name: string;
+  readonly timestamp: number;
+}
+
+export function shouldClearWaitingForTerminalState(
+  isWaitingForAgent: boolean,
+  taskState: TaskState,
+): boolean {
+  if (!isWaitingForAgent) return false;
+  return taskState === "complete" || taskState === "error";
+}
+
+export function normalizeSelectedSkills(
+  skills: readonly string[] | undefined,
+  timestamp: number,
+): PendingSelectedSkill[] {
+  if (!skills?.length) return [];
+  const seen = new Set<string>();
+  const normalized: PendingSelectedSkill[] = [];
+  for (const skill of skills) {
+    const trimmed = skill.trim();
+    if (!trimmed || seen.has(trimmed)) continue;
+    seen.add(trimmed);
+    normalized.push({ name: trimmed, timestamp });
+  }
+  return normalized;
+}
+
 export function useConversation(
   transcriptMessages: ChatMessage[],
   taskState: TaskState,
@@ -24,6 +53,7 @@ export function useConversation(
   const [isWaitingForAgent, setIsWaitingForAgent] = useState(false);
   const [userCancelled, setUserCancelled] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [pendingSelectedSkills, setPendingSelectedSkills] = useState<PendingSelectedSkill[]>([]);
   const eventCountAtSendRef = useRef(events.length);
 
   const conversationId = useAppStore((s) => s.conversationId);
@@ -50,9 +80,9 @@ export function useConversation(
   // Handles fast responses where all events batch-arrive and both
   // taskState and assistantPhase are already idle by the time React renders.
   useEffect(() => {
-    if (!isWaitingForAgent) return;
-    if (taskState === "complete" || taskState === "error") {
+    if (shouldClearWaitingForTerminalState(isWaitingForAgent, taskState)) {
       setIsWaitingForAgent(false);
+      setPendingSelectedSkills([]);
     }
   }, [isWaitingForAgent, taskState]);
 
@@ -76,6 +106,7 @@ export function useConversation(
       setIsWaitingForAgent(false);
       setUserCancelled(false);
       setCreateError(null);
+      setPendingSelectedSkills([]);
     }
   }, [conversationId]);
 
@@ -113,13 +144,15 @@ export function useConversation(
 
   const handleCreateConversation = useCallback(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
+      const now = Date.now();
       eventCountAtSendRef.current = events.length;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setCreateError(null);
+      setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
       const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
       setUserMessages([
-        { role: "user", content: message, timestamp: Date.now(), ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
+        { role: "user", content: message, timestamp: now, ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
       ]);
 
       try {
@@ -133,6 +166,7 @@ export function useConversation(
         console.error("Failed to create conversation:", err);
         clearPendingConversationRoute();
         setIsWaitingForAgent(false);
+        setPendingSelectedSkills([]);
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
         setCreateError(`Failed to start conversation: ${errorMessage}`);
         setUserMessages((prev) => [
@@ -158,13 +192,15 @@ export function useConversation(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       if (!conversationId) return;
 
+      const now = Date.now();
       eventCountAtSendRef.current = events.length;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
+      setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
       const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
       setUserMessages((prev) => [
         ...prev,
-        { role: "user", content: message, timestamp: Date.now(), ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
+        { role: "user", content: message, timestamp: now, ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
       ]);
 
       try {
@@ -172,6 +208,7 @@ export function useConversation(
       } catch (err) {
         console.error("Failed to send message:", err);
         setIsWaitingForAgent(false);
+        setPendingSelectedSkills([]);
         setUserMessages((prev) => [
           ...prev,
           {
@@ -189,13 +226,15 @@ export function useConversation(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       if (!conversationId) return;
 
+      const now = Date.now();
       eventCountAtSendRef.current = events.length;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
+      setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
       const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
       setUserMessages((prev) => [
         ...prev,
-        { role: "user", content: message, timestamp: Date.now(), ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
+        { role: "user", content: message, timestamp: now, ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
       ]);
 
       try {
@@ -204,6 +243,7 @@ export function useConversation(
       } catch (err) {
         console.error("Failed to resume conversation:", err);
         setIsWaitingForAgent(false);
+        setPendingSelectedSkills([]);
         setUserMessages((prev) => [
           ...prev,
           {
@@ -238,6 +278,7 @@ export function useConversation(
       setIsWaitingForAgent(false);
       setUserCancelled(false);
       setCreateError(null);
+      setPendingSelectedSkills([]);
     },
     [conversationId, switchConversation],
   );
@@ -248,6 +289,7 @@ export function useConversation(
     setIsWaitingForAgent(false);
     setUserCancelled(false);
     setCreateError(null);
+    setPendingSelectedSkills([]);
     startTransition(() => {
       router.push("/");
     });
@@ -257,6 +299,7 @@ export function useConversation(
     if (!conversationId) return;
     setIsWaitingForAgent(false);
     setUserCancelled(true);
+    setPendingSelectedSkills([]);
     // Fire and forget — don't block the UI on the backend cancel
     cancelTurn(conversationId).catch((err) => {
       console.error("Failed to cancel turn:", err);
@@ -273,6 +316,7 @@ export function useConversation(
         eventCountAtSendRef.current = events.length;
         setUserCancelled(false);
         setIsWaitingForAgent(true);
+        setPendingSelectedSkills([]);
       }
     } catch (err) {
       console.error("Failed to retry turn:", err);
@@ -282,6 +326,7 @@ export function useConversation(
   return {
     conversationId,
     allMessages,
+    pendingSelectedSkills,
     isWaitingForAgent,
     userCancelled,
     createError,

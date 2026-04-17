@@ -315,6 +315,7 @@ class SkillInstaller:
         """Copy a skill directory into the install location."""
         name = _sanitize_name(skill.metadata.name)
         target = os.path.join(self._install_dir, name)
+        _validate_no_symlinks(source_dir)
 
         # Remove existing if present
         if os.path.exists(target):
@@ -436,3 +437,19 @@ def _find_skill_md(root: str) -> str | None:
         )
 
     return top_level[0]
+
+
+def _validate_no_symlinks(root: str) -> None:
+    """Reject skill bundles containing symlinked files or directories."""
+    for dirpath, dirnames, filenames in os.walk(root):
+        current = Path(dirpath)
+        if current.is_symlink():
+            raise ValueError(f"Skill bundle contains symlinked directory: {current}")
+        for dirname in dirnames:
+            path = current / dirname
+            if path.is_symlink():
+                raise ValueError(f"Skill bundle contains symlinked directory: {path}")
+        for filename in filenames:
+            path = current / filename
+            if path.is_symlink():
+                raise ValueError(f"Skill bundle contains symlinked file: {path}")

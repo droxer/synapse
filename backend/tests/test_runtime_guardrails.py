@@ -431,6 +431,88 @@ async def test_orchestrator_skill_alias_triggers_mid_turn_skill_enforcement() ->
 
 
 @pytest.mark.asyncio
+async def test_orchestrator_mid_turn_skill_activation_preserves_runtime_prompt_sections(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "agent.runtime.orchestrator.get_settings",
+        lambda: SimpleNamespace(
+            COMPACT_FULL_INTERACTIONS=5,
+            COMPACT_FULL_DIALOGUE_TURNS=5,
+            COMPACT_TOKEN_BUDGET=150_000,
+            COMPACT_SUMMARY_MODEL="",
+            LITE_MODEL="claude-lite-test",
+            SKILL_SELECTOR_MODEL="",
+            THINKING_BUDGET=0,
+            VALIDATE_AGENT_MESSAGE_CHAIN=False,
+            STUCK_LOOP_TOOL_REPEAT_THRESHOLD=0,
+        ),
+    )
+
+    captured_system_prompts: list[str] = []
+
+    class _PromptRecordingClient(_SequenceClient):
+        async def create_message(self, **kwargs: Any) -> LLMResponse:
+            return LLMResponse(
+                text='{"skill": null}',
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+
+        async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
+            captured_system_prompts.append(kwargs["system"])
+            return await super().create_message_stream(**kwargs)
+
+    client = _PromptRecordingClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        system_prompt="base system",
+        skill_registry=_build_skill_registry(),
+    )
+
+    result = await orchestrator.run(
+        "help me",
+        runtime_prompt_sections=(
+            "<verified_user_facts>\n- timezone: Asia/Shanghai\n</verified_user_facts>",
+        ),
+    )
+
+    assert result == "done"
+    assert captured_system_prompts
+    assert "<verified_user_facts>" in captured_system_prompts[0]
+    assert "<verified_user_facts>" in captured_system_prompts[-1]
+    assert '<skill_content name="deep-research">' in captured_system_prompts[-1]
+
+
+@pytest.mark.asyncio
 async def test_planner_applies_mid_turn_skill_activation_constraints() -> None:
     client = _SequenceClient(
         LLMResponse(

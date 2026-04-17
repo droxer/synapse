@@ -12,6 +12,7 @@ from types import MappingProxyType
 
 import pytest
 
+from agent.runtime.skill_setup import _iter_skill_files, categorize_skill_resources
 from agent.skills.models import (
     SkillCatalogEntry,
     SkillContent,
@@ -696,6 +697,39 @@ class TestActivateSkill:
             assert "<assets>" in result.output
             assert "assets/template.html" in result.output
 
+    def test_categorized_resources_skip_unsafe_symlink(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = Path(tmp) / "rich-skill"
+            scripts_dir = skill_dir / "scripts"
+            scripts_dir.mkdir(parents=True)
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: rich-skill\ndescription: Has everything\n---\nBody",
+                encoding="utf-8",
+            )
+            outside = Path(tmp) / "secret.txt"
+            outside.write_text("secret", encoding="utf-8")
+            (scripts_dir / "run.py").write_text("print('run')", encoding="utf-8")
+            (scripts_dir / "leak.txt").symlink_to(outside)
+
+            categorized = categorize_skill_resources(skill_dir)
+
+            assert categorized["scripts"] == ["scripts/run.py"]
+
+    def test_iter_skill_files_rejects_symlinked_file(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            skill_dir = Path(tmp) / "skill"
+            skill_dir.mkdir()
+            outside = Path(tmp) / "secret.txt"
+            outside.write_text("secret", encoding="utf-8")
+            (skill_dir / "SKILL.md").write_text(
+                "---\nname: skill\ndescription: Test\n---\nBody",
+                encoding="utf-8",
+            )
+            (skill_dir / "linked.txt").symlink_to(outside)
+
+            with pytest.raises(ValueError, match="Unsafe skill file"):
+                _iter_skill_files(skill_dir)
+
 
 # ---------------------------------------------------------------------------
 # Installer tests
@@ -741,6 +775,26 @@ class TestSkillInstaller:
             # Uninstall
             assert installer.uninstall("test-skill") is True
             assert installer.list_installed() == ()
+
+    def test_install_rejects_symlinked_file(self) -> None:
+        from agent.skills.installer import SkillInstaller
+
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=os.path.join(tmp, "installed"))
+            source_dir = Path(tmp) / "source" / "test-skill"
+            source_dir.mkdir(parents=True)
+            (source_dir / "SKILL.md").write_text(
+                "---\nname: test-skill\ndescription: Test\n---\nBody",
+                encoding="utf-8",
+            )
+            outside = Path(tmp) / "secret.txt"
+            outside.write_text("secret", encoding="utf-8")
+            (source_dir / "linked.txt").symlink_to(outside)
+
+            skill = parse_skill_md(str(source_dir / "SKILL.md"))
+
+            with pytest.raises(ValueError, match="symlinked file"):
+                installer._install_skill_dir(str(source_dir), skill)
 
     @pytest.mark.asyncio
     async def test_install_from_git_invalid_url(self) -> None:

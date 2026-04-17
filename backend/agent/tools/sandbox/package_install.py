@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from agent.runtime.package_install import install_packages
 from agent.tools.base import (
     ExecutionContext,
     SandboxTool,
@@ -85,17 +86,29 @@ class PackageInstall(SandboxTool):
             if error is not None:
                 return ToolResult.fail(error)
 
-        command = f"{_MANAGER_COMMANDS[manager]} {' '.join(package_list)}"
-
         try:
-            result = await session.exec(command, timeout=120)
+            result = await install_packages(
+                session,
+                manager=manager,
+                packages=package_list,
+                timeout=120,
+            )
         except Exception as exc:
             return ToolResult.fail(f"Package installation failed: {exc}")
 
         if not result.success:
-            output = result.stderr or result.stdout
-            return ToolResult.fail(
-                f"Installation failed (exit {result.exit_code}): {output}"
+            return ToolResult(
+                success=False,
+                output="",
+                error=result.error_message,
+                metadata={
+                    "manager": manager,
+                    "packages": package_list,
+                    "exit_code": result.exit_code,
+                    "error_code": result.error_code,
+                    "retry_attempted": result.retry_attempted,
+                    "diagnostics": result.diagnostics,
+                },
             )
 
         return ToolResult.ok(
@@ -104,5 +117,6 @@ class PackageInstall(SandboxTool):
                 "manager": manager,
                 "packages": package_list,
                 "exit_code": result.exit_code,
+                "retry_attempted": result.retry_attempted,
             },
         )

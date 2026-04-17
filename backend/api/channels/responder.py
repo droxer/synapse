@@ -84,14 +84,14 @@ class ChannelResponder:
         data = event.data
 
         if etype == EventType.TEXT_DELTA:
-            self._append_delta(data.get("text", ""))
+            self._append_delta(str(data.get("delta", data.get("text", ""))))
 
         elif etype in (EventType.TURN_COMPLETE, EventType.TASK_COMPLETE):
             self._cancel_flush_timer()
             self._cancel_ask_user_timeout()
             buffered = "".join(self._buffer)
             self._discard_buffer()
-            text_to_send = buffered or data.get("result", "")
+            text_to_send = buffered or data.get("result") or data.get("summary", "")
             if text_to_send:
                 await self._send_and_log(str(text_to_send))
             self._emitter.unsubscribe(self)

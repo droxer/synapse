@@ -70,7 +70,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
         <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
         <span className="text-sm font-medium text-foreground">{agentName}</span>
         {role && (
-          <span className="status-pill chip-muted">
+          <span className="status-pill status-neutral">
             {role}
           </span>
         )}
@@ -200,7 +200,7 @@ function getRunningToolStatusText(toolCall: ToolCallInfo, t: TFn): string {
 function RunningBadge({ toolCall, t }: { readonly toolCall: ToolCallInfo; readonly t: TFn }) {
   if (toolCall.success !== undefined) return null;
   return (
-    <span className="status-pill border border-border bg-secondary text-secondary-foreground">
+    <span className="status-pill status-info">
       {t("computer.running")}
     </span>
   );
@@ -769,14 +769,12 @@ export function AgentComputerPanel({
 
             <span
               className={cn(
-                "status-pill chip-muted tabular-nums",
-                isComplete
-                  ? "border border-border bg-muted text-muted-foreground"
-                  : taskState === "error"
-                    ? "border border-destructive bg-muted text-destructive"
-                    : isRunning
-                      ? "border border-border bg-secondary text-secondary-foreground"
-                      : "chip-muted",
+                "status-pill tabular-nums",
+                taskState === "error"
+                  ? "status-error"
+                  : isRunning
+                    ? "status-info"
+                    : "status-neutral",
               )}
             >
               {completedCount}/{visibleToolCalls.length}

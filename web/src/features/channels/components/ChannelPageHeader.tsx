@@ -26,7 +26,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
         <Radio className="h-4 w-4 text-muted-foreground" />
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t("channels.title")}</h1>
         {telegramConfigured && (
-          <span className="status-pill rounded-full bg-accent-emerald/10 text-accent-emerald ring-1 ring-accent-emerald/20">
+          <span className="status-pill status-ok rounded-full">
             <span className="relative flex h-1.5 w-1.5">
               <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
               <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />

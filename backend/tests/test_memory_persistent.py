@@ -142,6 +142,36 @@ class TestPersistentMemoryStoreAnonymousGuard:
 
 
 @pytest.mark.asyncio
+async def test_load_all_respects_limit(session) -> None:
+    user = UserModel(
+        id=uuid.uuid4(),
+        google_id=f"google_{uuid.uuid4().hex[:8]}",
+        email=f"{uuid.uuid4().hex[:8]}@example.com",
+        name="Memory Limit User",
+    )
+    session.add(user)
+    await session.flush()
+
+    for idx in range(3):
+        session.add(
+            MemoryEntry(
+                namespace="default",
+                key=f"k{idx}",
+                value=f"v{idx}",
+                user_id=user.id,
+            )
+        )
+    await session.commit()
+
+    session_factory = async_sessionmaker(bind=session.bind, expire_on_commit=False)
+    store = PersistentMemoryStore(session_factory=session_factory, user_id=user.id)
+
+    entries = await store.load_all(limit=2)
+
+    assert len(entries) == 2
+
+
+@pytest.mark.asyncio
 async def test_memory_fact_row_round_trip(session) -> None:
     user = UserModel(
         id=uuid.uuid4(),

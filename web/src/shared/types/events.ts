@@ -137,6 +137,9 @@ export interface SkillSetupFailedEventData extends GenericEventData {
   readonly error?: string;
   readonly manager?: string;
   readonly packages?: string;
+  readonly error_code?: "npm_enospc";
+  readonly retry_attempted?: boolean;
+  readonly diagnostics?: string;
   readonly source?: "explicit" | "auto" | "mid_turn" | "already_active";
 }
 
@@ -150,9 +153,15 @@ export interface TurnCompleteEventData extends GenericEventData {
   readonly artifact_ids?: string[];
 }
 
+export interface TaskCompleteEventData extends GenericEventData {
+  readonly summary?: string;
+  readonly result?: string;
+  readonly artifact_ids?: string[];
+}
+
 export type AgentEventDataByType = {
   task_start: GenericEventData;
-  task_complete: TurnCompleteEventData;
+  task_complete: TaskCompleteEventData;
   task_error: GenericEventData;
   turn_start: TurnStartEventData;
   turn_complete: TurnCompleteEventData;

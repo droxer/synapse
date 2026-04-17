@@ -1,6 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  BACKEND_DISCONNECT_ERROR,
+  createTerminalDisconnectEvent,
   parseSSEEvent,
+  shouldEmitTerminalDisconnectEvent,
   shouldFlushEventImmediately,
   shouldScheduleReconnect,
 } from "./use-sse";
@@ -48,6 +51,49 @@ describe("shouldScheduleReconnect", () => {
         hasPendingTimer: false,
       }),
     ).toBe(true);
+  });
+});
+
+describe("shouldEmitTerminalDisconnectEvent", () => {
+  it("returns false when the stream was already intentionally stopped", () => {
+    expect(
+      shouldEmitTerminalDisconnectEvent({
+        isStopped: true,
+        retryCount: 3,
+        maxRetries: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns false before retry exhaustion", () => {
+    expect(
+      shouldEmitTerminalDisconnectEvent({
+        isStopped: false,
+        retryCount: 2,
+        maxRetries: 3,
+      }),
+    ).toBe(false);
+  });
+
+  it("returns true when retry exhaustion happens on an active stream", () => {
+    expect(
+      shouldEmitTerminalDisconnectEvent({
+        isStopped: false,
+        retryCount: 3,
+        maxRetries: 3,
+      }),
+    ).toBe(true);
+  });
+});
+
+describe("createTerminalDisconnectEvent", () => {
+  it("creates a synthetic terminal task_error event", () => {
+    expect(createTerminalDisconnectEvent(42)).toEqual({
+      type: "task_error",
+      data: { error: BACKEND_DISCONNECT_ERROR },
+      timestamp: 42,
+      iteration: null,
+    });
   });
 });
 
@@ -107,6 +153,8 @@ describe("shouldFlushEventImmediately", () => {
   it("flushes terminal and interaction-critical events immediately", () => {
     expect(shouldFlushEventImmediately("turn_complete")).toBe(true);
     expect(shouldFlushEventImmediately("ask_user")).toBe(true);
+    expect(shouldFlushEventImmediately("skill_activated")).toBe(true);
+    expect(shouldFlushEventImmediately("skill_setup_failed")).toBe(true);
   });
 
   it("does not flush token-level model updates immediately", () => {

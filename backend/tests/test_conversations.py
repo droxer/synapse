@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import os
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
+from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
@@ -21,15 +23,19 @@ from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage  # noqa: E
 from api.models import ConversationMetricsResponse  # noqa: E402
 from api.routes.conversations import (  # noqa: E402
     _EXECUTION_ROUTER_SYSTEM_PROMPT,
+    _elapsed_ms,
     EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
     EXECUTION_SHAPE_PARALLEL,
     EXECUTION_SHAPE_PROMPT_CHAIN,
     EXECUTION_SHAPE_SINGLE_AGENT,
+    ORCHESTRATOR_AGENT,
     _build_conversation_metrics_response,
     _classify_execution_shape,
     _planner_flag_to_mode,
     _resolve_execution_route,
+    create_conversation,
 )
+import api.routes.conversations as conversation_routes  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -53,6 +59,13 @@ def _make_event(
         iteration=iteration,
         timestamp=datetime.now(timezone.utc),
     )
+
+
+def test_elapsed_ms_rounds_down_to_integer_milliseconds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_routes.time, "perf_counter", lambda: 10.9876)
+    assert _elapsed_ms(10.1234) == 864
 
 
 # ---------------------------------------------------------------------------
@@ -511,3 +524,82 @@ class TestClassifyExecutionShape:
         assert "prompt_chain" in _EXECUTION_ROUTER_SYSTEM_PROMPT
         assert "parallel" in _EXECUTION_ROUTER_SYSTEM_PROMPT
         assert "orchestrator_workers" in _EXECUTION_ROUTER_SYSTEM_PROMPT
+
+
+class _DummyRequest:
+    def __init__(self, payload: dict[str, object]) -> None:
+        self.headers = {"content-type": "application/json"}
+        self._payload = payload
+
+    async def json(self) -> dict[str, object]:
+        return self._payload
+
+
+class TestCreateConversationBootstrap:
+    @pytest.mark.asyncio
+    async def test_create_conversation_returns_before_background_bootstrap(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        scheduled: list[object] = []
+
+        def _fake_create_task(coro: object) -> SimpleNamespace:
+            scheduled.append(coro)
+            return SimpleNamespace(done=lambda: False, cancel=lambda: None)
+
+        @asynccontextmanager
+        async def _session_factory():
+            yield object()
+
+        state = SimpleNamespace(
+            db_session_factory=_session_factory,
+            db_repo=SimpleNamespace(
+                create_conversation=AsyncMock(),
+            ),
+            db_pending_writes=object(),
+            skill_repo=None,
+            usage_repo=None,
+            conversations={},
+            claude_client=object(),
+            sandbox_provider=object(),
+            storage_backend=object(),
+            mcp_state=None,
+        )
+
+        resolve_route = AsyncMock(
+            return_value=(
+                EXECUTION_SHAPE_SINGLE_AGENT,
+                "default",
+                ORCHESTRATOR_AGENT,
+                False,
+            )
+        )
+        monkeypatch.setattr(
+            conversation_routes, "_resolve_execution_route", resolve_route
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "create_db_subscriber",
+            lambda *args, **kwargs: AsyncMock(),
+        )
+        monkeypatch.setattr(
+            conversation_routes.asyncio, "create_task", _fake_create_task
+        )
+
+        response = await create_conversation(
+            _DummyRequest({"message": "hello"}), state=state, auth_user=None
+        )
+
+        assert response.conversation_id
+        assert response.conversation_id in state.conversations
+        assert state.db_repo.create_conversation.await_count == 1
+        assert (
+            state.conversations[response.conversation_id].orchestrator_mode
+            == ORCHESTRATOR_AGENT
+        )
+        assert resolve_route.await_count == 0
+        assert len(scheduled) == 2
+
+        for coro in scheduled:
+            close = getattr(coro, "close", None)
+            if callable(close):
+                close()

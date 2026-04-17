@@ -164,6 +164,7 @@ class AgentOrchestrator:
         self._last_tool_batch_signature: str | None = None
         self._identical_tool_batch_count: int = 0
         self._turn_artifact_ids: list[str] = []
+        self._turn_base_prompt = system_prompt
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -306,6 +307,7 @@ class AgentOrchestrator:
             ]
             if dynamic_sections:
                 effective_prompt = "\n".join([effective_prompt, *dynamic_sections])
+        self._turn_base_prompt = effective_prompt
         self._auto_injected_skill = None
         settings = get_settings()
         matched = await select_skill_for_message(
@@ -534,7 +536,7 @@ class AgentOrchestrator:
 
         # Inject skill instructions into prompt
         effective_prompt = (
-            self._system_prompt + "\n\n" + build_skill_prompt_content(skill)
+            self._turn_base_prompt + "\n\n" + build_skill_prompt_content(skill)
         )
 
         # Replace ActivateSkill tool with updated active skill name

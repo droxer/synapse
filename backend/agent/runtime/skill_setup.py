@@ -258,11 +258,15 @@ def categorize_skill_resources(directory: Path) -> dict[str, list[str]]:
     if not directory.is_dir():
         return categories
 
+    root_resolved = directory.resolve()
     for root, _dirs, files in os.walk(directory):
         for fname in sorted(files):
             if fname == "SKILL.md":
                 continue
-            rel = os.path.relpath(os.path.join(root, fname), directory)
+            file_path = Path(root) / fname
+            if not _is_safe_skill_file(file_path, root_resolved):
+                continue
+            rel = os.path.relpath(file_path, directory)
             top_dir = rel.split(os.sep)[0] if os.sep in rel else None
             if top_dir in categories:
                 categories[top_dir].append(rel)
@@ -275,10 +279,34 @@ def categorize_skill_resources(directory: Path) -> dict[str, list[str]]:
 def _iter_skill_files(skill_dir: Path) -> list[tuple[Path, str]]:
     """Return the files that should be staged for a skill bundle."""
     files: list[tuple[Path, str]] = []
+    root_resolved = skill_dir.resolve()
     for root, dirs, filenames in os.walk(skill_dir):
         dirs[:] = sorted(d for d in dirs if d not in _SKIP_DIRS)
         for filename in sorted(filenames):
             local_path = Path(root) / filename
+            if not _is_safe_skill_file(local_path, root_resolved):
+                raise ValueError(
+                    f"Unsafe skill file '{local_path}' must be a regular file inside "
+                    f"'{skill_dir}' without symlinks"
+                )
             rel_path = local_path.relative_to(skill_dir).as_posix()
             files.append((local_path, rel_path))
     return files
+
+
+def _is_safe_skill_file(path: Path, root_resolved: Path) -> bool:
+    """Return True when *path* is a regular non-symlink under *root_resolved*."""
+    try:
+        resolved = path.resolve(strict=True)
+    except FileNotFoundError:
+        return False
+
+    if path.is_symlink() or not path.is_file():
+        return False
+
+    try:
+        resolved.relative_to(root_resolved)
+    except ValueError:
+        return False
+
+    return True

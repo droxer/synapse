@@ -9,8 +9,10 @@ import pytest
 
 from agent.tools.sandbox.artifact_detection import (
     DEFAULT_SEARCH_ROOTS,
+    _filter_auto_detected_paths,
     build_artifact_paths,
     find_new_output_files,
+    resolve_artifact_paths,
     snapshot_output_files,
 )
 
@@ -72,6 +74,16 @@ class TestFindNewOutputFiles:
         session = _make_session("/home/user/skills/pdf/output.pdf\n")
         result = await find_new_output_files(session, "/tmp/marker")
         assert result == []
+
+    @pytest.mark.asyncio
+    async def test_skill_directory_files_allowed_for_active_workdir(self) -> None:
+        session = _make_session("/home/user/skills/pdf/deck.pptx\n")
+        result = await find_new_output_files(
+            session,
+            "/tmp/marker",
+            allow_prefixes=("/home/user/skills/pdf",),
+        )
+        assert result == ["/home/user/skills/pdf/deck.pptx"]
 
     @pytest.mark.asyncio
     async def test_excludes_specified_paths(self) -> None:
@@ -233,6 +245,17 @@ class TestBuildArtifactPaths:
         )
         assert result == []
 
+    def test_allowed_skill_auto_path_survives_filtering(self) -> None:
+        result = build_artifact_paths(
+            [],
+            _filter_auto_detected_paths(
+                ["/home/user/skills/pdf/final-deck.pptx"],
+                allow_prefixes=("/home/user/skills/pdf",),
+            ),
+            allow_prefixes=("/home/user/skills/pdf",),
+        )
+        assert result == ["/home/user/skills/pdf/final-deck.pptx"]
+
     def test_explicit_skill_path_allowed(self) -> None:
         """Model may still name a deliverable under the skill dir via output_files."""
         result = build_artifact_paths(
@@ -247,3 +270,37 @@ class TestBuildArtifactPaths:
             ["/workspace/outline.txt", "/workspace/slides.pptx"],
         )
         assert result == ["/workspace/slides.pptx"]
+
+
+class TestResolveArtifactPaths:
+    @pytest.mark.asyncio
+    async def test_prefers_existing_explicit_paths(self) -> None:
+        session = MagicMock()
+        session.exec = AsyncMock(
+            return_value=FakeExecResult(stdout="", stderr="", exit_code=0, success=True)
+        )
+
+        result = await resolve_artifact_paths(
+            session,
+            ["/workspace/final.pptx"],
+            ["/workspace/auto-detected.pptx"],
+        )
+
+        assert result == ["/workspace/final.pptx"]
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_auto_when_explicit_path_missing(self) -> None:
+        session = MagicMock()
+        session.exec = AsyncMock(
+            return_value=FakeExecResult(
+                stdout="", stderr="", exit_code=1, success=False
+            )
+        )
+
+        result = await resolve_artifact_paths(
+            session,
+            ["/home/user/iPhone17_Pro_Max_价格分析.pptx"],
+            ["/workspace/iPhone17_Pro_Max_价格分析.pptx"],
+        )
+
+        assert result == ["/workspace/iPhone17_Pro_Max_价格分析.pptx"]

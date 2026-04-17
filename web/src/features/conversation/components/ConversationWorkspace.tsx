@@ -2,11 +2,11 @@
 
 import { memo, useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { RotateCcw, Copy, Check, Paperclip } from "lucide-react";
+import { RotateCcw, Copy, Check, Paperclip, MessageSquare } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
 import { TopBar, MarkdownRenderer } from "@/shared/components";
-import { usePacedStreamingText } from "@/shared/hooks";
+import { EmptyState } from "@/shared/components/EmptyState";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
 import { NON_ARTIFACT_TOOLS } from "@/features/agent-computer/lib/tool-constants";
 import { ChatInput } from "@/features/conversation";
@@ -88,7 +88,6 @@ export const MessageRow = memo(function MessageRow({
 }: MessageRowProps) {
   const shouldReduceMotion = useReducedMotion();
   const [copied, setCopied] = useState(false);
-  const displayContent = usePacedStreamingText(msg.content, isStreamingThis);
 
   const handleCopy = useCallback((text: string) => {
     navigator.clipboard.writeText(text).then(() => {
@@ -117,7 +116,7 @@ export const MessageRow = memo(function MessageRow({
     && !isThinkingContentRedundantWithEntries(msg.thinkingContent, msg.thinkingEntries);
   const hasThinking =
     Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0) || showOrphanThinkingContent;
-  const trimmedContent = displayContent.trim();
+  const trimmedContent = msg.content.trim();
   const showMarkdown = trimmedContent.length > 0 || isStreamingThis;
   const showEmptyAssistantPlaceholder =
     !showMarkdown &&
@@ -140,7 +139,7 @@ export const MessageRow = memo(function MessageRow({
         <motion.div
           initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
           className="flex justify-end"
         >
           <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
@@ -178,7 +177,7 @@ export const MessageRow = memo(function MessageRow({
         <motion.div
           initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
           className={cn(
             "conversation-assistant-message group relative max-w-full min-w-0",
             messageWidthClass,
@@ -213,7 +212,7 @@ export const MessageRow = memo(function MessageRow({
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
               {showMarkdown ? (
                 <MarkdownRenderer
-                  content={displayContent}
+                  content={msg.content}
                   isStreaming={isStreamingThis}
                 />
               ) : null}
@@ -264,7 +263,7 @@ export const MessageRow = memo(function MessageRow({
 
             {/* Message action bar */}
             {isLastAssistant && !isStreamingThis && (taskState === "idle" || taskState === "complete") && (
-              <div className="mt-2 flex items-center gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity duration-150">
+              <div className="mt-2 flex origin-left items-center gap-0.5 scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -461,7 +460,13 @@ export function ConversationWorkspace({
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
             {messages.length === 0 && (
               <div className="flex h-full items-center justify-center">
-                <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+                <EmptyState
+                  icon={MessageSquare}
+                  title={t("conversation.waiting")}
+                  description={t("conversation.emptyAssistantBody")}
+                  dashed
+                  className="w-full max-w-md"
+                />
               </div>
             )}
 
@@ -565,7 +570,7 @@ export function ConversationWorkspace({
             className="flex w-full flex-col border-l border-border bg-secondary/25 md:w-[44%]"
             initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.12, ease: "easeOut" }}
+            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
           >
             <AgentComputerPanel
               conversationId={conversationId}

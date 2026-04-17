@@ -207,12 +207,22 @@ export function ArtifactExplorer({
   // ── Empty state ──────────────────────────────────────────────────────────
 
   if (allItems.length === 0) {
+    const title =
+      mode === "page"
+        ? t("library.noArtifacts", { defaultValue: "No artifacts found" })
+        : t("conversation.waiting");
+    const description =
+      mode === "page"
+        ? t("library.noArtifactsHint", { defaultValue: "Artifacts will appear here when generated." })
+        : t("conversation.emptyAssistantBody");
     return (
       <div className="flex h-full items-center justify-center">
         <EmptyState
           icon={FolderOpen}
-          title={t("library.noArtifacts", { defaultValue: "No artifacts found" })}
-          description={t("library.noArtifactsHint", { defaultValue: "Artifacts will appear here when generated." })}
+          title={title}
+          description={description}
+          dashed
+          className="w-full max-w-xl"
         />
       </div>
     );

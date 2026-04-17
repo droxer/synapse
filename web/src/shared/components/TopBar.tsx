@@ -85,7 +85,7 @@ export function TopBar({
           <span
             role="status"
             aria-live="polite"
-            className="status-pill ml-1.5 shrink-0 border border-focus/30 bg-focus/10 text-focus"
+            className="status-pill status-info ml-1.5 shrink-0"
           >
             <span className="relative flex h-2 w-2 shrink-0">
               <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-focus opacity-60" aria-hidden="true" />
@@ -101,8 +101,8 @@ export function TopBar({
                 role="status"
                 aria-live="polite"
                 className={isPlannerAutoDetected
-                  ? "status-pill ml-1.5 shrink-0 border border-border-active bg-ai-surface text-foreground"
-                  : "status-pill ml-1.5 shrink-0 border border-border bg-muted text-muted-foreground"}
+                  ? "status-pill status-ai ml-1.5 shrink-0"
+                  : "status-pill status-neutral ml-1.5 shrink-0"}
               >
                 {isPlannerAutoDetected ? (
                   <Sparkles className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />

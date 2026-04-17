@@ -17,6 +17,7 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 | Artifacts | `STORAGE_PROVIDER` — `local` / `r2` |
 | Skills | `SKILLS_ENABLED`, `SKILL_SELECTOR_MODEL`, registry URLs |
 | Model / thinking | `LITE_MODEL`, `THINKING_BUDGET` |
+| Memory | `INITIAL_CONVERSATION_MEMORY_LIMIT`, `MEMORY_PROMPT_ENTRY_MAX_CHARS`, `MEMORY_PROMPT_MAX_CHARS` |
 | Compaction | Global `COMPACT_*` defaults plus optional runtime overrides such as `COMPACT_CHANNEL_TOKEN_BUDGET` and `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS`; see `config/settings.py` |
 | Agent limits | `AGENT_TIMEOUT_SECONDS` |
 | Auth | `AUTH_REQUIRED`, `PROXY_SECRET` |

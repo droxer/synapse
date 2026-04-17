@@ -76,7 +76,7 @@ class TestShellExecStreaming:
 
         assert result.success
         assert result.output == "normal"
-        session.exec.assert_called_once()
+        session.exec.assert_any_call("ls", timeout=30, workdir=None)
 
 
 class TestCodeRunStreaming:
@@ -111,6 +111,49 @@ class TestCodeRunStreaming:
 
         assert result.success
         session.exec_stream.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_auto_detected_artifact_when_explicit_output_is_missing(
+        self,
+    ) -> None:
+        tool = CodeRun()
+
+        async def exec_side_effect(command: str, timeout: int | None = None, **kwargs):
+            del timeout, kwargs
+            if "-printf '%p\\t%s\\t%T@\\n'" in command:
+                return ExecResult(stdout="", stderr="", exit_code=0)
+            if command.startswith("touch /tmp/_cr_ts_"):
+                return ExecResult(stdout="", stderr="", exit_code=0)
+            if command.startswith("python3 /tmp/_code_run.py"):
+                return ExecResult(stdout="done", stderr="", exit_code=0)
+            if "-newer /tmp/_cr_ts_" in command:
+                return ExecResult(
+                    stdout="/workspace/iPhone17_Pro_Max_价格分析.pptx\n",
+                    stderr="",
+                    exit_code=0,
+                )
+            if command.startswith("rm -f /tmp/_cr_ts_"):
+                return ExecResult(stdout="", stderr="", exit_code=0)
+            if command == "test -f '/home/user/iPhone17_Pro_Max_价格分析.pptx'":
+                return ExecResult(stdout="", stderr="", exit_code=1)
+            raise AssertionError(f"Unexpected command: {command}")
+
+        session = MagicMock()
+        session.write_file = AsyncMock()
+        session.exec = AsyncMock(side_effect=exec_side_effect)
+
+        result = await tool.execute(
+            session=session,
+            code="print('done')",
+            language="python",
+            output_files=["/home/user/iPhone17_Pro_Max_价格分析.pptx"],
+        )
+
+        assert result.success
+        assert result.output == "done"
+        assert (result.metadata or {}).get("artifact_paths") == [
+            "/workspace/iPhone17_Pro_Max_价格分析.pptx"
+        ]
 
 
 class TestEventTypes:

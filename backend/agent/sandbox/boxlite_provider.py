@@ -247,24 +247,31 @@ class BoxliteSession:
                 f"{mkdir_result.stderr or mkdir_result.stdout}"
             )
 
+        base64_error: str | None = None
+        copy_error: str | None = None
+
         try:
             await self._upload_file_via_base64(local_path, remote_path)
             if await self._file_exists(remote_path):
                 return
-        except Exception:
-            logger.warning(
-                "Boxlite base64 upload failed for {}, falling back to copy_in",
-                remote_path,
-            )
+        except Exception as exc:
+            base64_error = str(exc)
 
         copy_succeeded = False
         try:
             await self._box.copy_in(local_path, dir_path)
             copy_succeeded = await self._file_exists(uploaded_path)
-        except Exception:
+        except Exception as exc:
+            copy_error = str(exc)
             copy_succeeded = False
 
         if copy_succeeded:
+            if base64_error is not None:
+                logger.info(
+                    "Boxlite base64 upload failed for {}, copy_in fallback succeeded: {}",
+                    remote_path,
+                    base64_error,
+                )
             if uploaded_name != target_name:
                 mv_result = await self.exec(
                     f"mv {shlex.quote(uploaded_path)} {shlex.quote(remote_path)}"
@@ -275,7 +282,13 @@ class BoxliteSession:
                 return
 
         if not await self._file_exists(remote_path):
-            raise OSError(f"Uploaded file did not appear at '{remote_path}'")
+            details: list[str] = []
+            if base64_error:
+                details.append(f"base64 upload failed: {base64_error}")
+            if copy_error:
+                details.append(f"copy_in failed: {copy_error}")
+            suffix = f" ({'; '.join(details)})" if details else ""
+            raise OSError(f"Uploaded file did not appear at '{remote_path}'{suffix}")
 
     async def download_file(self, remote_path: str, local_path: str) -> None:
         """Download a file from the micro-VM.

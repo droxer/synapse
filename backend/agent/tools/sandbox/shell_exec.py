@@ -18,8 +18,8 @@ from agent.tools.base import (
     ToolResult,
 )
 from agent.tools.sandbox.artifact_detection import (
-    build_artifact_paths,
     find_new_output_files,
+    resolve_artifact_paths,
     snapshot_output_files,
 )
 
@@ -83,8 +83,10 @@ class ShellExec(SandboxTool):
                         "description": (
                             "Absolute paths of final deliverables only (e.g. the "
                             "exported .pptx or .pdf). When set, only these paths "
-                            "are registered as artifacts — omit to fall back to "
-                            "auto-detection under /workspace."
+                            "are registered as artifacts. When omitted, Synapse "
+                            "auto-detects final deliverables from the command run, "
+                            "including outputs written into the active skill "
+                            "workdir."
                         ),
                     },
                     "id": {
@@ -125,14 +127,9 @@ class ShellExec(SandboxTool):
                 session, command, clean_id, workdir, output_files
             )
 
-        detect_artifacts = bool(output_files)
-        before_snapshot: dict[str, tuple[int, float]] | None = None
-        ts_marker: str | None = None
-
-        if detect_artifacts:
-            before_snapshot = await snapshot_output_files(session)
-            ts_marker = f"/tmp/_se_ts_{os.urandom(4).hex()}"
-            await session.exec(f"touch {shlex.quote(ts_marker)}")
+        before_snapshot = await snapshot_output_files(session)
+        ts_marker = f"/tmp/_se_ts_{os.urandom(4).hex()}"
+        await session.exec(f"touch {shlex.quote(ts_marker)}")
 
         try:
             use_streaming = event_emitter is not None and isinstance(
@@ -166,10 +163,12 @@ class ShellExec(SandboxTool):
 
         auto_found: list[str] = []
         if ts_marker is not None:
+            allow_prefixes = (workdir,) if workdir else ()
             auto_found = await find_new_output_files(
                 session,
                 ts_marker,
                 before_snapshot=before_snapshot,
+                allow_prefixes=allow_prefixes,
             )
             await session.exec(f"rm -f {shlex.quote(ts_marker)}")
 
@@ -179,7 +178,13 @@ class ShellExec(SandboxTool):
                 f"{combined}\n[stderr]\n{result.stderr}" if combined else result.stderr
             )
 
-        artifact_paths = build_artifact_paths(output_files, auto_found)
+        allow_prefixes = (workdir,) if workdir else ()
+        artifact_paths = await resolve_artifact_paths(
+            session,
+            output_files,
+            auto_found,
+            allow_prefixes=allow_prefixes,
+        )
         metadata: dict[str, Any] = {"exit_code": result.exit_code}
         if artifact_paths:
             metadata["artifact_paths"] = artifact_paths

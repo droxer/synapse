@@ -51,6 +51,8 @@ interface ReconnectGuardInput {
   readonly hasPendingTimer: boolean;
 }
 
+export const BACKEND_DISCONNECT_ERROR = "Connection to backend lost before the turn finished.";
+
 export function shouldScheduleReconnect({
   isStopped,
   retryCount,
@@ -61,6 +63,30 @@ export function shouldScheduleReconnect({
   if (retryCount >= maxRetries) return false;
   if (hasPendingTimer) return false;
   return true;
+}
+
+interface ExhaustedRetryInput {
+  readonly isStopped: boolean;
+  readonly retryCount: number;
+  readonly maxRetries: number;
+}
+
+export function shouldEmitTerminalDisconnectEvent({
+  isStopped,
+  retryCount,
+  maxRetries,
+}: ExhaustedRetryInput): boolean {
+  if (isStopped) return false;
+  return retryCount >= maxRetries;
+}
+
+export function createTerminalDisconnectEvent(timestamp = Date.now()): AgentEvent {
+  return {
+    type: "task_error",
+    data: { error: BACKEND_DISCONNECT_ERROR },
+    timestamp,
+    iteration: null,
+  };
 }
 
 function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): AgentEventDataByType[K] {
@@ -223,6 +249,8 @@ const FLUSH_IMMEDIATELY = new Set<string>([
   "turn_complete",
   "turn_cancelled",
   "message_user",
+  "skill_activated",
+  "skill_setup_failed",
 ]);
 
 export function shouldFlushEventImmediately(eventType: string): boolean {
@@ -315,6 +343,17 @@ export function useSSE(conversationId: string | null, isLive = true) {
             hasPendingTimer: retryTimerRef.current !== null,
           })
         ) {
+          if (
+            shouldEmitTerminalDisconnectEvent({
+              isStopped: stoppedRef.current,
+              retryCount: retryCountRef.current,
+              maxRetries: MAX_RETRIES,
+            })
+          ) {
+            enqueueEvent(createTerminalDisconnectEvent());
+            stoppedRef.current = true;
+            cleanup();
+          }
           return;
         }
 

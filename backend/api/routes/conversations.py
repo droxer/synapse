@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
+import time
 import uuid
 from typing import Any
 
@@ -59,6 +60,67 @@ EXECUTION_SHAPE_SINGLE_AGENT = "single_agent"
 EXECUTION_SHAPE_PROMPT_CHAIN = "prompt_chain"
 EXECUTION_SHAPE_PARALLEL = "parallel"
 EXECUTION_SHAPE_ORCHESTRATOR_WORKERS = "orchestrator_workers"
+
+
+class _BootstrapPendingOrchestrator:
+    """Placeholder used until the real orchestrator is constructed."""
+
+    async def run(self, *args: Any, **kwargs: Any) -> str:
+        raise RuntimeError("Conversation runtime is still bootstrapping")
+
+    def cancel(self) -> None:
+        return None
+
+    def reset_cancel(self) -> None:
+        return None
+
+    def get_last_user_message(self) -> None:
+        return None
+
+    def rollback_to_before_last_user_message(self) -> None:
+        return None
+
+
+class _NoopExecutor:
+    """Placeholder executor used before sandbox-backed runtime exists."""
+
+    def __init__(self) -> None:
+        self._sandbox_sessions: dict[str, Any] = {}
+
+    async def cleanup(self) -> None:
+        return None
+
+
+def _elapsed_ms(start: float) -> int:
+    return int((time.perf_counter() - start) * 1000)
+
+
+async def _restore_mcp_servers_background(
+    mcp_state: Any,
+    session_factory: Any,
+    *,
+    conversation_id: str,
+    user_id: uuid.UUID,
+) -> None:
+    from api.routes.mcp import _restore_persisted_servers
+
+    started_at = time.perf_counter()
+    try:
+        await _restore_persisted_servers(
+            mcp_state,
+            session_factory,
+            user_id=user_id,
+        )
+        logger.info(
+            "conversation_runtime_mcp_restored id={} duration_ms={}",
+            conversation_id,
+            _elapsed_ms(started_at),
+        )
+    except Exception:
+        logger.exception(
+            "conversation_runtime_mcp_restore_failed id={}",
+            conversation_id,
+        )
 
 
 async def _resolve_user_id(
@@ -137,6 +199,198 @@ async def _build_user_skill_registry(
 
     visible_names = {r.name for r in db_records if r.enabled}
     return global_registry.filter_by_names(visible_names)
+
+
+def _entry_runtime_ready(entry: ConversationEntry) -> bool:
+    return entry.orchestrator is not None and entry.executor is not None
+
+
+async def _prepare_conversation_runtime(
+    state: AppState,
+    *,
+    conversation_id: str,
+    conv_uuid: uuid.UUID,
+    user_id: uuid.UUID | None,
+    mode: str,
+    emitter: EventEmitter,
+    memory_limit: int | None = None,
+) -> tuple[Any, Any]:
+    started_at = time.perf_counter()
+    settings = get_settings()
+    persistent_store = PersistentMemoryStore(
+        session_factory=state.db_session_factory,
+        user_id=user_id,
+        conversation_id=conv_uuid,
+    )
+
+    effective_memory_limit = memory_limit or settings.INITIAL_CONVERSATION_MEMORY_LIMIT
+    memory_task = asyncio.create_task(
+        persistent_store.load_all(limit=effective_memory_limit)
+    )
+    skill_task = asyncio.create_task(_build_user_skill_registry(state, user_id))
+    mcp_enabled = user_id is not None and state.mcp_state is not None
+
+    if mcp_enabled:
+        asyncio.create_task(
+            _restore_mcp_servers_background(
+                state.mcp_state,
+                state.db_session_factory,
+                conversation_id=conversation_id,
+                user_id=user_id,
+            )
+        )
+
+    memory_entries, user_skill_registry = await asyncio.gather(
+        memory_task,
+        skill_task,
+    )
+    logger.info(
+        "conversation_runtime_inputs_ready id={} mode={} duration_ms={} memory_entries={} memory_limit={} skill_registry={} mcp_restore_enabled={}",
+        conversation_id,
+        mode,
+        _elapsed_ms(started_at),
+        len(memory_entries),
+        effective_memory_limit,
+        user_skill_registry is not None,
+        mcp_enabled,
+    )
+    if mcp_enabled:
+        logger.info(
+            "conversation_runtime_mcp_restore_scheduled id={}",
+            conversation_id,
+        )
+
+    if mode == ORCHESTRATOR_PLANNER:
+        orchestrator_executor = _build_planner_orchestrator(
+            state.claude_client,
+            emitter,
+            state.sandbox_provider,
+            state.storage_backend,
+            persistent_store=persistent_store,
+            mcp_state=state.mcp_state,
+            skill_registry=user_skill_registry,
+            memory_entries=memory_entries,
+            conversation_id=conversation_id,
+        )
+    else:
+        orchestrator_executor = _build_orchestrator(
+            state.claude_client,
+            emitter,
+            state.sandbox_provider,
+            state.storage_backend,
+            persistent_store=persistent_store,
+            mcp_state=state.mcp_state,
+            skill_registry=user_skill_registry,
+            memory_entries=memory_entries,
+            conversation_id=conversation_id,
+        )
+
+    logger.info(
+        "conversation_runtime_ready id={} mode={} duration_ms={}",
+        conversation_id,
+        mode,
+        _elapsed_ms(started_at),
+    )
+    return orchestrator_executor
+
+
+async def _bootstrap_and_run_initial_turn(
+    state: AppState,
+    *,
+    conversation_id: str,
+    message: str,
+    attachments: tuple[FileAttachment, ...],
+    selected_skills: tuple[str, ...],
+    initial_mode: str,
+    idempotency_key: str | None,
+    user_id: uuid.UUID | None = None,
+) -> str:
+    bootstrap_started_at = time.perf_counter()
+    conv_uuid = uuid.UUID(conversation_id)
+    entry = state.conversations[conversation_id]
+
+    try:
+        execution_shape = (
+            EXECUTION_SHAPE_SINGLE_AGENT
+            if initial_mode == ORCHESTRATOR_AGENT
+            else EXECUTION_SHAPE_ORCHESTRATOR_WORKERS
+        )
+        execution_rationale = (
+            "planner forced by user"
+            if initial_mode == ORCHESTRATOR_PLANNER
+            else "defaulted to single agent for initial turn"
+        )
+        logger.info(
+            "conversation_bootstrap_route_ready id={} mode={} shape={} duration_ms={}",
+            conversation_id,
+            initial_mode,
+            execution_shape,
+            _elapsed_ms(bootstrap_started_at),
+        )
+        effective_user_id = user_id
+
+        orchestrator, executor = await _prepare_conversation_runtime(
+            state,
+            conversation_id=conversation_id,
+            conv_uuid=conv_uuid,
+            user_id=effective_user_id,
+            mode=initial_mode,
+            emitter=entry.emitter,
+        )
+        entry.orchestrator = orchestrator
+        entry.executor = executor
+        entry.orchestrator_mode = initial_mode
+
+        async with state.db_session_factory() as session:
+            await state.db_repo.update_conversation(
+                session,
+                conv_uuid,
+                orchestrator_mode=initial_mode,
+            )
+        logger.info(
+            "conversation_bootstrap_runtime_ready id={} mode={} duration_ms={}",
+            conversation_id,
+            initial_mode,
+            _elapsed_ms(bootstrap_started_at),
+        )
+
+        runtime_prompt_sections = _build_execution_shape_prompt_sections(
+            execution_shape,
+            execution_rationale,
+        )
+        turn_metadata = {
+            "execution_shape": execution_shape,
+            "execution_rationale": execution_rationale,
+        }
+
+        result = await _run_turn(
+            state,
+            conversation_id,
+            orchestrator,
+            message,
+            attachments,
+            selected_skills,
+            runtime_prompt_sections=runtime_prompt_sections,
+            turn_metadata=turn_metadata,
+            idempotency_key=idempotency_key,
+        )
+        logger.info(
+            "conversation_bootstrap_turn_finished id={} duration_ms={}",
+            conversation_id,
+            _elapsed_ms(bootstrap_started_at),
+        )
+        return result
+    except asyncio.CancelledError:
+        raise
+    except Exception:
+        logger.exception(
+            "conversation_bootstrap_failed conversation_id={}", conversation_id
+        )
+        await entry.emitter.emit(
+            EventType.TASK_ERROR,
+            {"error": "An internal error occurred. Please try again."},
+        )
+        return "Error: An internal error occurred."
 
 
 # ---------------------------------------------------------------------------
@@ -570,12 +824,13 @@ async def _cleanup_conversation(
         entry.turn_task.cancel()
 
     # Cleanup executor (sandbox, etc.)
-    try:
-        await entry.executor.cleanup()
-    except Exception as exc:
-        logger.error(
-            "cleanup_failed conversation_id={} error={}", conversation_id, str(exc)
-        )
+    if entry.executor is not None:
+        try:
+            await entry.executor.cleanup()
+        except Exception as exc:
+            logger.error(
+                "cleanup_failed conversation_id={} error={}", conversation_id, str(exc)
+            )
 
     # Drain remaining events
     while not entry.event_queue.empty():
@@ -759,6 +1014,7 @@ async def create_conversation(
 
     Accepts either JSON (MessageRequest) or multipart/form-data with files.
     """
+    request_started_at = time.perf_counter()
     content_type = request.headers.get("content-type", "")
 
     if "multipart/form-data" in content_type:
@@ -783,27 +1039,14 @@ async def create_conversation(
         explicit_planner = body.use_planner
         selected_skills = tuple(body.skills)
         attachments = ()
-
-    (
-        execution_shape,
-        execution_rationale,
-        orchestrator_mode,
-        auto_detected,
-    ) = await _resolve_execution_route(state.claude_client, message, explicit_planner)
     logger.info(
-        "execution_routed shape={} mode={} preview={}",
-        execution_shape,
-        orchestrator_mode,
-        message[:80],
+        "conversation_create_parsed content_type={} duration_ms={} attachments={} skills={} explicit_planner={}",
+        content_type or "unknown",
+        _elapsed_ms(request_started_at),
+        len(attachments),
+        len(selected_skills),
+        explicit_planner,
     )
-    runtime_prompt_sections = _build_execution_shape_prompt_sections(
-        execution_shape,
-        execution_rationale,
-    )
-    turn_metadata = {
-        "execution_shape": execution_shape,
-        "execution_rationale": execution_rationale,
-    }
 
     idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
     if not idem_key:
@@ -818,6 +1061,7 @@ async def create_conversation(
     conversation_id = str(uuid.uuid4())
     conv_uuid = uuid.UUID(conversation_id)
     emitter = EventEmitter()
+    initial_mode = _planner_flag_to_mode(explicit_planner) or ORCHESTRATOR_AGENT
 
     event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
         maxsize=_EVENT_QUEUE_MAXSIZE,
@@ -826,94 +1070,42 @@ async def create_conversation(
     subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
     emitter.subscribe(subscriber)
 
-    if auto_detected:
-        await emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
-
-    # Resolve user before building orchestrator so we can scope resources
-    user_id = await _resolve_user_id(auth_user, state)
-
-    persistent_store = PersistentMemoryStore(
-        session_factory=state.db_session_factory,
-        user_id=user_id,
-        conversation_id=conv_uuid,
-    )
-
-    # Load user memories for system prompt injection
-    memory_entries = await persistent_store.load_all()
-
-    # Lazily restore per-user MCP servers if not already loaded
-    if user_id and state.mcp_state:
-        from api.routes.mcp import _restore_persisted_servers
-
-        await _restore_persisted_servers(
-            state.mcp_state, state.db_session_factory, user_id=user_id
-        )
-
-    # Build a user-scoped skill registry (bundled + current user's skills only)
-    user_skill_registry = await _build_user_skill_registry(state, user_id)
-
-    orchestrator: Any
-    executor: Any
-    if orchestrator_mode == ORCHESTRATOR_PLANNER:
-        orchestrator, executor = _build_planner_orchestrator(
-            state.claude_client,
-            emitter,
-            state.sandbox_provider,
-            state.storage_backend,
-            persistent_store=persistent_store,
-            mcp_state=state.mcp_state,
-            skill_registry=user_skill_registry,
-            memory_entries=memory_entries,
-            conversation_id=conversation_id,
-        )
-    else:
-        orchestrator, executor = _build_orchestrator(
-            state.claude_client,
-            emitter,
-            state.sandbox_provider,
-            state.storage_backend,
-            persistent_store=persistent_store,
-            mcp_state=state.mcp_state,
-            skill_registry=user_skill_registry,
-            memory_entries=memory_entries,
-            conversation_id=conversation_id,
-        )
-
     entry = ConversationEntry(
         emitter=emitter,
         event_queue=event_queue,
-        orchestrator=orchestrator,
-        executor=executor,
+        orchestrator=_BootstrapPendingOrchestrator(),
+        executor=_NoopExecutor(),
         pending_callbacks=pending_callbacks,
-        orchestrator_mode=orchestrator_mode,
+        orchestrator_mode=initial_mode,
     )
     entry.subscriber = subscriber
     state.conversations[conversation_id] = entry
 
+    user_resolution_started_at = time.perf_counter()
+    user_id = await _resolve_user_id(auth_user, state)
+    logger.info(
+        "conversation_create_user_ready id={} duration_ms={} authenticated={}",
+        conversation_id,
+        _elapsed_ms(user_resolution_started_at),
+        user_id is not None,
+    )
+
     # Persist conversation and register DB subscriber
+    db_create_started_at = time.perf_counter()
     async with state.db_session_factory() as session:
         await state.db_repo.create_conversation(
             session,
             title=message[:80],
             conversation_id=conv_uuid,
             user_id=user_id,
-            orchestrator_mode=orchestrator_mode,
+            orchestrator_mode=initial_mode,
         )
-
-    # Visibility barrier: confirm the committed row is readable from a fresh
-    # session before any subscriber attempts FK-dependent writes.  Under
-    # PostgreSQL READ COMMITTED this almost always succeeds on the first try,
-    # but connection-pool timing can cause a brief delay.
-    for _attempt in range(10):
-        async with state.db_session_factory() as barrier_session:
-            if (
-                await state.db_repo.get_conversation(barrier_session, conv_uuid)
-                is not None
-            ):
-                break
-        await asyncio.sleep(0.05)
-    else:
-        logger.error("conversation_visibility_timeout id={}", conv_uuid)
+    logger.info(
+        "conversation_create_persisted id={} duration_ms={} initial_mode={}",
+        conversation_id,
+        _elapsed_ms(db_create_started_at),
+        initial_mode,
+    )
 
     db_sub = create_db_subscriber(
         conv_uuid,
@@ -928,16 +1120,15 @@ async def create_conversation(
 
     # Start first turn
     entry.turn_task = asyncio.create_task(
-        _run_turn(
+        _bootstrap_and_run_initial_turn(
             state,
-            conversation_id,
-            orchestrator,
-            message,
-            attachments,
-            selected_skills,
-            runtime_prompt_sections=runtime_prompt_sections,
-            turn_metadata=turn_metadata,
+            conversation_id=conversation_id,
+            message=message,
+            attachments=attachments,
+            selected_skills=selected_skills,
+            initial_mode=initial_mode,
             idempotency_key=idem_key,
+            user_id=user_id,
         ),
     )
 
@@ -947,11 +1138,12 @@ async def create_conversation(
     )
 
     logger.info(
-        "conversation_created id={} message={} skills={} attachments={}",
+        "conversation_created id={} message={} skills={} attachments={} request_duration_ms={}",
         conversation_id,
         message[:100],
         selected_skills,
         len(attachments),
+        _elapsed_ms(request_started_at),
     )
     return ConversationResponse(conversation_id=conversation_id)
 
@@ -1066,7 +1258,7 @@ async def send_message(
         "execution_rationale": execution_rationale,
     }
 
-    if target_mode != current_mode:
+    if target_mode != current_mode or not _entry_runtime_ready(entry):
         conv_uuid = uuid.UUID(conversation_id)
         async with state.db_session_factory() as session:
             convo = await state.db_repo.get_conversation(session, conv_uuid)
@@ -1080,11 +1272,17 @@ async def send_message(
         )
         memory_entries = await persistent_store.load_all()
         user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
+        settings = get_settings()
+        compaction_profile = resolve_compaction_profile(
+            settings,
+            "planner" if target_mode == ORCHESTRATOR_PLANNER else "web_conversation",
+        )
         initial_messages = await _load_initial_messages_for_conversation(
             state,
             convo,
             memory_entries,
             user_skill_registry,
+            compaction_profile,
         )
         if target_mode == ORCHESTRATOR_PLANNER:
             orchestrator, executor = _build_planner_orchestrator(
@@ -1123,12 +1321,13 @@ async def send_message(
                 conv_uuid,
                 orchestrator_mode=target_mode,
             )
-        logger.info(
-            "conversation_mode_switched id={} from={} to={}",
-            conversation_id,
-            current_mode,
-            target_mode,
-        )
+        if target_mode != current_mode:
+            logger.info(
+                "conversation_mode_switched id={} from={} to={}",
+                conversation_id,
+                current_mode,
+                target_mode,
+            )
 
     if auto_detected:
         await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
@@ -1330,7 +1529,7 @@ async def cancel_turn(
 
     # Signal graceful cancellation via the orchestrator if supported
     orch = entry.orchestrator
-    if hasattr(orch, "cancel"):
+    if orch is not None and hasattr(orch, "cancel"):
         orch.cancel()  # type: ignore[union-attr]
 
     # Force-cancel in background so the HTTP response returns immediately
@@ -1367,6 +1566,11 @@ async def retry_turn(
         )
 
     orch = entry.orchestrator
+    if orch is None:
+        raise HTTPException(
+            status_code=409,
+            detail="Conversation runtime is not ready yet",
+        )
 
     # Cancel running turn first if needed
     if entry.turn_task is not None and not entry.turn_task.done():

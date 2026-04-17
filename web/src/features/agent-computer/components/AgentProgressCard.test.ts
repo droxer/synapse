@@ -118,7 +118,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-1", toolUseId: "tool-1", name: "web_search", input: { query: "AI coding harness" }, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps[0]?.title).toBe("searching AI coding harness");
   });
 
@@ -135,7 +135,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-2", toolUseId: "tool-2", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps[0]?.title).toContain("Loading");
     expect(steps[0]?.title).toContain("Frontend Design");
     expect(steps[0]?.title).toContain("skill");
@@ -160,7 +160,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-5", toolUseId: "tool-5", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 1 },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.status).toBe("complete");
     expect(steps[0]?.title).toBe("Loaded Frontend Design");
@@ -185,7 +185,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-9", toolUseId: "tool-9", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 2 },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.rawToolName).toBe("activate_skill");
@@ -203,11 +203,54 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.status).toBe("complete");
     expect(steps[0]?.title).toBe("Loaded Deep Research");
+  });
+
+  it("renders an optimistic selected skill before backend confirmation", () => {
+    const toolCalls: ToolCallInfo[] = [
+      {
+        id: "optimistic-1",
+        toolUseId: "optimistic-skill:frontend-design",
+        name: "activate_skill",
+        input: { name: "frontend-design" },
+        timestamp: 50,
+      },
+    ];
+
+    const steps = buildSteps([], buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.kind).toBe("skill");
+    expect(steps[0]?.status).toBe("running");
+    expect(steps[0]?.title).toBe("Loading Frontend Design skill");
+  });
+
+  it("replaces the optimistic selected skill once the backend confirms it", () => {
+    const events = [
+      {
+        type: "skill_activated",
+        timestamp: 100,
+        iteration: 0,
+        data: { name: "frontend-design", source: "explicit" },
+      },
+    ] as unknown as AgentEvent[];
+    const toolCalls: ToolCallInfo[] = [
+      {
+        id: "optimistic-1",
+        toolUseId: "optimistic-skill:frontend-design",
+        name: "activate_skill",
+        input: { name: "frontend-design" },
+        timestamp: 50,
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    expect(steps).toHaveLength(1);
+    expect(steps[0]?.status).toBe("complete");
+    expect(steps[0]?.title).toBe("Loaded Frontend Design");
   });
 
   it("creates an error skill step for auto-selected setup failures", () => {
@@ -220,7 +263,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.status).toBe("error");
@@ -240,7 +283,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-3", toolUseId: "tool-3", name: "web_fetch", input: { url: "https://docs.example.com/guide" }, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps[0]?.title).toBe("parse docs.example.com content");
   });
 
@@ -257,7 +300,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-4", toolUseId: "tool-4", name: "web_search", input: {}, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps[0]?.title).toContain("searching");
   });
 
@@ -281,7 +324,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-6", toolUseId: "tool-6", name: "web_search", input: { query: "docs" }, timestamp: 2, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.rawToolName).toBe("web_search");
   });
@@ -307,7 +350,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.status).toBe("error");
   });
@@ -340,7 +383,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
     expect(steps.find((step) => step.id.startsWith("agent-agent-skip-"))?.status).toBe("skipped");
     expect(steps.find((step) => step.id.startsWith("agent-agent-replan-"))?.status).toBe("replan_required");
   });

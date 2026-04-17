@@ -144,10 +144,10 @@ export function PlanChecklistPanel({ planSteps }: PlanChecklistPanelProps) {
           className={cn(
             "status-pill tabular-nums",
             hasError
-              ? "text-accent-amber border-accent-amber/20 bg-accent-amber/5"
+              ? "status-warn"
               : completedCount === planSteps.length
-                ? "text-accent-emerald border-accent-emerald/20 bg-accent-emerald/5"
-                : "text-muted-foreground border-border bg-secondary",
+                ? "status-ok"
+                : "status-neutral",
           )}
         >
           {t("plan.progress", { completed: completedCount, total: planSteps.length })}

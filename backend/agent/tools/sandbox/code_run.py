@@ -14,8 +14,8 @@ from agent.tools.base import (
     ToolResult,
 )
 from agent.tools.sandbox.artifact_detection import (
-    build_artifact_paths,
     find_new_output_files,
+    resolve_artifact_paths,
     snapshot_output_files,
 )
 
@@ -156,7 +156,8 @@ class CodeRun(SandboxTool):
             )
 
         # Merge explicit output_files with auto-detected ones; exclude the script.
-        artifact_paths = build_artifact_paths(
+        artifact_paths = await resolve_artifact_paths(
+            session,
             output_files,
             auto_found,
             exclude_paths=(target,),

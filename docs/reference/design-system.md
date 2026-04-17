@@ -2,7 +2,8 @@
 
 Synapse uses a **token-driven design system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and restrained AI signaling.
 
-Canonical source of truth for live token values is `web/src/app/globals.css`, with this reference doc as the normative mapping.
+Canonical human-facing frontend guide is `design.md`.
+Canonical source of truth for live token values is `web/src/app/globals.css`, with this reference doc as the normative token mapping.
 If any value conflicts with `docs/DESIGN_STYLE_GUIDE.md`, follow `web/src/app/globals.css` + this file.
 
 Token source is `web/src/app/globals.css`:
@@ -129,10 +130,23 @@ Use these instead of rebuilding styles ad hoc:
 
 - `surface-panel`: standard card/panel surface.
 - `surface-overlay`: popover/dialog/dropdown surface.
-- `chip-muted`: compact neutral chip.
-- `status-pill`: compact mono status UI.
+- `chip-muted`: compact neutral chip (color base).
+- `chip-xs` / `chip-sm` / `chip-md`: chip size rhythm (use alongside a color base).
+- `status-pill`: compact mono status UI (size + display only).
+- `status-neutral` / `status-info` / `status-ai` / `status-ok` / `status-warn` / `status-error`: semantic color variants applied alongside `status-pill`. Use these instead of ad-hoc `border-X/30 bg-X/10 text-X` fragments so all pills draw from one consistent palette.
 - `label-mono`: uppercase mono labels.
 - `brand-wordmark`: product mark typography treatment.
+
+### Status pill variants — when to use
+
+| Variant | Intent | Examples |
+|---------|--------|----------|
+| `status-neutral` | Quiet metadata, counts, identifiers | Agent role chip, item-count badges |
+| `status-info` | In-progress / live signal | "Running", "Connected", live progress |
+| `status-ai` | AI-specific signaling (planner, agent surface) | Auto-detected planner mode |
+| `status-ok` | Success / complete | "Loaded", "Live channel", complete counts |
+| `status-warn` | Attention but not failure | Planning, partial errors |
+| `status-error` | Failure / destructive state | "Failed", task error |
 
 ---
 
@@ -179,6 +193,7 @@ Guardrail command:
 
 ## Related files
 
+- `design.md`
 - `web/src/app/globals.css`
 - `web/src/app/fonts.ts`
 - `web/src/app/layout.tsx`
