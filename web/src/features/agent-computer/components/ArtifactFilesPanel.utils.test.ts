@@ -60,6 +60,22 @@ describe("ArtifactFilesPanel utils", () => {
     expect(split.compact.map((artifact) => artifact.id)).toEqual(["a-2"]);
   });
 
+  it("treats docx artifacts as previewable", () => {
+    const normalized = normalizeTaskArtifacts([
+      {
+        id: "docx-1",
+        name: "palantir-ontology-report.docx",
+        contentType:
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        size: 30,
+        createdAt: "2026-04-16T12:00:00.000Z",
+        filePath: "outputs/palantir-ontology-report.docx",
+      },
+    ]);
+
+    expect(normalized[0]?.isPreviewable).toBe(true);
+  });
+
   it("builds a folder tree from file paths and finds folders by path", () => {
     const normalized = normalizeTaskArtifacts(artifacts);
     const tree = buildTaskArtifactTree(normalized);

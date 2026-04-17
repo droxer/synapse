@@ -8,6 +8,7 @@ artifacts the LLM forgot to list explicitly.
 from __future__ import annotations
 
 import os
+import re
 import shlex
 from typing import Any
 
@@ -30,6 +31,8 @@ DEFAULT_SEARCH_ROOTS: tuple[str, ...] = ("/workspace", _SKILL_DIR)
 _AUTO_DETECT_SKIP_EXTENSIONS = frozenset({".txt", ".md", ".json", ".xml"})
 
 ArtifactSnapshot = dict[str, tuple[int, str]]
+_TEXT_PATH_PATTERN = re.compile(r"(/[^\s\"'<>]+)")
+_TRAILING_PATH_PUNCTUATION = ".,;:!?)]}>\"'"
 
 
 def _build_find_name_clauses() -> str:
@@ -40,6 +43,63 @@ def _build_find_name_clauses() -> str:
 
 def _build_find_roots(search_roots: tuple[str, ...]) -> str:
     return " ".join(shlex.quote(r) for r in search_roots)
+
+
+def _is_under_prefixes(path: str, prefixes: tuple[str, ...]) -> bool:
+    normalized = _normalize_prefixes(prefixes)
+    normalized_path = path.rstrip("/")
+    return any(
+        normalized_path == prefix or normalized_path.startswith(f"{prefix}/")
+        for prefix in normalized
+    )
+
+
+def _clean_text_candidate_path(raw: str) -> str:
+    candidate = raw.strip()
+    while candidate and candidate[-1] in _TRAILING_PATH_PUNCTUATION:
+        candidate = candidate[:-1]
+    return candidate
+
+
+def extract_artifact_paths_from_text(
+    text: str,
+    *,
+    search_roots: tuple[str, ...] = DEFAULT_SEARCH_ROOTS,
+    allow_prefixes: tuple[str, ...] = (),
+) -> list[str]:
+    """Extract artifact-like absolute paths from tool output text.
+
+    This is a constrained fallback for tool output only. It recognizes
+    absolute sandbox paths ending in known artifact extensions and only
+    keeps paths under the configured search roots or the active workdir.
+    """
+    if not text.strip():
+        return []
+
+    candidate_prefixes = tuple(
+        dict.fromkeys(
+            [
+                *search_roots,
+                *_normalize_prefixes(allow_prefixes),
+            ]
+        )
+    )
+    out: list[str] = []
+    seen: set[str] = set()
+
+    for match in _TEXT_PATH_PATTERN.finditer(text):
+        path = _clean_text_candidate_path(match.group(1))
+        if not path or path in seen:
+            continue
+        _, ext = os.path.splitext(path)
+        if ext.lower() not in ARTIFACT_EXTENSIONS:
+            continue
+        if not _is_under_prefixes(path, candidate_prefixes):
+            continue
+        seen.add(path)
+        out.append(path)
+
+    return _filter_auto_detected_paths(out, allow_prefixes=allow_prefixes)
 
 
 async def snapshot_output_files(
@@ -286,11 +346,11 @@ async def resolve_artifact_paths(
         exclude_paths=exclude_paths,
     )
     if explicit_clean:
-        missing = [
-            path for path in explicit_clean if not await _path_exists(session, path)
+        existing = [
+            path for path in explicit_clean if await _path_exists(session, path)
         ]
-        if not missing:
-            return explicit_clean
+        if existing:
+            return existing
 
     return build_artifact_paths(
         [],

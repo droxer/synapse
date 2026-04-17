@@ -11,6 +11,7 @@ from agent.tools.sandbox.artifact_detection import (
     DEFAULT_SEARCH_ROOTS,
     _filter_auto_detected_paths,
     build_artifact_paths,
+    extract_artifact_paths_from_text,
     find_new_output_files,
     resolve_artifact_paths,
     snapshot_output_files,
@@ -272,6 +273,20 @@ class TestBuildArtifactPaths:
         assert result == ["/workspace/slides.pptx"]
 
 
+class TestExtractArtifactPathsFromText:
+    def test_extracts_workspace_docx_path_from_tool_output(self) -> None:
+        result = extract_artifact_paths_from_text(
+            "文件路径：/workspace/palantir-ontology-report.docx"
+        )
+        assert result == ["/workspace/palantir-ontology-report.docx"]
+
+    def test_ignores_non_artifact_paths_and_external_paths(self) -> None:
+        result = extract_artifact_paths_from_text(
+            "debug /workspace/run.sh and /tmp/report.docx and /etc/passwd"
+        )
+        assert result == []
+
+
 class TestResolveArtifactPaths:
     @pytest.mark.asyncio
     async def test_prefers_existing_explicit_paths(self) -> None:
@@ -304,3 +319,21 @@ class TestResolveArtifactPaths:
         )
 
         assert result == ["/workspace/iPhone17_Pro_Max_价格分析.pptx"]
+
+    @pytest.mark.asyncio
+    async def test_keeps_existing_explicit_paths_when_some_are_missing(self) -> None:
+        session = MagicMock()
+        session.exec = AsyncMock(
+            side_effect=[
+                FakeExecResult(stdout="", stderr="", exit_code=0, success=True),
+                FakeExecResult(stdout="", stderr="", exit_code=1, success=False),
+            ]
+        )
+
+        result = await resolve_artifact_paths(
+            session,
+            ["/workspace/final.docx", "/workspace/missing.docx"],
+            ["/workspace/auto-detected.docx"],
+        )
+
+        assert result == ["/workspace/final.docx"]

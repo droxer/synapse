@@ -19,6 +19,12 @@ export function isPreviewableArtifact(artifact: Pick<ArtifactInfo, "contentType"
   if (artifact.contentType.startsWith("image/")) return true;
   if (artifact.contentType === "application/pdf") return true;
   if (artifact.contentType === "text/html") return true;
+  if (artifact.contentType.includes("wordprocessingml")) return true;
+  if (artifact.contentType === "application/msword") return true;
+  if (artifact.contentType.includes("spreadsheetml")) return true;
+  if (artifact.contentType === "application/vnd.ms-excel") return true;
+  if (artifact.contentType.includes("presentationml")) return true;
+  if (artifact.contentType === "application/vnd.ms-powerpoint") return true;
   if (artifact.contentType.startsWith("text/")) return true;
   if (
     artifact.contentType.startsWith("text/x-")
@@ -27,7 +33,25 @@ export function isPreviewableArtifact(artifact: Pick<ArtifactInfo, "contentType"
   ) {
     return true;
   }
-  return ["md", "txt", "json", "js", "jsx", "ts", "tsx", "py", "html", "css", "csv"].includes(ext);
+  return [
+    "md",
+    "txt",
+    "json",
+    "js",
+    "jsx",
+    "ts",
+    "tsx",
+    "py",
+    "html",
+    "css",
+    "csv",
+    "doc",
+    "docx",
+    "xls",
+    "xlsx",
+    "ppt",
+    "pptx",
+  ].includes(ext);
 }
 
 export function normalizeTaskArtifacts(

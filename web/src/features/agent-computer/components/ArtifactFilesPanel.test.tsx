@@ -97,4 +97,34 @@ describe("ArtifactFilesPanel", () => {
     expect(html).not.toContain("Browse by path");
     expect(html).toContain("1 file generated");
   });
+
+  it("renders docx artifacts in the preview-ready section", () => {
+    const html = renderToStaticMarkup(
+      <ArtifactFilesPanel
+        conversationId="conv-1"
+        artifacts={[
+          {
+            id: "docx-1",
+            name: "palantir-ontology-report.docx",
+            contentType:
+              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            size: 42,
+            createdAt: "2026-04-16T10:00:00.000Z",
+            filePath: "outputs/palantir-ontology-report.docx",
+          },
+          {
+            id: "zip-1",
+            name: "archive.zip",
+            contentType: "application/zip",
+            size: 8,
+            createdAt: "2026-04-16T09:00:00.000Z",
+          },
+        ]}
+      />,
+    );
+
+    expect(html).toContain("Preview-ready outputs");
+    expect(html).toContain("palantir-ontology-report.docx");
+    expect(html).toContain("Preview");
+  });
 });

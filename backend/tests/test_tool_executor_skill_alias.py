@@ -4,15 +4,19 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import Any
+from unittest.mock import AsyncMock
 
 import pytest
 
+from agent.artifacts.manager import Artifact
 from agent.skills.loader import SkillRegistry
 from agent.skills.models import SkillContent, SkillMetadata
+from agent.tools.base import LocalTool
 from agent.tools.base import ExecutionContext, SandboxTool, ToolDefinition, ToolResult
 from agent.tools.executor import ToolExecutor
 from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.registry import ToolRegistry
+from api.events import EventEmitter, EventType
 
 
 def _build_skill_registry() -> SkillRegistry:
@@ -26,6 +30,17 @@ def _build_skill_registry() -> SkillRegistry:
         source_type="bundled",
     )
     return SkillRegistry((skill,))
+
+
+@pytest.fixture(autouse=True)
+def _stub_settings(monkeypatch: pytest.MonkeyPatch) -> None:
+    class _FakeSettings:
+        MAX_SHELL_TOOLS_PER_TURN = 0
+
+    monkeypatch.setattr(
+        "config.settings.get_settings",
+        lambda: _FakeSettings(),
+    )
 
 
 @pytest.mark.asyncio
@@ -103,6 +118,52 @@ class _RecordingShellExec(SandboxTool):
         return ToolResult.ok("ok")
 
 
+class _RecordingArtifactManager:
+    def __init__(self) -> None:
+        self.extract_from_sandbox = AsyncMock(
+            return_value=(
+                Artifact(
+                    id="artifact-1",
+                    path="artifact-1.docx",
+                    original_name="palantir-ontology-report.docx",
+                    content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    size=128,
+                    file_path="/workspace/palantir-ontology-report.docx",
+                ),
+            )
+        )
+
+
+class _PathReportingSandboxTool(SandboxTool):
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="path_reporter",
+            description="Return a generated artifact path in text output.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.SANDBOX,
+            tags=("sandbox",),
+        )
+
+    async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
+        del session, kwargs
+        return ToolResult.ok("文件路径：/workspace/palantir-ontology-report.docx")
+
+
+class _PathReportingLocalTool(LocalTool):
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="local_path_reporter",
+            description="Return a local filesystem path in text output.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.LOCAL,
+            tags=(),
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        del kwargs
+        return ToolResult.ok("文件路径：/workspace/palantir-ontology-report.docx")
+
+
 @pytest.mark.asyncio
 async def test_executor_defaults_shell_exec_workdir_to_active_skill_directory() -> None:
     tool = _RecordingShellExec()
@@ -158,3 +219,50 @@ async def test_executor_preserves_explicit_shell_exec_workdir() -> None:
             "conversation_id": None,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_executor_extracts_artifact_from_any_sandbox_tool_output_text() -> None:
+    artifact_manager = _RecordingArtifactManager()
+    provider = _FakeSandboxProvider()
+    emitter = EventEmitter()
+    received: list[Any] = []
+
+    async def subscriber(event: Any) -> None:
+        received.append(event)
+
+    emitter.subscribe(subscriber)
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(_PathReportingSandboxTool()),
+        sandbox_provider=provider,
+        artifact_manager=artifact_manager,
+        event_emitter=emitter,
+    )
+
+    result = await executor.execute("path_reporter", {})
+
+    assert result.success
+    artifact_manager.extract_from_sandbox.assert_awaited_once_with(
+        session=provider.session,
+        remote_paths=["/workspace/palantir-ontology-report.docx"],
+    )
+    assert (result.metadata or {}).get("artifact_ids") == ["artifact-1"]
+    assert any(
+        event.type == EventType.ARTIFACT_CREATED
+        and event.data.get("file_path") == "/workspace/palantir-ontology-report.docx"
+        for event in received
+    )
+
+
+@pytest.mark.asyncio
+async def test_executor_does_not_extract_artifact_from_local_tool_output_text() -> None:
+    artifact_manager = _RecordingArtifactManager()
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(_PathReportingLocalTool()),
+        artifact_manager=artifact_manager,
+    )
+
+    result = await executor.execute("local_path_reporter", {})
+
+    assert result.success
+    artifact_manager.extract_from_sandbox.assert_not_awaited()

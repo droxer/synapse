@@ -9,6 +9,7 @@ from loguru import logger
 from agent.artifacts.manager import ArtifactManager
 from agent.tools.base import LocalTool, SandboxTool, ToolResult
 from agent.tools.registry import ToolRegistry
+from agent.tools.sandbox.artifact_detection import extract_artifact_paths_from_text
 from api.events import EventType
 
 
@@ -308,16 +309,26 @@ class ToolExecutor:
         events for each. Returns a new ToolResult with ``artifact_ids``
         added to metadata so the frontend can associate files with tool calls.
         """
-        if not result.success or result.metadata is None:
+        if not result.success:
             return result
 
-        artifact_paths = result.metadata.get("artifact_paths")
-        screenshot_path = result.metadata.get("screenshot")
+        metadata = dict(result.metadata or {})
+        artifact_paths = metadata.get("artifact_paths")
+        screenshot_path = metadata.get("screenshot")
+        mentioned_paths = extract_artifact_paths_from_text(
+            result.output,
+            allow_prefixes=(
+                (self._active_skill_directory,) if self._active_skill_directory else ()
+            ),
+        )
 
         # Collect all paths to extract
         paths_to_extract: list[str] = []
         if artifact_paths:
             paths_to_extract.extend(artifact_paths)
+        for path in mentioned_paths:
+            if path not in paths_to_extract:
+                paths_to_extract.append(path)
         if screenshot_path and screenshot_path not in paths_to_extract:
             paths_to_extract.append(screenshot_path)
 
@@ -355,7 +366,7 @@ class ToolExecutor:
 
         # Return a new result with artifact_ids and content_type in metadata
         if artifact_ids:
-            updated_meta = dict(result.metadata)
+            updated_meta = dict(metadata)
             updated_meta["artifact_ids"] = artifact_ids
             # Use the first artifact's content_type so the frontend knows
             # how to render the tool output (e.g. as an image).
