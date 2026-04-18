@@ -12,6 +12,12 @@ from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 
 from agent.artifacts.storage import LocalStorageBackend
+from api.artifact_previews import (
+    ArtifactPreviewError,
+    PreviewSlideNotFoundError,
+    UnsupportedArtifactPreviewError,
+    artifact_preview_cache,
+)
 from api.dependencies import AppState, get_app_state, get_db_session
 from api.auth import AuthUser, common_dependencies, get_current_user
 from api.routes.conversations import _verify_conversation_ownership
@@ -123,6 +129,80 @@ async def get_artifact(
         record.storage_key, record.content_type, record.original_name
     )
     return RedirectResponse(url=url, status_code=307)
+
+
+@router.get("/conversations/{conversation_id}/artifacts/{artifact_id}/preview")
+async def get_artifact_preview_manifest(
+    conversation_id: str = Path(..., pattern=_UUID_PATTERN),
+    artifact_id: str = Path(..., pattern=r"^[0-9a-f]{32}$"),
+    session: Any = Depends(get_db_session),
+    state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
+) -> dict[str, Any]:
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
+    record = await state.db_repo.get_artifact(session, artifact_id)
+    if record is None or str(record.conversation_id) != conversation_id:
+        raise HTTPException(
+            status_code=404, detail=f"Artifact not found: {artifact_id}"
+        )
+
+    try:
+        manifest = await artifact_preview_cache.ensure_ppt_preview(
+            record, state.storage_backend
+        )
+    except UnsupportedArtifactPreviewError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except ArtifactPreviewError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return {
+        "kind": manifest.kind,
+        "file_name": manifest.file_name,
+        "slide_count": manifest.slide_count,
+        "slides": [
+            {
+                "index": index + 1,
+                "image_url": (
+                    f"/api/conversations/{conversation_id}/artifacts/{artifact_id}/preview/"
+                    f"slides/{index + 1}"
+                ),
+            }
+            for index in range(manifest.slide_count)
+        ],
+    }
+
+
+@router.get(
+    "/conversations/{conversation_id}/artifacts/{artifact_id}/preview/slides/{slide_index}",
+    response_model=None,
+)
+async def get_artifact_preview_slide(
+    conversation_id: str = Path(..., pattern=_UUID_PATTERN),
+    artifact_id: str = Path(..., pattern=r"^[0-9a-f]{32}$"),
+    slide_index: int = Path(..., ge=1),
+    session: Any = Depends(get_db_session),
+    state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
+) -> FileResponse:
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
+    record = await state.db_repo.get_artifact(session, artifact_id)
+    if record is None or str(record.conversation_id) != conversation_id:
+        raise HTTPException(
+            status_code=404, detail=f"Artifact not found: {artifact_id}"
+        )
+
+    try:
+        slide_path = await artifact_preview_cache.get_slide_path(
+            record, state.storage_backend, slide_index
+        )
+    except UnsupportedArtifactPreviewError as exc:
+        raise HTTPException(status_code=415, detail=str(exc)) from exc
+    except PreviewSlideNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except ArtifactPreviewError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    return FileResponse(path=slide_path, media_type="image/png")
 
 
 @router.api_route(

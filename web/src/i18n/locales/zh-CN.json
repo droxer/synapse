@@ -143,7 +143,6 @@
   "artifacts.filesCount": "已生成 {count} 个文件",
   "artifacts.preview": "预览",
   "artifacts.previewUnsupported": "此文件类型不支持预览。",
-  "artifacts.previewOfficeLocal": "演示文稿预览需要公开链接，请下载后在本地查看。",
   "artifacts.previewError": "预览加载失败。",
   "artifacts.previewLoading": "正在加载预览...",
   "artifacts.downloadFile": "下载文件",

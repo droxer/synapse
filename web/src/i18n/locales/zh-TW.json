@@ -143,7 +143,6 @@
   "artifacts.filesCount": "已產生 {count} 個檔案",
   "artifacts.preview": "預覽",
   "artifacts.previewUnsupported": "此檔案類型不支援預覽。",
-  "artifacts.previewOfficeLocal": "簡報預覽需要公開連結，請下載後在本機查看。",
   "artifacts.previewError": "預覽載入失敗。",
   "artifacts.previewLoading": "正在載入預覽...",
   "artifacts.downloadFile": "下載檔案",

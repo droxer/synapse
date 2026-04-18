@@ -7,10 +7,8 @@ import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { CodeOutput } from "@/shared/components/ui/code-output";
 import { useTranslation } from "@/i18n";
-import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
 import {
   fileExtension,
-  fileCategoryColor,
   fileIcon,
 } from "@/features/agent-computer/lib/artifact-helpers";
 
@@ -38,8 +36,12 @@ function isXlsxType(ct: string): boolean {
   return ct.includes("spreadsheetml") || ct === "application/vnd.ms-excel";
 }
 
-function isPptxType(ct: string): boolean {
-  return ct.includes("presentationml") || ct === "application/vnd.ms-powerpoint";
+function isPptxType(ct: string, fileName: string): boolean {
+  if (ct.includes("presentationml") || ct === "application/vnd.ms-powerpoint") {
+    return true;
+  }
+  const ext = fileExtension(fileName);
+  return ext === "ppt" || ext === "pptx";
 }
 
 /* ------------------------------------------------------------------ */
@@ -79,23 +81,10 @@ const EXT_TO_LANG: Record<string, string> = {
 /*  Helpers                                                           */
 /* ------------------------------------------------------------------ */
 
-/** Resolve a possibly-relative URL to an absolute URL. */
-function toAbsoluteUrl(url: string): string {
-  if (url.startsWith("http://") || url.startsWith("https://")) return url;
-  if (typeof window === "undefined") return url;
-  return `${window.location.origin}${url.startsWith("/") ? "" : "/"}${url}`;
-}
-
-/** Build a Google Docs Viewer iframe URL for office documents. */
-function googleDocsViewerUrl(artifactUrl: string): string {
-  const absolute = toAbsoluteUrl(artifactUrl);
-  return `https://docs.google.com/gview?url=${encodeURIComponent(absolute)}&embedded=true`;
-}
-
-function isLocalHost(): boolean {
-  if (typeof window === "undefined") return false;
-  const h = window.location.hostname;
-  return h === "localhost" || h === "127.0.0.1" || h === "0.0.0.0";
+function buildArtifactPreviewManifestUrl(artifactUrl: string): string | null {
+  const urlWithoutQuery = artifactUrl.split("?")[0] ?? artifactUrl;
+  if (!urlWithoutQuery) return null;
+  return `${urlWithoutQuery}/preview`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -229,7 +218,20 @@ type ContentState =
   | { status: "idle" }
   | { status: "loading" }
   | { status: "ready"; html?: string; text?: string }
+  | { status: "ppt-ready"; manifest: PptPreviewManifest }
   | { status: "error" };
+
+interface PptPreviewSlide {
+  readonly index: number;
+  readonly image_url: string;
+}
+
+interface PptPreviewManifest {
+  readonly kind: "slides";
+  readonly file_name: string;
+  readonly slide_count: number;
+  readonly slides: readonly PptPreviewSlide[];
+}
 
 export function FilePreview({
   url,
@@ -248,16 +250,16 @@ export function FilePreview({
   const inlineUrl = `${url}${url.includes("?") ? "&" : "?"}inline=1`;
 
   const ext = useMemo(() => fileExtension(fileName), [fileName]);
-  const colors = useMemo(() => fileCategoryColor(ct, fileName), [ct, fileName]);
   const Icon = useMemo(() => fileIcon(ct, fileName), [ct, fileName]);
 
   /* Determine what kind of fetching we need */
-  const fetchMode = useMemo((): "text" | "docx" | "xlsx" | "none" => {
+  const fetchMode = useMemo((): "text" | "docx" | "xlsx" | "ppt" | "none" => {
     if (isCodeType(ct) || isTextType(ct)) return "text";
     if (isDocxType(ct)) return "docx";
     if (isXlsxType(ct)) return "xlsx";
+    if (isPptxType(ct, fileName)) return "ppt";
     return "none";
-  }, [ct]);
+  }, [ct, fileName]);
 
   /* Fetch & convert content */
   useEffect(() => {
@@ -282,6 +284,14 @@ export function FilePreview({
         } else if (fetchMode === "xlsx") {
           const html = await convertXlsxToHtml(inlineUrl);
           if (!cancelled) setContent({ status: "ready", html });
+        } else if (fetchMode === "ppt") {
+          const manifestUrl = buildArtifactPreviewManifestUrl(url);
+          if (!manifestUrl) throw new Error("missing preview manifest url");
+          const res = await fetch(manifestUrl);
+          if (!res.ok) throw new Error("fetch failed");
+          const manifest = (await res.json()) as PptPreviewManifest;
+          if (manifest.kind !== "slides") throw new Error("unsupported preview kind");
+          if (!cancelled) setContent({ status: "ppt-ready", manifest });
         }
       } catch (err) {
         console.error("FilePreview fetch failed:", err);
@@ -293,7 +303,7 @@ export function FilePreview({
     return () => {
       cancelled = true;
     };
-  }, [inlineUrl, fetchMode]);
+  }, [fetchMode, inlineUrl, url]);
 
   const downloadButton = onDownload ? (
     <Button variant="outline" size="sm" onClick={onDownload}>
@@ -415,33 +425,28 @@ export function FilePreview({
     );
   }
 
-  /* ---- PPTX — Google Docs Viewer for public URLs, download fallback ---- */
-  if (isPptxType(ct)) {
-    if (isLocalHost()) {
-      return (
-        <div className={className}>
-          <div className="flex h-48 flex-col items-center justify-center gap-3 text-muted-foreground">
-            <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${colors.bg}`}>
-              <BrandFileTypeIcon
-                name={fileName}
-                contentType={ct}
-                className={`h-6 w-6 ${colors.icon}`}
-              />
-            </div>
-            <p className="text-sm">{t("artifacts.previewOfficeLocal")}</p>
-            {downloadButton}
-          </div>
-        </div>
-      );
-    }
-
+  /* ---- PPT / PPTX (server-rendered slide images) ---- */
+  if (isPptxType(ct, fileName) && content.status === "ppt-ready") {
     return (
       <div className={className}>
-        <iframe
-          src={googleDocsViewerUrl(url)}
-          title={fileName}
-          className="h-[70vh] w-full rounded-md border border-border"
-        />
+        <div className="grid gap-4 sm:grid-cols-2">
+          {content.manifest.slides.map((slide) => (
+            <figure
+              key={slide.index}
+              className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+            >
+              <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+                {`Slide ${slide.index}`}
+              </div>
+              <img
+                src={slide.image_url}
+                alt={`${fileName} slide ${slide.index}`}
+                loading="lazy"
+                className="w-full bg-muted/30 object-contain"
+              />
+            </figure>
+          ))}
+        </div>
       </div>
     );
   }

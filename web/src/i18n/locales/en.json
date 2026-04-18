@@ -143,7 +143,6 @@
   "artifacts.filesCount": "{count} files generated",
   "artifacts.preview": "Preview",
   "artifacts.previewUnsupported": "Preview not available for this file type.",
-  "artifacts.previewOfficeLocal": "Presentation preview requires a public URL. Download to view locally.",
   "artifacts.previewError": "Failed to load preview.",
   "artifacts.previewLoading": "Loading preview...",
   "artifacts.downloadFile": "Download file",

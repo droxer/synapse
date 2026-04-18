@@ -1,0 +1,2314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A系列纸张的秘密</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;0,9..144,900;1,9..144,600&family=Noto+Sans+SC:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+@property --fold-t {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 0;
+}
+
+:root {
+  --bg: #f4ebe1;
+  --bg-deep: #e8dccf;
+  --card: #fffdf9;
+  --ink: #1c1410;
+  --muted: #7a6558;
+  --accent: #d94a1f;
+  --accent-soft: rgba(217, 74, 31, 0.12);
+  --teal: #1f6f5c;
+  --teal-soft: rgba(31, 111, 92, 0.14);
+  --frame: rgba(28, 20, 16, 0.09);
+  --shadow-deep: rgba(22, 14, 10, 0.14);
+  --font-display: 'Fraunces', 'Noto Sans SC', ui-serif, Georgia, serif;
+  --font-ui: 'Noto Sans SC', system-ui, sans-serif;
+  --dim-ruler: #8a7265;
+  --ruler-stroke: 2px;
+  --radius-lg: 26px;
+  --radius-md: 16px;
+  --radius-sm: 11px;
+  /* 右侧「进度条 + 提示 + 结果 + 规律」固定高度，避免内容变化时挤压底部按钮 */
+  --fold-explain-slot-h: 292px;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-ui);
+  color: var(--ink);
+  background: var(--bg);
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 18px 40px;
+  gap: 18px;
+  position: relative;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 120% 80% at 0% 0%, rgba(217, 74, 31, 0.09) 0%, transparent 50%),
+    radial-gradient(ellipse 90% 70% at 100% 100%, rgba(31, 111, 92, 0.11) 0%, transparent 48%),
+    linear-gradient(165deg, var(--bg) 0%, var(--bg-deep) 45%, #efe4d8 100%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  pointer-events: none;
+  z-index: 0;
+}
+
+.page-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+  width: 100%;
+  max-width: min(960px, 100%);
+}
+
+@keyframes riseFade {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.page-wrap > .hero-strip {
+  animation: riseFade 0.58s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+.page-wrap > .tabs {
+  animation: riseFade 0.52s cubic-bezier(0.22, 1, 0.36, 1) 0.07s both;
+}
+.page-wrap > .card {
+  animation: riseFade 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.13s both;
+}
+
+/* ── Hero（标题区） ── */
+.hero-strip {
+  text-align: center;
+  max-width: 34rem;
+  padding: 0 8px;
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: clamp(1.65rem, 4.2vw, 2.45rem);
+  font-weight: 900;
+  font-optical-sizing: auto;
+  color: var(--ink);
+  letter-spacing: -0.02em;
+  line-height: 1.12;
+}
+h1 em {
+  font-style: normal;
+  color: var(--accent);
+  font-weight: 900;
+}
+.sub {
+  margin-top: 10px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  font-weight: 600;
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+
+/* ── Tabs ── */
+.tabs {
+  display: inline-flex;
+  background: rgba(255, 253, 249, 0.72);
+  border: 1px solid var(--frame);
+  border-radius: 999px;
+  padding: 5px;
+  gap: 4px;
+  box-shadow:
+    0 10px 30px var(--shadow-deep),
+    inset 0 1px 0 rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(10px);
+}
+.tab {
+  padding: 9px 24px;
+  border-radius: 999px;
+  border: none;
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: var(--muted);
+  cursor: pointer;
+  background: transparent;
+  transition: color 0.2s, background 0.2s, transform 0.2s, box-shadow 0.2s;
+}
+.tab:hover:not(.on) {
+  color: var(--ink);
+  background: rgba(28, 20, 16, 0.04);
+}
+.tab.on {
+  background: linear-gradient(165deg, #e85a28 0%, var(--accent) 100%);
+  color: #fffdf9;
+  box-shadow: 0 4px 16px rgba(217, 74, 31, 0.35);
+}
+
+/* ── Card（主展柜） ── */
+.card {
+  width: 100%;
+  background: var(--card);
+  border-radius: var(--radius-lg) calc(var(--radius-lg) + 4px) var(--radius-lg) var(--radius-lg);
+  border: 1px solid var(--frame);
+  padding: 26px 22px 30px;
+  box-shadow:
+    0 28px 70px -24px var(--shadow-deep),
+    0 2px 0 rgba(255, 255, 255, 0.95) inset;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 20px;
+}
+
+/* ── Progress（展线） ── */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 0;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 10px 14px;
+  width: 100%;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.9), rgba(240, 232, 222, 0.55));
+  border: 1px solid var(--frame);
+  border-radius: 999px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  scrollbar-width: thin;
+}
+.pdot {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-size: 0.68rem;
+  font-weight: 800;
+  background: rgba(28, 20, 16, 0.06);
+  color: var(--muted);
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.25s, border-color 0.2s;
+  flex-shrink: 0;
+}
+.pdot.curr {
+  width: 46px;
+  height: 46px;
+  font-size: 0.8rem;
+  color: #fffdf9;
+  border-color: rgba(0, 0, 0, 0.08);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.18);
+}
+.pdot.past {
+  color: #fffdf9;
+  opacity: 0.82;
+  border-color: rgba(255, 255, 255, 0.12);
+}
+.pdot:hover {
+  opacity: 1 !important;
+  transform: scale(1.08);
+}
+.pline {
+  width: 14px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(28, 20, 16, 0.08);
+  transition: background 0.45s ease, transform 0.3s;
+  flex-shrink: 0;
+}
+.pline.done {
+  background: linear-gradient(90deg, #2a8f72, #5ec9a8);
+}
+
+/* ── Size display ── */
+.sizeinfo { text-align: center; }
+.sizename {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 8vw, 3.5rem);
+  font-weight: 900;
+  font-optical-sizing: auto;
+  line-height: 0.95;
+  letter-spacing: -0.03em;
+  transition: color 0.45s ease, transform 0.35s ease;
+}
+.sizedims {
+  font-size: 0.92rem;
+  color: var(--muted);
+  font-weight: 700;
+  margin-top: 8px;
+  letter-spacing: 0.04em;
+}
+.sizeratio {
+  font-size: 0.76rem;
+  color: var(--muted);
+  margin-top: 6px;
+  font-weight: 600;
+  opacity: 0.92;
+}
+
+/* ── Scene（折纸陈列台） ── */
+.scene {
+  perspective: 1100px;
+  perspective-origin: 50% 38%;
+  padding: 12px 24px 20px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 260px;
+  overflow: visible;
+}
+
+.pwrap {
+  /* absolute：step>0 时先占满上一档虚线框「下半张」高度，使顶边与虚线折痕对齐；宽度按比例并水平居中 */
+  position: absolute;
+  z-index: 2;
+  /* 折拢后上半区 bbox 内无像素，须铺纸色，否则会透出舞台浅色像「半张漂白」 */
+  background-color: transparent;
+  transform-style: preserve-3d;
+  transform-origin: 50% 50%;
+  --fold-t: 0;
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1), height 0.45s cubic-bezier(0.4, 0, 0.2, 1),
+    --fold-t 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+  /* box-shadow 替代 filter，避免整层合成盖住下层的历史虚线框 */
+  box-shadow: 0 12px 28px rgba(44, 26, 14, 0.22);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.pwrap.folding {
+  transition: width 0.45s cubic-bezier(0.4,0,0.2,1), height 0.45s cubic-bezier(0.4,0,0.2,1),
+    --fold-t 0.78s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pwrap.fold-snap-back:not(.is-dragging) {
+  transition: width 0.45s cubic-bezier(0.4,0,0.2,1), height 0.45s cubic-bezier(0.4,0,0.2,1),
+    --fold-t 0.48s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.pwrap.is-dragging {
+  transition: width 0.45s cubic-bezier(0.4, 0, 0.2, 1), height 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: grabbing;
+}
+
+/* 已折好静置：叠起的厚度感（与 --fold-t:1 配套） */
+.pwrap.pwrap--rest-folded {
+  box-shadow:
+    0 3px 0 rgba(0, 0, 0, 0.07),
+    0 14px 32px rgba(44, 26, 14, 0.24);
+}
+.pwrap.show-fold:not(.folding):not(.is-dragging) {
+  cursor: grab;
+}
+
+/* 对折预览：横向 = 上半区；竖向 = 左半区 */
+.pwrap.pwrap--fold-h.show-fold:not(.folding)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: var(--paper-half, 50%);
+  width: auto;
+  bottom: auto;
+  z-index: 18;
+  pointer-events: none;
+  border-radius: 1px 1px 0 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.05) 60%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  transition: opacity 0.35s ease;
+}
+.pwrap.pwrap--fold-v.show-fold:not(.folding)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: auto;
+  top: 0;
+  bottom: 0;
+  width: var(--paper-mid-w, 50%);
+  height: auto;
+  z-index: 18;
+  pointer-events: none;
+  border-radius: 1px 0 0 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.2) 0%,
+    rgba(255, 255, 255, 0.05) 55%,
+    rgba(0, 0, 0, 0.04) 100%
+  );
+  transition: opacity 0.35s ease;
+}
+/* 已合拢时勿再叠半张高亮预览，否则整段像「漂白」的上半张 */
+.pwrap.pwrap--rest-folded.show-fold:not(.folding)::after {
+  opacity: 0;
+  pointer-events: none;
+}
+.pwrap.folding::after {
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.phalf {
+  position: absolute;
+  left: 0;
+  width: 100%;
+  overflow: hidden;
+}
+.ptop {
+  top: 0;
+  transform-origin: center bottom;
+  /* 3D fold: must override phalf overflow:hidden and enable preserve-3d */
+  overflow: visible;
+  transform-style: preserve-3d;
+  transform: rotateX(calc(var(--fold-t, 0) * -180deg));
+  transition: transform 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  z-index: 3;
+}
+/* 竖向下一折：左半张绕竖轴翻到右半张上（与 step 为奇数时一致） */
+.pwrap.pwrap--fold-v .ptop {
+  transform-origin: right center;
+  transform: rotateY(calc(var(--fold-t, 0) * -180deg));
+}
+.pwrap.is-dragging .ptop {
+  transition: none;
+}
+.pwrap.folding .ptop {
+  transition: transform 0.78s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.pbot { z-index: 2; }
+
+/* ─── Front / back faces inside .ptop ─── */
+.face-f, .face-b {
+  position: absolute;
+  inset: 0;
+  backface-visibility: hidden;
+}
+
+/* Front face: paper colour + top-light sheen */
+.face-f::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(255,255,255,0.28) 0%,
+    rgba(255,255,255,0.04) 50%,
+    rgba(0,0,0,0.04) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+/* Fold shadow: sweeps in as paper tilts */
+.face-f::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.40), rgba(0,0,0,0) 60%);
+  opacity: calc(var(--fold-t, 0) * 0.95);
+  pointer-events: none;
+  z-index: 2;
+}
+.pwrap.pwrap--fold-v .face-f::after {
+  background: linear-gradient(to left, rgba(0,0,0,0.38), rgba(0,0,0,0) 58%);
+}
+
+/* Back face：与正面同色；横折绕 X，竖折绕 Y */
+.face-b {
+  transform: rotateX(180deg);
+}
+.pwrap.pwrap--fold-v .face-b {
+  transform: rotateY(180deg);
+}
+.face-b::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    rgba(0,0,0,0.05) 0%,
+    rgba(0,0,0,0.03) 100%
+  );
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 已折好静置：整块纯色纸感（去掉正面高光、背面浅白、条纹 overlay 与折页预览叠色） */
+.pwrap.pwrap--rest-folded:not(.folding) .face-f::before,
+.pwrap.pwrap--rest-folded:not(.folding) .face-b::before {
+  opacity: 0 !important;
+  background: none !important;
+}
+.pwrap.pwrap--rest-folded:not(.folding) .face-f::after {
+  opacity: 0 !important;
+}
+.pwrap.pwrap--rest-folded:not(.folding) .face-f,
+.pwrap.pwrap--rest-folded:not(.folding) .face-b {
+  background-image: none;
+}
+.pwrap.pwrap--rest-folded:not(.folding) .pbot-shade {
+  background: linear-gradient(to bottom, rgba(0,0,0,0.02), rgba(0,0,0,0.05));
+  background-image: none;
+}
+.pwrap.pwrap--rest-folded:not(.folding) .pbot-shadow {
+  opacity: 0.12;
+}
+
+/* Crease glow line at fold point（横折：底边；竖折：右侧铰链） */
+.fold-crease {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: rgba(255,255,255,0.85);
+  filter: blur(1.5px);
+  opacity: 0;
+  transition: opacity 0.3s;
+  z-index: 30;
+  pointer-events: none;
+}
+.pwrap.pwrap--fold-v .fold-crease {
+  bottom: 0;
+  top: 0;
+  left: auto;
+  right: 0;
+  width: 3px;
+  height: auto;
+  background: rgba(255,255,255,0.75);
+}
+.foldline.vis ~ * .fold-crease,
+.pwrap.show-fold .fold-crease,
+.pwrap.folding  .fold-crease { opacity: calc(0.3 + var(--fold-t, 0) * 0.7); }
+
+/* Landing shadow on bottom half */
+.pbot-shadow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0), rgba(0,0,0,0.20));
+  opacity: calc(var(--fold-t, 0) * 0.88);
+  pointer-events: none;
+  z-index: 8;
+}
+.pwrap.pwrap--fold-v .pbot-shadow {
+  background: linear-gradient(to right, rgba(0,0,0,0), rgba(0,0,0,0.20));
+}
+
+/* Bottom-half existing shading */
+.pbot-shade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to bottom, rgba(0,0,0,0.06), rgba(0,0,0,0.12));
+  pointer-events: none;
+  z-index: 1;
+}
+.pwrap.pwrap--fold-v .pbot-shade {
+  background: linear-gradient(to right, rgba(0,0,0,0.06), rgba(0,0,0,0.11));
+}
+
+/* Paper texture on faces */
+.face-f, .face-b, .pbot-shade {
+  background-image: repeating-linear-gradient(
+    90deg,
+    transparent 0px,
+    transparent 18px,
+    rgba(255,255,255,0.06) 18px,
+    rgba(255,255,255,0.06) 19px
+  );
+  background-blend-mode: overlay;
+}
+
+/* Paper name label */
+.plabel {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-weight: 900;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 2px 10px rgba(0,0,0,0.18);
+  z-index: 20;
+  pointer-events: none;
+  white-space: nowrap;
+  letter-spacing: -0.02em;
+  transition: font-size 0.3s;
+}
+
+/* Fold line：横向 = 水平虚线；竖向 = 竖直虚线 */
+.foldline {
+  position: absolute;
+  left: -10px;
+  right: -10px;
+  top: var(--paper-half, 50%);
+  transform: translateY(-50%);
+  z-index: 25;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+.foldline.foldline--v {
+  top: -10px;
+  bottom: -10px;
+  left: var(--paper-mid-w, 50%);
+  right: auto;
+  width: 0;
+  transform: translateX(-50%);
+}
+.foldline.vis { opacity: 1; }
+.foldline-dash {
+  width: 100%;
+  border-top: var(--ruler-stroke) dashed rgba(255,255,255,0.92);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.28);
+}
+.foldline.foldline--v .foldline-dash {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  transform: translateX(-50%);
+  width: 0;
+  height: auto;
+  border-top: none;
+  border-left: var(--ruler-stroke) dashed rgba(255,255,255,0.92);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.28);
+}
+.foldline-tag {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: white;
+  border-radius: 20px;
+  padding: 3px 10px;
+  font-size: 0.68rem;
+  font-weight: 900;
+  color: var(--ink);
+  box-shadow: 0 2px 10px rgba(0,0,0,0.12);
+  white-space: nowrap;
+  animation: tagpulse 1.2s ease-in-out infinite;
+}
+@keyframes tagpulse {
+  0%,100% { transform: translate(-50%,-50%) scale(1); }
+  50%      { transform: translate(-50%,-50%) scale(1.08); }
+}
+.foldline.foldline--v .foldline-tag {
+  left: calc(100% + 10px);
+  top: 50%;
+  transform: translateY(-50%);
+  max-width: min(200px, 42vw);
+  white-space: normal;
+  text-align: left;
+  line-height: 1.25;
+  animation: tagpulseV 1.2s ease-in-out infinite;
+}
+@keyframes tagpulseV {
+  0%,100% { transform: translateY(-50%) scale(1); }
+  50%      { transform: translateY(-50%) scale(1.05); }
+}
+
+/* ── Fold hint ── */
+.fold-hint {
+  width: 100%;
+  max-width: 520px;
+  min-height: 2.75rem;
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 253, 249, 0.65);
+  border: 1px dashed rgba(217, 74, 31, 0.35);
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.5;
+  text-align: center;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  transition: opacity 0.25s ease, border-color 0.25s ease, box-shadow 0.25s;
+}
+.fold-hint:empty {
+  display: none;
+}
+/* 折叠侧栏内：空提示仍占位，避免高度塌陷顶动按钮 */
+.fold-explain-slot .fold-hint:empty {
+  display: block;
+  visibility: hidden;
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
+.fold-hint .kbd {
+  display: inline-block;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: rgba(44, 26, 14, 0.08);
+  font-size: 0.78em;
+  font-weight: 900;
+}
+
+/* ── Fold result card ── */
+#fold-result {
+  width: 100%;
+  max-width: 520px;
+}
+.fr-init {
+  background: linear-gradient(90deg, var(--accent-soft), rgba(255, 253, 249, 0.4));
+  border-left: 4px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 12px 16px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.55;
+}
+.fr-card {
+  background: linear-gradient(160deg, rgba(255, 253, 249, 0.95), rgba(238, 228, 216, 0.55));
+  border: 1px solid var(--frame);
+  border-radius: var(--radius-md);
+  padding: 14px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+  animation: frIn 0.45s cubic-bezier(0.34, 1.3, 0.64, 1);
+}
+@keyframes frIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0)   scale(1); }
+}
+.fr-col {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+}
+.fr-label {
+  font-size: 0.72rem;
+  font-weight: 800;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.fr-pname {
+  font-size: 1.3rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.fr-rect {
+  border-radius: 2px;
+  border: 2.5px solid;
+  flex-shrink: 0;
+}
+.fr-dims {
+  font-size: 0.70rem;
+  font-weight: 800;
+  color: var(--ink);
+  text-align: center;
+  line-height: 1.45;
+}
+.fr-area {
+  font-size: 0.80rem;
+  font-weight: 900;
+  text-align: center;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+.fr-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+  flex-shrink: 0;
+  padding: 0 4px;
+}
+.fr-divbadge {
+  background: var(--accent);
+  color: white;
+  border-radius: 12px;
+  padding: 3px 10px;
+  font-size: 0.80rem;
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 2px 6px rgba(255,107,53,0.30);
+}
+.fr-arr { font-size: 1.4rem; color: var(--accent); line-height: 1; }
+.fr-note {
+  font-size: 0.60rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.fr-special {
+  margin-top: 8px;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 800;
+  color: var(--accent);
+  animation: frIn 0.4s ease;
+}
+
+/* ── Dimension rulers: dashed, ticks flush with paper edges ── */
+.dim-w {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -44px;
+  height: 44px;
+  pointer-events: none;
+  z-index: 40;
+}
+.dim-w-inner {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-end;
+  width: 100%;
+  height: 100%;
+  padding-bottom: 4px;
+  box-sizing: border-box;
+}
+.dim-w-tick {
+  flex-shrink: 0;
+  width: 0;
+  height: 12px;
+  border-left: var(--ruler-stroke) dashed var(--dim-ruler);
+  opacity: 0.9;
+}
+.dim-w-tick--r {
+  border-left: none;
+  border-right: var(--ruler-stroke) dashed var(--dim-ruler);
+}
+.dim-w-track {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+  height: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.dim-w-dash {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  border: none;
+  border-top: var(--ruler-stroke) dashed var(--dim-ruler);
+  opacity: 0.92;
+}
+.dim-w-label {
+  position: absolute;
+  left: 50%;
+  top: -2px;
+  transform: translateX(-50%);
+  z-index: 1;
+  padding: 3px 8px;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: clamp(0.62rem, 1.5vw, 0.8rem);
+  font-weight: 800;
+  color: var(--muted);
+  white-space: nowrap;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset;
+}
+
+/* Right-edge height: vertical dashed line sits on paper’s right side (left: 100%) */
+.dim-h {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 100%;
+  width: 42px;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  pointer-events: none;
+  z-index: 40;
+}
+.dim-h-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+}
+.dim-h-tick {
+  flex-shrink: 0;
+  width: 11px;
+  height: 0;
+  border-top: var(--ruler-stroke) dashed var(--dim-ruler);
+  opacity: 0.9;
+  align-self: flex-start;
+}
+.dim-h-tick--b {
+  border-top: none;
+  border-bottom: var(--ruler-stroke) dashed var(--dim-ruler);
+}
+.dim-h-track {
+  flex: 1;
+  position: relative;
+  min-height: 32px;
+  width: 100%;
+  min-width: 0;
+}
+.dim-h-dash {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 0;
+  border: none;
+  border-left: var(--ruler-stroke) dashed var(--dim-ruler);
+  opacity: 0.92;
+}
+.dim-h-label {
+  position: absolute;
+  left: 13px;
+  top: 50%;
+  z-index: 1;
+  padding: 5px 3px;
+  max-width: 2.1rem;
+  background: var(--bg);
+  border-radius: 8px;
+  font-size: clamp(0.58rem, 1.4vw, 0.72rem);
+  font-weight: 800;
+  color: var(--muted);
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  transform: translateY(-50%) rotate(180deg);
+  line-height: 1.25;
+  text-align: center;
+  letter-spacing: 0.02em;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.9) inset;
+}
+
+/* Flash animation when dims change */
+@keyframes dimPop {
+  0%   { color: var(--accent); transform: scale(1.18); }
+  60%  { color: var(--accent); transform: scale(1.05); }
+  100% { color: inherit;       transform: scale(1); }
+}
+.dim-flash .sizedims {
+  animation: dimPop 0.55s cubic-bezier(0.34,1.56,0.64,1) forwards;
+}
+
+/* ÷2 badge that floats up after fold */
+.half-badge {
+  position: absolute;
+  top: 30%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--accent);
+  color: white;
+  font-size: 1rem;
+  font-weight: 900;
+  padding: 5px 14px;
+  border-radius: 20px;
+  box-shadow: 0 3px 12px rgba(255,107,53,0.45);
+  pointer-events: none;
+  z-index: 50;
+  white-space: nowrap;
+  animation: floatUp 1.2s cubic-bezier(0.2,0,0.4,1) forwards;
+}
+@keyframes floatUp {
+  0%   { opacity: 0; transform: translateX(-50%) translateY(0)   scale(0.7); }
+  25%  { opacity: 1; transform: translateX(-50%) translateY(-8px) scale(1.05); }
+  70%  { opacity: 1; transform: translateX(-50%) translateY(-22px) scale(1); }
+  100% { opacity: 0; transform: translateX(-50%) translateY(-42px) scale(0.9); }
+}
+
+/* ── Math secret banner ── */
+.math-banner {
+  width: 100%;
+  max-width: 500px;
+  background: linear-gradient(135deg, var(--teal-soft), rgba(255, 253, 249, 0.5));
+  border: 1px solid rgba(31, 111, 92, 0.22);
+  border-radius: var(--radius-sm);
+  padding: 12px 14px;
+  text-align: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--teal);
+  line-height: 1.55;
+  letter-spacing: 0.02em;
+}
+.math-banner strong {
+  font-family: var(--font-display);
+  font-size: 1.02rem;
+  font-weight: 800;
+}
+
+/* ── Buttons ── */
+.btns {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.btn {
+  padding: 10px 18px;
+  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  font-family: var(--font-ui);
+  font-size: 0.86rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.2s ease, background 0.2s ease, border-color 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+.btn:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.btn-main {
+  background: linear-gradient(165deg, #e85a28 0%, var(--accent) 100%);
+  color: #fffdf9;
+  font-size: 0.95rem;
+  padding: 12px 22px;
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 20px rgba(217, 74, 31, 0.32);
+}
+.btn-main:hover:not(:disabled) {
+  box-shadow: 0 10px 28px rgba(217, 74, 31, 0.4);
+  transform: translateY(-2px);
+}
+.btn-sec {
+  background: rgba(28, 20, 16, 0.05);
+  color: var(--ink);
+  border-color: var(--frame);
+}
+.btn-sec:hover:not(:disabled) {
+  background: rgba(28, 20, 16, 0.08);
+  border-color: rgba(28, 20, 16, 0.12);
+}
+
+/* ── Auto-play button ── */
+.btn-play {
+  background: linear-gradient(165deg, #2a8f72 0%, #1f6f5c 100%);
+  color: #f4fffb;
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(0, 0, 0, 0.06);
+  box-shadow: 0 6px 18px rgba(31, 111, 92, 0.28);
+}
+.btn-play:hover:not(:disabled) {
+  box-shadow: 0 10px 26px rgba(31, 111, 92, 0.34);
+  transform: translateY(-2px);
+}
+.btn-play.playing {
+  background: linear-gradient(165deg, #f0a030 0%, #d97a12 100%);
+  color: #1c1410;
+  box-shadow: 0 6px 18px rgba(217, 122, 18, 0.35);
+}
+.btn-play.playing:hover {
+  box-shadow: 0 10px 26px rgba(217, 122, 18, 0.42);
+}
+
+/* ── Countdown bar ── */
+#auto-bar {
+  width: 100%;
+  max-width: 320px;
+  height: 5px;
+  background: #F0E6DA;
+  border-radius: 3px;
+  overflow: hidden;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+#auto-bar.vis { opacity: 1; }
+#auto-bar-fill {
+  height: 100%;
+  width: 0;
+  border-radius: 3px;
+}
+@keyframes countfill {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* ── Views ── */
+#fold-view {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 16px;
+  width: 100%;
+}
+
+/* 折叠演示：左纸张舞台，右说明与操作 */
+.fold-main-split {
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  justify-content: center;
+  gap: clamp(14px, 2.5vw, 28px);
+  width: 100%;
+}
+.fold-scene-col {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+.fold-scene-col .scene {
+  padding: 16px 14px 56px;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  background:
+    linear-gradient(145deg, rgba(255, 253, 249, 0.97) 0%, rgba(245, 236, 226, 0.88) 55%, rgba(235, 224, 210, 0.92) 100%);
+  border: 1px solid var(--frame);
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.9),
+    0 16px 48px -20px var(--shadow-deep);
+}
+/* 固定宽度 + 与左侧等高：按钮 margin-top:auto 贴底 */
+.fold-side-col {
+  flex: 0 0 320px;
+  width: 320px;
+  min-width: 320px;
+  max-width: 320px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 12px;
+  padding: 18px 14px 16px;
+  background: rgba(255, 253, 249, 0.55);
+  border: 1px solid var(--frame);
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.75),
+    0 12px 36px -18px var(--shadow-deep);
+  backdrop-filter: blur(12px);
+}
+.fold-side-col .sizeinfo {
+  text-align: left;
+}
+.fold-side-col .sizename {
+  font-size: clamp(2.1rem, 5vw, 2.85rem);
+  line-height: 0.95;
+}
+.fold-side-col .fold-hint {
+  max-width: none;
+  text-align: left;
+}
+.fold-side-col #fold-result {
+  max-width: none;
+}
+.fold-side-col .fr-card {
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+}
+.fold-side-col .fr-col {
+  width: 100%;
+}
+.fold-side-col .fr-mid {
+  flex-direction: row;
+  width: 100%;
+  justify-content: center;
+  padding: 6px 0;
+}
+.fold-side-col .math-banner {
+  text-align: left;
+  width: 100%;
+}
+.fold-side-col #auto-bar {
+  max-width: none;
+  width: 100%;
+}
+
+/* 说明区固定槽位：内部可滚动，底部按钮位置稳定 */
+.fold-explain-slot {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: var(--fold-explain-slot-h);
+  min-height: var(--fold-explain-slot-h);
+  max-height: var(--fold-explain-slot-h);
+  flex-shrink: 0;
+  min-width: 0;
+  overflow: hidden;
+}
+.fold-explain-slot #auto-bar {
+  flex-shrink: 0;
+}
+.fold-explain-slot .fold-hint {
+  flex-shrink: 0;
+  max-height: 4.5rem;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fold-explain-slot #fold-result {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fold-explain-slot .math-banner {
+  flex-shrink: 0;
+}
+
+.fold-side-col .btns {
+  justify-content: flex-start;
+  margin-top: auto;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+@media (max-width: 700px) {
+  .fold-main-split {
+    flex-direction: column;
+    align-items: center;
+  }
+  .fold-scene-col,
+  .fold-side-col {
+    flex: 1 1 auto;
+    width: 100%;
+    max-width: 520px;
+    min-width: 0;
+  }
+  .fold-side-col .sizeinfo {
+    text-align: center;
+  }
+  .fold-side-col .btns {
+    justify-content: center;
+    margin-top: 0;
+  }
+  .fold-side-col .fold-hint,
+  .fold-side-col .math-banner {
+    text-align: center;
+  }
+  .fold-side-col {
+    padding: 14px 12px;
+  }
+  .fold-scene-col .scene {
+    padding: 12px 10px 44px;
+  }
+  .fold-explain-slot {
+    --fold-explain-slot-h: 268px;
+  }
+}
+#cmp-view {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+}
+#cmp-view.on { display: flex; }
+
+/* ── Comparison ── */
+.cmp-scene {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 5px;
+  width: 100%;
+  height: 300px;
+  padding-bottom: 32px;
+  overflow-x: auto;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+.cpaper {
+  flex-shrink: 0;
+  position: relative;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  box-shadow: 2px 3px 10px rgba(0,0,0,0.14);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 5px;
+}
+.cpaper:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: 2px 8px 16px rgba(0,0,0,0.20);
+}
+.clabel {
+  font-weight: 900;
+  color: rgba(255,255,255,0.95);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.22);
+  line-height: 1;
+}
+.cdims {
+  position: absolute;
+  bottom: -26px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.58rem;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  text-align: center;
+}
+
+.fact-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.fact-chip {
+  background: #F5EDE4;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+  cursor: pointer;
+  transition: all 0.15s;
+  border-left: 3px solid transparent;
+}
+.fact-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+/* ── Fold stage: stacked historical dashed frames (A0…A(n-1)) + current paper ── */
+#fold-stage {
+  position: relative;
+  display: block;
+  /* 裁掉 3D 折页 + 阴影在透视下略超出舞台的像素，避免看起来比 A0 虚线框还「长一截」 */
+  overflow: hidden;
+  transition: width 0.45s cubic-bezier(0.4,0,0.2,1), height 0.45s cubic-bezier(0.4,0,0.2,1);
+  flex-shrink: 0;
+}
+
+#ghost-stack {
+  position: absolute;
+  left: 0;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* 虚线框：折痕样式见 ghost--h / ghost--v；位置与尺寸由 JS 按 paperStackRect(i) 与实体纸一致（不再整档居中重算） */
+.ghost-hist {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  border: var(--ruler-stroke) dashed rgba(44, 26, 14, 0.42);
+  border-radius: 2px;
+  background: transparent;
+  box-shadow: none;
+  overflow: visible;
+}
+
+/* 横向折痕：上半 / 下半（A0→A1、A2→A3 …） */
+.ghost-hist.ghost--h::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: auto;
+  height: var(--gh-half, 50%);
+  z-index: 0;
+  border-radius: 1px 1px 0 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 107, 53, 0.07) 0%,
+    rgba(44, 26, 14, 0.03) 100%
+  );
+  pointer-events: none;
+}
+.ghost-hist.ghost--h::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: var(--gh-half, 50%);
+  bottom: 0;
+  z-index: 0;
+  border-radius: 0 0 1px 1px;
+  background: linear-gradient(
+    180deg,
+    rgba(6, 214, 160, 0.06) 0%,
+    rgba(44, 26, 14, 0.025) 100%
+  );
+  pointer-events: none;
+}
+.ghost-hist.ghost--h .ghost-crease {
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  top: var(--gh-half, 50%);
+  transform: translateY(-50%);
+  z-index: 2;
+  border: none;
+  border-top: var(--ruler-stroke) dashed rgba(44, 26, 14, 0.38);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 248, 238, 0.5);
+}
+
+/* 竖向折痕：左半 / 右半（A1→A2、A3→A4 …） */
+.ghost-hist.ghost--v::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: auto;
+  top: 0;
+  bottom: 0;
+  width: var(--gw-half, 50%);
+  z-index: 0;
+  border-radius: 1px 0 0 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 107, 53, 0.07) 0%,
+    rgba(44, 26, 14, 0.03) 100%
+  );
+  pointer-events: none;
+}
+.ghost-hist.ghost--v::after {
+  content: '';
+  position: absolute;
+  left: var(--gw-half, 50%);
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+  border-radius: 0 1px 1px 0;
+  background: linear-gradient(
+    90deg,
+    rgba(6, 214, 160, 0.06) 0%,
+    rgba(44, 26, 14, 0.025) 100%
+  );
+  pointer-events: none;
+}
+.ghost-hist.ghost--v .ghost-crease {
+  position: absolute;
+  top: -4px;
+  bottom: -4px;
+  left: var(--gw-half, 50%);
+  transform: translateX(-50%);
+  width: 0;
+  z-index: 2;
+  border: none;
+  border-left: var(--ruler-stroke) dashed rgba(44, 26, 14, 0.38);
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(255, 248, 238, 0.5);
+}
+
+.ghost-hist-lbl {
+  position: absolute;
+  top: 5px;
+  left: 6px;
+  z-index: 3;
+  font-size: 0.62rem;
+  font-weight: 900;
+  color: rgba(44, 26, 14, 0.7);
+  letter-spacing: -0.02em;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.85);
+  pointer-events: none;
+}
+.ghost-hist-dims {
+  position: absolute;
+  bottom: 5px;
+  right: 6px;
+  z-index: 3;
+  font-size: 0.55rem;
+  font-weight: 800;
+  color: var(--muted);
+  text-align: right;
+  line-height: 1.35;
+  pointer-events: none;
+}
+
+/* ── Confetti ── */
+@keyframes fall {
+  0%   { transform: translateY(-30px) rotate(0deg); opacity: 1; }
+  100% { transform: translateY(80px)  rotate(420deg); opacity: 0; }
+}
+.conf {
+  position: fixed;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  pointer-events: none;
+  z-index: 200;
+  animation: fall 1s ease-in forwards;
+}
+
+/* ── Celebrate message ── */
+.celebrate {
+  font-size: 1.2rem;
+  font-weight: 900;
+  color: var(--accent);
+  text-align: center;
+  animation: popIn 0.4s cubic-bezier(0.34,1.56,0.64,1);
+}
+@keyframes popIn {
+  0%   { transform: scale(0.6); opacity: 0; }
+  100% { transform: scale(1);   opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page-wrap > .hero-strip,
+  .page-wrap > .tabs,
+  .page-wrap > .card {
+    animation: none !important;
+  }
+  .ptop,
+  .pwrap.folding,
+  .pwrap.fold-snap-back {
+    transition-duration: 0.08s !important;
+  }
+  .foldline-tag {
+    animation: none !important;
+  }
+}
+</style>
+</head>
+<body>
+<div class="page-wrap">
+
+  <header class="hero-strip">
+    <h1>A系列纸张的<em>秘密</em> ✨</h1>
+    <p class="sub">探究三：为什么 A 系列纸张越来越小，比例却不变？</p>
+  </header>
+
+  <div class="tabs">
+    <button class="tab on" id="tab-fold" onclick="switchTab('fold')">📄 折叠演示</button>
+    <button class="tab"    id="tab-cmp"  onclick="switchTab('cmp')">📊 尺寸对比</button>
+  </div>
+
+  <div class="card">
+
+    <!-- ═══ FOLD VIEW ═══ -->
+    <div id="fold-view">
+
+      <div class="progress" id="prog"></div>
+
+      <div class="fold-main-split">
+        <div class="fold-scene-col">
+          <div class="scene">
+            <div id="fold-stage">
+            <div id="ghost-stack" aria-hidden="true"></div>
+            <div class="pwrap" id="pwrap">
+              <div class="phalf ptop" id="ptop">
+                <div class="face-f" id="face-f"></div>
+                <div class="face-b" id="face-b"></div>
+                <div class="fold-crease"></div>
+              </div>
+              <div class="phalf pbot" id="pbot">
+                <div class="pbot-shade"></div>
+                <div class="pbot-shadow"></div>
+              </div>
+              <div class="plabel" id="plabel">A0</div>
+              <div class="foldline" id="fline">
+                <div class="foldline-dash" id="fline-dash"></div>
+                <div class="foldline-tag" id="fline-tag">沿中线对折</div>
+              </div>
+              <div class="dim-w" id="dim-w">
+                <div class="dim-w-inner">
+                  <span class="dim-w-tick dim-w-tick--l" aria-hidden="true"></span>
+                  <div class="dim-w-track">
+                    <span class="dim-w-dash" aria-hidden="true"></span>
+                    <span class="dim-w-label" id="dim-w-text">A0 · 宽 841 mm</span>
+                  </div>
+                  <span class="dim-w-tick dim-w-tick--r" aria-hidden="true"></span>
+                </div>
+              </div>
+              <div class="dim-h" id="dim-h">
+                <div class="dim-h-inner">
+                  <span class="dim-h-tick dim-h-tick--t" aria-hidden="true"></span>
+                  <div class="dim-h-track">
+                    <span class="dim-h-dash" aria-hidden="true"></span>
+                    <div class="dim-h-label" id="dim-h-text">A0 · 高 1189 mm</div>
+                  </div>
+                  <span class="dim-h-tick dim-h-tick--b" aria-hidden="true"></span>
+                </div>
+              </div>
+            </div><!-- /pwrap -->
+            </div><!-- /fold-stage -->
+          </div><!-- /scene -->
+        </div>
+
+        <aside class="fold-side-col" aria-label="说明与操作">
+          <div class="sizeinfo">
+            <div class="sizename" id="sname">A0</div>
+            <div class="sizedims" id="sdims">841mm × 1189mm</div>
+            <div class="sizeratio" id="sratio">高 ÷ 宽 = 1.414 ≈ √2</div>
+          </div>
+
+          <div class="fold-explain-slot">
+            <div id="auto-bar"><div id="auto-bar-fill"></div></div>
+            <div class="fold-hint" id="hint" role="status" aria-live="polite"></div>
+            <div id="fold-result"><div class="fr-init">📐 <strong>A0</strong> 面积正好是 <strong>1 平方米</strong>！点击"对折"，看看会变成什么。</div></div>
+            <div class="math-banner" id="math-banner">
+              🔍 <strong>神奇规律：</strong>
+              每次对折，<em>面积减半</em>，但长宽<em>比例不变</em>（始终是 1 : √2 ≈ 1 : 1.414）
+            </div>
+          </div>
+
+          <div class="btns">
+            <button class="btn btn-sec" id="prevBtn" onclick="go(-1)" disabled>← 上一张</button>
+            <button class="btn btn-main" id="foldBtn" onclick="doFold()">✂️ 对折！</button>
+            <button class="btn btn-play" id="autoBtn" onclick="toggleAuto()">▶ 自动播放</button>
+            <button class="btn btn-sec" onclick="reset()">🔄 重置</button>
+          </div>
+        </aside>
+      </div><!-- /fold-main-split -->
+
+    </div>
+
+    <!-- ═══ COMPARE VIEW ═══ -->
+    <div id="cmp-view">
+      <div class="cmp-scene" id="cmpScene"></div>
+      <div style="font-size:0.80rem;color:var(--muted);text-align:center;font-weight:700">
+        👆 点击任意纸张，切换到折叠演示
+      </div>
+      <div class="fact-grid" id="factGrid"></div>
+    </div>
+
+  </div><!-- /card -->
+</div><!-- /page-wrap -->
+
+<script>
+/* ─────────── Data ─────────── */
+const P = [
+  { n:'A0', w:841,  h:1189, c:'#C97B3E', fact:'面积正好是 1 平方米！是最大的标准纸张。' },
+  { n:'A1', w:594,  h:841,  c:'#C9504E', fact:'把 A0 对折一次得到，常用于工程图纸。' },
+  { n:'A2', w:420,  h:594,  c:'#C48B20', fact:'常用于大型海报、挂图和地图。' },
+  { n:'A3', w:297,  h:420,  c:'#3A9E72', fact:'是 A4 整整两倍大，常用于学校展示。' },
+  { n:'A4', w:210,  h:297,  c:'#2E7DB8', fact:'全球最常用的打印纸，作业本常见尺寸！' },
+  { n:'A5', w:148,  h:210,  c:'#7B52B8', fact:'常见于小本子、手册和练习册。' },
+  { n:'A6', w:105,  h:148,  c:'#B83D72', fact:'标准明信片就是这个大小！' },
+  { n:'A7', w:74,   h:105,  c:'#B85C28', fact:'小便利贴常见尺寸，比手掌还小！' },
+];
+
+/* ─────────── State ─────────── */
+let step = 0;
+let foldShown = false;
+let animating = false;
+let autoPlaying = false;
+let autoTimer = null;
+
+/* ─────────── Sizing ─────────── */
+// A0 在舞台上的最大像素（宽高取 min 保持比例）；调大则整链纸张同步放大
+const BASE_SCALE = Math.min(360 / P[0].w, 505 / P[0].h);
+
+function displaySz(i) {
+  const p = P[i];
+  return { w: Math.round(p.w * BASE_SCALE), h: Math.round(p.h * BASE_SCALE) };
+}
+
+/** 从 P[i] 折到 P[i+1]：i 为偶数 → 横向折痕（上下）；i 为奇数 → 竖向折痕（左右） */
+function ghostFoldVerticalFromIndex(i) {
+  return (i % 2) === 1;
+}
+
+/** 当前 pwrap 内交互折线：step 为奇数时竖折（A1→A2、A3→A4…），偶数时横折 */
+function interactionFoldVertical(s) {
+  return s >= 1 && (s % 2) === 1;
+}
+
+/**
+ * 第 s 档纸在 #fold-stage 内的矩形（left / bottom 为 CSS 像素，bottom 贴舞台底）：
+ * 从 A0 起每次只在「上一张」上裁保留下半或保留右半，不每步按 displaySz 再居中，避免纸片跳位。
+ */
+function paperStackRect(s) {
+  const d0 = displaySz(0);
+  if (s === 0) {
+    const w = d0.w;
+    const h = d0.h;
+    const left = Math.round((d0.w - w) / 2);
+    return { w, h, left, bottom: 0 };
+  }
+  const prev = paperStackRect(s - 1);
+  if (ghostFoldVerticalFromIndex(s - 1)) {
+    const cut = Math.floor(prev.w / 2);
+    return {
+      w: Math.max(2, prev.w - cut),
+      h: Math.max(2, prev.h),
+      left: prev.left + cut,
+      bottom: prev.bottom,
+    };
+  }
+  const cut = Math.floor(prev.h / 2);
+  return {
+    w: Math.max(2, prev.w),
+    h: Math.max(2, prev.h - cut),
+    left: prev.left,
+    bottom: prev.bottom,
+  };
+}
+
+/* ─────────── Render ─────────── */
+function render() {
+  const p = P[step];
+
+  /* 先固定 A0 画布并画好历史虚线框，再叠当前纸张，避免下层尺寸为 0 或未绘制 */
+  const stage = document.getElementById('fold-stage');
+  const d0 = displaySz(0);
+  stage.style.width = d0.w + 'px';
+  stage.style.height = d0.h + 'px';
+
+  const stack = document.getElementById('ghost-stack');
+  if (stack) {
+    stack.innerHTML = '';
+    if (step > 0) {
+      for (let i = 0; i < step; i++) {
+        const Ri = paperStackRect(i);
+        const pi = P[i];
+        const frame = document.createElement('div');
+        frame.className = 'ghost-hist ' + (ghostFoldVerticalFromIndex(i) ? 'ghost--v' : 'ghost--h');
+        frame.style.width = Ri.w + 'px';
+        frame.style.height = Ri.h + 'px';
+        frame.style.left = Ri.left + 'px';
+        frame.style.bottom = Ri.bottom + 'px';
+        frame.style.transform = 'none';
+        frame.style.setProperty('--gh-half', Math.floor(Ri.h / 2) + 'px');
+        frame.style.setProperty('--gw-half', Math.floor(Ri.w / 2) + 'px');
+        frame.style.zIndex = String(i + 1);
+        const gl = document.createElement('span');
+        gl.className = 'ghost-hist-lbl';
+        gl.textContent = pi.n;
+        const gd = document.createElement('span');
+        gd.className = 'ghost-hist-dims';
+        gd.textContent = `${pi.w}×${pi.h} mm`;
+        const cr = document.createElement('div');
+        cr.className = 'ghost-crease';
+        cr.setAttribute('aria-hidden', 'true');
+        cr.title = `${pi.n}：沿虚线对折得到下一档`;
+        frame.appendChild(gl);
+        frame.appendChild(gd);
+        frame.appendChild(cr);
+        stack.appendChild(frame);
+      }
+    }
+  }
+
+  const Rcur = paperStackRect(step);
+  const d = { w: Rcur.w, h: Rcur.h };
+  const leftPx = Rcur.left;
+  const bottomPx = Rcur.bottom;
+
+  const wrap = document.getElementById('pwrap');
+
+  wrap.style.width = d.w + 'px';
+  wrap.style.height = d.h + 'px';
+  wrap.style.left = leftPx + 'px';
+  wrap.style.bottom = bottomPx + 'px';
+  wrap.style.right = 'auto';
+  wrap.style.top = 'auto';
+  wrap.style.backgroundColor = step === 0 ? 'transparent' : p.c;
+
+  wrap.classList.remove('folding', 'show-fold', 'is-dragging', 'fold-snap-back');
+
+  const ixV = interactionFoldVertical(step);
+  if (step === 0) {
+    wrap.classList.remove('pwrap--fold-v');
+    wrap.classList.add('pwrap--fold-h');
+  } else if (ixV) {
+    wrap.classList.add('pwrap--fold-v');
+    wrap.classList.remove('pwrap--fold-h');
+  } else {
+    wrap.classList.remove('pwrap--fold-v');
+    wrap.classList.add('pwrap--fold-h');
+  }
+
+  const fline = document.getElementById('fline');
+  fline.classList.toggle('foldline--v', ixV);
+  const ftag = document.getElementById('fline-tag');
+  if (step >= P.length - 1) {
+    ftag.textContent = '已达 A7';
+  } else if (ixV) {
+    ftag.textContent = '沿竖直中线 · 左半折向右侧';
+  } else {
+    ftag.textContent = '沿水平中线 · 上半向下';
+  }
+
+  let hh = 0;
+  let hb = 0;
+  let ww = 0;
+  let wr = 0;
+  if (step === 0 || !ixV) {
+    hh = Math.floor(d.h / 2);
+    hb = d.h - hh;
+    wrap.style.setProperty('--paper-half', hh + 'px');
+    wrap.style.removeProperty('--paper-mid-w');
+  } else {
+    ww = Math.floor(d.w / 2);
+    wr = d.w - ww;
+    wrap.style.setProperty('--paper-mid-w', ww + 'px');
+    wrap.style.removeProperty('--paper-half');
+  }
+
+  const top = document.getElementById('ptop');
+  const bot = document.getElementById('pbot');
+  if (step === 0 || !ixV) {
+    top.style.cssText = `height:${hh}px;top:0;left:0;width:100%;`;
+    bot.style.cssText = `height:${hb}px;top:${hh}px;left:0;width:100%;`;
+  } else {
+    top.style.cssText = `height:${d.h}px;width:${ww}px;top:0;left:0;`;
+    bot.style.cssText = `height:${d.h}px;width:${wr}px;top:0;left:${ww}px;`;
+  }
+  document.getElementById('face-f').style.backgroundColor = p.c;
+  document.getElementById('face-b').style.backgroundColor = p.c;
+
+  bot.style.backgroundColor = p.c;
+
+  const lbl = document.getElementById('plabel');
+  lbl.textContent = p.n;
+  lbl.style.fontSize = Math.max(7, Math.min(d.w * 0.32, 56)) + 'px';
+  lbl.style.display = '';
+
+  document.getElementById('sname').textContent  = p.n;
+  document.getElementById('sname').style.color  = p.c;
+  document.getElementById('sdims').textContent  = `${p.w}mm × ${p.h}mm`;
+  const ratio = (p.h / p.w).toFixed(3);
+  document.getElementById('sratio').textContent = `高 ÷ 宽 = ${ratio} ≈ √2`;
+
+  /* 舞台上对折后往往是「横铺」在上一张的下半区：屏幕横向对应长边、纵向对应短边，与 canonical 宽/高可对调 */
+  if (step === 0 || d.w < d.h) {
+    document.getElementById('dim-w-text').textContent = `${p.n} · 宽 ${p.w} mm`;
+    document.getElementById('dim-h-text').textContent = `${p.n} · 高 ${p.h} mm`;
+  } else {
+    document.getElementById('dim-w-text').textContent = `${p.n} · 宽 ${Math.max(p.w, p.h)} mm`;
+    document.getElementById('dim-h-text').textContent = `${p.n} · 高 ${Math.min(p.w, p.h)} mm`;
+  }
+
+  fline.classList.remove('vis');
+  foldShown = false;
+
+  /* A1+：静止时展示 3D 合拢（半张已翻下叠在下半张上），不是单纯缩小平面 */
+  if (step === 0) {
+    wrap.classList.remove('pwrap--rest-folded');
+    wrap.style.setProperty('--fold-t', '0');
+  } else {
+    wrap.classList.add('pwrap--rest-folded');
+    wrap.style.setProperty('--fold-t', '1');
+  }
+
+  const isLast = step === P.length - 1;
+  const fb = document.getElementById('foldBtn');
+  fb.disabled   = isLast;
+  fb.textContent = '✂️ 对折！';
+
+  document.getElementById('prevBtn').disabled = step === 0;
+
+  updateFoldResult();
+  buildProgress();
+}
+
+const AREAS = ['1 m²', '½ m²', '¼ m²', '⅛ m²', '1/16 m²', '1/32 m²', '1/64 m²', '1/128 m²'];
+
+function updateFoldResult() {
+  const el = document.getElementById('fold-result');
+
+  if (step === 0) {
+    el.innerHTML = `<div class="fr-init">📐 <strong>A0</strong> 面积正好是 <strong>1 平方米</strong>！点击"对折"，看看会变成什么。</div>`;
+    return;
+  }
+
+  const from = P[step - 1];
+  const to   = P[step];
+
+  // Mini rect: scale so FROM paper height = 54px; TO will be exactly half
+  const scale = 54 / from.h;
+  const fW = Math.max(4, Math.round(from.w * scale));
+  const fH = Math.round(from.h * scale);
+  const tW = Math.max(4, Math.round(to.w * scale));
+  const tH = Math.round(to.h * scale);
+
+  const special = step === 4
+    ? `<div class="fr-special">📌 这就是日常打印、作业本常用的 A4！</div>`
+    : step === P.length - 1
+    ? `<div class="fr-special">🏆 到达 A7！A0 共对折了 7 次，面积变为原来的 1/128！</div>`
+    : '';
+
+  const incomingVert = step > 0 && ghostFoldVerticalFromIndex(step - 1);
+  const foldNoteLines = incomingVert ? '宽度减半<br>面积减半' : '高度减半<br>面积减半';
+
+  el.innerHTML = `
+    <div class="fr-card">
+      <div class="fr-col">
+        <div class="fr-label">折叠前</div>
+        <div class="fr-pname" style="color:${from.c}">${from.n}</div>
+        <div class="fr-rect" style="width:${fW}px;height:${fH}px;border-color:${from.c};background:${from.c}20;"></div>
+        <div class="fr-dims">${from.w} × ${from.h} mm</div>
+        <div class="fr-area" style="color:${from.c};background:${from.c}18;">${AREAS[step - 1]}</div>
+      </div>
+      <div class="fr-mid">
+        <div class="fr-divbadge">÷ 2</div>
+        <div class="fr-arr">→</div>
+        <div class="fr-note">${foldNoteLines}</div>
+      </div>
+      <div class="fr-col">
+        <div class="fr-label">折叠后</div>
+        <div class="fr-pname" style="color:${to.c}">${to.n}</div>
+        <div class="fr-rect" style="width:${tW}px;height:${tH}px;border-color:${to.c};background:${to.c}20;"></div>
+        <div class="fr-dims">${to.w} × ${to.h} mm</div>
+        <div class="fr-area" style="color:${to.c};background:${to.c}18;">${AREAS[step]}</div>
+      </div>
+    </div>
+    ${special}
+  `;
+}
+
+/* ─────────── Progress ─────────── */
+function buildProgress() {
+  const bar = document.getElementById('prog');
+  bar.innerHTML = '';
+  P.forEach((p, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'pdot' + (i === step ? ' curr' : i < step ? ' past' : '');
+    if (i <= step) dot.style.background = p.c;
+    dot.textContent = p.n;
+    dot.title = `${p.n}: ${p.w}×${p.h}mm`;
+    dot.onclick = () => jumpTo(i);
+    bar.appendChild(dot);
+
+    if (i < P.length - 1) {
+      const line = document.createElement('div');
+      line.className = 'pline' + (i < step ? ' done' : '');
+      bar.appendChild(line);
+    }
+  });
+}
+
+/* ─────────── Fold angle (interactive) ─────────── */
+function getFoldT(el) {
+  const v = parseFloat(getComputedStyle(el).getPropertyValue('--fold-t'));
+  return Number.isFinite(v) ? v : 0;
+}
+
+function setFoldT(el, t) {
+  el.style.setProperty('--fold-t', String(Math.max(0, Math.min(1, t))));
+}
+
+function foldTFromPointer(wrap, clientX, clientY) {
+  const rect = wrap.getBoundingClientRect();
+  if (interactionFoldVertical(step)) {
+    const ww = rect.width / 2;
+    const x = Math.max(rect.left, Math.min(rect.left + ww, clientX));
+    return (x - rect.left) / ww;
+  }
+  const hh = rect.height / 2;
+  const y = Math.max(rect.top, Math.min(rect.top + hh, clientY));
+  return (y - rect.top) / hh;
+}
+
+function snapFoldClosed(wrap) {
+  wrap.classList.add('fold-snap-back');
+  wrap.style.setProperty('--fold-t', '0');
+  setTimeout(() => wrap.classList.remove('fold-snap-back'), 520);
+}
+
+function runFoldAnimation(doneCb) {
+  if (animating || step >= P.length - 1) return;
+
+  const wrap = document.getElementById('pwrap');
+  const t0 = getFoldT(wrap);
+
+  animating = true;
+  wrap.classList.remove('is-dragging', 'fold-snap-back');
+
+  function afterFold() {
+    step++;
+    animating = false;
+    render();
+
+    const st = document.getElementById('fold-stage');
+    st.style.transition = 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1), width 0.45s, height 0.45s';
+    st.style.transform = 'scale(1.05)';
+    setTimeout(() => {
+      st.style.transform = '';
+      setTimeout(() => { st.style.transition = ''; }, 250);
+    }, 160);
+
+    showFoldResult();
+    if (step === P.length - 1) confetti();
+
+    document.getElementById('hint').innerHTML = '';
+
+    if (typeof doneCb === 'function') doneCb();
+  }
+
+  if (t0 >= 0.995) {
+    wrap.classList.add('folding');
+    wrap.style.setProperty('--fold-t', '1');
+    setTimeout(afterFold, 120);
+    return;
+  }
+
+  wrap.classList.add('folding');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      wrap.style.setProperty('--fold-t', '1');
+    });
+  });
+
+  setTimeout(afterFold, 785);
+}
+
+/* ─────────── Fold interaction ─────────── */
+function doFold() {
+  if (animating || step >= P.length - 1) return;
+
+  /* Step 1: show fold line + crease glow */
+  if (!foldShown) {
+    const w = document.getElementById('pwrap');
+    document.getElementById('fline').classList.add('vis');
+    w.classList.add('show-fold');
+    w.classList.remove('pwrap--rest-folded');
+    foldShown = true;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        w.style.setProperty('--fold-t', '0');
+      });
+    });
+    const next = P[step + 1];
+    const vHint = interactionFoldVertical(step);
+    const foldVerb = vHint
+      ? `沿竖直线把<strong>左半张</strong>向右侧折`
+      : `沿水平线把<strong>上半张</strong>向下折`;
+    const dragPart = vHint ? '拖拽左半张' : '拖拽上半张';
+    document.getElementById('hint').innerHTML =
+      `<span aria-hidden="true">✂️</span> ${foldVerb}：<strong>${P[step].n}</strong>（${P[step].w}×${P[step].h}mm）→ <strong style="color:${next.c}">${next.n}</strong>（${next.w}×${next.h}mm）。<br>` +
+      `<span class="kbd">${dragPart}</span> 体验折角，拖到尽头或按 <span class="kbd">空格</span> 完成这一折。`;
+    document.getElementById('foldBtn').textContent = '▶ 开始折叠！';
+    return;
+  }
+
+  runFoldAnimation();
+}
+
+function setupFoldPointer() {
+  const wrap = document.getElementById('pwrap');
+
+  function onMove(e) {
+    if (!wrap.classList.contains('is-dragging')) return;
+    if (animating) return;
+    setFoldT(wrap, foldTFromPointer(wrap, e.clientX, e.clientY));
+    e.preventDefault();
+  }
+
+  function onUp(e) {
+    if (!wrap.classList.contains('is-dragging')) return;
+    try {
+      wrap.releasePointerCapture(e.pointerId);
+    } catch (_) {}
+    wrap.classList.remove('is-dragging');
+
+    if (animating) return;
+
+    const t = getFoldT(wrap);
+    if (t >= 0.88) {
+      wrap.style.setProperty('--fold-t', '1');
+      runFoldAnimation();
+    } else {
+      snapFoldClosed(wrap);
+    }
+  }
+
+  wrap.addEventListener('pointerdown', (e) => {
+    if (!foldShown || animating || step >= P.length - 1) return;
+    if (e.button !== 0 && e.pointerType === 'mouse') return;
+
+    const rect = wrap.getBoundingClientRect();
+    if (interactionFoldVertical(step)) {
+      const midX = rect.left + rect.width / 2;
+      if (e.clientX >= midX) return;
+    } else {
+      const midY = rect.top + rect.height / 2;
+      if (e.clientY >= midY) return;
+    }
+
+    wrap.classList.add('is-dragging');
+    try {
+      wrap.setPointerCapture(e.pointerId);
+    } catch (_) {}
+
+    setFoldT(wrap, foldTFromPointer(wrap, e.clientX, e.clientY));
+    e.preventDefault();
+  });
+
+  wrap.addEventListener('pointermove', onMove);
+  wrap.addEventListener('pointerup', onUp);
+  wrap.addEventListener('pointercancel', onUp);
+}
+
+/* ─────────── Navigation ─────────── */
+function go(dir) {
+  stopAuto();
+  const next = step + dir;
+  if (next < 0 || next >= P.length) return;
+  step = next;
+  render();
+}
+
+function jumpTo(i) {
+  stopAuto();
+  step = i;
+  animating = false;
+  render();
+}
+
+function reset() {
+  stopAuto();
+  step = 0;
+  animating = false;
+  foldShown = false;
+  document.getElementById('hint').innerHTML = '';
+  render();
+}
+
+/* ─────────── Auto-play ─────────── */
+function toggleAuto() {
+  if (autoPlaying) { stopAuto(); return; }
+  if (step >= P.length - 1) { step = 0; animating = false; render(); }
+  autoPlaying = true;
+  updatePlayBtn();
+  autoNext();
+}
+
+function stopAuto() {
+  autoPlaying = false;
+  clearTimeout(autoTimer);
+  updatePlayBtn();
+  hideBar();
+}
+
+function updatePlayBtn() {
+  const btn = document.getElementById('autoBtn');
+  btn.textContent = autoPlaying ? '⏸ 暂停' : '▶ 自动播放';
+  btn.classList.toggle('playing', autoPlaying);
+}
+
+// Phase 1: show fold line, wait 1.4s, then fold
+function autoNext() {
+  if (!autoPlaying || step >= P.length - 1) return;
+
+  // Show fold line + crease glow（从静置合拢态展开成平张以便看折线）
+  const pw = document.getElementById('pwrap');
+  document.getElementById('fline').classList.add('vis');
+  pw.classList.add('show-fold');
+  pw.classList.remove('pwrap--rest-folded');
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      pw.style.setProperty('--fold-t', '0');
+    });
+  });
+  foldShown = true;
+  const next = P[step + 1];
+  const dirHint = interactionFoldVertical(step) ? '竖折' : '横折';
+  document.getElementById('hint').innerHTML =
+    `<span aria-hidden="true">✂️</span> 自动演示（${dirHint}）：先看清折线，再完成折叠。<strong>${P[step].n}</strong> → <strong style="color:${next.c}">${next.n}</strong>`;
+  document.getElementById('foldBtn').textContent = '▶ 开始折叠！';
+
+  startCountdown(1400, P[step].c, () => {
+    if (!autoPlaying) return;
+    runFoldAnimation(() => {
+      if (!autoPlaying) return;
+
+      const w = document.getElementById('pwrap');
+      w.style.transition = 'transform 0.22s cubic-bezier(0.34,1.56,0.64,1), width 0.45s, height 0.45s';
+      w.style.transform = 'scale(1.07)';
+      setTimeout(() => {
+        w.style.transform = '';
+        setTimeout(() => { w.style.transition = ''; }, 250);
+      }, 160);
+
+      if (step >= P.length - 1) {
+        autoPlaying = false;
+        updatePlayBtn();
+        hideBar();
+        return;
+      }
+
+      startCountdown(1100, P[step].c, () => {
+        if (autoPlaying) autoNext();
+      });
+    });
+  });
+}
+
+function startCountdown(ms, color, cb) {
+  const bar  = document.getElementById('auto-bar');
+  const fill = document.getElementById('auto-bar-fill');
+  bar.classList.add('vis');
+
+  // Restart CSS animation by replacing the element
+  const newFill = fill.cloneNode(true);
+  newFill.style.cssText = `background:${color}; animation: countfill ${ms}ms linear forwards;`;
+  fill.parentNode.replaceChild(newFill, fill);
+
+  autoTimer = setTimeout(cb, ms);
+}
+
+function hideBar() {
+  document.getElementById('auto-bar').classList.remove('vis');
+}
+
+/* ─────────── Tab switch ─────────── */
+function switchTab(tab) {
+  document.getElementById('tab-fold').classList.toggle('on', tab === 'fold');
+  document.getElementById('tab-cmp').classList.toggle('on',  tab === 'cmp');
+  document.getElementById('fold-view').style.display = tab === 'fold' ? 'flex' : 'none';
+  document.getElementById('cmp-view').classList.toggle('on', tab === 'cmp');
+  if (tab === 'cmp') buildComparison();
+}
+
+/* ─────────── Comparison ─────────── */
+function buildComparison() {
+  /* Paper scene */
+  const scene = document.getElementById('cmpScene');
+  scene.innerHTML = '';
+  const maxH = 260;
+  const scale = maxH / P[0].h;
+
+  P.forEach((p, i) => {
+    const dh = Math.max(10, Math.round(p.h * scale));
+    const dw = Math.max(7,  Math.round(p.w * scale));
+
+    const el = document.createElement('div');
+    el.className = 'cpaper';
+    el.style.cssText = `width:${dw}px; height:${dh}px; background:${p.c};`;
+
+    const lbl = document.createElement('div');
+    lbl.className = 'clabel';
+    lbl.style.fontSize = Math.max(8, dw * 0.22) + 'px';
+    lbl.textContent = p.n;
+    el.appendChild(lbl);
+
+    const dims = document.createElement('div');
+    dims.className = 'cdims';
+    dims.innerHTML = `${p.w}×${p.h}<br>mm`;
+    el.appendChild(dims);
+
+    el.title = `${p.n}: ${p.w}mm × ${p.h}mm`;
+    el.onclick = () => {
+      switchTab('fold');
+      jumpTo(i);
+    };
+    scene.appendChild(el);
+  });
+
+  /* Fact chips */
+  const grid = document.getElementById('factGrid');
+  grid.innerHTML = '';
+  P.forEach((p, i) => {
+    const chip = document.createElement('div');
+    chip.className = 'fact-chip';
+    chip.style.borderLeftColor = p.c;
+    chip.innerHTML = `<span style="color:${p.c};font-weight:900">${p.n}</span> ${p.fact}`;
+    chip.onclick = () => { switchTab('fold'); jumpTo(i); };
+    grid.appendChild(chip);
+  });
+}
+
+/* ─────────── Fold result highlight ─────────── */
+function showFoldResult() {
+  // Flash the dimension text
+  const si = document.querySelector('.sizeinfo');
+  si.classList.remove('dim-flash');
+  void si.offsetWidth; // reflow to restart animation
+  si.classList.add('dim-flash');
+  setTimeout(() => si.classList.remove('dim-flash'), 600);
+
+  // Float-up "÷2 面积减半" badge over the paper
+  const wrap = document.getElementById('pwrap');
+  const old = wrap.querySelector('.half-badge');
+  if (old) old.remove();
+  const badge = document.createElement('div');
+  badge.className = 'half-badge';
+  badge.textContent = '÷2  面积减半！';
+  wrap.appendChild(badge);
+  setTimeout(() => badge.remove(), 1300);
+}
+
+function confetti() {
+  const colors = ['#FF6B35','#FFD166','#06D6A0','#4ECDC4','#8338EC','#FF006E','#3A86FF'];
+  for (let i = 0; i < 28; i++) {
+    const el = document.createElement('div');
+    el.className = 'conf';
+    el.style.cssText = `
+      left: ${10 + Math.random() * 80}vw;
+      top:  ${20 + Math.random() * 30}vh;
+      background: ${colors[i % colors.length]};
+      animation-delay: ${Math.random() * 0.5}s;
+      animation-duration: ${0.8 + Math.random() * 0.5}s;
+      border-radius: ${Math.random() > 0.5 ? '50%' : '2px'};
+    `;
+    document.body.appendChild(el);
+    setTimeout(() => el.remove(), 1800);
+  }
+}
+
+/* ─────────── Keyboard ─────────── */
+document.addEventListener('keydown', (e) => {
+  if (e.code !== 'Space') return;
+  if (e.target.closest('button, input, textarea, select, a, [role="tab"]')) return;
+  const fv = document.getElementById('fold-view');
+  if (!fv || getComputedStyle(fv).display === 'none') return;
+  if (!foldShown || animating || step >= P.length - 1) return;
+  e.preventDefault();
+  runFoldAnimation();
+});
+
+/* ─────────── Init ─────────── */
+setupFoldPointer();
+render();
+</script>
+</body>
+</html>

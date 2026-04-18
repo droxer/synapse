@@ -102,12 +102,13 @@ export function useConversationTranscript(
 ): ConversationTranscriptState {
   const effectiveEvents = useIncrementalMerge(historyEvents, liveEvents, isLive);
   const agentState = useAgentState(effectiveEvents as AgentEvent[]);
+  const liveArtifactState = useAgentState((isLive ? liveEvents : []) as AgentEvent[]);
   const messages = useMemo<ChatMessage[]>(() => {
     return mergeHistoryWithEventDerivedMessages(historyMessages, agentState.messages);
   }, [agentState.messages, historyMessages]);
   const artifacts = useMemo<ArtifactInfo[]>(() => {
-    return mergeHistoryWithEventDerivedArtifacts(historyArtifacts, agentState.artifacts);
-  }, [agentState.artifacts, historyArtifacts]);
+    return mergeHistoryWithEventDerivedArtifacts(historyArtifacts, liveArtifactState.artifacts);
+  }, [historyArtifacts, liveArtifactState.artifacts]);
 
   return {
     effectiveEvents: effectiveEvents as AgentEvent[],
