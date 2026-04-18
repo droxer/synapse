@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useRef, useEffect, useState, useCallback, useMemo } from "react";
-import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip, MessageSquare } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
@@ -22,8 +22,8 @@ import {
 } from "./conversation-mode";
 import {
   buildAssistantCopyText,
-  isThinkingContentRedundantWithEntries,
 } from "../lib/assistant-copy-text";
+import { selectThinkingDisplay } from "../lib/thinking-display";
 import { cn } from "@/shared/lib/utils";
 import { formatClockTime } from "@/shared/lib/date-time";
 import { useTranslation } from "@/i18n";
@@ -111,11 +111,12 @@ export const MessageRow = memo(function MessageRow({
 
   const imageUrls = getImageUrlsForMessage(msg);
   const hasPlanHere = embeddedPlanSteps.length > 0;
-  const showOrphanThinkingContent =
-    Boolean(msg.thinkingContent?.trim())
-    && !isThinkingContentRedundantWithEntries(msg.thinkingContent, msg.thinkingEntries);
+  const thinkingDisplay = selectThinkingDisplay(locale, msg.thinkingEntries, msg.thinkingContent);
+  const visibleThinkingEntries = thinkingDisplay.entries;
+  const visibleThinkingContent = thinkingDisplay.thinkingContent;
+  const showOrphanThinkingContent = Boolean(visibleThinkingContent);
   const hasThinking =
-    Boolean(msg.thinkingEntries && msg.thinkingEntries.length > 0) || showOrphanThinkingContent;
+    visibleThinkingEntries.length > 0 || showOrphanThinkingContent;
   const trimmedContent = msg.content.trim();
   const showMarkdown = trimmedContent.length > 0 || isStreamingThis;
   const showEmptyAssistantPlaceholder =
@@ -124,7 +125,7 @@ export const MessageRow = memo(function MessageRow({
     !hasPlanHere &&
     !hasThinking;
 
-  const thinkingEntryCount = msg.thinkingEntries?.length ?? 0;
+  const thinkingEntryCount = visibleThinkingEntries.length;
   const copyAssistantText = buildAssistantCopyText(msg, {
     hasEmbeddedPlan: hasPlanHere,
     planSteps: embeddedPlanSteps,
@@ -187,7 +188,7 @@ export const MessageRow = memo(function MessageRow({
             {/* Reasoning: event-sourced entries first, then inline-only thinkingContent (not duplicated). */}
             {hasThinking ? (
               <div className="mb-3 space-y-2">
-                {msg.thinkingEntries?.map((entry, idx) => (
+                {visibleThinkingEntries.map((entry, idx) => (
                   <ThinkingBlock
                     key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
                     content={entry.content}
@@ -199,7 +200,7 @@ export const MessageRow = memo(function MessageRow({
                 {showOrphanThinkingContent ? (
                   <ThinkingBlock
                     key={`${msg.messageId ?? msg.timestamp}-thinking-content`}
-                    content={msg.thinkingContent!}
+                    content={visibleThinkingContent!}
                     isThinking={false}
                     isTurnStreaming={isStreamingThis || isThinkingThis}
                     durationMs={0}
@@ -436,25 +437,26 @@ export function ConversationWorkspace({
   const messageWidthClass = panelOpen ? "sm:max-w-[88%]" : "sm:max-w-[82%]";
 
   return (
-    <div
-      className="flex h-full flex-col"
-      role="region"
-      aria-label="Conversation"
-      aria-busy={taskState === "executing" || taskState === "planning"}
-    >
-      {!hideTopBar && (
-        <TopBar
-          taskState={taskState}
-          isConnected={isConnected}
-          onNavigateHome={onNavigateHome}
-          conversationTitle={conversationTitle}
-          conversationId={conversationId}
-          orchestratorMode={latestTurnMode}
-          isPlannerAutoDetected={isCurrentTurnAutoDetected}
-        />
-      )}
+    <MotionConfig reducedMotion="user">
+      <div
+        className="flex h-full flex-col"
+        role="region"
+        aria-label="Conversation"
+        aria-busy={taskState === "executing" || taskState === "planning"}
+      >
+        {!hideTopBar && (
+          <TopBar
+            taskState={taskState}
+            isConnected={isConnected}
+            onNavigateHome={onNavigateHome}
+            conversationTitle={conversationTitle}
+            conversationId={conversationId}
+            orchestratorMode={latestTurnMode}
+            isPlannerAutoDetected={isCurrentTurnAutoDetected}
+          />
+        )}
 
-      <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Left pane: Conversation */}
         <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[56%]" : "w-full")}>
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
@@ -565,25 +567,30 @@ export function ConversationWorkspace({
         </div>
 
         {/* Right pane: Synapse's Computer */}
-        {panelOpen && (
-          <motion.div
-            className="flex w-full flex-col border-l border-border bg-secondary/25 md:w-[44%]"
-            initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
-          >
-            <AgentComputerPanel
-              conversationId={conversationId}
-              toolCalls={toolCalls}
-              agentStatuses={agentStatuses}
-              artifacts={artifacts}
-              taskState={taskState}
-              highlightedStepId={highlightedStepId}
-              onClose={() => setPanelOpen(false)}
-            />
-          </motion.div>
-        )}
+        <AnimatePresence initial={false}>
+          {panelOpen && (
+            <motion.div
+              key="agent-computer-panel"
+              className="relative z-10 flex w-full flex-col border-l border-border bg-secondary/25 md:w-[var(--agent-panel-width)]"
+              initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
+            >
+              <AgentComputerPanel
+                conversationId={conversationId}
+                toolCalls={toolCalls}
+                agentStatuses={agentStatuses}
+                artifacts={artifacts}
+                taskState={taskState}
+                highlightedStepId={highlightedStepId}
+                onClose={() => setPanelOpen(false)}
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        </div>
       </div>
-    </div>
+    </MotionConfig>
   );
 }

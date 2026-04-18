@@ -7,6 +7,7 @@ import { useTranslation } from "@/i18n";
 import { formatArgValue } from "../lib/format-tools";
 import { OUTPUT_CARD_DENSE_CLASSES } from "../lib/format-tools";
 import type { TFn } from "@/shared/types/i18n";
+import { OUTPUT_SURFACE_FOCUS_CLASSES } from "@/shared/components/ui/output-surface";
 
 const VALUE_TRUNCATE = 120;
 
@@ -73,7 +74,10 @@ function ValueToggle({
       type="button"
       onClick={onToggle}
       aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
-      className="ml-1 inline-flex items-center rounded-lg px-0.5 text-micro text-muted-foreground transition-colors hover:bg-muted/40 hover:text-foreground"
+      className={cn(
+        "ml-1 inline-flex items-center rounded-md px-0.5 text-micro text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+        OUTPUT_SURFACE_FOCUS_CLASSES,
+      )}
     >
       {expanded ? (
         <ChevronUp className="h-3 w-3" />
@@ -109,7 +113,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
     <div
       className={cn(
         OUTPUT_CARD_DENSE_CLASSES,
-        "border-l border-border",
+        "border-l border-border bg-muted",
         compact ? "px-2 py-1 text-micro" : "text-xs",
       )}
     >
@@ -144,7 +148,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                 {isMultiline ? (
                   <pre
                     className={cn(
-                      "whitespace-pre-wrap break-all font-mono text-foreground",
+                      "whitespace-pre-wrap [overflow-wrap:anywhere] font-mono text-foreground",
                       compact ? "text-micro" : "text-xs",
                     )}
                   >
@@ -164,7 +168,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                     {String(value)}
                   </span>
                 ) : (
-                  <span className={cn("break-all text-foreground", compact ? "text-micro" : "text-sm")}>
+                  <span className={cn("break-words [overflow-wrap:anywhere] text-foreground", compact ? "text-micro" : "text-sm")}>
                     {displayValue}
                     {isLong && !isExpanded && (
                       <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>

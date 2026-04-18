@@ -1,22 +1,6 @@
 import type { ChatMessage, PlanStep } from "@/shared/types";
-
-/** True when `thinkingContent` duplicates what is already shown via `thinkingEntries`. */
-export function isThinkingContentRedundantWithEntries(
-  thinkingContent: string | undefined,
-  entries: readonly { readonly content: string }[] | undefined,
-): boolean {
-  const trimmed = thinkingContent?.trim();
-  if (!trimmed || !entries?.length) return false;
-  const combined = entries
-    .map((e) => e.content.trim())
-    .filter(Boolean)
-    .join("\n\n")
-    .trim();
-  if (!combined) return false;
-  if (trimmed === combined) return true;
-  const collapse = (s: string) => s.replace(/\s+/g, " ").trim();
-  return collapse(trimmed) === collapse(combined);
-}
+import { isThinkingContentRedundantWithEntries } from "./thinking-display";
+export { isThinkingContentRedundantWithEntries } from "./thinking-display";
 
 export interface BuildAssistantCopyTextOptions {
   readonly hasEmbeddedPlan: boolean;

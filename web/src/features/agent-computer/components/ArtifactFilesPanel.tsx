@@ -33,6 +33,10 @@ import {
   type TaskArtifactItem,
 } from "./ArtifactFilesPanel.utils";
 
+function artifactFreshFingerprint(artifact: TaskArtifactItem): string {
+  return `${artifact.size}|${artifact.contentType}|${artifact.name}|${artifact.filePath ?? ""}|${artifact.createdAt ?? ""}`;
+}
+
 interface ArtifactFilesPanelProps {
   readonly artifacts: readonly ArtifactInfo[];
   readonly conversationId: string | null;
@@ -168,7 +172,7 @@ function RecentArtifactCard({
   const { t } = useTranslation();
 
   return (
-    <article className="group rounded-2xl border border-border bg-card/80 p-3 shadow-sm transition-colors hover:border-border-strong">
+    <article className="group surface-panel rounded-xl p-3 transition-colors hover:border-border-strong">
       <button type="button" className="w-full text-left" onClick={() => onPreview(artifact)}>
         <PreviewVisual artifact={artifact} conversationId={conversationId} />
       </button>
@@ -321,7 +325,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
   const [deleteTargetIds, setDeleteTargetIds] = useState<readonly string[] | null>(null);
   const [currentPath, setCurrentPath] = useState<string>("/");
   const [freshArtifactIds, setFreshArtifactIds] = useState<ReadonlySet<string>>(new Set());
-  const previousIdsRef = useRef<ReadonlySet<string>>(new Set());
+  const previousFingerprintByIdRef = useRef<ReadonlyMap<string, string>>(new Map());
 
   useEffect(() => {
     if (!canBrowseByPath && view === "path") {
@@ -331,21 +335,30 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
   useEffect(() => {
     const nextIds = new Set(normalizedArtifacts.map((artifact) => artifact.id));
-    const previousIds = previousIdsRef.current;
-    if (previousIds.size > 0) {
-      const added = normalizedArtifacts
-        .filter((artifact) => !previousIds.has(artifact.id))
-        .map((artifact) => artifact.id);
-      if (added.length > 0) {
-        setFreshArtifactIds((prev) => {
-          const next = new Set(prev);
-          for (const id of added) next.add(id);
-          return next;
-        });
+    const prevFpById = previousFingerprintByIdRef.current;
+
+    const toMarkFresh: string[] = [];
+    if (prevFpById.size > 0) {
+      for (const artifact of normalizedArtifacts) {
+        const fp = artifactFreshFingerprint(artifact);
+        const prevFp = prevFpById.get(artifact.id);
+        if (prevFp === undefined || prevFp !== fp) {
+          toMarkFresh.push(artifact.id);
+        }
       }
     }
-    previousIdsRef.current = nextIds;
-    setFreshArtifactIds((prev) => new Set([...prev].filter((id) => nextIds.has(id))));
+
+    const nextFpById = new Map<string, string>();
+    for (const artifact of normalizedArtifacts) {
+      nextFpById.set(artifact.id, artifactFreshFingerprint(artifact));
+    }
+    previousFingerprintByIdRef.current = nextFpById;
+
+    setFreshArtifactIds((prev) => {
+      const next = new Set([...prev].filter((id) => nextIds.has(id)));
+      for (const id of toMarkFresh) next.add(id);
+      return next;
+    });
   }, [normalizedArtifacts]);
 
   const selectedArtifact = useMemo(
@@ -392,8 +405,8 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
   if (normalizedArtifacts.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <div className="w-full max-w-sm rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-2xl bg-secondary">
+        <div className="w-full max-w-sm rounded-xl border border-dashed border-border bg-card p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-secondary">
             <Sparkles className="h-5 w-5 text-muted-foreground" />
           </div>
           <p className="mt-4 text-sm font-medium text-foreground">{t("artifacts.noFiles")}</p>
@@ -405,8 +418,8 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
   return (
     <>
-      <div className="flex h-full flex-col overflow-y-auto bg-background px-3 py-3 sm:px-4">
-        <div className="rounded-2xl border border-border bg-card/70 p-4">
+      <div className="flex h-full flex-col overflow-y-auto bg-background px-4 py-3 sm:px-5">
+        <div className="surface-panel rounded-xl p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
               <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">

@@ -290,6 +290,9 @@ class AgentOrchestrator:
 
         self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()
+        reset_allowed_tools = getattr(self._executor, "reset_allowed_tools", None)
+        if callable(reset_allowed_tools):
+            reset_allowed_tools()
         reset_active_skill_directory = getattr(
             self._executor, "reset_active_skill_directory", None
         )
@@ -405,6 +408,9 @@ class AgentOrchestrator:
             allowed_names, allowed_tags = split_allowed_tools(
                 matched.metadata.allowed_tools
             )
+            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+            if callable(set_allowed_tools):
+                set_allowed_tools(allowed_names, allowed_tags)
             effective_registry = self._registry.filter_by_names_or_tags(
                 allowed_names, allowed_tags
             )
@@ -576,6 +582,9 @@ class AgentOrchestrator:
             allowed_names, allowed_tags = split_allowed_tools(
                 skill.metadata.allowed_tools
             )
+            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+            if callable(set_allowed_tools):
+                set_allowed_tools(allowed_names, allowed_tags)
             updated_registry = updated_registry.filter_by_names_or_tags(
                 allowed_names, allowed_tags
             )

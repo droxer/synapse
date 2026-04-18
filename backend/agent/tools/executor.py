@@ -38,6 +38,8 @@ class ToolExecutor:
         self._shell_tools_this_turn = 0
         self._staged_skills_by_template: dict[str, set[str]] = {}
         self._active_skill_directory: str | None = None
+        self._allowed_tool_names: set[str] | None = None
+        self._allowed_tool_tags: set[str] | None = None
 
     @property
     def sandbox_provider(self) -> Any | None:
@@ -55,7 +57,7 @@ class ToolExecutor:
 
     def with_registry(self, registry: ToolRegistry) -> ToolExecutor:
         """Return a new executor that shares sandbox configuration and side channels."""
-        return ToolExecutor(
+        executor = ToolExecutor(
             registry=registry,
             sandbox_provider=self._sandbox_provider,
             sandbox_config=self._sandbox_config,
@@ -63,10 +65,26 @@ class ToolExecutor:
             artifact_manager=self._artifact_manager,
             conversation_id=self._conversation_id,
         )
+        if self._allowed_tool_names is not None or self._allowed_tool_tags is not None:
+            executor.set_allowed_tools(
+                self._allowed_tool_names or set(),
+                self._allowed_tool_tags or set(),
+            )
+        return executor
 
     def reset_turn_quotas(self) -> None:
         """Reset per-turn counters (call at the start of each user turn)."""
         self._shell_tools_this_turn = 0
+
+    def set_allowed_tools(self, names: set[str], tags: set[str]) -> None:
+        """Apply a hard allowlist for the current turn."""
+        self._allowed_tool_names = set(names)
+        self._allowed_tool_tags = set(tags)
+
+    def reset_allowed_tools(self) -> None:
+        """Clear any hard tool allowlist for the current turn."""
+        self._allowed_tool_names = None
+        self._allowed_tool_tags = None
 
     def set_active_skill_directory(self, directory: str) -> None:
         """Set the default shell working directory for the active skill."""
@@ -218,6 +236,21 @@ class ToolExecutor:
         )
         return "activate_skill", activate_skill_tool
 
+    def _is_tool_allowed(
+        self,
+        resolved_name: str,
+        tool: LocalTool | SandboxTool,
+    ) -> bool:
+        if self._allowed_tool_names is None and self._allowed_tool_tags is None:
+            return True
+        if (
+            self._allowed_tool_names is not None
+            and resolved_name in self._allowed_tool_names
+        ):
+            return True
+        tool_tags = set(tool.definition().tags or ())
+        return bool(self._allowed_tool_tags and tool_tags & self._allowed_tool_tags)
+
     def canonical_tool_call_event_payload(
         self,
         tool_name: str,
@@ -258,6 +291,15 @@ class ToolExecutor:
         if tool is None:
             logger.warning("unknown_tool_requested name={}", tool_name)
             return ToolResult.fail(f"Unknown tool: {tool_name}")
+        if not self._is_tool_allowed(resolved_name, tool):
+            logger.warning(
+                "tool_blocked_by_allowlist requested_name={} resolved_name={}",
+                tool_name,
+                resolved_name,
+            )
+            return ToolResult.fail(
+                f"Tool '{tool_name}' is not allowed in the current skill/runtime context."
+            )
 
         try:
             if isinstance(tool, LocalTool):

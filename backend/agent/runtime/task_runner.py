@@ -260,6 +260,9 @@ class TaskAgentRunner:
         )
         if callable(reset_active_skill_directory):
             reset_active_skill_directory()
+        reset_allowed_tools = getattr(self._executor, "reset_allowed_tools", None)
+        if callable(reset_allowed_tools):
+            reset_allowed_tools()
         started_at = time.perf_counter()
         settings = get_settings()
         timeout_seconds = (
@@ -380,6 +383,9 @@ class TaskAgentRunner:
                 allowed_names, allowed_tags = split_allowed_tools(
                     matched.metadata.allowed_tools
                 )
+                set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+                if callable(set_allowed_tools):
+                    set_allowed_tools(allowed_names, allowed_tags)
                 effective_registry = effective_registry.filter_by_names_or_tags(
                     allowed_names, allowed_tags
                 )
@@ -650,6 +656,9 @@ class TaskAgentRunner:
             allowed_names, allowed_tags = split_allowed_tools(
                 skill.metadata.allowed_tools
             )
+            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+            if callable(set_allowed_tools):
+                set_allowed_tools(allowed_names, allowed_tags)
             updated_registry = updated_registry.filter_by_names_or_tags(
                 allowed_names, allowed_tags
             )

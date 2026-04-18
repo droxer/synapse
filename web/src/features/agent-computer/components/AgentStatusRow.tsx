@@ -15,8 +15,6 @@ import {
   EVENT_META_BADGE_CLASSES,
   EVENT_ROW_BASE_CLASSES,
   SKILL_TOOL_NAMES,
-  getActivityEntryKind,
-  getIconRingClass,
   getToolCallTone,
   getToolCallVisualClasses,
 } from "../lib/format-tools";
@@ -27,13 +25,10 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
   const isSkill = SKILL_TOOL_NAMES.has(tc.name);
   const skillId = isSkill ? String(tc.input.name ?? "").trim() : "";
   const ToolGlyph = skillId ? getSkillIcon(skillId) : getToolIcon(tc.name);
-  const kind = getActivityEntryKind(tc.name);
-  const tcStatus = tc.success === undefined ? "running" : tc.success ? "complete" : "error";
-  const ringClass = getIconRingClass(tcStatus, kind);
   if (tc.success !== undefined) {
     return tc.success === false
       ? (
-        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", ringClass)} role="img" aria-label={label}>
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted" role="img" aria-label={label}>
           <ToolGlyph className="h-3.5 w-3.5 text-destructive" strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -43,7 +38,7 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
         </span>
       )
       : (
-        <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted", ringClass)} role="img" aria-label={label}>
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted" role="img" aria-label={label}>
           <ToolGlyph className="h-3.5 w-3.5 text-foreground" strokeWidth={2.25} />
           <Check
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
@@ -54,9 +49,9 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
       );
   }
   return (
-    <span className={cn("relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary", ringClass)} role="img" aria-label={label}>
+    <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary" role="img" aria-label={label}>
       <ToolGlyph className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
-      <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
+      <span className="absolute inset-0 rounded-md bg-focus/20 animate-pulsing-dot-fade" />
     </span>
   );
 }
@@ -83,7 +78,7 @@ export function AgentStatusRow({
   const rowClassName = cn(
     EVENT_ROW_BASE_CLASSES,
     "flex w-full items-center gap-2 text-left text-sm transition-colors",
-    hasTools && "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    hasTools && "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
   );
 
   const rowContent = (
@@ -170,13 +165,9 @@ export function AgentStatusRow({
                 return (
                   <div
                     key={tc.id}
-                    className={cn(
-                      "rounded-lg px-3 py-2 transition-colors duration-150",
-                      visual.row,
-                      visual.rowHover,
-                    )}
+                    className={cn("rounded-xl px-3 py-2 transition-colors duration-150", visual.row, visual.rowHover)}
                   >
-                    <div className="flex items-start gap-2.5">
+                    <div className="flex items-start gap-2.5 text-sm">
                       <ToolStatusIcon
                         tc={tc}
                         label={
@@ -187,22 +178,27 @@ export function AgentStatusRow({
                             : t("a11y.toolRunning")
                         }
                       />
-                      <span className={cn("text-sm leading-6", tc.success === false ? "text-destructive" : "text-foreground")}>
+                      <span
+                        className={cn(
+                          "min-w-0 flex-1 leading-6",
+                          tc.success === false ? "text-destructive" : "text-foreground",
+                        )}
+                      >
                         {normalizeToolName(tc.name)}
                       </span>
                       {tc.success === undefined && (
-                        <span className="text-sm text-muted-foreground">
+                        <span className="status-pill status-info shrink-0">
                           {t("computer.running")}
                         </span>
                       )}
                     </div>
                     {Object.keys(tc.input).length > 0 && (
-                      <div className="mt-1 mb-0.5 pl-2">
+                      <div className="mb-0.5 mt-1">
                         <ToolArgsDisplay input={tc.input} compact />
                       </div>
                     )}
                     {tc.output !== undefined && (
-                      <div className="mt-1 mb-1 pl-2">
+                      <div className="mb-1 mt-1">
                         <ToolOutputRenderer
                           output={tc.output}
                           toolName={tc.name}

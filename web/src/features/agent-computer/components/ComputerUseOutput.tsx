@@ -4,11 +4,14 @@ import { useCallback, useState } from "react";
 import { Monitor } from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
+import {
+  OutputSurface,
+  OutputSurfaceBody,
+  OutputSurfaceHeader,
+  OutputSurfaceInner,
+} from "@/shared/components/ui/output-surface";
 import { ArtifactScreenshotGallery } from "./ArtifactScreenshotGallery";
 import {
-  OUTPUT_CARD_BASE_CLASSES,
-  OUTPUT_HEADER_LABEL_CLASSES,
-  OUTPUT_HEADER_ROW_CLASSES,
   OUTPUT_COLLAPSE_THRESHOLD,
 } from "../lib/format-tools";
 import type { ComputerUseMetadata } from "@/shared/types";
@@ -94,45 +97,44 @@ export function ComputerUseOutput({
   const hasOutputText = displayText.trim().length > 0;
 
   return (
-    <div className={OUTPUT_CARD_BASE_CLASSES}>
-      {/* Header */}
-      <div className={OUTPUT_HEADER_ROW_CLASSES}>
-        <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className={OUTPUT_HEADER_LABEL_CLASSES}>
-          {t("output.category.computer")}
-        </span>
-        <span className="text-micro text-muted-foreground-dim">
-          {actionLabel(action)}
-        </span>
-      </div>
+    <OutputSurface>
+      <OutputSurfaceHeader
+        icon={<Monitor className="h-3.5 w-3.5 text-muted-foreground" />}
+        label={t("output.category.computer")}
+        meta={actionLabel(action)}
+      />
 
-      {/* Action description */}
-      <p className="mb-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
+      <OutputSurfaceBody>
+        {/* Action description */}
+        <p className="mb-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
 
-      {/* Screenshot thumbnail */}
-      {hasScreenshot && (
-        <ArtifactScreenshotGallery
-          conversationId={conversationId}
-          artifactIds={artifactIds}
-          alt={t("output.generatedImage")}
-        />
-      )}
+        {/* Screenshot thumbnail */}
+        {hasScreenshot && (
+          <ArtifactScreenshotGallery
+            conversationId={conversationId}
+            artifactIds={artifactIds}
+            alt={t("output.generatedImage")}
+          />
+        )}
 
-      {!hasScreenshot && hasOutputText && (
-        <pre className="mb-1 whitespace-pre-wrap break-words text-sm text-muted-foreground">
-          {displayText}
-          {isLong && !expanded && ELLIPSIS}
-        </pre>
-      )}
+        {!hasScreenshot && hasOutputText && (
+          <OutputSurfaceInner className="overflow-x-auto">
+            <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
+              {displayText}
+              {isLong && !expanded && ELLIPSIS}
+            </pre>
+          </OutputSurfaceInner>
+        )}
 
-      {!hasScreenshot && !hasOutputText && (
-        <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
-      )}
+        {!hasScreenshot && !hasOutputText && (
+          <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+        )}
 
-      {!hasScreenshot && isLong && (
-        <ExpandToggle expanded={expanded} onToggle={handleToggle} />
-      )}
-    </div>
+        {!hasScreenshot && isLong && (
+          <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+        )}
+      </OutputSurfaceBody>
+    </OutputSurface>
   );
 }
 

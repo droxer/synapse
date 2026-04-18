@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, type ReactNode } from "react";
+import { useState, useMemo, useRef, useId, type ReactNode } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import {
   Check,
@@ -20,6 +20,7 @@ import { Progress } from "@/shared/components/ui/progress";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
+import { useStickyBottom } from "@/shared/hooks";
 import type { AgentEvent, AgentStatus, TaskState, ToolCallInfo } from "@/shared/types";
 import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
 import {
@@ -572,23 +573,23 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: "border border-destructive/40 bg-destructive/5",
-        rowHover: "hover:border-destructive/60 hover:bg-destructive/10",
+        rowBase: "surface-panel border-destructive/60 bg-card",
+        rowHover: "hover:border-destructive/70 hover:bg-muted",
         iconSurface: "bg-destructive/10",
         iconColor: "text-destructive",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
-        rowBase: "border border-accent-amber/40 bg-accent-amber/5",
-        rowHover: "hover:border-accent-amber/60 hover:bg-accent-amber/10",
+        rowBase: "surface-panel border-accent-amber/60 bg-card",
+        rowHover: "hover:border-accent-amber/70 hover:bg-muted",
         iconSurface: "bg-accent-amber/10",
         iconColor: "text-accent-amber",
       };
     case "skipped":
       return {
         text: "text-muted-foreground",
-        rowBase: "border border-dashed border-border bg-card",
+        rowBase: "surface-panel border-dashed bg-card",
         rowHover: "hover:border-border-strong hover:bg-muted",
         iconSurface: "bg-muted",
         iconColor: "text-muted-foreground-dim",
@@ -596,15 +597,15 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
     case "running":
       return {
         text: "text-foreground",
-        rowBase: "border border-focus/40 bg-focus/5",
-        rowHover: "hover:border-focus/60 hover:bg-focus/10",
-        iconSurface: "bg-secondary",
+        rowBase: "surface-panel border-border-strong bg-card",
+        rowHover: "hover:border-border-strong hover:bg-accent",
+        iconSurface: "bg-muted",
         iconColor: "text-focus",
       };
     default:
       return {
         text: "text-foreground",
-        rowBase: "border border-border bg-card",
+        rowBase: "surface-panel bg-card",
         rowHover: "hover:border-border-strong hover:bg-accent",
         iconSurface: "bg-muted",
         iconColor: "text-foreground",
@@ -622,7 +623,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
     return (
       <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
-        <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
+        <span className="absolute inset-0 rounded-md bg-focus/20 animate-pulsing-dot-fade" />
       </span>
     );
   }
@@ -732,6 +733,7 @@ export function AgentProgressCard({
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(true);
   const stepsScrollRef = useRef<HTMLDivElement>(null);
+  const stepListId = useId();
   const toolIndexes = useMemo(() => buildToolCallIndexes(toolCalls), [toolCalls]);
 
   const agentNameMap = useMemo(() => {
@@ -747,28 +749,7 @@ export function AgentProgressCard({
     [events, toolIndexes, toolCalls, t, agentNameMap],
   );
 
-  const stepsScrollKey = useMemo(() => {
-    if (steps.length === 0) return "";
-    const last = steps[steps.length - 1];
-    return `${steps.length}:${last.id}:${last.status}`;
-  }, [steps]);
-
-  useEffect(() => {
-    if (!expanded || steps.length === 0) return;
-    const el = stepsScrollRef.current;
-    if (!el) return;
-    let cancelled = false;
-    const id = requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        if (cancelled) return;
-        el.scrollTop = el.scrollHeight;
-      });
-    });
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(id);
-    };
-  }, [expanded, stepsScrollKey, steps.length]);
+  useStickyBottom(stepsScrollRef, { enabled: expanded && steps.length > 0 });
 
   const displaySteps = useMemo(
     () => buildDisplaySteps(steps, taskState, isWaitingForAgent, t),
@@ -795,13 +776,14 @@ export function AgentProgressCard({
   const taskStateAnnouncement = getTaskStateAnnouncement(taskState, t);
   return (
     <motion.div
-      className="surface-panel overflow-hidden border-border shadow-[var(--shadow-card)]"
+      lang="en"
+      className="surface-panel overflow-hidden border-border shadow-card"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
     >
       <div role="status" aria-live="polite" className="sr-only">
-        {headerProgressLine ? `${taskStateAnnouncement}: ${headerProgressLine}` : taskStateAnnouncement}
+        {headerProgressLine ? `${taskStateAnnouncement}: ${headerProgressLine}.` : `${taskStateAnnouncement}.`} {expanded ? "Expanded." : "Collapsed."} {panelOpen ? "Panel open." : "Panel closed."}
       </div>
 
       {/* Header */}
@@ -835,6 +817,7 @@ export function AgentProgressCard({
             size="icon-xs"
             aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
             aria-expanded={expanded}
+            aria-controls={stepListId}
             onClick={() => setExpanded((prev) => !prev)}
             className="border border-transparent text-muted-foreground hover:border-border hover:bg-muted/45 hover:text-foreground"
           >
@@ -859,7 +842,7 @@ export function AgentProgressCard({
       <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-1.5 rounded-full bg-muted"
+          className="h-2 rounded-full bg-muted"
           indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
@@ -874,14 +857,15 @@ export function AgentProgressCard({
               className="overflow-hidden"
             >
               <div
+                id={stepListId}
                 ref={stepsScrollRef}
                 className="mt-2 max-h-56 space-y-1 overflow-y-auto text-sm"
               >
-                {displaySteps.map((step, index) => {
+                {displaySteps.map((step) => {
                     const isClickable = isTimelineStepActionable(step.id);
                     const stepVisual = getStepStatusVisual(step.status);
                     const rowClassName = cn(
-                      "flex items-start gap-2.5 rounded-lg px-3 py-2 transition-colors duration-150",
+                      "flex items-start gap-2.5 rounded-xl px-3 py-2 transition-colors duration-150",
                       stepVisual.rowBase,
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
@@ -921,11 +905,7 @@ export function AgentProgressCard({
                         key={step.id}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          delay: index * 0.03,
-                          duration: 0.12,
-                          ease: "easeOut",
-                        }}
+                        transition={{ duration: 0.12, ease: "easeOut" }}
                         className={rowClassName}
                         onClick={() => onStepClick?.(step.id)}
                       >
@@ -936,11 +916,7 @@ export function AgentProgressCard({
                         key={step.id}
                         initial={{ opacity: 0, y: 4 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{
-                          delay: index * 0.03,
-                          duration: 0.12,
-                          ease: "easeOut",
-                        }}
+                        transition={{ duration: 0.12, ease: "easeOut" }}
                         className={rowClassName}
                       >
                         {rowContent}

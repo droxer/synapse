@@ -12,6 +12,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.tools.meta.planner_state import PlannerState
 from api.events import EventEmitter, EventType
 
 
@@ -22,11 +23,13 @@ class SpawnTaskAgent(LocalTool):
         self,
         sub_agent_manager: Any,
         event_emitter: EventEmitter | None = None,
+        planner_state: PlannerState | None = None,
     ) -> None:
         if sub_agent_manager is None:
             raise ValueError("SubAgentManager must not be None")
         self._manager = sub_agent_manager
         self._emitter = event_emitter
+        self._planner_state = planner_state or PlannerState()
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -131,6 +134,8 @@ class SpawnTaskAgent(LocalTool):
 
         if not task_description.strip():
             return ToolResult.fail("task_description must not be empty")
+        if error := self._planner_state.validate_spawn(name):
+            return ToolResult.fail(error)
 
         try:
             from agent.runtime.task_runner import DependencyFailureMode, TaskAgentConfig

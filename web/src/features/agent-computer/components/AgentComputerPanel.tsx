@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useMemo, useState, useCallback } from "react";
+import { useEffect, useRef, useMemo, useState, useCallback, useId } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Monitor,
@@ -20,8 +20,6 @@ import {
   EVENT_LEFT_RAIL_CLASSES,
   EVENT_META_BADGE_CLASSES,
   SKILL_TOOL_NAMES,
-  getActivityEntryKind,
-  getIconRingClass,
   getToolCallTone,
   getToolCallVisualClasses,
 } from "../lib/format-tools";
@@ -42,6 +40,7 @@ import {
   isTaskStateLive,
 } from "@/features/agent-computer/lib/task-state-display";
 import { PulsingDot } from "@/shared/components/PulsingDot";
+import { useStickyBottom } from "@/shared/hooks";
 import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
@@ -145,12 +144,13 @@ const THINKING_PREVIEW_LENGTH = 150;
 function ThinkingPreview({ text }: { readonly text: string }) {
   const { t } = useTranslation();
   const [expanded, setExpanded] = useState(false);
+  const contentId = useId();
   const isLong = text.length > THINKING_PREVIEW_LENGTH;
   const shown = expanded || !isLong ? text : text.slice(0, THINKING_PREVIEW_LENGTH);
 
   return (
     <div className={cn("mb-2 py-0.5", EVENT_LEFT_RAIL_CLASSES)}>
-      <span className="text-xs italic text-muted-foreground leading-relaxed">
+      <span id={contentId} className="text-xs italic leading-relaxed text-muted-foreground">
         {shown}
         {isLong && !expanded && "..."}
       </span>
@@ -158,12 +158,100 @@ function ThinkingPreview({ text }: { readonly text: string }) {
         <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-          className="ml-1 rounded text-xs text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          aria-controls={contentId}
+          aria-expanded={expanded}
+          className="ml-1 rounded text-xs text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
         >
           {expanded ? t("computer.thinkingCollapse") : t("computer.thinkingReadMore")}
         </button>
       )}
     </div>
+  );
+}
+
+function ActivityTimelineToolCallRow({
+  toolCall,
+  activeHighlight,
+  conversationId,
+  agentNameMap,
+}: {
+  readonly toolCall: ToolCallInfo;
+  readonly activeHighlight: string | null;
+  readonly conversationId: string | null;
+  readonly agentNameMap: ReadonlyMap<string, string>;
+}) {
+  const { t } = useTranslation();
+  const tone = getToolCallTone(toolCall);
+  const visual = getToolCallVisualClasses(tone);
+  const statusText = toolCall.name === "browser_use"
+    ? getBrowserStatusText(toolCall, t)
+    : COMPUTER_USE_TOOLS.has(toolCall.name)
+      ? getComputerUseStatusText(toolCall, t)
+      : normalizeToolNameI18n(toolCall.name, t);
+
+  return (
+    <motion.div
+      data-step-id={`tool-${toolCall.id}`}
+      initial={{ opacity: 0, y: 4 }}
+      animate={{
+        opacity: 1,
+        y: 0,
+        backgroundColor: activeHighlight === `tool-${toolCall.id}`
+          ? "var(--color-secondary)"
+          : "transparent",
+      }}
+      transition={{ duration: 0.12, ease: "easeOut" }}
+      className={cn(
+        "rounded-lg px-3 py-2 transition-colors duration-150",
+        visual.row,
+        visual.rowHover,
+      )}
+    >
+      {toolCall.thinkingText && (
+        <ThinkingPreview text={toolCall.thinkingText} />
+      )}
+
+      <div className="flex items-start gap-2.5 text-sm">
+        <StatusIcon tc={toolCall} />
+        <span className={cn("min-w-0 flex-1 leading-6", visual.text)}>
+          {statusText}
+        </span>
+        <div className="flex shrink-0 items-center gap-1.5 self-start">
+          <RunningBadge toolCall={toolCall} t={t} />
+          {toolCall.success === true && (
+            <span className={cn(EVENT_META_BADGE_CLASSES, visual.doneBadge)}>
+              {t("computer.statusDone")}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {AGENT_META_TOOLS.has(toolCall.name) && (
+        <AgentMetaDisplay tc={toolCall} t={t} agentNameMap={agentNameMap} />
+      )}
+
+      {Object.keys(toolCall.input).length > 0 && toolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(toolCall.name) && !AGENT_META_TOOLS.has(toolCall.name) && (
+        <div className={cn("mt-1 mb-1", EVENT_LEFT_RAIL_CLASSES)}>
+          <ToolArgsDisplay input={toolCall.input} />
+        </div>
+      )}
+
+      {toolCall.output !== undefined && (
+        <div className={cn("mt-1 mb-1", EVENT_LEFT_RAIL_CLASSES)}>
+          <ToolOutputRenderer
+            output={toolCall.output}
+            toolName={toolCall.name}
+            success={toolCall.success}
+            contentType={toolCall.contentType}
+            conversationId={conversationId}
+            artifactIds={toolCall.artifactIds}
+            browserMetadata={toolCall.browserMetadata}
+            computerUseMetadata={toolCall.computerUseMetadata}
+            agentNameMap={agentNameMap}
+          />
+        </div>
+      )}
+    </motion.div>
   );
 }
 
@@ -234,14 +322,11 @@ function getBrowserStatusText(tc: ToolCallInfo, t: TFn): string {
 function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   const { t } = useTranslation();
   const skillId = SKILL_TOOL_NAMES.has(tc.name) ? String(tc.input.name ?? "").trim() : "";
-  const kind = getActivityEntryKind(tc.name);
-  const tcStatus = tc.success === undefined ? "running" : tc.success ? "complete" : "error";
-  const ringClass = getIconRingClass(tcStatus, kind);
   const ToolGlyph = skillId ? getSkillIcon(skillId) : getToolIcon(tc.name);
   if (tc.success !== undefined) {
     return tc.success === false
       ? (
-        <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-muted", ringClass)} aria-label={t("a11y.toolFailed")} role="img">
+        <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-muted")} aria-label={t("a11y.toolFailed")} role="img">
           <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-destructive")} strokeWidth={2.25} />
           <CircleX
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
@@ -251,7 +336,7 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
         </span>
       )
       : (
-        <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-muted", ringClass)} aria-label={t("a11y.toolSuccess")} role="img">
+        <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-muted")} aria-label={t("a11y.toolSuccess")} role="img">
           <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-foreground")} strokeWidth={2.25} />
           <Check
             className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
@@ -262,9 +347,9 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
       );
   }
   return (
-    <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-secondary", ringClass)} aria-label={t("a11y.toolRunning")} role="img">
+    <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-secondary")} aria-label={t("a11y.toolRunning")} role="img">
       <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-focus")} strokeWidth={2.25} />
-      <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
+      <span className="absolute inset-0 rounded-md bg-focus/20 animate-pulsing-dot-fade" />
     </span>
   );
 }
@@ -293,9 +378,6 @@ export function AgentComputerPanel({
 }: AgentComputerPanelProps) {
   const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
-  const visibleToolCallsPrevLenRef = useRef(0);
-  const activityDigestPrevRef = useRef("");
-  const timelineLenPrevRef = useRef(0);
   const [activeTab, setActiveTab] = useState<PanelTab>("activity");
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
@@ -314,11 +396,14 @@ export function AgentComputerPanel({
         `[data-step-id="${highlightedStepId}"]`,
       );
       if (!el && highlightedStepId.startsWith("agent-")) {
-        // agentId may contain dashes, so match by prefix
+        // agentId may contain dashes; row id may be agent-{id}-{timestamp}
         const allStepEls = contentRef.current?.querySelectorAll("[data-step-id]") ?? [];
         for (const candidate of allStepEls) {
           const sid = candidate.getAttribute("data-step-id") ?? "";
-          if (sid.startsWith("agent-") && highlightedStepId.startsWith(sid)) {
+          if (
+            sid.startsWith("agent-")
+            && (highlightedStepId.startsWith(sid) || sid.startsWith(`${highlightedStepId}-`))
+          ) {
             el = candidate;
             break;
           }
@@ -361,47 +446,37 @@ export function AgentComputerPanel({
     [toolCalls],
   );
 
-  // Split tool calls: parent (no agentId) vs grouped by agentId
-  const { parentToolCalls, agentToolCallsMap } = useMemo(() => {
-    const parent: ToolCallInfo[] = [];
-    const agentMap = new Map<string, ToolCallInfo[]>();
-
+  // Agents that already have tool activity are represented by those tools on the unified timeline.
+  const agentIdsWithToolActivity = useMemo(() => {
+    const ids = new Set<string>();
     for (const tc of visibleToolCalls) {
-      if (tc.agentId) {
-        const existing = agentMap.get(tc.agentId);
-        if (existing) {
-          existing.push(tc);
-        } else {
-          agentMap.set(tc.agentId, [tc]);
-        }
-      } else {
-        parent.push(tc);
-      }
+      if (tc.agentId) ids.add(tc.agentId);
     }
-
-    return { parentToolCalls: parent, agentToolCallsMap: agentMap };
+    return ids;
   }, [visibleToolCalls]);
 
-  // Unified timeline: interleave parent tool calls and agent status rows by timestamp
+  // Unified timeline: all tool calls (parent + sub-agents) sorted by timestamp, plus status-only agent rows.
   type TimelineItem =
     | { readonly kind: "tool"; readonly toolCall: ToolCallInfo }
     | { readonly kind: "agent"; readonly agent: AgentStatus };
 
   const timelineItems = useMemo<TimelineItem[]>(() => {
-    const items: TimelineItem[] = [];
-    for (const tc of parentToolCalls) {
-      items.push({ kind: "tool", toolCall: tc });
-    }
+    const items: TimelineItem[] = visibleToolCalls.map((toolCall) => ({ kind: "tool", toolCall }));
     for (const agent of agentStatuses) {
-      items.push({ kind: "agent", agent });
+      if (!agentIdsWithToolActivity.has(agent.agentId)) {
+        items.push({ kind: "agent", agent });
+      }
     }
     items.sort((a, b) => {
       const tsA = a.kind === "tool" ? a.toolCall.timestamp : a.agent.timestamp;
       const tsB = b.kind === "tool" ? b.toolCall.timestamp : b.agent.timestamp;
-      return tsA - tsB;
+      if (tsA !== tsB) return tsA - tsB;
+      const keyA = a.kind === "tool" ? a.toolCall.id : `agent:${a.agent.agentId}:${a.agent.timestamp}`;
+      const keyB = b.kind === "tool" ? b.toolCall.id : `agent:${b.agent.agentId}:${b.agent.timestamp}`;
+      return keyA.localeCompare(keyB);
     });
     return items;
-  }, [parentToolCalls, agentStatuses]);
+  }, [visibleToolCalls, agentStatuses, agentIdsWithToolActivity]);
 
   // Map agentId → human-readable name for display in wait/send tool calls
   const agentNameMap = useMemo(() => {
@@ -414,84 +489,9 @@ export function AgentComputerPanel({
     return map;
   }, [agentStatuses]);
 
-  useEffect(() => {
-    visibleToolCallsPrevLenRef.current = 0;
-    activityDigestPrevRef.current = "";
-    timelineLenPrevRef.current = 0;
-  }, [conversationId]);
-
-  const activityDigest = useMemo(() => {
-    const lastTc = visibleToolCalls[visibleToolCalls.length - 1];
-    const toolsPart = visibleToolCalls
-      .map(
-        (tc) =>
-          `${tc.id}:${tc.success === undefined ? "run" : String(tc.success)}:${tc.output !== undefined ? "1" : "0"}`,
-      )
-      .join("|");
-    const agentsPart = agentStatuses
-      .map((a) => `${a.agentId}:${a.timestamp}:${String(a.status ?? "")}`)
-      .join(";");
-    return `${toolsPart}#${agentsPart}#${taskState}#${lastTc?.id ?? ""}`;
-  }, [visibleToolCalls, agentStatuses, taskState]);
-
-  const STICK_BOTTOM_PX = 120;
-
-  useEffect(() => {
-    const el = contentRef.current;
-    if (!el || activeTab !== "activity") return;
-
-    const tlLen = timelineItems.length;
-    if (tlLen === 0) {
-      visibleToolCallsPrevLenRef.current = visibleToolCalls.length;
-      activityDigestPrevRef.current = activityDigest;
-      timelineLenPrevRef.current = 0;
-      return;
-    }
-
-    const isLive = taskState === "executing" || taskState === "planning";
-    const digestChanged = activityDigestPrevRef.current !== activityDigest;
-
-    const prevLen = visibleToolCallsPrevLenRef.current;
-    const len = visibleToolCalls.length;
-    const grew = len > prevLen;
-    const firstToolsPopulate = prevLen === 0 && len > 0;
-
-    const prevTl = timelineLenPrevRef.current;
-    const timelineFirstPopulate = prevTl === 0 && tlLen > 0;
-
-    activityDigestPrevRef.current = activityDigest;
-    visibleToolCallsPrevLenRef.current = len;
-    timelineLenPrevRef.current = tlLen;
-
-    if (!digestChanged && !firstToolsPopulate && !grew && !timelineFirstPopulate) {
-      return;
-    }
-
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    const nearBottom = distanceFromBottom < STICK_BOTTOM_PX;
-
-    const shouldStick =
-      (isLive && digestChanged) ||
-      timelineFirstPopulate ||
-      firstToolsPopulate ||
-      (nearBottom && (grew || digestChanged));
-
-    if (shouldStick) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          const scrollEl = contentRef.current;
-          if (!scrollEl) return;
-          scrollEl.scrollTo({
-            top: scrollEl.scrollHeight,
-            behavior: "smooth",
-          });
-        });
-      });
-    }
-  }, [activityDigest, activeTab, taskState, visibleToolCalls.length, timelineItems.length]);
+  useStickyBottom(contentRef, { enabled: activeTab === "activity" });
   const latestToolCall = visibleToolCalls[visibleToolCalls.length - 1];
   const isRunning = isTaskStateLive(taskState);
-  const isComplete = taskState === "complete";
 
   const completedCount = useMemo(
     () => visibleToolCalls.filter((t) => t.output !== undefined).length,
@@ -509,7 +509,7 @@ export function AgentComputerPanel({
   );
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div lang="en" className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
       <div className="shrink-0 border-b border-border bg-card">
         {/* Title bar */}
@@ -565,18 +565,16 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "activity" ? 0 : -1}
             onClick={() => setActiveTab("activity")}
             className={cn(
-              "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 text-caption font-medium transition-colors",
+              "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               activeTab === "activity"
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground/80",
             )}
           >
-            <Activity className="h-4 w-4" />
+            <Activity className="h-4 w-4" aria-hidden="true" />
             {t("computer.activity")}
-            {activeTab === "activity" && (
-              <span className="absolute inset-x-0 -bottom-px h-[2px] bg-focus" />
-            )}
+            {activeTab === "activity" && <span className="absolute inset-x-0 -bottom-px h-[3px] bg-focus" />}
           </button>
           <button
             type="button"
@@ -587,30 +585,26 @@ export function AgentComputerPanel({
             tabIndex={activeTab === "files" ? 0 : -1}
             onClick={() => setActiveTab("files")}
             className={cn(
-              "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 text-caption font-medium transition-colors",
+              "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
               "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               activeTab === "files"
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground/80",
             )}
           >
-            <FolderOpen className="h-4 w-4" />
+            <FolderOpen className="h-4 w-4" aria-hidden="true" />
             {t("computer.artifacts")}
             {artifacts.length > 0 && (
               <span
                 className={cn(
-                  "ml-0.5 inline-flex h-4 min-w-[1rem] items-center justify-center rounded-sm px-1 text-micro font-semibold tabular-nums transition-colors",
-                  activeTab === "files"
-                    ? "border border-border bg-secondary text-secondary-foreground"
-                    : "chip-muted",
+                  "ml-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-md px-1.5 text-micro font-semibold tabular-nums transition-colors chip-muted",
+                  activeTab === "files" && "border border-border",
                 )}
               >
                 {artifacts.length}
               </span>
             )}
-            {activeTab === "files" && (
-              <span className="absolute inset-x-0 -bottom-px h-[2px] bg-focus" />
-            )}
+            {activeTab === "files" && <span className="absolute inset-x-0 -bottom-px h-[3px] bg-focus" />}
           </button>
         </div>
       </div>
@@ -625,11 +619,15 @@ export function AgentComputerPanel({
       {/* ── Activity content area — terminal-style logs ── */}
       {activeTab === "activity" && (
         <div id="panel-activity" role="tabpanel" aria-labelledby="tab-activity" className="flex min-h-0 flex-1 flex-col bg-background">
-          {isRunning && latestToolCall && (
-            <div role="status" aria-live="polite" className="sr-only">
-              {getRunningToolStatusText(latestToolCall, t)}
-            </div>
-          )}
+          <div role="status" aria-live="polite" className="sr-only">
+            {isRunning && latestToolCall
+              ? getRunningToolStatusText(latestToolCall, t)
+              : taskState === "complete"
+                ? t("computer.statusDone")
+                : taskState === "error"
+                  ? t("computer.statusError")
+                  : ""}
+          </div>
           <div
             ref={contentRef}
             className="flex-1 overflow-y-auto bg-background px-4 py-3 sm:px-5"
@@ -647,86 +645,62 @@ export function AgentComputerPanel({
             <div className="space-y-2">
               {timelineItems.map((item) =>
                 item.kind === "agent" ? (
-                  <div key={`agent-${item.agent.agentId}`} data-step-id={`agent-${item.agent.agentId}`}>
+                  <div
+                    key={`agent-${item.agent.agentId}-${item.agent.timestamp}`}
+                    data-step-id={`agent-${item.agent.agentId}-${item.agent.timestamp}`}
+                  >
                     <AgentStatusRow
                       agent={item.agent}
                       variant="light"
-                      toolCalls={agentToolCallsMap.get(item.agent.agentId)}
                       conversationId={conversationId}
                       agentNameMap={agentNameMap}
                     />
                   </div>
-                ) : SKILL_TOOL_NAMES.has(item.toolCall.name) ? (
-                  <SkillActivityEntry key={item.toolCall.id} toolCall={item.toolCall} />
                 ) : (() => {
-                  const tone = getToolCallTone(item.toolCall);
-                  const visual = getToolCallVisualClasses(tone);
-                  const statusText = item.toolCall.name === "browser_use"
-                    ? getBrowserStatusText(item.toolCall, t)
-                    : COMPUTER_USE_TOOLS.has(item.toolCall.name)
-                      ? getComputerUseStatusText(item.toolCall, t)
-                      : normalizeToolNameI18n(item.toolCall.name, t);
+                  const tc = item.toolCall;
+                  const agentId = tc.agentId;
+                  const agentLabel = agentId
+                    ? (agentNameMap.get(agentId) || agentId.slice(0, 8))
+                    : null;
+                  const scopedWrap = Boolean(agentId);
+
+                  if (SKILL_TOOL_NAMES.has(tc.name)) {
+                    return (
+                      <div
+                        key={tc.id}
+                        className={cn(scopedWrap && "border-l-2 border-border/70 pl-3")}
+                        data-step-id={`tool-${tc.id}`}
+                      >
+                        {agentLabel && (
+                          <div className="mb-1 flex items-center gap-1.5 text-micro text-muted-foreground">
+                            <GitFork className="h-3 w-3 shrink-0" aria-hidden />
+                            <span className="truncate">{agentLabel}</span>
+                          </div>
+                        )}
+                        <SkillActivityEntry toolCall={tc} />
+                      </div>
+                    );
+                  }
 
                   return (
-                    <motion.div
-                      key={item.toolCall.id}
-                      data-step-id={`tool-${item.toolCall.id}`}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{
-                        opacity: 1,
-                        y: 0,
-                        backgroundColor: activeHighlight === `tool-${item.toolCall.id}`
-                          ? "var(--color-secondary)"
-                          : "transparent",
-                      }}
-                      transition={{ duration: 0.12, ease: "easeOut" }}
-                      className={cn(
-                        "rounded-lg px-3 py-2 transition-colors duration-150",
-                        visual.row,
-                        visual.rowHover,
-                      )}
+                    <div
+                      key={tc.id}
+                      className={cn(scopedWrap && "border-l-2 border-border/70 pl-3")}
+                      data-step-id={`tool-${tc.id}`}
                     >
-                      {item.toolCall.thinkingText && (
-                        <ThinkingPreview text={item.toolCall.thinkingText} />
-                      )}
-
-                      <div className="flex items-start gap-2.5 text-sm">
-                        <StatusIcon tc={item.toolCall} />
-                        <span className={cn("leading-6", visual.text)}>{statusText}</span>
-                        <RunningBadge toolCall={item.toolCall} t={t} />
-                        {item.toolCall.success === true && (
-                          <span className={cn(EVENT_META_BADGE_CLASSES, "ml-auto", visual.doneBadge)}>
-                            {t("computer.statusDone")}
-                          </span>
-                        )}
-                      </div>
-
-                      {AGENT_META_TOOLS.has(item.toolCall.name) && (
-                        <AgentMetaDisplay tc={item.toolCall} t={t} agentNameMap={agentNameMap} />
-                      )}
-
-                      {Object.keys(item.toolCall.input).length > 0 && item.toolCall.name !== "browser_use" && !COMPUTER_USE_TOOLS.has(item.toolCall.name) && !AGENT_META_TOOLS.has(item.toolCall.name) && (
-                        <div className={cn("mt-1 mb-1", EVENT_LEFT_RAIL_CLASSES)}>
-                          <ToolArgsDisplay input={item.toolCall.input} />
+                      {agentLabel && (
+                        <div className="mb-1 flex items-center gap-1.5 text-micro text-muted-foreground">
+                          <GitFork className="h-3 w-3 shrink-0" aria-hidden />
+                          <span className="truncate">{agentLabel}</span>
                         </div>
                       )}
-
-                      {item.toolCall.output !== undefined && (
-                        <div className={cn("mt-1 mb-1", EVENT_LEFT_RAIL_CLASSES)}>
-                          <ToolOutputRenderer
-                            output={item.toolCall.output}
-                            toolName={item.toolCall.name}
-                            success={item.toolCall.success}
-                            contentType={item.toolCall.contentType}
-                            conversationId={conversationId}
-                            artifactIds={item.toolCall.artifactIds}
-                            browserMetadata={item.toolCall.browserMetadata}
-                            computerUseMetadata={item.toolCall.computerUseMetadata}
-                            agentNameMap={agentNameMap}
-                          />
-                        </div>
-                      )}
-                    </motion.div>
+                      <ActivityTimelineToolCallRow
+                        toolCall={tc}
+                        activeHighlight={activeHighlight}
+                        conversationId={conversationId}
+                        agentNameMap={agentNameMap}
+                      />
+                    </div>
                   );
                 })()
               )}
@@ -734,14 +708,25 @@ export function AgentComputerPanel({
           </div>
 
           {/* ── Consolidated status bar ── */}
-          <div className="flex shrink-0 items-center gap-2 border-t border-border bg-card px-3 py-2.5">
+          <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t border-border bg-card px-3 py-2.5">
             <Progress
               value={progressValue}
-              className="h-1.5 flex-1 rounded-full bg-muted"
+              className="h-2 min-w-[6rem] flex-1 rounded-full bg-muted"
               indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
             />
 
-            <div className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+            <div
+              className={cn(
+                "status-pill shrink-0 px-2 py-1",
+                isRunning
+                  ? "status-info"
+                  : taskState === "complete"
+                    ? "status-ok"
+                    : taskState === "error"
+                      ? "status-error"
+                      : "status-neutral",
+              )}
+            >
               {isRunning ? (
                 <PulsingDot size="sm" />
               ) : taskState === "complete" ? (
@@ -749,14 +734,7 @@ export function AgentComputerPanel({
               ) : taskState === "error" ? (
                 <CircleX className="h-3 w-3 text-destructive" />
               ) : null}
-              <span
-                className={cn(
-                  "label-mono",
-                  isComplete && "text-muted-foreground",
-                  taskState === "error" && "text-destructive",
-                  (isRunning || taskState === "idle") && "text-muted-foreground",
-                )}
-              >
+              <span className="label-mono">
                 {taskState === "complete"
                   ? t("computer.statusDone")
                   : isRunning

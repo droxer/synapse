@@ -10,7 +10,6 @@ import {
   FileCode,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Badge } from "@/shared/components/ui/badge";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,6 +21,7 @@ import {
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
 import { cn } from "@/shared/lib/utils";
+import { ACTIVITY_META_BADGE_CLASSES } from "@/shared/lib/activity-meta-badge";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { useSkillFiles } from "../hooks/use-skill-files";
@@ -137,16 +137,16 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             )}
           </div>
 
-          <Badge
-            variant="secondary"
+          <span
             className={cn(
-              "shrink-0 text-micro font-medium px-1.5 py-0",
+              ACTIVITY_META_BADGE_CLASSES,
+              "shrink-0 gap-1",
               config.className,
             )}
           >
-            <SourceIcon aria-hidden="true" className="mr-1 h-2.5 w-2.5" />
+            <SourceIcon aria-hidden="true" className="h-2.5 w-2.5" />
             {t(labelKey)}
-          </Badge>
+          </span>
 
           {showDelete && (
             <Button

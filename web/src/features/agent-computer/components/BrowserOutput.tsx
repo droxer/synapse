@@ -2,18 +2,20 @@
 
 import { useState, useCallback } from "react";
 import { Monitor, ExternalLink } from "lucide-react";
-import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
-import { MarkdownRenderer } from "@/shared/components";
+import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { Progress } from "@/shared/components/ui/progress";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
+import {
+  OutputSurface,
+  OutputSurfaceBody,
+  OutputSurfaceHeader,
+  OutputSurfaceInner,
+} from "@/shared/components/ui/output-surface";
 import { ArtifactScreenshotGallery } from "./ArtifactScreenshotGallery";
 import {
   PROSE_CLASSES,
   TOOL_OUTPUT_MARKDOWN_CLASSES,
-  OUTPUT_CARD_BASE_CLASSES,
-  OUTPUT_HEADER_ROW_CLASSES,
-  OUTPUT_HEADER_LABEL_CLASSES,
   OUTPUT_COLLAPSE_THRESHOLD,
 } from "../lib/format-tools";
 import type { BrowserMetadata } from "@/shared/types";
@@ -57,60 +59,60 @@ export function BrowserOutput({
   const hasScreenshot = artifactIds && artifactIds.length > 0 && conversationId;
 
   return (
-    <div className={OUTPUT_CARD_BASE_CLASSES}>
-      {/* Header */}
-      <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "mb-2")}>
-        <Monitor className="h-3.5 w-3.5 text-muted-foreground" />
-        <span className={OUTPUT_HEADER_LABEL_CLASSES}>
-          {t("output.category.browser")}
-        </span>
-        <span className="text-micro text-muted-foreground-dim">
-          {isDone ? t("output.browser.done") : t("output.browser.incomplete")}
-        </span>
-        {hostname && (
-          <span className="ml-auto inline-flex items-center gap-1 text-micro text-muted-foreground-dim">
-            <ExternalLink className="h-2.5 w-2.5" />
-            {hostname}
-          </span>
+    <OutputSurface>
+      <OutputSurfaceHeader
+        icon={<Monitor className="h-3.5 w-3.5 text-muted-foreground" />}
+        label={t("output.category.browser")}
+        meta={isDone ? t("output.browser.done") : t("output.browser.incomplete")}
+        action={
+          hostname ? (
+            <span className="inline-flex items-center gap-1 text-micro text-muted-foreground-dim">
+              <ExternalLink className="h-2.5 w-2.5" />
+              {hostname}
+            </span>
+          ) : null
+        }
+        className="items-center"
+      />
+
+      <OutputSurfaceBody>
+        {/* Screenshot */}
+        {hasScreenshot && (
+          <ArtifactScreenshotGallery
+            conversationId={conversationId}
+            artifactIds={artifactIds}
+            alt={t("output.generatedImage")}
+          />
         )}
-      </div>
 
-      {/* Screenshot */}
-      {hasScreenshot && (
-        <ArtifactScreenshotGallery
-          conversationId={conversationId}
-          artifactIds={artifactIds}
-          alt={t("output.generatedImage")}
-        />
-      )}
-
-      {/* Step progress */}
-      {maxSteps > 0 && (
-        <div className="mb-2 flex items-center gap-2">
-          <Progress value={progressValue} className="h-1.5 flex-1" indicatorClassName="bg-focus" />
-          <span className="text-micro font-mono text-muted-foreground tabular-nums">
-            {t("output.browser.steps", { completed: steps, total: maxSteps })}
-          </span>
-        </div>
-      )}
-
-      {/* Markdown body */}
-      <div className={PROSE_CLASSES}>
-        {displayText.trim().length > 0 ? (
-          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
-        ) : (
-          <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+        {/* Step progress */}
+        {maxSteps > 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <Progress value={progressValue} className="h-1.5 flex-1" indicatorClassName="bg-focus" />
+            <span className="text-micro font-mono text-muted-foreground tabular-nums">
+              {t("output.browser.steps", { completed: steps, total: maxSteps })}
+            </span>
+          </div>
         )}
-        {isLong && !expanded && (
-          <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
-        )}
-      </div>
 
-      {isLong && (
-        <div className="mt-2">
-          <ExpandToggle expanded={expanded} onToggle={handleToggle} />
-        </div>
-      )}
-    </div>
+        {/* Markdown body */}
+        <OutputSurfaceInner className={PROSE_CLASSES}>
+          {displayText.trim().length > 0 ? (
+            <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+          )}
+          {isLong && !expanded && (
+            <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
+          )}
+        </OutputSurfaceInner>
+
+        {isLong && (
+          <div className="mt-2">
+            <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+          </div>
+        )}
+      </OutputSurfaceBody>
+    </OutputSurface>
   );
 }

@@ -9,11 +9,8 @@ import { SOURCE_STYLE, SOURCE_LABEL_KEY } from "@/features/skills/lib/skill-sour
 import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
 import { useTranslation } from "@/i18n";
 import { Skeleton } from "@/shared/components/ui/skeleton";
-import {
-  getIconRingClass,
-  getToolCallTone,
-  getToolCallVisualClasses,
-} from "../lib/format-tools";
+import { ACTIVITY_META_BADGE_CLASSES } from "@/shared/lib/activity-meta-badge";
+import { getToolCallTone, getToolCallVisualClasses } from "../lib/format-tools";
 import { getSkillIcon } from "../lib/tool-visual-icons";
 import type { ToolCallInfo } from "@/shared/types";
 
@@ -91,8 +88,6 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
   const sourceLabelKey = skillMeta?.source_type
     ? SOURCE_LABEL_KEY[skillMeta.source_type]
     : null;
-  const skillStatus = isError ? "error" : isComplete ? "complete" : "running";
-  const ringClass = getIconRingClass(skillStatus, "skill");
   const tone = getToolCallTone(toolCall);
   const visual = getToolCallVisualClasses(tone);
 
@@ -116,7 +111,6 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             aria-label={isError ? t("skills.activity.skillFailed") : isComplete ? t("skills.activity.skillLoaded") : t("skills.activity.skillLoading")}
             className={cn(
               "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
-              ringClass,
               isError
                 ? "bg-muted"
                 : isComplete
@@ -150,7 +144,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             ) : (
               <>
                 <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
-                <span className="absolute inset-0 rounded-md bg-secondary animate-pulsing-dot-fade" />
+                <span className="absolute inset-0 rounded-md bg-focus/20 animate-pulsing-dot-fade" />
               </>
             )}
           </div>
@@ -196,7 +190,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                   transition={{ duration: 0.12 }}
                   className="ml-auto shrink-0"
                 >
-                  <span className={cn("rounded-md px-1.5 py-0 text-micro font-medium", sourceStyle.className)}>
+                  <span className={cn(ACTIVITY_META_BADGE_CLASSES, sourceStyle.className)}>
                     {t(sourceLabelKey)}
                   </span>
                 </motion.div>

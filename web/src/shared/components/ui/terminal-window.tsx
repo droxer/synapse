@@ -4,6 +4,14 @@ import { useState, useCallback, useRef } from "react";
 import { Copy, Check } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
+import {
+  OUTPUT_SURFACE_BODY_CLASSES,
+  OUTPUT_SURFACE_FOCUS_CLASSES,
+  OUTPUT_SURFACE_HEADER_CLASSES,
+  OUTPUT_SURFACE_INNER_CLASSES,
+  OUTPUT_SURFACE_LABEL_CLASSES,
+  OUTPUT_SURFACE_ROOT_CLASSES,
+} from "./output-surface";
 
 /**
  * Strip ANSI escape sequences from terminal output.
@@ -40,17 +48,20 @@ export function TerminalWindow({ title, children, className, copyText }: Termina
   }, [copyText]);
 
   return (
-    <div className={cn("overflow-hidden rounded-lg border border-terminal-border", className)}>
+    <div className={cn(OUTPUT_SURFACE_ROOT_CLASSES, className)}>
       {/* Title bar */}
-      <div className="flex items-center justify-between border-b border-terminal-border bg-[var(--color-terminal-surface)] px-3 py-2">
-        <span className="font-mono text-sm text-[var(--color-terminal-dim)]">
+      <div className={cn(OUTPUT_SURFACE_HEADER_CLASSES, "justify-between")}>
+        <span className={cn(OUTPUT_SURFACE_LABEL_CLASSES, "font-mono text-[var(--color-terminal-dim)]")}>
           {title}
         </span>
         <button
           type="button"
           onClick={handleCopy}
           aria-label={copied ? t("output.copied") : t("output.terminalCopy")}
-          className="flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-[var(--color-terminal-dim)] transition-colors hover:bg-[var(--color-terminal-bg)] hover:text-[var(--color-terminal-text)] focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className={cn(
+            "flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-[var(--color-terminal-dim)] transition-colors hover:bg-background hover:text-[var(--color-terminal-text)]",
+            OUTPUT_SURFACE_FOCUS_CLASSES,
+          )}
         >
           {copied ? (
             <Check className="h-3 w-3" />
@@ -61,8 +72,16 @@ export function TerminalWindow({ title, children, className, copyText }: Termina
       </div>
 
       {/* Terminal body */}
-      <div ref={bodyRef} className="bg-[var(--color-terminal-bg)] px-4 py-3 font-mono text-sm leading-relaxed">
-        {children}
+      <div className={OUTPUT_SURFACE_BODY_CLASSES}>
+        <div
+          ref={bodyRef}
+          className={cn(
+            OUTPUT_SURFACE_INNER_CLASSES,
+            "overflow-hidden border-terminal-border bg-[var(--color-terminal-bg)] px-3 py-2.5 font-mono text-sm leading-relaxed",
+          )}
+        >
+          {children}
+        </div>
       </div>
     </div>
   );

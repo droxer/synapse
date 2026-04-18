@@ -2,6 +2,7 @@
 
 import { ChevronDown, ChevronUp } from "lucide-react";
 import { useTranslation } from "@/i18n";
+import { OUTPUT_SURFACE_FOCUS_CLASSES } from "./output-surface";
 
 interface ExpandToggleProps {
   readonly expanded: boolean;
@@ -19,7 +20,7 @@ export function ExpandToggle({ expanded, onToggle, showLessLabel, showMoreLabel 
     <button
       type="button"
       onClick={onToggle}
-      className="mt-1.5 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+      className={`mt-1.5 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground ${OUTPUT_SURFACE_FOCUS_CLASSES}`}
     >
       {expanded ? (
         <>

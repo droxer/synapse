@@ -41,6 +41,7 @@ from agent.runtime.turn_attachments import (
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.meta.plan_create import PlanCreate
+from agent.tools.meta.planner_state import PlannerState
 from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
 from agent.tools.meta.wait_for_agents import WaitForAgents
 from agent.tools.registry import ToolRegistry
@@ -135,15 +136,20 @@ class PlannerOrchestrator:
         self._skill_registry = skill_registry
         self._auto_injected_skill: str | None = None
         self._turn_prompt_assembly = PromptAssembly.from_system(self._system_prompt)
+        self._planner_state = PlannerState()
 
         # Register meta-tools into the provided registry
         registry_with_meta = tool_registry.register(
-            PlanCreate(event_emitter=event_emitter),
+            PlanCreate(
+                event_emitter=event_emitter,
+                planner_state=self._planner_state,
+            ),
         )
         registry_with_meta = registry_with_meta.register(
             SpawnTaskAgent(
                 sub_agent_manager=sub_agent_manager,
                 event_emitter=event_emitter,
+                planner_state=self._planner_state,
             ),
         )
         registry_with_meta = registry_with_meta.register(
@@ -205,8 +211,12 @@ class PlannerOrchestrator:
                 **(turn_metadata or {}),
             },
         )
+        self._planner_state.reset()
         self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()
+        reset_allowed_tools = getattr(self._executor, "reset_allowed_tools", None)
+        if callable(reset_allowed_tools):
+            reset_allowed_tools()
         reset_active_skill_directory = getattr(
             self._executor, "reset_active_skill_directory", None
         )
@@ -284,6 +294,9 @@ class PlannerOrchestrator:
                 allowed_names, allowed_tags = split_allowed_tools(
                     matched.metadata.allowed_tools
                 )
+                set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+                if callable(set_allowed_tools):
+                    set_allowed_tools(allowed_names, allowed_tags)
                 effective_registry = effective_registry.filter_by_names_or_tags(
                     allowed_names, allowed_tags
                 )
@@ -513,6 +526,9 @@ class PlannerOrchestrator:
             allowed_names, allowed_tags = split_allowed_tools(
                 skill.metadata.allowed_tools
             )
+            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+            if callable(set_allowed_tools):
+                set_allowed_tools(allowed_names, allowed_tags)
             updated_registry = updated_registry.filter_by_names_or_tags(
                 allowed_names, allowed_tags
             )

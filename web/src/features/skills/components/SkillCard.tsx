@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Trash2, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Badge } from "@/shared/components/ui/badge";
 import { cn } from "@/shared/lib/utils";
+import { ACTIVITY_META_BADGE_CLASSES } from "@/shared/lib/activity-meta-badge";
 import { useTranslation } from "@/i18n";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
 import { SOURCE_STYLE, SOURCE_LABEL_KEY } from "../lib/skill-source-styles";
@@ -67,17 +67,17 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
           )} />
         </div>
         <div className="flex items-center gap-1.5">
-          <Badge
-            variant="secondary"
+          <span
             className={cn(
-              "font-mono text-micro font-medium px-1.5 py-0 shrink-0 transition-opacity duration-200",
+              ACTIVITY_META_BADGE_CLASSES,
+              "shrink-0 gap-1 transition-opacity duration-200",
               isDisabled && "opacity-60",
               config.className,
             )}
           >
-            <Icon aria-hidden="true" className="mr-1 h-2.5 w-2.5" />
+            <Icon aria-hidden="true" className="h-2.5 w-2.5" />
             {t(labelKey)}
-          </Badge>
+          </span>
           {showDelete && (
             <Button
               variant="ghost"

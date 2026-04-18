@@ -21,19 +21,28 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
-import { MarkdownRenderer } from "@/shared/components";
+import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { TerminalWindow, stripAnsi } from "@/shared/components/ui/terminal-window";
 import { WebLinks, type WebLink } from "@/shared/components/ui/web-links";
 import { ImageOutput } from "@/shared/components/ui/image-output";
 import { HtmlOutput } from "@/shared/components/ui/html-output";
 import { CodeOutput } from "@/shared/components/ui/code-output";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
+import {
+  OUTPUT_SURFACE_FOCUS_CLASSES,
+  OutputSurface,
+  OutputSurfaceBody,
+  OutputSurfaceHeader,
+  OutputSurfaceInner,
+} from "@/shared/components/ui/output-surface";
 import { BrowserOutput } from "./BrowserOutput";
 import { ComputerUseOutput } from "./ComputerUseOutput";
 import {
   PROSE_CLASSES,
   TOOL_OUTPUT_MARKDOWN_CLASSES,
   OUTPUT_CARD_BASE_CLASSES,
+  OUTPUT_CARD_BODY_CLASSES,
+  OUTPUT_CARD_INNER_CLASSES,
   OUTPUT_HEADER_LABEL_CLASSES,
   OUTPUT_HEADER_ROW_CLASSES,
   OUTPUT_COLLAPSE_THRESHOLD,
@@ -45,24 +54,22 @@ import type { BrowserMetadata, ComputerUseMetadata } from "@/shared/types";
 const ELLIPSIS = "…";
 
 interface CategoryStyle {
-  readonly border: string;
-  readonly badge: string;
   readonly icon: LucideIcon;
   readonly labelKey: string;
 }
 
 const CATEGORY_STYLES: Record<ToolCategory, CategoryStyle> = {
-  code: { border: "", badge: "bg-focus/10 text-focus", icon: Terminal, labelKey: "output.category.code" },
-  file: { border: "", badge: "bg-muted/60 text-foreground", icon: FileCode, labelKey: "output.category.file" },
-  search: { border: "", badge: "bg-secondary text-secondary-foreground", icon: Globe, labelKey: "output.category.search" },
-  memory: { border: "", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.memory" },
-  browser: { border: "", badge: "bg-focus/10 text-focus", icon: Globe, labelKey: "output.category.browser" },
-  computer: { border: "", badge: "bg-muted/60 text-foreground", icon: Monitor, labelKey: "output.category.computer" },
-  preview: { border: "", badge: "bg-muted/60 text-foreground", icon: Play, labelKey: "output.category.preview" },
-  mcp: { border: "", badge: "bg-accent-amber/10 text-accent-amber", icon: Plug, labelKey: "output.category.mcp" },
-  agent: { border: "", badge: "bg-muted/60 text-foreground", icon: GitFork, labelKey: "output.category.agent" },
-  database: { border: "", badge: "bg-accent-amber/10 text-accent-amber", icon: Database, labelKey: "output.category.database" },
-  default: { border: "", badge: "bg-muted/60 text-muted-foreground", icon: FileText, labelKey: "" },
+  code: { icon: Terminal, labelKey: "output.category.code" },
+  file: { icon: FileCode, labelKey: "output.category.file" },
+  search: { icon: Globe, labelKey: "output.category.search" },
+  memory: { icon: Database, labelKey: "output.category.memory" },
+  browser: { icon: Globe, labelKey: "output.category.browser" },
+  computer: { icon: Monitor, labelKey: "output.category.computer" },
+  preview: { icon: Play, labelKey: "output.category.preview" },
+  mcp: { icon: Plug, labelKey: "output.category.mcp" },
+  agent: { icon: GitFork, labelKey: "output.category.agent" },
+  database: { icon: Database, labelKey: "output.category.database" },
+  default: { icon: FileText, labelKey: "" },
 };
 
 interface SearchPayload {
@@ -219,7 +226,9 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         </div>
 
         {/* Output */}
-        <pre className="mt-2 whitespace-pre-wrap text-[var(--color-terminal-text)]">{stripAnsi(output)}</pre>
+        <div className="mt-2 overflow-x-auto">
+          <pre className="whitespace-pre text-[var(--color-terminal-text)]">{stripAnsi(output)}</pre>
+        </div>
 
         {/* Status indicator */}
         <div className="mt-3 flex items-center gap-2 border-t border-terminal-border pt-3">
@@ -246,12 +255,14 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     return (
       <TerminalWindow title={t("output.shell.title")} className="mt-2" copyText={stripAnsi(output)}>
         {/* Output */}
-        <pre className="whitespace-pre-wrap text-[var(--color-terminal-text)]">
-          {stripAnsi(displayText)}
-          {isLong && !expanded && (
-            <span className="text-[var(--color-terminal-dim)]">{`\n${ELLIPSIS}`}</span>
-          )}
-        </pre>
+        <div className="overflow-x-auto">
+          <pre className="whitespace-pre text-[var(--color-terminal-text)]">
+            {stripAnsi(displayText)}
+            {isLong && !expanded && (
+              <span className="text-[var(--color-terminal-dim)]">{`\n${ELLIPSIS}`}</span>
+            )}
+          </pre>
+        </div>
 
         {isLong && (
           <div className="mt-2 border-t border-terminal-border pt-2">
@@ -282,32 +293,36 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     const isLongJson = prettyJson.length > OUTPUT_COLLAPSE_THRESHOLD;
     const displayJson = isLongJson && !expanded ? prettyJson.slice(0, OUTPUT_COLLAPSE_THRESHOLD) : prettyJson;
     return (
-      <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
-        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "justify-between")}>
-          <span className="flex items-center gap-1.5">
-            <Braces className="h-3.5 w-3.5 text-muted-foreground" />
-            <span className={OUTPUT_HEADER_LABEL_CLASSES}>
-              {style.labelKey ? t(style.labelKey) : "Structured output"}
-            </span>
-          </span>
-          <button
-            type="button"
-            onClick={() => handleJsonCopy(prettyJson)}
-            aria-label={copiedJson ? t("output.copied") : t("output.copyToClipboard")}
-            className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-          >
-            {copiedJson ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            {copiedJson ? t("output.copied") : t("output.copy")}
-          </button>
-        </div>
-        <div className="rounded-md bg-muted/10 px-2 py-1.5">
-          <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-muted-foreground">
-            {displayJson}
-            {isLongJson && !expanded && ELLIPSIS}
-          </pre>
-        </div>
-        {isLongJson && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
-      </div>
+      <OutputSurface>
+        <OutputSurfaceHeader
+          icon={<Braces className="h-3.5 w-3.5 text-muted-foreground" />}
+          label={style.labelKey ? t(style.labelKey) : "Structured output"}
+          className="justify-between"
+          action={(
+            <button
+              type="button"
+              onClick={() => handleJsonCopy(prettyJson)}
+              aria-label={copiedJson ? t("output.copied") : t("output.copyToClipboard")}
+              className={cn(
+                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+                OUTPUT_SURFACE_FOCUS_CLASSES,
+              )}
+            >
+              {copiedJson ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              {copiedJson ? t("output.copied") : t("output.copy")}
+            </button>
+          )}
+        />
+        <OutputSurfaceBody>
+          <OutputSurfaceInner className="overflow-x-auto">
+            <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
+              {displayJson}
+              {isLongJson && !expanded && ELLIPSIS}
+            </pre>
+          </OutputSurfaceInner>
+          {isLongJson && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+        </OutputSurfaceBody>
+      </OutputSurface>
     );
   }
 
@@ -355,14 +370,14 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const results = JSON.parse(output) as Record<string, { success: boolean; summary: string; error: string | null; artifacts: string[] }>;
       const entries = Object.entries(results);
         return (
-          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+          <div className={OUTPUT_CARD_BASE_CLASSES}>
             <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <GitFork className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentResults")}</span>
             </div>
-            <div className="space-y-1">
+            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1")}>
               {entries.map(([agentId, result]) => (
-                <div key={agentId} className="flex items-start gap-2.5 rounded-lg px-2 py-1 text-sm text-muted-foreground">
+                <div key={agentId} className={cn(OUTPUT_CARD_INNER_CLASSES, "flex items-start gap-2.5 py-1.5 text-sm text-muted-foreground")}>
                   {result.success ? (
                     <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
                   ) : (
@@ -384,7 +399,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (toolName === "agent_receive") {
     if (output === "No pending messages." || output === "[]") {
       return (
-        <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+        <div className={OUTPUT_CARD_BASE_CLASSES}>
           <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
             <MessageSquare className="h-3 w-3" />
             <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.noMessages")}</span>
@@ -396,14 +411,14 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const messages = JSON.parse(output) as Array<{ from: string; to: string; message: string; metadata?: object }>;
       if (Array.isArray(messages)) {
         return (
-          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+          <div className={OUTPUT_CARD_BASE_CLASSES}>
             <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <MessageSquare className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentMessages", { count: messages.length })}</span>
             </div>
-            <div className="space-y-1.5">
+            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1.5")}>
               {messages.map((msg, i) => (
-                <div key={i} className="rounded-md bg-muted/10 px-2 py-1.5 text-sm">
+                <div key={i} className={cn(OUTPUT_CARD_INNER_CLASSES, "text-sm")}>
                   <div className="mb-0.5 text-micro text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
@@ -430,12 +445,13 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         if (Array.isArray(rows) && rows.length > 0) {
           const columns = Object.keys(rows[0]);
           return (
-            <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+            <div className={OUTPUT_CARD_BASE_CLASSES}>
               <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
                 <Database className="h-3 w-3" />
                 <span className={OUTPUT_HEADER_LABEL_CLASSES}>{summaryLine}</span>
               </div>
-              <div className="overflow-x-auto">
+              <div className={OUTPUT_CARD_BODY_CLASSES}>
+              <div className={cn(OUTPUT_CARD_INNER_CLASSES, "overflow-x-auto")}>
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border">
@@ -455,6 +471,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                   </tbody>
                 </table>
               </div>
+              </div>
             </div>
           );
         }
@@ -471,17 +488,17 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       const entries: Array<{ key: string; value: string; namespace?: string }> = Array.isArray(parsed) ? parsed : Object.entries(parsed).map(([k, v]) => ({ key: k, value: String(v) }));
       if (entries.length > 0) {
         return (
-          <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+          <div className={OUTPUT_CARD_BASE_CLASSES}>
             <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "gap-1")}>
               <Database className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.memoryEntries", { count: entries.length })}</span>
             </div>
-            <div className="space-y-0.5">
+            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1")}>
               {entries.map((entry, i) => {
                 const label = entry.namespace ? `${entry.namespace}:${entry.key}` : entry.key;
                 const value = typeof entry.value === "string" ? entry.value : JSON.stringify(entry.value);
                 return (
-                  <div key={i} className="flex gap-2 px-2 py-0.5 text-sm">
+                  <div key={i} className={cn(OUTPUT_CARD_INNER_CLASSES, "flex gap-2 py-1 text-sm")}>
                     <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{label}</span>
                     <span className="min-w-0 break-words text-muted-foreground">{value.length > 80 ? `${value.slice(0, 80)}${ELLIPSIS}` : value}</span>
                   </div>
@@ -500,42 +517,43 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   if (success === false) {
     return (
       <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-destructive bg-destructive/5")}>
-        <div className="mb-1.5 flex items-center gap-1 text-sm font-medium text-destructive">
+        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "border-destructive/30 text-destructive")}>
           <CircleX className="h-3 w-3" />
           {t("output.toolFailed")}
         </div>
-        <div className={PROSE_CLASSES}>
-          <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
-          {isLong && !expanded && (
-            <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
-          )}
+        <div className={OUTPUT_CARD_BODY_CLASSES}>
+          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, "border-destructive/30 bg-card")}>
+            <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
+            {isLong && !expanded && (
+              <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
+            )}
+          </div>
+          {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+          <p className="mt-1 text-xs text-muted-foreground">{t("conversation.retry")}</p>
         </div>
-        {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
-        <p className="mt-1 text-xs text-muted-foreground">{t("conversation.retry")}</p>
       </div>
     );
   }
 
   // Category-aware rendering for all other tools (markdown fallback)
   return (
-    <div className={cn(OUTPUT_CARD_BASE_CLASSES, style.border)}>
+    <OutputSurface>
       {style.labelKey && (
-        <div className="mb-1.5 flex items-center gap-1.5">
-          <CategoryIcon className="h-3 w-3 text-muted-foreground" />
-          <span className="text-micro font-medium text-muted-foreground">
-            {t(style.labelKey)}
-          </span>
-        </div>
+        <OutputSurfaceHeader
+          icon={<CategoryIcon className="h-3 w-3 text-muted-foreground" />}
+          label={t(style.labelKey)}
+        />
       )}
 
-      <div className={PROSE_CLASSES}>
+      <OutputSurfaceBody>
+        <OutputSurfaceInner className={PROSE_CLASSES}>
           <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
-        {isLong && !expanded && (
-          <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
-        )}
-      </div>
-
-      {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
-    </div>
+          {isLong && !expanded && (
+            <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
+          )}
+        </OutputSurfaceInner>
+        {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
+      </OutputSurfaceBody>
+    </OutputSurface>
   );
 }

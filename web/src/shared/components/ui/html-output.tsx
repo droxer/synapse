@@ -6,6 +6,13 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { ExpandToggle } from "./expand-toggle";
 import { OUTPUT_COLLAPSE_THRESHOLD } from "@/features/agent-computer/lib/format-tools";
+import {
+  OUTPUT_SURFACE_BODY_CLASSES,
+  OUTPUT_SURFACE_HEADER_CLASSES,
+  OUTPUT_SURFACE_INNER_CLASSES,
+  OUTPUT_SURFACE_LABEL_CLASSES,
+  OUTPUT_SURFACE_ROOT_CLASSES,
+} from "./output-surface";
 
 interface HtmlOutputProps {
   readonly output: string;
@@ -22,22 +29,24 @@ export function HtmlOutput({ output, className, label }: HtmlOutputProps) {
   const resolvedLabel = label ?? t("a11y.htmlOutput");
 
   return (
-    <div className={cn("rounded-lg border border-border-strong bg-background/70 px-3 py-2", className)}>
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-        <FileText className="h-3 w-3" />
-        <span>{resolvedLabel}</span>
+    <div className={cn(OUTPUT_SURFACE_ROOT_CLASSES, className)}>
+      <div className={OUTPUT_SURFACE_HEADER_CLASSES}>
+        <FileText className="h-3 w-3 text-muted-foreground" />
+        <span className={OUTPUT_SURFACE_LABEL_CLASSES}>{resolvedLabel}</span>
       </div>
-      <div className="rounded-md bg-muted/10 px-2 py-1.5">
-        <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
-          {displayText}
-          {isLong && !expanded && "..."}
-        </pre>
-      </div>
-      {isLong && (
-        <div className="mt-2">
-          <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+      <div className={OUTPUT_SURFACE_BODY_CLASSES}>
+        <div className={OUTPUT_SURFACE_INNER_CLASSES}>
+          <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
+            {displayText}
+            {isLong && !expanded && "..."}
+          </pre>
         </div>
-      )}
+        {isLong && (
+          <div className="mt-2">
+            <ExpandToggle expanded={expanded} onToggle={handleToggle} />
+          </div>
+        )}
+      </div>
     </div>
   );
 }

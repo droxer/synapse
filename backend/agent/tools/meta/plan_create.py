@@ -10,14 +10,20 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.tools.meta.planner_state import PlannerState
 from api.events import EventEmitter, EventType
 
 
 class PlanCreate(LocalTool):
     """Declare a structured plan with named steps before spawning agents."""
 
-    def __init__(self, event_emitter: EventEmitter) -> None:
+    def __init__(
+        self,
+        event_emitter: EventEmitter,
+        planner_state: PlannerState | None = None,
+    ) -> None:
         self._emitter = event_emitter
+        self._planner_state = planner_state or PlannerState()
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -73,6 +79,10 @@ class PlanCreate(LocalTool):
 
         if not steps:
             return ToolResult.fail("steps must not be empty")
+        try:
+            self._planner_state.register_steps(steps)
+        except ValueError as exc:
+            return ToolResult.fail(str(exc))
 
         await self._emitter.emit(
             EventType.PLAN_CREATED,

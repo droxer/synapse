@@ -36,8 +36,8 @@ describe("activity visual helpers", () => {
     expect(tool.rowAccent).toBe("");
     expect(skill.rowAccent).toBe("");
     expect(neutral.rowAccent).toBe("");
-    expect(tool.iconInsetRing).toBe("");
-    expect(skill.iconInsetRing).toBe("");
+    expect(tool.rowHoverAccent).toBe("");
+    expect(skill.rowHoverAccent).toBe("");
   });
 
   it("derives tool call tone from success and output", () => {
@@ -48,8 +48,8 @@ describe("activity visual helpers", () => {
   });
 
   it("maps tones to row utility classes (neutral cards + support surfaces)", () => {
-    expect(getToolCallVisualClasses("running").row).toContain("bg-secondary/35");
-    expect(getToolCallVisualClasses("complete").row).toContain("bg-card");
+    expect(getToolCallVisualClasses("running").row).toContain("surface-panel");
+    expect(getToolCallVisualClasses("complete").row).toContain("surface-panel");
     expect(getToolCallVisualClasses("error").row).toContain("destructive");
     expect(getToolCallVisualClasses("running").rowHover).toContain("border-border-strong");
   });
