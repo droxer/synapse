@@ -573,17 +573,17 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: "surface-panel border-destructive/60 bg-card",
-        rowHover: "hover:border-destructive/70 hover:bg-muted",
-        iconSurface: "bg-destructive/10",
+        rowBase: "surface-panel border-destructive bg-card",
+        rowHover: "hover:border-destructive hover:bg-muted",
+        iconSurface: "bg-muted",
         iconColor: "text-destructive",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
-        rowBase: "surface-panel border-accent-amber/60 bg-card",
-        rowHover: "hover:border-accent-amber/70 hover:bg-muted",
-        iconSurface: "bg-accent-amber/10",
+        rowBase: "surface-panel border-accent-amber bg-card",
+        rowHover: "hover:border-accent-amber hover:bg-muted",
+        iconSurface: "bg-muted",
         iconColor: "text-accent-amber",
       };
     case "skipped":
@@ -793,7 +793,7 @@ export function AgentProgressCard({
             type="button"
             aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
             onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted/55 hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <Monitor className="h-3.5 w-3.5" />
           </button>
@@ -819,7 +819,7 @@ export function AgentProgressCard({
             aria-expanded={expanded}
             aria-controls={stepListId}
             onClick={() => setExpanded((prev) => !prev)}
-            className="border border-transparent text-muted-foreground hover:border-border hover:bg-muted/45 hover:text-foreground"
+            className="border border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
           >
             <motion.span
               animate={{ rotate: expanded ? 180 : 0 }}
@@ -870,7 +870,7 @@ export function AgentProgressCard({
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
                       isClickable &&
-                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     );
                     const rowContent = (
                       <>

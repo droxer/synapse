@@ -132,18 +132,18 @@ const OFFICE_IFRAME_STYLES = `
     color-scheme: light dark;
     --preview-background: #FFFFFF;
     --preview-foreground: #000000;
-    --preview-secondary: #F7F8F9;
-    --preview-muted: #F7F8F9;
+    --preview-secondary: #EEF4FF;
+    --preview-muted: #F4F7FB;
     --preview-border: #E4E6EB;
-    --preview-hover: #EEF2F8;
+    --preview-hover: #F7FAFF;
   }
   .dark {
     --preview-background: #101114;
     --preview-foreground: #FFFFFF;
-    --preview-secondary: #181A1E;
-    --preview-muted: #181A1E;
+    --preview-secondary: #172033;
+    --preview-muted: #1A1F2B;
     --preview-border: #2A2D33;
-    --preview-hover: #1F2530;
+    --preview-hover: #1D2432;
   }
 
   body {
@@ -442,7 +442,7 @@ export function FilePreview({
                 src={slide.image_url}
                 alt={`${fileName} slide ${slide.index}`}
                 loading="lazy"
-                className="w-full bg-muted/30 object-contain"
+                className="w-full bg-muted object-contain"
               />
             </figure>
           ))}

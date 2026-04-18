@@ -387,8 +387,10 @@ export function useSSE(conversationId: string | null, isLive = true) {
             if (!agentEvent) return;
 
             enqueueEvent(agentEvent);
-          } catch {
-            // Skip malformed events
+          } catch (err) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn("[SSE] Failed to parse event:", eventName, e.data, err);
+            }
           }
         };
         es.addEventListener(eventName, handler as EventListener);
@@ -417,6 +419,13 @@ export function useSSE(conversationId: string | null, isLive = true) {
 
   /** Remove events from the last assistant turn so a retry doesn't duplicate. */
   const clearLastTurn = useCallback(() => {
+    // Drain any in-flight buffered events so they don't leak into the retried turn.
+    bufferRef.current = [];
+    if (rafIdRef.current !== null) {
+      cancelAnimationFrame(rafIdRef.current);
+      rafIdRef.current = null;
+    }
+
     setEvents((prev) => {
       // Find the last turn_start — everything from there is the turn we're retrying
       let lastTurnStart = -1;

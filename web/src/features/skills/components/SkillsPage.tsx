@@ -461,7 +461,7 @@ export function SkillsPage() {
                     aria-disabled={src === "git"}
                     className={cn(
                       "flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       src === "git"
                         ? "cursor-not-allowed text-muted-foreground-dim opacity-60"
                         : installSource === src
@@ -520,7 +520,7 @@ export function SkillsPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {t("chat.attachFile")}
                     </button>
@@ -579,7 +579,7 @@ export function SkillsPage() {
                           setIsFolderUpload(false);
                           setFolderName("");
                         }}
-                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                       >
                         <X className="h-3 w-3" />
                       </button>

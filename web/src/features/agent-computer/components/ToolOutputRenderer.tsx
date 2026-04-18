@@ -516,20 +516,20 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   // Failed tool call — show error output with distinct styling
   if (success === false) {
     return (
-      <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-destructive bg-destructive/5")}>
-        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "border-destructive/30 text-destructive")}>
+      <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-destructive bg-card")}>
+        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "border-destructive text-destructive")}>
           <CircleX className="h-3 w-3" />
           {t("output.toolFailed")}
         </div>
         <div className={OUTPUT_CARD_BODY_CLASSES}>
-          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, "border-destructive/30 bg-card")}>
+          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, "border-destructive bg-card")}>
             <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
             {isLong && !expanded && (
               <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
             )}
           </div>
           {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
-          <p className="mt-1 text-xs text-muted-foreground">{t("conversation.retry")}</p>
+          <p className="mt-1 text-sm text-muted-foreground">{t("conversation.retry")}</p>
         </div>
       </div>
     );

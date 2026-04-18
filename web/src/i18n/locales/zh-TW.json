@@ -671,5 +671,8 @@
   "channels.list.time.now": "剛剛",
   "channels.list.time.minutes": "{count}分",
   "channels.list.time.hours": "{count}時",
-  "channels.list.time.days": "{count}天"
+  "channels.list.time.days": "{count}天",
+
+  "markdown.copyCode": "複製程式碼",
+  "markdown.copied": "已複製"
 }

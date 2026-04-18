@@ -72,6 +72,16 @@ async def _read_artifact_paths(session: Any, session_id: str) -> list[str]:
     return [line.strip() for line in result.stdout.splitlines() if line.strip()]
 
 
+async def _read_workdir(session: Any, session_id: str) -> str | None:
+    """Read the recorded working directory for a named shell session."""
+    sdir = _session_dir(session_id)
+    result = await session.exec(f"cat {sdir}/workdir 2>/dev/null", timeout=5)
+    if result.exit_code != 0:
+        return None
+    workdir = result.stdout.strip()
+    return workdir or None
+
+
 class ShellView(SandboxTool):
     """View output from a named shell session."""
 
@@ -269,9 +279,19 @@ class ShellWait(SandboxTool):
             # Auto-detect output files created during the background session,
             # then merge with any explicit paths from the manifest.
             explicit_paths = await _read_artifact_paths(session, session_id)
+            workdir = await _read_workdir(session, session_id)
             ts_marker = f"{sdir}/ts_marker"
-            auto_found = await find_new_output_files(session, ts_marker)
-            artifact_paths = build_artifact_paths(explicit_paths, auto_found)
+            allow_prefixes = (workdir,) if workdir else ()
+            auto_found = await find_new_output_files(
+                session,
+                ts_marker,
+                allow_prefixes=allow_prefixes,
+            )
+            artifact_paths = build_artifact_paths(
+                explicit_paths,
+                auto_found,
+                allow_prefixes=allow_prefixes,
+            )
             if artifact_paths:
                 metadata["artifact_paths"] = artifact_paths
 

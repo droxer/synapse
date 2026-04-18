@@ -63,6 +63,27 @@ interface ConversationWorkspaceProps {
   hideTopBar?: boolean;
 }
 
+// ── Inline image with React-driven error fallback ───────────────────
+function InlineImage({ url, alt, fallbackText }: { url: string; alt: string; fallbackText: string }) {
+  const [failed, setFailed] = useState(false);
+
+  if (failed) {
+    return <span className="text-sm text-muted-foreground">{fallbackText}</span>;
+  }
+
+  return (
+    <img
+      src={url}
+      alt={alt}
+      width={288}
+      height={288}
+      loading="lazy"
+      className="max-h-72 max-w-full rounded-md object-contain"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 // ── Memoized message row ─────────────────────────────────────────────
 // Prevents non-streaming messages from re-rendering when only the last
 // (streaming) message content changes.
@@ -225,22 +246,11 @@ export const MessageRow = memo(function MessageRow({
               {imageUrls.length > 0 ? (
                 <div className="mt-4 flex flex-wrap gap-3">
                   {imageUrls.map((url) => (
-                    <img
+                    <InlineImage
                       key={url}
-                      src={url}
+                      url={url}
                       alt={t("conversation.imageAlt")}
-                      width={288}
-                      height={288}
-                      loading="lazy"
-                      className="max-h-72 max-w-full rounded-md object-contain"
-                      onError={(e) => {
-                        const img = e.currentTarget as HTMLImageElement;
-                        img.classList.add("hidden");
-                        const fallback = document.createElement("span");
-                        fallback.className = "text-sm text-muted-foreground";
-                        fallback.textContent = t("conversation.imageUnavailable");
-                        img.parentElement?.appendChild(fallback);
-                      }}
+                      fallbackText={t("conversation.imageUnavailable")}
                     />
                   ))}
                 </div>
@@ -571,7 +581,7 @@ export function ConversationWorkspace({
           {panelOpen && (
             <motion.div
               key="agent-computer-panel"
-              className="relative z-10 flex w-full flex-col border-l border-border bg-secondary/25 md:w-[var(--agent-panel-width)]"
+              className="relative z-10 flex w-full flex-col border-l border-border bg-card md:w-[var(--agent-panel-width)]"
               initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}

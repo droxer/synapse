@@ -114,7 +114,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
       className={cn(
         OUTPUT_CARD_DENSE_CLASSES,
         "border-l border-border bg-muted",
-        compact ? "px-2 py-1 text-micro" : "text-xs",
+        compact && "px-2 py-1",
       )}
     >
       <div
@@ -148,8 +148,8 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                 {isMultiline ? (
                   <pre
                     className={cn(
-                      "whitespace-pre-wrap [overflow-wrap:anywhere] font-mono text-foreground",
-                      compact ? "text-micro" : "text-xs",
+                      "whitespace-pre-wrap [overflow-wrap:anywhere] font-mono",
+                      compact ? "text-micro" : "text-sm",
                     )}
                   >
                     {displayValue}
@@ -159,16 +159,17 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                   </pre>
                 ) : typeof value === "boolean" ? (
                   <span
-                    className={
+                    className={cn(
+                      "text-sm",
                       value
-                        ? "text-micro text-accent-emerald"
-                        : "text-micro text-accent-rose"
-                    }
+                        ? "text-accent-emerald"
+                        : "text-accent-rose",
+                    )}
                   >
                     {String(value)}
                   </span>
                 ) : (
-                  <span className={cn("break-words [overflow-wrap:anywhere] text-foreground", compact ? "text-micro" : "text-sm")}>
+                  <span className="break-words [overflow-wrap:anywhere] text-sm text-foreground">
                     {displayValue}
                     {isLong && !isExpanded && (
                       <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>

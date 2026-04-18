@@ -231,7 +231,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
   return (
     <div className="flex h-full min-h-0 flex-col">
       {pendingAsk && (
-        <div className="border-b border-border bg-secondary/60 px-4 py-3">
+        <div className="border-b border-border bg-secondary px-4 py-3">
           <div className="flex items-start gap-3">
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground">
               <MessageCircle className="h-4 w-4" />

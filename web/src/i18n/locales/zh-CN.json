@@ -672,5 +672,8 @@
   "channels.list.time.now": "刚刚",
   "channels.list.time.minutes": "{count}分",
   "channels.list.time.hours": "{count}时",
-  "channels.list.time.days": "{count}天"
+  "channels.list.time.days": "{count}天",
+
+  "markdown.copyCode": "复制代码",
+  "markdown.copied": "已复制"
 }

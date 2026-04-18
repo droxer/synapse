@@ -94,6 +94,50 @@ async def test_updates_title_on_conversation_title_event(repo, session_factory) 
     repo.update_conversation.assert_called_once()
 
 
+async def test_persists_valid_artifact_created_event(repo, session_factory) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.ARTIFACT_CREATED,
+        {
+            "artifact_id": "a" * 32,
+            "storage_key": "a" * 32 + ".html",
+            "name": "paper-folding-demo.html",
+            "content_type": "text/html",
+            "size": 1024,
+            "file_path": "/workspace/paper-folding-demo.html",
+        },
+    )
+
+    await subscriber(event)
+
+    repo.save_artifact.assert_called_once()
+    repo.save_event.assert_called_once()
+
+
+@patch("api.db_subscriber.logger.warning")
+async def test_logs_and_skips_invalid_artifact_created_payload(
+    mock_warning, repo, session_factory
+) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.ARTIFACT_CREATED,
+        {
+            "artifact_id": "a" * 32,
+            "name": "broken.html",
+            "content_type": "text/html",
+            "size": "not-a-number",
+        },
+    )
+
+    await subscriber(event)
+
+    repo.save_artifact.assert_not_called()
+    repo.save_event.assert_called_once()
+    mock_warning.assert_called_once()
+
+
 @patch("api.db_subscriber.get_settings")
 async def test_context_compacted_merges_summary(
     mock_get_settings, repo, session_factory

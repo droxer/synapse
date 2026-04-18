@@ -672,5 +672,8 @@
   "channels.list.time.now": "now",
   "channels.list.time.minutes": "{count}m",
   "channels.list.time.hours": "{count}h",
-  "channels.list.time.days": "{count}d"
+  "channels.list.time.days": "{count}d",
+
+  "markdown.copyCode": "Copy code",
+  "markdown.copied": "Copied"
 }

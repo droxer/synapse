@@ -14,12 +14,12 @@ export function ArtifactScreenshotGallery({
   alt,
 }: ArtifactScreenshotGalleryProps) {
   return (
-    <div className="mb-2 rounded-md bg-muted/10 p-1.5">
+    <div className="mb-2 rounded-md bg-muted p-1.5">
       <div className="flex flex-col gap-2">
         {artifactIds.map((artifactId) => (
           <div
             key={artifactId}
-            className="relative aspect-video w-full overflow-hidden rounded-md bg-background/70"
+            className="relative aspect-video w-full overflow-hidden rounded-md bg-background"
           >
             <Image
               src={`/api/conversations/${conversationId}/artifacts/${artifactId}`}

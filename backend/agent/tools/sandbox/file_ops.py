@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 import shlex
 from typing import Any
 
@@ -13,7 +12,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
-from agent.tools.sandbox.constants import ARTIFACT_EXTENSIONS
+from agent.tools.sandbox.constants import is_auto_artifact_path
 
 
 class FileRead(SandboxTool):
@@ -121,8 +120,7 @@ class FileWrite(SandboxTool):
         # Explicit is_artifact wins; otherwise use extension heuristic.
         is_artifact = kwargs.get("is_artifact")
         if is_artifact is None:
-            _, ext = os.path.splitext(path)
-            is_artifact = ext.lower() in ARTIFACT_EXTENSIONS
+            is_artifact = is_auto_artifact_path(path)
         if is_artifact:
             metadata["artifact_paths"] = [path]
 

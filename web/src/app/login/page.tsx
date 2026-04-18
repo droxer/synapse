@@ -131,7 +131,7 @@ function LoginForm() {
       <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/55" aria-hidden="true" />
       <div className="relative z-10 w-full max-w-sm">
         {/* Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-border-strong/80 bg-card/95 p-8 shadow-[var(--shadow-elevated)] backdrop-blur-sm sm:p-10">
+        <div className="relative overflow-hidden rounded-2xl border border-border-strong bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
           <div className="flex flex-col items-center gap-6">
             <div className="rounded-xl">
               <Logo size={64} tone="auto" className="rounded-xl" />
@@ -169,7 +169,7 @@ function LoginForm() {
                   type="button"
                   onClick={handleSignIn}
                   disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
                   {isLoading ? (
                     <span role="status">

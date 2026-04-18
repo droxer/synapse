@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Trash2, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
@@ -19,7 +18,6 @@ interface SkillCardProps {
 
 export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
   const { t } = useTranslation();
-  const router = useRouter();
   const config = SOURCE_STYLE[skill.source_type] ?? SOURCE_STYLE.bundled;
   const Icon = config.icon;
   const labelKey = SOURCE_LABEL_KEY[skill.source_type] ?? SOURCE_LABEL_KEY.bundled;
@@ -28,32 +26,13 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
   const skillHref = `/skills/${encodeURIComponent(skill.name)}`;
 
   return (
-    <div
-      role="link"
-      tabIndex={0}
-      aria-label={normalizeSkillName(skill.name)}
+    <article
       className={cn(
-        "group flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color] duration-200 ease-out",
-        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+        "group relative flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color] duration-200 ease-out",
         isDisabled
           ? "border-border hover:border-border"
-          : "border-border hover:border-border-strong hover:bg-muted/40",
+          : "border-border hover:border-border-strong hover:bg-muted",
       )}
-      onClick={(event) => {
-        const target = event.target as HTMLElement;
-        if (target.closest('[data-skill-interactive="true"]')) {
-          return;
-        }
-        router.push(skillHref);
-      }}
-      onKeyDown={(event) => {
-        const isActivationKey = event.key === "Enter" || event.key === " ";
-        if (!isActivationKey) {
-          return;
-        }
-        event.preventDefault();
-        router.push(skillHref);
-      }}
     >
       {/* Top row: icon + badge + optional delete */}
       <div className="flex items-start justify-between gap-2">
@@ -66,7 +45,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
             isDisabled ? "text-muted-foreground-dim" : "text-muted-foreground",
           )} />
         </div>
-        <div className="flex items-center gap-1.5">
+        <div className="relative z-10 flex items-center gap-1.5">
           <span
             className={cn(
               ACTIVITY_META_BADGE_CLASSES,
@@ -122,7 +101,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       </div>
 
       {/* Footer: slug + status toggle */}
-      <div className="mt-auto flex items-center justify-between gap-2 pt-3">
+      <div className="relative z-10 mt-auto flex items-center justify-between gap-2 pt-3">
         <span className="font-mono text-micro text-muted-foreground-dim truncate">
           {normalizeSkillName(skill.name)}
         </span>
@@ -135,10 +114,10 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
             aria-label={isDisabled ? t("skills.enable") : t("skills.disable")}
             className={cn(
               "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               isDisabled
                 ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
-                : "border border-border bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground",
+                : "border border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
             onClick={(e) => {
               e.preventDefault();
@@ -156,12 +135,11 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       </div>
       <Link
         href={skillHref}
-        data-skill-interactive="true"
-        className="sr-only"
-        tabIndex={-1}
+        aria-label={normalizeSkillName(skill.name)}
+        className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        {normalizeSkillName(skill.name)}
+        <span className="sr-only">{normalizeSkillName(skill.name)}</span>
       </Link>
-    </div>
+    </article>
   );
 }

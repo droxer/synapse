@@ -13,7 +13,10 @@ import shlex
 from typing import Any
 
 from agent.sandbox.base import SANDBOX_HOME_DIR
-from agent.tools.sandbox.constants import ARTIFACT_EXTENSIONS
+from agent.tools.sandbox.constants import (
+    AUTO_ARTIFACT_EXTENSIONS,
+    is_auto_artifact_path,
+)
 
 # Directories scanned for auto-detected output files.
 # /workspace is a symlink to SANDBOX_HOME_DIR but some ``find``
@@ -25,11 +28,6 @@ _SKILL_DIR = f"{SANDBOX_HOME_DIR}/skills"
 _SKILL_ROOT_PREFIX = f"{_SKILL_DIR}/"
 DEFAULT_SEARCH_ROOTS: tuple[str, ...] = ("/workspace", _SKILL_DIR)
 
-# When the model does not pass output_files, skip plain-text and structured-text
-# outputs from auto-detection — they are usually outlines or build logs, not the
-# final deliverable (e.g. .pptx / .pdf / images).
-_AUTO_DETECT_SKIP_EXTENSIONS = frozenset({".txt", ".md", ".json", ".xml"})
-
 ArtifactSnapshot = dict[str, tuple[int, str]]
 _TEXT_PATH_PATTERN = re.compile(r"(/[^\s\"'<>]+)")
 _TRAILING_PATH_PUNCTUATION = ".,;:!?)]}>\"'"
@@ -37,7 +35,7 @@ _TRAILING_PATH_PUNCTUATION = ".,;:!?)]}>\"'"
 
 def _build_find_name_clauses() -> str:
     return " -o ".join(
-        f"-name {shlex.quote('*' + ext)}" for ext in sorted(ARTIFACT_EXTENSIONS)
+        f"-name {shlex.quote('*' + ext)}" for ext in sorted(AUTO_ARTIFACT_EXTENSIONS)
     )
 
 
@@ -91,8 +89,7 @@ def extract_artifact_paths_from_text(
         path = _clean_text_candidate_path(match.group(1))
         if not path or path in seen:
             continue
-        _, ext = os.path.splitext(path)
-        if ext.lower() not in ARTIFACT_EXTENSIONS:
+        if not is_auto_artifact_path(path):
             continue
         if not _is_under_prefixes(path, candidate_prefixes):
             continue
@@ -261,12 +258,11 @@ def _filter_auto_detected_paths(
         path = raw.strip()
         if not path or path in seen:
             continue
+        if not is_auto_artifact_path(path):
+            continue
         if path.startswith(_SKILL_ROOT_PREFIX) and not _is_allowed_skill_output(
             path, allow_prefixes
         ):
-            continue
-        _, ext = os.path.splitext(path)
-        if ext.lower() in _AUTO_DETECT_SKIP_EXTENSIONS:
             continue
         seen.add(path)
         out.append(path)

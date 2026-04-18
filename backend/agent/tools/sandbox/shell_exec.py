@@ -204,20 +204,25 @@ class ShellExec(SandboxTool):
 
         sdir = f"{_SESSION_DIR}/{session_id}"
         artifact_manifest = f"{sdir}/artifact_paths"
+        workdir_file = f"{sdir}/workdir"
 
         # Build the startup script.
         # The wrapper records the exit code to a file so shell_wait can
         # read it reliably (the `wait` builtin only works for child processes
         # of the same shell).
-        cd_prefix = f"cd {workdir} && " if workdir else ""
+        cd_prefix = f"cd {shlex.quote(workdir)} && " if workdir else ""
         escaped_cmd = command.replace("'", "'\\''")
         manifest_init = f": > {artifact_manifest}; "
         if output_files:
             manifest_lines = _shell_quote_lines(output_files)
             manifest_init = f"printf '%s\\n' {manifest_lines} > {artifact_manifest}; "
+        workdir_init = f": > {workdir_file}; "
+        if workdir:
+            workdir_init = f"printf '%s\\n' {shlex.quote(workdir)} > {workdir_file}; "
         start_script = (
             f"mkdir -p {sdir} && "
             f"{manifest_init}"
+            f"{workdir_init}"
             f"touch {sdir}/ts_marker; "
             f"mkfifo {sdir}/stdin_pipe 2>/dev/null; "
             f"nohup sh -c '"

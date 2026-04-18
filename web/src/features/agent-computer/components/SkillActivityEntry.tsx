@@ -43,7 +43,7 @@ function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key
         <button
           type="button"
           onClick={() => setExpanded((p) => !p)}
-          className="mt-0.5 rounded text-micro font-medium text-destructive transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="mt-0.5 rounded text-micro font-medium text-destructive transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           aria-label={expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
           aria-expanded={expanded}
         >
@@ -251,7 +251,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             <button
               type="button"
               onClick={toggleRaw}
-              className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground-dim transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground-dim transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               aria-label={showRaw ? t("skills.activity.hideInstructions") : t("skills.activity.showInstructions")}
               aria-expanded={showRaw}
             >

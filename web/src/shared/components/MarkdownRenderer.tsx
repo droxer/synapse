@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState, useCallback, useMemo, isValidElement, type CSSProperties, type ReactNode } from "react";
+import { memo, useState, useCallback, useEffect, useRef, useMemo, isValidElement, type CSSProperties, type ReactNode } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import remarkMath from "remark-math";
@@ -9,6 +9,7 @@ import rehypeHighlight from "rehype-highlight";
 import type { Components } from "react-markdown";
 import { Copy, Check, ArrowUpRight } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
+import { useTranslation } from "@/i18n";
 import {
   getMarkdownRenderStrategy,
   splitStreamingMarkdown,
@@ -30,24 +31,33 @@ const extractText = (node: ReactNode): string => {
 };
 
 function CopyButton({ text }: { text: string }) {
+  const { t } = useTranslation();
   const [copied, setCopied] = useState(false);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => () => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+  }, []);
 
   const handleCopy = useCallback(() => {
     navigator.clipboard.writeText(text);
     setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    if (timerRef.current) clearTimeout(timerRef.current);
+    timerRef.current = setTimeout(() => setCopied(false), 2000);
   }, [text]);
+
+  const label = copied ? t("markdown.copied") : t("markdown.copyCode");
 
   return (
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-      aria-label="Copy code"
-      title="Copy code"
+      className="flex items-center gap-1 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+      aria-label={label}
+      title={label}
     >
       {copied ? <Check className="h-3.5 w-3.5 text-accent-emerald" /> : <Copy className="h-3.5 w-3.5" />}
-      <span className="sr-only">Copy</span>
+      <span className="sr-only">{label}</span>
     </button>
   );
 }
@@ -66,7 +76,7 @@ function PreComponent({ children }: { children: ReactNode }) {
   const codeString = useMemo(() => extractText(children), [children]);
 
   return (
-    <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary/50 not-prose shadow-card">
+    <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose shadow-card">
       <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
         <span>{language}</span>
         <CopyButton text={codeString} />
@@ -87,7 +97,7 @@ const components: Components = {
     if (isInline) {
       return (
         <code
-          className="rounded-lg border border-border-strong bg-muted/65 px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
+          className="rounded-lg border border-border-strong bg-muted px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
           {...props}
         >
           {children}
@@ -155,7 +165,7 @@ function renderInlineCodeSegments(content: string): ReactNode[] {
       return (
         <code
           key={`inline-code-${index}`}
-          className="rounded-lg border border-border-strong bg-muted/65 px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
+          className="rounded-lg border border-border-strong bg-muted px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
         >
           {segment.slice(1, -1)}
         </code>

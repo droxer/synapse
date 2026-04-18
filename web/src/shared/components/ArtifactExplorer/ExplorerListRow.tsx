@@ -58,8 +58,8 @@ export function ExplorerListRow({
         "flex items-center gap-3 px-3 border-b border-border last:border-b-0",
         "border-l transition-colors duration-150 ease-out group relative",
         isPreviewOpen
-          ? "bg-secondary/70 border-l-border-strong"
-          : "hover:bg-secondary/50",
+          ? "bg-secondary border-l-border-strong"
+          : "hover:bg-secondary",
       )}
       style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
       initial={{ opacity: 0, x: -4 }}
@@ -81,7 +81,7 @@ export function ExplorerListRow({
         data-file-card-preview="true"
         aria-label={`Preview ${item.name}`}
         onClick={() => onPreview(item)}
-        className="flex-1 min-w-0 py-[11px] text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+        className="flex-1 min-w-0 py-[11px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
       >
         <p className="truncate text-sm font-medium text-foreground leading-snug" title={item.name}>
           {item.name}
@@ -113,7 +113,7 @@ export function ExplorerListRow({
           type="button"
           aria-label={t("explorer.deleteFileLabel", { name: item.name })}
           onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
-          className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Trash2 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
         </button>
@@ -122,7 +122,7 @@ export function ExplorerListRow({
         type="button"
         aria-label={`Download ${item.name}`}
         onClick={(e) => { e.stopPropagation(); onDownload(item); }}
-        className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Download aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
       </button>

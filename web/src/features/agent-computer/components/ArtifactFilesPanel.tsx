@@ -74,7 +74,7 @@ function PreviewVisual({ artifact, conversationId }: {
 
   if (artifact.contentType.startsWith("image/") && artifactUrl) {
     return (
-      <div className="h-36 overflow-hidden rounded-xl border border-border bg-muted/40">
+      <div className="h-36 overflow-hidden rounded-xl border border-border bg-muted">
         <img
           src={artifactUrl}
           alt={artifact.name}
@@ -88,7 +88,7 @@ function PreviewVisual({ artifact, conversationId }: {
   return (
     <div className={cn("relative flex h-36 items-end overflow-hidden rounded-xl border border-border px-4 py-3", bg)}>
       <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-background/30 to-transparent" />
-      <div className="absolute -right-3 -top-4 h-20 w-20 rounded-full bg-background/30 blur-2xl" />
+      <div className="absolute -right-3 -top-4 h-20 w-20 rounded-full bg-background blur-2xl" />
       <BrandFileTypeIcon
         name={artifact.name}
         contentType={artifact.contentType}
@@ -202,7 +202,7 @@ function RecentArtifactCard({
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium text-foreground">{artifact.name}</p>
             {isFresh ? (
-              <span className="rounded-full bg-accent-emerald/12 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-emerald">
+              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-emerald">
                 {t("artifacts.new")}
               </span>
             ) : null}
@@ -240,7 +240,7 @@ function CompactArtifactRow({
   const { bg, icon } = fileCategoryColor(artifact.contentType, artifact.name);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card/60 px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
       <button
         type="button"
         className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg", bg)}
@@ -312,7 +312,7 @@ function PathFolderButton({
   return (
     <button
       type="button"
-      className="flex items-center gap-2 rounded-xl border border-border bg-card/60 px-3 py-2 text-sm text-left transition-colors hover:border-border-strong hover:bg-card"
+      className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-left transition-colors hover:border-border-strong hover:bg-card"
       onClick={() => onOpen(folder.path)}
     >
       <FolderOpen className="h-4 w-4 text-muted-foreground" />
@@ -468,7 +468,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
                     : t("artifacts.filesCount", { count: normalizedArtifacts.length })}
                 </span>
                 {freshArtifactIds.size > 0 ? (
-                  <span className="rounded-full bg-accent-emerald/12 px-2.5 py-1 text-xs font-medium text-accent-emerald">
+                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-accent-emerald">
                     {t("artifacts.newSinceOpen", { count: freshArtifactIds.size })}
                   </span>
                 ) : null}

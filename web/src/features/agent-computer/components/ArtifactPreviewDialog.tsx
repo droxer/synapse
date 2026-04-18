@@ -107,7 +107,7 @@ export function ArtifactPreviewDialog({
             <Button
               variant="outline"
               size="sm"
-              className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+              className="text-destructive hover:bg-muted hover:text-destructive"
               onClick={onRequestDelete}
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />

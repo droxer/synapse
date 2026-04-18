@@ -305,6 +305,29 @@ class TestShellWait:
         )
 
     @pytest.mark.asyncio
+    async def test_auto_detects_skill_workdir_artifacts_for_background_session(
+        self,
+    ) -> None:
+        session = MockSession(
+            {
+                "/pid": ExecResult(stdout="1234"),
+                "ELAPSED": ExecResult(stdout="EXITED"),
+                "tail -n 50": ExecResult(stdout="done"),
+                "tail -n 20": ExecResult(stdout=""),
+                "/exit_code": ExecResult(stdout="0"),
+                "/artifact_paths": ExecResult(stdout=""),
+                "/workdir": ExecResult(stdout="/home/user/skills/ppt\n"),
+                "find": ExecResult(stdout="/home/user/skills/ppt/slides.pptx\n"),
+            }
+        )
+        tool = ShellWait()
+        result = await tool.execute(session=session, id="render", timeout=5)
+        assert result.success
+        assert (result.metadata or {}).get("artifact_paths") == [
+            "/home/user/skills/ppt/slides.pptx"
+        ]
+
+    @pytest.mark.asyncio
     async def test_manifest_only_no_merge_with_auto_detect(self) -> None:
         """Explicit manifest paths win; auto-detected extras are not merged in."""
         session = MockSession(
@@ -548,6 +571,26 @@ class TestShellExecBackground:
         assert result.success
         assert "/artifact_paths" in session.exec_calls[0]["command"]
         assert "/tmp/final-deck.pptx" in session.exec_calls[0]["command"]
+
+    @pytest.mark.asyncio
+    async def test_background_start_persists_workdir_for_later_artifact_detection(
+        self,
+    ) -> None:
+        session = MockSession(
+            {
+                "nohup": ExecResult(stdout="5678", exit_code=0),
+            }
+        )
+        tool = ShellExec()
+        result = await tool.execute(
+            session=session,
+            command="python build_slides.py",
+            id="slides",
+            workdir="/home/user/skills/ppt",
+        )
+        assert result.success
+        assert "/workdir" in session.exec_calls[0]["command"]
+        assert "/home/user/skills/ppt" in session.exec_calls[0]["command"]
 
     @pytest.mark.asyncio
     async def test_background_start_failure(self) -> None:

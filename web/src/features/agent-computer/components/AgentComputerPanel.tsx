@@ -75,7 +75,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
         )}
       </div>
       {taskDesc && (
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           {taskDesc.length > 200 ? taskDesc.slice(0, 197) + "..." : taskDesc}
         </p>
       )}
@@ -131,7 +131,7 @@ function AgentSendDisplay({ tc, t, agentNameMap }: { readonly tc: ToolCallInfo; 
         </span>
       </div>
       {message && (
-        <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
+        <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
           {message.length > 200 ? message.slice(0, 197) + "..." : message}
         </p>
       )}
@@ -150,7 +150,7 @@ function ThinkingPreview({ text }: { readonly text: string }) {
 
   return (
     <div className={cn("mb-2 py-0.5", EVENT_LEFT_RAIL_CLASSES)}>
-      <span id={contentId} className="text-xs italic leading-relaxed text-muted-foreground">
+      <span id={contentId} className="text-sm italic leading-relaxed text-muted-foreground">
         {shown}
         {isLong && !expanded && "..."}
       </span>
@@ -160,7 +160,7 @@ function ThinkingPreview({ text }: { readonly text: string }) {
           onClick={() => setExpanded((e) => !e)}
           aria-controls={contentId}
           aria-expanded={expanded}
-          className="ml-1 rounded text-xs text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="ml-1 rounded text-sm text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           {expanded ? t("computer.thinkingCollapse") : t("computer.thinkingReadMore")}
         </button>
@@ -541,7 +541,7 @@ export function AgentComputerPanel({
               size="icon-xs"
               aria-label={t("computer.closePanel")}
               onClick={onClose}
-              className="shrink-0 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+              className="shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
             >
               <X className="h-4 w-4" />
             </Button>
@@ -566,10 +566,10 @@ export function AgentComputerPanel({
             onClick={() => setActiveTab("activity")}
             className={cn(
               "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               activeTab === "activity"
                 ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground/80",
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <Activity className="h-4 w-4" aria-hidden="true" />
@@ -586,10 +586,10 @@ export function AgentComputerPanel({
             onClick={() => setActiveTab("files")}
             className={cn(
               "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               activeTab === "files"
                 ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground/80",
+                : "text-muted-foreground hover:text-foreground",
             )}
           >
             <FolderOpen className="h-4 w-4" aria-hidden="true" />
@@ -668,7 +668,7 @@ export function AgentComputerPanel({
                     return (
                       <div
                         key={tc.id}
-                        className={cn(scopedWrap && "border-l-2 border-border/70 pl-3")}
+                        className={cn(scopedWrap && "border-l-2 border-border pl-3")}
                         data-step-id={`tool-${tc.id}`}
                       >
                         {agentLabel && (
@@ -685,7 +685,7 @@ export function AgentComputerPanel({
                   return (
                     <div
                       key={tc.id}
-                      className={cn(scopedWrap && "border-l-2 border-border/70 pl-3")}
+                      className={cn(scopedWrap && "border-l-2 border-border pl-3")}
                       data-step-id={`tool-${tc.id}`}
                     >
                       {agentLabel && (

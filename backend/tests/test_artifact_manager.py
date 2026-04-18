@@ -28,6 +28,15 @@ class TestInferContentType:
     def test_python(self):
         assert _infer_content_type("script.py") == "text/x-python"
 
+    def test_tsv(self):
+        assert _infer_content_type("table.tsv") == "text/tab-separated-values"
+
+    def test_doc(self):
+        assert _infer_content_type("report.doc") == "application/msword"
+
+    def test_ppt(self):
+        assert _infer_content_type("deck.ppt") == "application/vnd.ms-powerpoint"
+
     def test_unknown_extension(self):
         assert _infer_content_type("file.xyz") == "application/octet-stream"
 

@@ -43,6 +43,41 @@ _BASE_DELAY = 0.15  # seconds — delays: 0.15, 0.45, 1.35, 4.05
 _RETRYABLE_EXCEPTIONS = (OperationalError, InterfaceError, TimeoutError, OSError)
 
 
+def _normalize_artifact_payload(
+    clean: dict[str, Any],
+) -> dict[str, Any] | None:
+    """Return a validated artifact payload or ``None`` when malformed."""
+    artifact_id = str(clean.get("artifact_id", "")).strip()
+    storage_key = str(clean.get("storage_key", artifact_id)).strip()
+    name = str(clean.get("name", "")).strip()
+    content_type = str(clean.get("content_type", "")).strip()
+    size = clean.get("size")
+
+    if not artifact_id or not storage_key or not name or not content_type:
+        return None
+
+    try:
+        size_int = int(size)
+    except (TypeError, ValueError):
+        return None
+
+    if size_int < 0:
+        return None
+
+    file_path = clean.get("file_path")
+    if not isinstance(file_path, str) or not file_path.strip():
+        file_path = None
+
+    return {
+        "artifact_id": artifact_id,
+        "storage_key": storage_key,
+        "name": name,
+        "content_type": content_type,
+        "size": size_int,
+        "file_path": file_path,
+    }
+
+
 class PendingWrites:
     """Tracks in-flight DB writes so shutdown can wait for them to drain."""
 
@@ -314,20 +349,25 @@ def create_db_subscriber(
                     )
 
                 elif event.type == EventType.ARTIFACT_CREATED:
-                    await repo.save_artifact(
-                        session,
-                        artifact_id=str(clean.get("artifact_id", "")),
-                        conversation_id=conversation_id,
-                        storage_key=str(
-                            clean.get("storage_key", clean.get("artifact_id", ""))
-                        ),
-                        original_name=str(clean.get("name", "")),
-                        content_type=str(
-                            clean.get("content_type", "application/octet-stream")
-                        ),
-                        size=int(clean.get("size", 0)),
-                        file_path=clean.get("file_path"),
-                    )
+                    artifact_payload = _normalize_artifact_payload(clean)
+                    if artifact_payload is None:
+                        logger.warning(
+                            "db_subscriber_invalid_artifact_event "
+                            "conversation_id={} data={}",
+                            conversation_id,
+                            clean,
+                        )
+                    else:
+                        await repo.save_artifact(
+                            session,
+                            artifact_id=artifact_payload["artifact_id"],
+                            conversation_id=conversation_id,
+                            storage_key=artifact_payload["storage_key"],
+                            original_name=artifact_payload["name"],
+                            content_type=artifact_payload["content_type"],
+                            size=artifact_payload["size"],
+                            file_path=artifact_payload["file_path"],
+                        )
                     # Also persist as a regular event so historical views
                     # can reconstruct the artifact list from the events table.
                     await repo.save_event(

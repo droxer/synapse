@@ -163,7 +163,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
         <div
           className={cn(
             "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out",
-            isDragOver && "border-dashed border-border-active bg-secondary/80",
+            isDragOver && "border-dashed border-border-active bg-secondary",
           )}
         >
           {/* File & skill attachment shelf */}

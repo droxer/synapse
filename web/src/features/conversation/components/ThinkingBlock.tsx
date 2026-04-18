@@ -82,19 +82,19 @@ export function ThinkingBlock({
     ? (
       <span
         className={cn(
-          "h-1.5 w-1.5 shrink-0 rounded-full bg-focus/90",
+          "h-1.5 w-1.5 shrink-0 rounded-full bg-focus",
           !shouldReduceMotion && "animate-pulse",
         )}
         aria-hidden="true"
       />
     )
-    : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-border-strong/80" aria-hidden="true" />;
+    : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden="true" />;
 
   return (
     <section
       data-thinking-block=""
       className={cn(
-        "overflow-hidden rounded-xl border border-ai-border bg-ai-surface/80 transition-[border-color,background-color,box-shadow] duration-150",
+        "overflow-hidden rounded-xl border border-ai-border bg-ai-surface transition-[border-color,background-color,box-shadow] duration-150",
         expanded && "bg-ai-surface shadow-[var(--shadow-card)]",
       )}
     >
@@ -105,17 +105,17 @@ export function ThinkingBlock({
         aria-controls={panelId}
         className={cn(
           "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-caption font-medium tracking-[0.01em] text-muted-foreground transition-[background-color,color]",
-          "hover:bg-muted/35 hover:text-foreground/90",
-          expanded && "text-foreground/85",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "hover:bg-muted hover:text-foreground",
+          expanded && "text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
       >
         <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
           {leadingVisual}
           <span
             className={cn(
-              "inline-flex h-6 w-6 items-center justify-center rounded-md border border-ai-border bg-background/70",
-              expanded && "text-foreground/85",
+              "inline-flex h-6 w-6 items-center justify-center rounded-md border border-ai-border bg-background",
+              expanded && "text-foreground",
             )}
             aria-hidden="true"
           >
@@ -149,7 +149,7 @@ export function ThinkingBlock({
                 ref={scrollRef}
                 data-thinking-panel=""
                 className={cn(
-                  "max-h-96 overflow-y-auto rounded-lg border border-ai-border/80 bg-background/65 p-3",
+                  "max-h-96 overflow-y-auto rounded-lg border border-ai-border bg-background p-3",
                   showBottomFade && "thinking-scroll-mask",
                 )}
               >
@@ -161,7 +161,7 @@ export function ThinkingBlock({
                         data-thinking-step={idx + 1}
                         className={cn(
                           "rounded-lg border border-transparent px-0.5 py-0.5",
-                          idx > 0 && "border-t border-ai-border/80 pt-3",
+                          idx > 0 && "border-t border-ai-border pt-3",
                         )}
                       >
                         <div className="flex items-start gap-3">
@@ -190,7 +190,7 @@ export function ThinkingBlock({
                     ))}
                   </div>
                 ) : (
-                  <div data-thinking-mode="note" className="rounded-lg border border-ai-border/70 bg-ai-surface/65 px-3 py-2.5">
+                  <div data-thinking-mode="note" className="rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5">
                     <MarkdownRenderer
                       content={steps[0]?.body ?? content}
                       isStreaming={isThinking}

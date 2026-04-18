@@ -75,7 +75,7 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
   // Real image thumbnail
   if (isImage && artifactUrl) {
     return (
-      <div className="h-36 overflow-hidden bg-muted/50">
+      <div className="h-36 overflow-hidden bg-muted">
         <img
           src={artifactUrl}
           alt={item.name}
@@ -284,7 +284,7 @@ function FileCard({
           "border-l",
           isPreviewOpen
             ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong"
-            : "border-border hover:border-border-strong hover:bg-muted/40",
+            : "border-border hover:border-border-strong hover:bg-muted",
         ].join(" ")}
         style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
         initial={{ opacity: 0, scale: 0.97 }}
@@ -297,7 +297,7 @@ function FileCard({
             type="button"
             data-file-card-preview="true"
             onClick={() => onPreview(item)}
-            className="w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           >
             <FileThumbnail item={item} layout="grid" />
           </button>
@@ -307,7 +307,7 @@ function FileCard({
               type="button"
               data-slot="button"
               aria-label={`Download ${item.name}`}
-              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              className="absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               onClick={(e) => { e.stopPropagation(); onDownload(item); }}
             >
               <Download className="h-3.5 w-3.5 text-foreground" />
@@ -318,7 +318,7 @@ function FileCard({
                 type="button"
                 data-slot="button"
                 aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                className="absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background shadow-sm transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
               >
                 <Trash2 className="h-3.5 w-3.5 text-foreground" />
@@ -331,7 +331,7 @@ function FileCard({
           type="button"
           data-file-card-preview="true"
           onClick={() => onPreview(item)}
-          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <div className="flex flex-col gap-1">
             <p className="truncate text-xs font-medium text-foreground leading-snug" title={item.name}>
@@ -361,7 +361,7 @@ function FileCard({
         "rounded-lg bg-card border p-2.5 transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l",
         isPreviewOpen
-          ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong bg-muted/50"
+          ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong bg-muted"
           : "border-border hover:border-border-strong hover:bg-secondary",
       ].join(" ")}
       style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
@@ -373,7 +373,7 @@ function FileCard({
         type="button"
         data-file-card-preview="true"
         onClick={() => onPreview(item)}
-        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
         {/* Small thumbnail */}
         <FileThumbnail item={item} layout="list" />
@@ -404,7 +404,7 @@ function FileCard({
             type="button"
             data-slot="button"
             aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-            className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
             onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
           >
             <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
@@ -414,7 +414,7 @@ function FileCard({
           type="button"
           data-slot="button"
           aria-label={`Download ${item.name}`}
-          className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-border-strong hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
           onClick={(e) => { e.stopPropagation(); onDownload(item); }}
         >
           <Download className={cn("h-3.5 w-3.5", iconColor)} />

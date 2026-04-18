@@ -59,10 +59,10 @@ class TestFindNewOutputFiles:
 
     @pytest.mark.asyncio
     async def test_finds_files_in_workspace(self) -> None:
-        session = _make_session("/workspace/report.pdf\n/workspace/data.csv\n")
+        session = _make_session("/workspace/report.pdf\n/workspace/data.tsv\n")
         result = await find_new_output_files(session, "/tmp/marker")
         assert "/workspace/report.pdf" in result
-        assert "/workspace/data.csv" in result
+        assert "/workspace/data.tsv" in result
 
     @pytest.mark.asyncio
     async def test_filters_text_intermediates_from_auto(self) -> None:
@@ -268,7 +268,11 @@ class TestBuildArtifactPaths:
     def test_auto_skips_text_intermediates(self) -> None:
         result = build_artifact_paths(
             [],
-            ["/workspace/outline.txt", "/workspace/slides.pptx"],
+            [
+                "/workspace/outline.txt",
+                "/workspace/report.json",
+                "/workspace/slides.pptx",
+            ],
         )
         assert result == ["/workspace/slides.pptx"]
 
@@ -282,7 +286,7 @@ class TestExtractArtifactPathsFromText:
 
     def test_ignores_non_artifact_paths_and_external_paths(self) -> None:
         result = extract_artifact_paths_from_text(
-            "debug /workspace/run.sh and /tmp/report.docx and /etc/passwd"
+            "debug /workspace/report.json and /workspace/run.sh and /tmp/report.docx and /etc/passwd"
         )
         assert result == []
 

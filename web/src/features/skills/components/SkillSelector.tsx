@@ -63,7 +63,7 @@ export function SkillSelector({
                 type="button"
                 className={cn(
                   "flex cursor-pointer items-center gap-1.5 text-xs font-medium outline-none",
-                  "focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background rounded",
+                  "focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background rounded",
                 )}
               >
                 <Lightbulb aria-hidden="true" className="h-3.5 w-3.5" />
@@ -79,7 +79,7 @@ export function SkillSelector({
               className={cn(
                 "flex items-center justify-center rounded-md transition-colors",
                 "text-muted-foreground hover:text-foreground hover:bg-secondary",
-                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 variant === "welcome" ? "h-6 w-6" : "h-5 w-5",
               )}
             >
@@ -161,7 +161,7 @@ export function SkillSelector({
                       className={cn(
                         "group relative flex cursor-pointer flex-col gap-1 rounded-lg px-2.5 py-2 text-left transition-colors",
                         "hover:bg-muted",
-                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                         isSelected && "bg-muted ring-1 ring-border-strong",
                       )}
                     >

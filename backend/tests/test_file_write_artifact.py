@@ -31,6 +31,18 @@ class TestFileWriteArtifactFiltering:
         assert result.metadata.get("artifact_paths") == ["/workspace/report.docx"]
 
     @pytest.mark.asyncio
+    async def test_doc_file_is_artifact_by_default(self) -> None:
+        tool = FileWrite()
+        result = await tool.execute(
+            session=_make_session(),
+            path="/workspace/report.doc",
+            content="fake content",
+        )
+        assert result.success
+        assert result.metadata is not None
+        assert result.metadata.get("artifact_paths") == ["/workspace/report.doc"]
+
+    @pytest.mark.asyncio
     async def test_js_file_is_not_artifact_by_default(self) -> None:
         tool = FileWrite()
         result = await tool.execute(
@@ -93,6 +105,32 @@ class TestFileWriteArtifactFiltering:
         assert result.metadata.get("artifact_paths") == ["/workspace/output.pdf"]
 
     @pytest.mark.asyncio
+    async def test_html_file_is_artifact_by_default(self) -> None:
+        tool = FileWrite()
+        result = await tool.execute(
+            session=_make_session(),
+            path="/workspace/paper-folding-demo.html",
+            content="<html><body>Hello</body></html>",
+        )
+        assert result.success
+        assert result.metadata is not None
+        assert result.metadata.get("artifact_paths") == [
+            "/workspace/paper-folding-demo.html"
+        ]
+
+    @pytest.mark.asyncio
+    async def test_tsv_file_is_artifact_by_default(self) -> None:
+        tool = FileWrite()
+        result = await tool.execute(
+            session=_make_session(),
+            path="/workspace/data.tsv",
+            content="a\tb\tc",
+        )
+        assert result.success
+        assert result.metadata is not None
+        assert result.metadata.get("artifact_paths") == ["/workspace/data.tsv"]
+
+    @pytest.mark.asyncio
     async def test_sh_file_is_not_artifact_by_default(self) -> None:
         tool = FileWrite()
         result = await tool.execute(
@@ -111,6 +149,18 @@ class TestFileWriteArtifactFiltering:
             session=_make_session(),
             path="/workspace/Makefile",
             content="all: build",
+        )
+        assert result.success
+        assert result.metadata is not None
+        assert "artifact_paths" not in result.metadata
+
+    @pytest.mark.asyncio
+    async def test_json_file_is_not_artifact_by_default(self) -> None:
+        tool = FileWrite()
+        result = await tool.execute(
+            session=_make_session(),
+            path="/workspace/report.json",
+            content='{"ok": true}',
         )
         assert result.success
         assert result.metadata is not None
