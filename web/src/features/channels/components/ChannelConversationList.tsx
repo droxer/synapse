@@ -42,6 +42,8 @@ interface ChannelConversationListProps {
   onSelect: (conversation: ChannelConversation) => void;
   onDeleted?: (conversationId: string) => void;
   onCountChange?: (count: number) => void;
+  refreshToken?: number;
+  onConversationsChange?: (conversations: ChannelConversation[]) => void;
 }
 
 export function ChannelConversationList({
@@ -49,6 +51,8 @@ export function ChannelConversationList({
   onSelect,
   onDeleted,
   onCountChange,
+  refreshToken = 0,
+  onConversationsChange,
 }: ChannelConversationListProps) {
   const { locale, t } = useTranslation();
   const [conversations, setConversations] = useState<ChannelConversation[]>([]);
@@ -64,16 +68,17 @@ export function ChannelConversationList({
       const data = await listChannelConversations();
       setConversations(data.conversations);
       onCountChange?.(data.conversations.length);
+      onConversationsChange?.(data.conversations);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : t("channels.list.errorLoad"));
     } finally {
       setLoading(false);
     }
-  }, [onCountChange, t]);
+  }, [onConversationsChange, onCountChange, t]);
 
   useEffect(() => {
     void fetchConversations();
-  }, [fetchConversations]);
+  }, [fetchConversations, refreshToken]);
 
   const handleDeleteClick = (e: React.MouseEvent, conversationId: string) => {
     e.stopPropagation();
@@ -92,6 +97,7 @@ export function ChannelConversationList({
       setConversations((prev) => {
         const filtered = prev.filter((c) => c.conversation_id !== pendingDeleteId);
         onCountChange?.(filtered.length);
+        onConversationsChange?.(filtered);
         return filtered;
       });
       onDeleted?.(pendingDeleteId);

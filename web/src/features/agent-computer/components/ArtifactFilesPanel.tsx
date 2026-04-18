@@ -1,7 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronRight, Clock3, Download, FolderOpen, Layers3, Sparkles, Trash2 } from "lucide-react";
+import {
+  ChevronRight,
+  Clock3,
+  Download,
+  FolderOpen,
+  Layers3,
+  LayoutGrid,
+  List,
+  Sparkles,
+  Trash2,
+} from "lucide-react";
 import { useTranslation } from "@/i18n";
 import { ArtifactPreviewDialog } from "@/features/agent-computer/components/ArtifactPreviewDialog";
 import { formatFileSize, fileCategoryColor, fileCategory } from "@/features/agent-computer/lib/artifact-helpers";
@@ -24,6 +34,7 @@ import { cn } from "@/shared/lib/utils";
 import { useAppStore } from "@/shared/stores";
 import type { ArtifactInfo } from "@/shared/types";
 import type { FolderNode } from "@/shared/components/ArtifactExplorer/artifactExplorerUtils";
+import type { ViewMode } from "@/features/library/types";
 import {
   buildTaskArtifactTree,
   findFolderNode,
@@ -43,6 +54,16 @@ interface ArtifactFilesPanelProps {
 }
 
 type PanelView = "recent" | "path";
+
+function readStoredArtifactPanelViewMode(): ViewMode {
+  try {
+    const stored = localStorage.getItem("artifact-panel:viewMode");
+    if (stored === "list" || stored === "grid") return stored;
+  } catch {
+    // localStorage unavailable
+  }
+  return "grid";
+}
 
 function PreviewVisual({ artifact, conversationId }: {
   readonly artifact: TaskArtifactItem;
@@ -321,11 +342,16 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
   );
 
   const [view, setView] = useState<PanelView>("recent");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const [selectedFileId, setSelectedFileId] = useState<string | null>(null);
   const [deleteTargetIds, setDeleteTargetIds] = useState<readonly string[] | null>(null);
   const [currentPath, setCurrentPath] = useState<string>("/");
   const [freshArtifactIds, setFreshArtifactIds] = useState<ReadonlySet<string>>(new Set());
   const previousFingerprintByIdRef = useRef<ReadonlyMap<string, string>>(new Map());
+
+  useEffect(() => {
+    setViewMode(readStoredArtifactPanelViewMode());
+  }, []);
 
   useEffect(() => {
     if (!canBrowseByPath && view === "path") {
@@ -402,6 +428,15 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
     if (ok) setDeleteTargetIds(null);
   }, [deleteTargetIds, performDelete]);
 
+  const handleSetViewMode = useCallback((mode: ViewMode) => {
+    setViewMode(mode);
+    try {
+      localStorage.setItem("artifact-panel:viewMode", mode);
+    } catch {
+      // localStorage unavailable
+    }
+  }, []);
+
   if (normalizedArtifacts.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-4">
@@ -439,8 +474,33 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
                 ) : null}
               </div>
             </div>
-            {canBrowseByPath ? (
+            <div className="flex items-center gap-2">
               <div className="inline-flex rounded-xl border border-border bg-background p-1">
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant={viewMode === "grid" ? "secondary" : "ghost"}
+                  aria-label={t("library.viewGrid")}
+                  aria-pressed={viewMode === "grid"}
+                  onClick={() => handleSetViewMode("grid")}
+                  className={cn(viewMode !== "grid" && "text-muted-foreground hover:text-foreground")}
+                >
+                  <LayoutGrid aria-hidden="true" className="h-4 w-4" />
+                </Button>
+                <Button
+                  type="button"
+                  size="icon-sm"
+                  variant={viewMode === "list" ? "secondary" : "ghost"}
+                  aria-label={t("library.viewList")}
+                  aria-pressed={viewMode === "list"}
+                  onClick={() => handleSetViewMode("list")}
+                  className={cn(viewMode !== "list" && "text-muted-foreground hover:text-foreground")}
+                >
+                  <List aria-hidden="true" className="h-4 w-4" />
+                </Button>
+              </div>
+              {canBrowseByPath ? (
+                <div className="inline-flex rounded-xl border border-border bg-background p-1">
                 <button
                   type="button"
                   className={cn(
@@ -461,8 +521,9 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
                 >
                   {t("artifacts.browseByPath")}
                 </button>
-              </div>
-            ) : null}
+                </div>
+              ) : null}
+            </div>
           </div>
         </div>
 
@@ -474,19 +535,34 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
                   <Clock3 className="h-3.5 w-3.5" />
                   <span>{t("artifacts.previewReady")}</span>
                 </div>
-                <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-                  {previewable.map((artifact) => (
-                    <RecentArtifactCard
-                      key={artifact.id}
-                      artifact={artifact}
-                      conversationId={conversationId}
-                      canDelete={Boolean(conversationId)}
-                      onPreview={(item) => setSelectedFileId(item.id)}
-                      onDelete={(ids) => setDeleteTargetIds(ids)}
-                      isFresh={freshArtifactIds.has(artifact.id)}
-                    />
-                  ))}
-                </div>
+                {viewMode === "list" ? (
+                  <div className="space-y-2">
+                    {previewable.map((artifact) => (
+                      <CompactArtifactRow
+                        key={artifact.id}
+                        artifact={artifact}
+                        conversationId={conversationId}
+                        canDelete={Boolean(conversationId)}
+                        onPreview={(item) => setSelectedFileId(item.id)}
+                        onDelete={(ids) => setDeleteTargetIds(ids)}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+                    {previewable.map((artifact) => (
+                      <RecentArtifactCard
+                        key={artifact.id}
+                        artifact={artifact}
+                        conversationId={conversationId}
+                        canDelete={Boolean(conversationId)}
+                        onPreview={(item) => setSelectedFileId(item.id)}
+                        onDelete={(ids) => setDeleteTargetIds(ids)}
+                        isFresh={freshArtifactIds.has(artifact.id)}
+                      />
+                    ))}
+                  </div>
+                )}
               </section>
             ) : null}
 

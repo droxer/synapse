@@ -47,4 +47,24 @@ describe("mergeHistoryWithEventDerivedMessages", () => {
     const merged = mergeHistoryWithEventDerivedMessages(history, derived);
     expect(merged.map((m) => m.content)).toEqual(["Q", "Legacy only", "A2"]);
   });
+
+  it("preserves the persisted final assistant message when live events were reset after completion", () => {
+    const history: ChatMessage[] = [
+      { role: "user", content: "输出 WORD 文档格式", timestamp: 100 },
+      {
+        role: "assistant",
+        content: "已成功生成 Palantir Ontology 技术深度研究报告 Word 文档。",
+        timestamp: 200,
+      },
+    ];
+    const derived: ChatMessage[] = [
+      { role: "user", content: "输出 WORD 文档格式", timestamp: 100 },
+    ];
+
+    const merged = mergeHistoryWithEventDerivedMessages(history, derived);
+    expect(merged.map((m) => m.content)).toEqual([
+      "输出 WORD 文档格式",
+      "已成功生成 Palantir Ontology 技术深度研究报告 Word 文档。",
+    ]);
+  });
 });

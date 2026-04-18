@@ -266,3 +266,59 @@ async def test_executor_does_not_extract_artifact_from_local_tool_output_text() 
 
     assert result.success
     artifact_manager.extract_from_sandbox.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_executor_reuses_same_artifact_for_duplicate_remote_path_within_turn() -> (
+    None
+):
+    artifact_manager = _RecordingArtifactManager()
+    provider = _FakeSandboxProvider()
+    emitter = EventEmitter()
+    received: list[Any] = []
+
+    async def subscriber(event: Any) -> None:
+        received.append(event)
+
+    emitter.subscribe(subscriber)
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(_PathReportingSandboxTool()),
+        sandbox_provider=provider,
+        artifact_manager=artifact_manager,
+        event_emitter=emitter,
+    )
+
+    first = await executor.execute("path_reporter", {})
+    second = await executor.execute("path_reporter", {})
+
+    assert first.success
+    assert second.success
+    artifact_manager.extract_from_sandbox.assert_awaited_once_with(
+        session=provider.session,
+        remote_paths=["/workspace/palantir-ontology-report.docx"],
+    )
+    assert (first.metadata or {}).get("artifact_ids") == ["artifact-1"]
+    assert (second.metadata or {}).get("artifact_ids") == ["artifact-1"]
+    artifact_events = [
+        event for event in received if event.type == EventType.ARTIFACT_CREATED
+    ]
+    assert len(artifact_events) == 1
+
+
+@pytest.mark.asyncio
+async def test_executor_allows_same_remote_path_again_after_turn_reset() -> None:
+    artifact_manager = _RecordingArtifactManager()
+    provider = _FakeSandboxProvider()
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(_PathReportingSandboxTool()),
+        sandbox_provider=provider,
+        artifact_manager=artifact_manager,
+    )
+
+    first = await executor.execute("path_reporter", {})
+    executor.reset_turn_quotas()
+    second = await executor.execute("path_reporter", {})
+
+    assert first.success
+    assert second.success
+    assert artifact_manager.extract_from_sandbox.await_count == 2

@@ -5,6 +5,8 @@ import { useAgentState } from "@/features/agent-computer";
 import type { AgentEvent, ChatMessage } from "@/shared/types";
 import { getEventKey, mergeUniqueEvents } from "../lib/merge-unique-events";
 import { mergeHistoryWithEventDerivedMessages } from "../lib/merge-transcript-messages";
+import { mergeHistoryWithEventDerivedArtifacts } from "../lib/merge-transcript-artifacts";
+import type { ArtifactInfo } from "@/shared/types";
 
 interface IncrementalMergeState {
   seenKeys: Set<string>;
@@ -18,6 +20,7 @@ interface ConversationTranscriptState {
   readonly effectiveEvents: AgentEvent[];
   readonly messages: ChatMessage[];
   readonly agentState: ReturnType<typeof useAgentState>;
+  readonly artifacts: ArtifactInfo[];
 }
 
 function useIncrementalMerge(
@@ -93,6 +96,7 @@ function useIncrementalMerge(
 export function useConversationTranscript(
   historyMessages: readonly ChatMessage[],
   historyEvents: readonly AgentEvent[],
+  historyArtifacts: readonly ArtifactInfo[],
   liveEvents: readonly AgentEvent[],
   isLive: boolean,
 ): ConversationTranscriptState {
@@ -101,10 +105,14 @@ export function useConversationTranscript(
   const messages = useMemo<ChatMessage[]>(() => {
     return mergeHistoryWithEventDerivedMessages(historyMessages, agentState.messages);
   }, [agentState.messages, historyMessages]);
+  const artifacts = useMemo<ArtifactInfo[]>(() => {
+    return mergeHistoryWithEventDerivedArtifacts(historyArtifacts, agentState.artifacts);
+  }, [agentState.artifacts, historyArtifacts]);
 
   return {
     effectiveEvents: effectiveEvents as AgentEvent[],
     messages,
     agentState,
+    artifacts,
   };
 }

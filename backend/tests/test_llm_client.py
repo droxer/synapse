@@ -133,3 +133,18 @@ def test_render_system_prompt_flattens_structured_blocks() -> None:
     )
 
     assert text == "base\n\ndynamic"
+
+
+def test_anthropic_client_uses_httpx_client_without_env_proxies(monkeypatch) -> None:
+    captured: dict[str, object] = {}
+
+    class _FakeAsyncAnthropic:
+        def __init__(self, **kwargs) -> None:
+            captured.update(kwargs)
+
+    monkeypatch.setattr(anthropic, "AsyncAnthropic", _FakeAsyncAnthropic)
+
+    client = AnthropicClient(api_key="test-key")
+
+    assert "http_client" not in captured
+    assert client.default_model == "claude-sonnet-4-20250514"

@@ -13,7 +13,8 @@ from pydantic import BaseModel
 
 from agent.artifacts.storage import LocalStorageBackend
 from api.dependencies import AppState, get_app_state, get_db_session
-from api.auth import common_dependencies
+from api.auth import AuthUser, common_dependencies, get_current_user
+from api.routes.conversations import _verify_conversation_ownership
 
 # UUID pattern for path parameter validation
 _UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
@@ -29,13 +30,40 @@ class BulkDeleteRequest(BaseModel):
 router = APIRouter(dependencies=common_dependencies)
 
 
+@router.get("/conversations/{conversation_id}/artifacts")
+async def list_conversation_artifacts(
+    conversation_id: str = Path(..., pattern=_UUID_PATTERN),
+    session: Any = Depends(get_db_session),
+    state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
+) -> dict:
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
+    records = await state.db_repo.list_artifacts(session, uuid.UUID(conversation_id))
+    return {
+        "artifacts": [
+            {
+                "id": record.id,
+                "name": record.original_name,
+                "original_name": record.original_name,
+                "content_type": record.content_type,
+                "size": record.size,
+                "file_path": record.file_path,
+                "created_at": record.created_at.isoformat(),
+            }
+            for record in records
+        ]
+    }
+
+
 @router.delete("/conversations/{conversation_id}/artifacts/bulk")
 async def bulk_delete_artifacts(
     request: BulkDeleteRequest,
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict:
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     deleted_count = await state.db_repo.delete_artifacts(
         session, uuid.UUID(conversation_id), request.artifact_ids
     )
@@ -52,12 +80,14 @@ async def get_artifact(
     inline: bool = False,
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> FileResponse | RedirectResponse:
     """Serve an artifact file.
 
     Looks up artifact metadata from the database, then delegates
     to the storage backend (local file or R2 presigned URL).
     """
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
     record = await state.db_repo.get_artifact(session, artifact_id)
     if record is None:
         raise HTTPException(

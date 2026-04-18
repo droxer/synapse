@@ -427,6 +427,19 @@ class ConversationRepository:
         model = result.scalar_one_or_none()
         return _to_artifact(model) if model else None
 
+    async def list_artifacts(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+    ) -> list[ArtifactRecord]:
+        stmt = (
+            select(ArtifactModel)
+            .where(ArtifactModel.conversation_id == conversation_id)
+            .order_by(ArtifactModel.created_at.desc(), ArtifactModel.id.desc())
+        )
+        result = await session.execute(stmt)
+        return [_to_artifact(model) for model in result.scalars().all()]
+
     async def list_artifacts_grouped(
         self,
         session: AsyncSession,

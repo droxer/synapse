@@ -77,6 +77,14 @@ class TelegramProvider:
         """SHA-256 hash of the bot token, used as HMAC key."""
         return hashlib.sha256(self._token.encode()).digest()
 
+    def _require_ok(self, resp: httpx.Response) -> dict:
+        """Raise when Telegram returns an application-level error."""
+        payload = resp.json()
+        if payload.get("ok") is not True:
+            description = payload.get("description") or "Telegram API request failed"
+            raise RuntimeError(description)
+        return payload
+
     # -- Webhook verification ---------------------------------------------
 
     async def verify_webhook(self, request_body: bytes, signature: str) -> bool:
@@ -158,7 +166,8 @@ class TelegramProvider:
                 reply_to = None  # only first chunk replies
             resp = await self._client.post(f"{self._base_url}sendMessage", json=body)
             resp.raise_for_status()
-            last_id = str(resp.json()["result"]["message_id"])
+            payload = self._require_ok(resp)
+            last_id = str(payload["result"]["message_id"])
         return last_id
 
     async def send_file(
@@ -176,7 +185,8 @@ class TelegramProvider:
             f"{self._base_url}sendDocument", data=data, files=files
         )
         resp.raise_for_status()
-        return str(resp.json()["result"]["message_id"])
+        payload = self._require_ok(resp)
+        return str(payload["result"]["message_id"])
 
     # -- File download -----------------------------------------------------
 
@@ -186,7 +196,8 @@ class TelegramProvider:
             f"{self._base_url}getFile", params={"file_id": file_id}
         )
         resp.raise_for_status()
-        file_path: str = resp.json()["result"]["file_path"]
+        payload = self._require_ok(resp)
+        file_path: str = payload["result"]["file_path"]
 
         # Step 2: download the actual bytes
         dl_resp = await self._client.get(f"{self._file_url}{file_path}")
@@ -199,7 +210,7 @@ class TelegramProvider:
     async def get_me(self) -> dict[str, str]:
         resp = await self._client.get(f"{self._base_url}getMe")
         resp.raise_for_status()
-        payload = resp.json()["result"]
+        payload = self._require_ok(resp)["result"]
         return {
             "bot_user_id": str(payload["id"]),
             "bot_username": str(payload["username"]),
@@ -211,10 +222,12 @@ class TelegramProvider:
             json={"url": url, "secret_token": secret},
         )
         resp.raise_for_status()
+        self._require_ok(resp)
 
     async def delete_webhook(self) -> None:
         resp = await self._client.post(f"{self._base_url}deleteWebhook")
         resp.raise_for_status()
+        self._require_ok(resp)
 
 
 # ---------------------------------------------------------------------------

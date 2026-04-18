@@ -231,3 +231,34 @@ class TestArtifacts:
         fetched = await repo.get_artifact(session, artifact_id)
         assert fetched is not None
         assert fetched.storage_key == f"store/{artifact_id}"
+
+    async def test_list_artifacts_returns_conversation_artifacts_newest_first(
+        self, repo, session: AsyncSession
+    ) -> None:
+        convo = await repo.create_conversation(session, title="Artifact list test")
+        older_id = uuid.uuid4().hex[:32]
+        newer_id = uuid.uuid4().hex[:32]
+        await repo.save_artifact(
+            session,
+            artifact_id=older_id,
+            conversation_id=convo.id,
+            storage_key=f"store/{older_id}",
+            original_name="older.docx",
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            size=100,
+            file_path="/workspace/older.docx",
+        )
+        await repo.save_artifact(
+            session,
+            artifact_id=newer_id,
+            conversation_id=convo.id,
+            storage_key=f"store/{newer_id}",
+            original_name="newer.docx",
+            content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            size=200,
+            file_path="/workspace/newer.docx",
+        )
+
+        artifacts = await repo.list_artifacts(session, convo.id)
+        assert [artifact.id for artifact in artifacts] == [newer_id, older_id]
+        assert artifacts[0].file_path == "/workspace/newer.docx"

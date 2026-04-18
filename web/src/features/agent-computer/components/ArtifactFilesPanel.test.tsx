@@ -30,6 +30,8 @@ jest.mock("@/i18n", () => ({
         "artifacts.size.kb": `${params?.size ?? 0} KB`,
         "artifacts.size.mb": `${params?.size ?? 0} MB`,
         "artifacts.size.gb": `${params?.size ?? 0} GB`,
+        "library.viewGrid": "Grid view",
+        "library.viewList": "List view",
       };
       return dict[key] ?? key;
     },
@@ -74,6 +76,8 @@ describe("ArtifactFilesPanel", () => {
     );
 
     expect(html).toContain("Browse by path");
+    expect(html).toContain("Grid view");
+    expect(html).toContain("List view");
     expect(html).toContain("/api/conversations/conv-1/artifacts/new");
     expect(html.indexOf("preview.png")).toBeLessThan(html.indexOf("notes.md"));
   });

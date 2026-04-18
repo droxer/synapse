@@ -9,11 +9,18 @@ import {
   cancelTurn,
   retryTurn,
 } from "@/features/conversation/api/conversation-api";
-import { fetchMessages, fetchEvents } from "@/features/conversation/api/history-api";
+import {
+  fetchMessages,
+  fetchEvents,
+  fetchArtifacts,
+} from "@/features/conversation/api/history-api";
 import { EVENT_TYPES } from "@/shared/types";
-import type { ChatMessage, AgentEvent, EventType } from "@/shared/types";
+import type { ChatMessage, AgentEvent, EventType, ArtifactInfo } from "@/shared/types";
 import type { ChannelConversation } from "../api/channel-api";
 import { getProviderLabel } from "./ChannelProviderIcon";
+import { MessageCircle } from "lucide-react";
+import { submitChannelMessage } from "../lib/channel-chat-submit";
+import { useTranslation } from "@/i18n";
 
 interface ChannelChatViewProps {
   conversation: ChannelConversation;
@@ -27,6 +34,7 @@ function isEventType(value: string): value is EventType {
 }
 
 export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewProps) {
+  const { t } = useTranslation();
   const { conversation_id: conversationId } = conversation;
 
   // Always connect SSE for live updates
@@ -36,6 +44,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
   // History loading (simplified — no global store dependency)
   const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
   const [historyEvents, setHistoryEvents] = useState<AgentEvent[]>([]);
+  const [historyArtifacts, setHistoryArtifacts] = useState<ArtifactInfo[]>([]);
   const [isLoadingHistory, setIsLoadingHistory] = useState(true);
   const prevIdRef = useRef<string | null>(null);
 
@@ -44,6 +53,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
       prevIdRef.current = conversationId;
       setHistoryMessages([]);
       setHistoryEvents([]);
+      setHistoryArtifacts([]);
     }
   }, [conversationId]);
 
@@ -51,8 +61,12 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     let cancelled = false;
     setIsLoadingHistory(true);
 
-    Promise.all([fetchMessages(conversationId), fetchEvents(conversationId)])
-      .then(([msgRes, evtRes]) => {
+    Promise.all([
+      fetchMessages(conversationId),
+      fetchEvents(conversationId),
+      fetchArtifacts(conversationId),
+    ])
+      .then(([msgRes, evtRes, artifactRes]) => {
         if (cancelled) return;
 
         const messages: ChatMessage[] = msgRes.messages
@@ -82,13 +96,24 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
           } as AgentEvent];
         });
 
+        const artifacts: ArtifactInfo[] = artifactRes.artifacts.map((artifact) => ({
+          id: artifact.id,
+          name: artifact.name,
+          contentType: artifact.content_type,
+          size: artifact.size,
+          createdAt: artifact.created_at,
+          ...(artifact.file_path ? { filePath: artifact.file_path } : {}),
+        }));
+
         setHistoryMessages(messages);
         setHistoryEvents(events);
+        setHistoryArtifacts(artifacts);
       })
       .catch(() => {
         if (!cancelled) {
           setHistoryMessages([]);
           setHistoryEvents([]);
+          setHistoryArtifacts([]);
         }
       })
       .finally(() => {
@@ -101,19 +126,25 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
   const {
     effectiveEvents,
     messages,
+    artifacts: transcriptArtifacts,
     agentState: {
       toolCalls,
       taskState,
       agentStatuses,
       planSteps,
-      artifacts: rawArtifacts,
       currentThinkingEntries,
       isStreaming,
       assistantPhase,
     },
-  } = useConversationTranscript(historyMessages, historyEvents, sseEvents, isLive);
+  } = useConversationTranscript(
+    historyMessages,
+    historyEvents,
+    historyArtifacts,
+    sseEvents,
+    isLive,
+  );
 
-  const artifacts = useSessionFilteredArtifacts(rawArtifacts);
+  const artifacts = useSessionFilteredArtifacts(transcriptArtifacts);
 
   // Local pending user messages (optimistic)
   const [pendingMessages, setPendingMessages] = useState<ChatMessage[]>([]);
@@ -145,6 +176,8 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     return [...filtered, ...messages].sort((a, b) => a.timestamp - b.timestamp);
   }, [pendingMessages, messages]);
 
+  const { pendingAsk, handlePromptSubmit, respondError } = usePendingAsk(effectiveEvents, conversationId);
+
   const handleSendMessage = useCallback(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       eventCountRef.current = effectiveEvents.length;
@@ -154,7 +187,13 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
       setIsLive(true);
 
       try {
-        await sendFollowUpMessage(conversationId, message, files, skills, usePlanner);
+        await submitChannelMessage({
+          message,
+          pendingAsk,
+          sendFollowUp: (nextMessage) =>
+            sendFollowUpMessage(conversationId, nextMessage, files, skills, usePlanner),
+          respondToPrompt: handlePromptSubmit,
+        });
       } catch (err) {
         setIsWaitingForAgent(false);
         setPendingMessages((prev) => [
@@ -163,7 +202,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
         ]);
       }
     },
-    [conversationId, effectiveEvents.length],
+    [conversationId, effectiveEvents.length, handlePromptSubmit, pendingAsk],
   );
 
   const handleCancel = useCallback(() => {
@@ -185,34 +224,62 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     }
   }, [conversationId, effectiveEvents.length, clearLastTurn]);
 
-  const { pendingAsk: _pendingAsk, handlePromptSubmit: _handlePromptSubmit } = usePendingAsk(effectiveEvents, conversationId);
-
   const displayName = conversation.display_name ?? conversation.provider_chat_id;
   const providerLabel = getProviderLabel(conversation.provider);
   const title = `${displayName} · ${providerLabel}`;
 
   return (
-    <ConversationWorkspace
-      conversationId={conversationId}
-      conversationTitle={title}
-      hideTopBar={hideTopBar}
-      events={effectiveEvents}
-      messages={allMessages}
-      toolCalls={toolCalls}
-      agentStatuses={agentStatuses}
-      planSteps={planSteps}
-      artifacts={artifacts}
-      taskState={taskState}
-      currentThinkingEntries={currentThinkingEntries}
-      isStreaming={isStreaming}
-      assistantPhase={assistantPhase}
-      isConnected={isConnected}
-      onSendMessage={handleSendMessage}
-      isWaitingForAgent={isWaitingForAgent}
-      userCancelled={userCancelled}
-      onCancel={handleCancel}
-      onRetry={handleRetry}
-      isLoadingHistory={isLoadingHistory}
-    />
+    <div className="flex h-full min-h-0 flex-col">
+      {pendingAsk && (
+        <div className="border-b border-border bg-secondary/60 px-4 py-3">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground">
+              <MessageCircle className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                {t("inputPrompt.title")}
+              </p>
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+                {pendingAsk.question}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {t("inputPrompt.subtitle")}
+              </p>
+              {respondError && (
+                <p className="mt-2 text-xs text-destructive">
+                  {respondError}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="min-h-0 flex-1">
+        <ConversationWorkspace
+          conversationId={conversationId}
+          conversationTitle={title}
+          hideTopBar={hideTopBar}
+          events={effectiveEvents}
+          messages={allMessages}
+          toolCalls={toolCalls}
+          agentStatuses={agentStatuses}
+          planSteps={planSteps}
+          artifacts={artifacts}
+          taskState={taskState}
+          currentThinkingEntries={currentThinkingEntries}
+          isStreaming={isStreaming}
+          assistantPhase={assistantPhase}
+          isConnected={isConnected}
+          onSendMessage={handleSendMessage}
+          isWaitingForAgent={isWaitingForAgent}
+          userCancelled={userCancelled}
+          onCancel={handleCancel}
+          onRetry={handleRetry}
+          isLoadingHistory={isLoadingHistory}
+        />
+      </div>
+    </div>
   );
 }

@@ -29,7 +29,7 @@ export interface TelegramConfigResponse {
 }
 
 export async function getChannelStatus(): Promise<ChannelStatusResponse> {
-  const res = await fetch(`${API_BASE}/channels/status`);
+  const res = await fetch(`${API_BASE}/channels/status`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to get channel status: ${res.status}`);
   return res.json();
 }
@@ -83,7 +83,7 @@ export async function listChannelAccounts(): Promise<{
     linked_at: string;
   }>;
 }> {
-  const res = await fetch(`${API_BASE}/channels/accounts`);
+  const res = await fetch(`${API_BASE}/channels/accounts`, { cache: "no-store" });
   if (!res.ok) throw new Error(`Failed to list accounts: ${res.status}`);
   return res.json();
 }
@@ -108,7 +108,9 @@ export interface ChannelConversation {
 export async function listChannelConversations(): Promise<{
   conversations: ChannelConversation[];
 }> {
-  const res = await fetch(`${API_BASE}/channels/conversations`);
+  const res = await fetch(`${API_BASE}/channels/conversations`, {
+    cache: "no-store",
+  });
   if (!res.ok) throw new Error(`Failed to list channel conversations: ${res.status}`);
   return res.json();
 }

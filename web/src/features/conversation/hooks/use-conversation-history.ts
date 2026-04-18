@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/shared/stores";
-import { fetchMessages, fetchEvents } from "../api/history-api";
+import { fetchMessages, fetchEvents, fetchArtifacts } from "../api/history-api";
 import { EVENT_TYPES } from "@/shared/types";
-import type { ChatMessage, AgentEvent, EventType } from "@/shared/types";
+import type { ChatMessage, AgentEvent, EventType, ArtifactInfo } from "@/shared/types";
 
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
 
@@ -28,6 +28,62 @@ export function isConversationHistoryLoading(
   return isLoading || loadedConversationId !== conversationId;
 }
 
+export function normalizeHistoryMessage(
+  message: { role: "user" | "assistant" | "tool"; content: Record<string, unknown> | string; created_at: string },
+): ChatMessage {
+  let text: string;
+  if (typeof message.content === "string") {
+    text = message.content;
+  } else if (
+    message.content &&
+    typeof message.content === "object" &&
+    "text" in message.content
+  ) {
+    text = String(message.content.text);
+  } else {
+    text = JSON.stringify(message.content);
+  }
+  return {
+    role: message.role as "user" | "assistant",
+    content: text,
+    timestamp: new Date(message.created_at).getTime(),
+  };
+}
+
+export function normalizeHistoryEvent(
+  event: { type: string; data: Record<string, unknown>; timestamp: string; iteration: number | null },
+): AgentEvent[] {
+  if (!isEventType(event.type)) {
+    return [];
+  }
+  return [{
+    type: event.type,
+    data: event.data,
+    timestamp: new Date(event.timestamp).getTime(),
+    iteration: event.iteration,
+  } as AgentEvent];
+}
+
+export function normalizeHistoryArtifact(
+  artifact: {
+    id: string;
+    name: string;
+    content_type: string;
+    size: number;
+    created_at: string;
+    file_path?: string | null;
+  },
+): ArtifactInfo {
+  return {
+    id: artifact.id,
+    name: artifact.name,
+    contentType: artifact.content_type,
+    size: artifact.size,
+    createdAt: artifact.created_at,
+    ...(artifact.file_path ? { filePath: artifact.file_path } : {}),
+  };
+}
+
 /**
  * Loads persisted messages and events for the selected conversation.
  * History remains available when transitioning between historical and live mode.
@@ -38,13 +94,64 @@ export function useConversationHistory(
   const router = useRouter();
   const [historyMessages, setHistoryMessages] = useState<ChatMessage[]>([]);
   const [historyEvents, setHistoryEvents] = useState<AgentEvent[]>([]);
+  const [historyArtifacts, setHistoryArtifacts] = useState<ArtifactInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
   const prevConversationId = useRef<string | null>(null);
+  const requestSeqRef = useRef(0);
   const resetConversation = useAppStore((state) => state.resetConversation);
   const clearPendingConversationRoute = useAppStore(
     (state) => state.clearPendingConversationRoute,
   );
+
+  const loadHistory = useCallback(async (targetConversationId: string) => {
+    const requestSeq = ++requestSeqRef.current;
+    setIsLoading(true);
+
+    try {
+      const [messagesResponse, eventsResponse, artifactsResponse] = await Promise.all([
+        fetchMessages(targetConversationId),
+        fetchEvents(targetConversationId),
+        fetchArtifacts(targetConversationId),
+      ]);
+
+      if (requestSeq !== requestSeqRef.current) {
+        return false;
+      }
+
+      const messages = messagesResponse.messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map(normalizeHistoryMessage);
+
+      const events = eventsResponse.events.flatMap(normalizeHistoryEvent);
+      const artifacts = artifactsResponse.artifacts.map(normalizeHistoryArtifact);
+
+      setHistoryMessages(messages);
+      setHistoryEvents(events);
+      setHistoryArtifacts(artifacts);
+      setLoadedConversationId(targetConversationId);
+      return true;
+    } catch (err) {
+      if (requestSeq !== requestSeqRef.current) {
+        return false;
+      }
+      if (isConversationNotFoundError(err)) {
+        setHistoryMessages([]);
+        setHistoryEvents([]);
+        setHistoryArtifacts([]);
+        setLoadedConversationId(null);
+        clearPendingConversationRoute();
+        resetConversation();
+        router.replace("/");
+      }
+      console.error("Failed to load conversation history:", err);
+      return false;
+    } finally {
+      if (requestSeq === requestSeqRef.current) {
+        setIsLoading(false);
+      }
+    }
+  }, [clearPendingConversationRoute, resetConversation, router]);
 
   // Clear history immediately when switching conversations so stale
   // transcript/events do not flash while the next fetch is in flight.
@@ -53,6 +160,7 @@ export function useConversationHistory(
       prevConversationId.current = conversationId;
       setHistoryMessages([]);
       setHistoryEvents([]);
+      setHistoryArtifacts([]);
       setLoadedConversationId(null);
     }
   }, [conversationId]);
@@ -65,82 +173,29 @@ export function useConversationHistory(
     }
 
     let cancelled = false;
-    setIsLoading(true);
-
-    Promise.all([
-      fetchMessages(conversationId),
-      fetchEvents(conversationId),
-    ])
-      .then(([messagesResponse, eventsResponse]) => {
-        if (cancelled) return;
-
-        const messages: ChatMessage[] = messagesResponse.messages
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => {
-            let text: string;
-            if (typeof m.content === "string") {
-              text = m.content;
-            } else if (
-              m.content &&
-              typeof m.content === "object" &&
-              "text" in m.content
-            ) {
-              text = String(m.content.text);
-            } else {
-              text = JSON.stringify(m.content);
-            }
-            return {
-              role: m.role as "user" | "assistant",
-              content: text,
-              timestamp: new Date(m.created_at).getTime(),
-            };
-          });
-
-        const events: AgentEvent[] = eventsResponse.events.flatMap((e) => {
-          if (!isEventType(e.type)) {
-            return [];
-          }
-          return [{
-            type: e.type,
-            data: e.data,
-            timestamp: new Date(e.timestamp).getTime(),
-            iteration: e.iteration,
-          } as AgentEvent];
-        });
-
-        setHistoryMessages(messages);
-        setHistoryEvents(events);
-        setLoadedConversationId(conversationId);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          if (isConversationNotFoundError(err)) {
-            setHistoryMessages([]);
-            setHistoryEvents([]);
-            setLoadedConversationId(null);
-            clearPendingConversationRoute();
-            resetConversation();
-            router.replace("/");
-          }
-          console.error("Failed to load conversation history:", err);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
+    void loadHistory(conversationId).then((ok) => {
+      if (cancelled || ok) return;
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [conversationId, clearPendingConversationRoute, resetConversation, router]);
+  }, [conversationId, loadHistory]);
+
+  const refetchHistory = useCallback(async () => {
+    if (!conversationId) return false;
+    return loadHistory(conversationId);
+  }, [conversationId, loadHistory]);
 
   return {
     historyMessages,
     historyEvents,
+    historyArtifacts,
     isLoading: isConversationHistoryLoading(
       conversationId,
       loadedConversationId,
       isLoading,
     ),
+    refetchHistory,
   };
 }

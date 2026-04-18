@@ -8,12 +8,14 @@ import asyncio
 import hashlib
 import hmac as hmac_mod
 import uuid
+from datetime import datetime, timezone
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
+from starlette.requests import Request
 
 import api.channels.models  # noqa: F401  — register channel ORM models with Base
 from agent.memory.store import PersistentMemoryStore
@@ -671,6 +673,18 @@ class TestTelegramVerifyWebhook:
 
 
 class TestTelegramBotApiHelpers:
+    def test_telegram_provider_does_not_inherit_env_proxy_settings(self) -> None:
+        client = MagicMock()
+
+        with patch(
+            "api.channels.provider.httpx.AsyncClient", return_value=client
+        ) as ctor:
+            TelegramProvider(bot_token=BOT_TOKEN, webhook_secret=WEBHOOK_SECRET)
+
+        _, kwargs = ctor.call_args
+        assert kwargs["timeout"] == 30
+        assert "trust_env" not in kwargs
+
     @pytest.mark.asyncio
     async def test_get_me(self) -> None:
         client = AsyncMock()
@@ -708,6 +722,25 @@ class TestTelegramBotApiHelpers:
         _, kwargs = client.post.await_args
         assert kwargs["json"]["secret_token"] == "secret-123"
         assert kwargs["json"]["url"] == "https://example.com/channels/telegram/webhook"
+
+    @pytest.mark.asyncio
+    async def test_set_webhook_raises_on_telegram_error_payload(self) -> None:
+        client = AsyncMock()
+        response = MagicMock()
+        response.json.return_value = {
+            "ok": False,
+            "description": "Bad Request: bad webhook",
+        }
+        response.raise_for_status.return_value = None
+        client.post.return_value = response
+
+        with patch("api.channels.provider.httpx.AsyncClient", return_value=client):
+            tg = TelegramProvider(bot_token=BOT_TOKEN, webhook_secret=WEBHOOK_SECRET)
+
+        with pytest.raises(RuntimeError, match="bad webhook"):
+            await tg.set_webhook(
+                "https://example.com/channels/telegram/webhook", "secret-123"
+            )
 
     @pytest.mark.asyncio
     async def test_delete_webhook(self) -> None:
@@ -758,6 +791,108 @@ class TestInboundMessageDefaults:
         )
         with pytest.raises(AttributeError):
             msg.text = "changed"  # type: ignore[misc]
+
+
+class TestChannelStatusSerialization:
+    def test_disabled_bot_serializes_as_reset_state(self) -> None:
+        user_id = uuid.uuid4()
+        config = channels_routes.TelegramBotConfigRecord(
+            id=uuid.uuid4(),
+            user_id=user_id,
+            bot_token="123456:ABCDEF",
+            bot_username="disabled_bot",
+            bot_user_id="900001",
+            webhook_secret="secret",
+            webhook_status="disabled",
+            last_error=None,
+            last_verified_at=None,
+            enabled=False,
+            created_at=datetime.now(timezone.utc),
+            updated_at=datetime.now(timezone.utc),
+        )
+
+        payload = channels_routes._serialize_status(  # noqa: SLF001
+            settings_enabled=True,
+            bot_config=config,
+            linked=True,
+            display_name="Alice",
+        )
+
+        telegram = payload["providers"]["telegram"]
+        assert telegram["configured"] is False
+        assert telegram["linked"] is False
+        assert telegram["enabled"] is False
+        assert telegram["webhook_status"] == "not_configured"
+        assert "bot_username" not in telegram
+        assert "display_name" not in telegram
+
+
+class TestChannelWebhookRoutes:
+    def test_telegram_webhook_accepts_both_slash_variants(self) -> None:
+        webhook_paths = {
+            route.path
+            for route in channels_routes.router.routes
+            if getattr(route, "methods", None)
+            and "POST" in route.methods
+            and route.endpoint is channels_routes.telegram_webhook
+        }
+
+        assert "/channels/telegram/webhook" in webhook_paths
+        assert "/channels/telegram/webhook/" in webhook_paths
+
+    def test_webhook_url_uses_api_prefix_when_public_base_url_configured(self) -> None:
+        request = Request(
+            {
+                "type": "http",
+                "headers": [],
+                "scheme": "https",
+                "server": ("127.0.0.1", 8000),
+                "path": "/channels/telegram/config",
+                "query_string": b"",
+            }
+        )
+
+        with patch.object(
+            channels_routes,
+            "get_settings",
+            return_value=SimpleNamespace(
+                CHANNELS_WEBHOOK_BASE_URL="https://example.ngrok-free.app"
+            ),
+        ):
+            assert (
+                channels_routes._webhook_url_for_request(request)
+                == "https://example.ngrok-free.app/api/channels/telegram/webhook"
+            )
+
+    def test_webhook_url_uses_api_prefix_for_proxied_requests(self) -> None:
+        request = Request(
+            {
+                "type": "http",
+                "headers": [(b"x-proxy-secret", b"proxy-secret")],
+                "scheme": "https",
+                "server": ("example.com", 443),
+                "path": "/channels/telegram/config",
+                "query_string": b"",
+            }
+        )
+
+        with patch.object(
+            channels_routes,
+            "get_settings",
+            return_value=SimpleNamespace(CHANNELS_WEBHOOK_BASE_URL=""),
+        ):
+            assert (
+                channels_routes._webhook_url_for_request(request)
+                == "https://example.com/api/channels/telegram/webhook"
+            )
+
+    def test_format_exception_detail_falls_back_to_exception_class_name(self) -> None:
+        exc = RuntimeError()
+        assert channels_routes._format_exception_detail(exc) == "RuntimeError"
+
+    def test_format_exception_detail_prefers_exception_message(self) -> None:
+        exc = RuntimeError("connection refused")
+        assert channels_routes._format_exception_detail(exc) == "connection refused"
 
 
 class _StubProvider:

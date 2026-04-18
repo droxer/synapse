@@ -57,7 +57,7 @@ export function ChannelsListening() {
               <p className="text-xs font-medium text-foreground">{t("channels.listening.openTelegram")}</p>
               <p className="mt-0.5 text-xs text-muted-foreground leading-normal">
                 {t("channels.listening.openTelegramHintPrefix")}{" "}
-                <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs text-foreground">/start</code>
+                <code className="rounded bg-secondary px-1 py-0.5 font-mono text-xs text-foreground">hello</code>
               </p>
             </div>
           </div>

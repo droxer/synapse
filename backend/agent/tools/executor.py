@@ -6,7 +6,7 @@ from typing import Any
 
 from loguru import logger
 
-from agent.artifacts.manager import ArtifactManager
+from agent.artifacts.manager import Artifact, ArtifactManager
 from agent.tools.base import LocalTool, SandboxTool, ToolResult
 from agent.tools.registry import ToolRegistry
 from agent.tools.sandbox.artifact_detection import extract_artifact_paths_from_text
@@ -36,6 +36,7 @@ class ToolExecutor:
         self._artifact_manager = artifact_manager or ArtifactManager()
         self._conversation_id = conversation_id
         self._shell_tools_this_turn = 0
+        self._artifacts_by_remote_path_this_turn: dict[str, Artifact] = {}
         self._staged_skills_by_template: dict[str, set[str]] = {}
         self._active_skill_directory: str | None = None
         self._allowed_tool_names: set[str] | None = None
@@ -75,6 +76,7 @@ class ToolExecutor:
     def reset_turn_quotas(self) -> None:
         """Reset per-turn counters (call at the start of each user turn)."""
         self._shell_tools_this_turn = 0
+        self._artifacts_by_remote_path_this_turn = {}
 
     def set_allowed_tools(self, names: set[str], tags: set[str]) -> None:
         """Apply a hard allowlist for the current turn."""
@@ -378,22 +380,35 @@ class ToolExecutor:
             return result
 
         path_list = paths_to_extract
-        artifacts = await self._artifact_manager.extract_from_sandbox(
-            session=session,
-            remote_paths=path_list,
-        )
+        new_paths: list[str] = []
+        for path in path_list:
+            if path not in self._artifacts_by_remote_path_this_turn:
+                new_paths.append(path)
 
-        if len(artifacts) < len(path_list):
-            logger.warning(
-                "Only {} of {} artifact paths were extracted",
-                len(artifacts),
-                len(path_list),
+        artifacts: tuple[Artifact, ...] = ()
+        if new_paths:
+            artifacts = await self._artifact_manager.extract_from_sandbox(
+                session=session,
+                remote_paths=new_paths,
             )
+
+            if len(artifacts) < len(new_paths):
+                logger.warning(
+                    "Only {} of {} artifact paths were extracted",
+                    len(artifacts),
+                    len(new_paths),
+                )
+
+            for artifact in artifacts:
+                if artifact.file_path:
+                    self._artifacts_by_remote_path_this_turn.setdefault(
+                        artifact.file_path,
+                        artifact,
+                    )
 
         artifact_ids: list[str] = []
         if self._event_emitter is not None:
             for artifact in artifacts:
-                artifact_ids.append(artifact.id)
                 await self._event_emitter.emit(
                     EventType.ARTIFACT_CREATED,
                     {
@@ -406,14 +421,22 @@ class ToolExecutor:
                     },
                 )
 
+        for path in path_list:
+            artifact = self._artifacts_by_remote_path_this_turn.get(path)
+            if artifact is None:
+                continue
+            if artifact.id not in artifact_ids:
+                artifact_ids.append(artifact.id)
+
         # Return a new result with artifact_ids and content_type in metadata
         if artifact_ids:
             updated_meta = dict(metadata)
             updated_meta["artifact_ids"] = artifact_ids
             # Use the first artifact's content_type so the frontend knows
             # how to render the tool output (e.g. as an image).
-            if artifacts:
-                updated_meta["content_type"] = artifacts[0].content_type
+            first_artifact = self._artifacts_by_remote_path_this_turn.get(path_list[0])
+            if first_artifact is not None:
+                updated_meta["content_type"] = first_artifact.content_type
             return ToolResult.ok(result.output, metadata=updated_meta)
 
         return result

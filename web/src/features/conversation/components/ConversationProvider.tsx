@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useMemo, type ReactNode } from "react";
+import { createContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useSSE, useSessionFilteredArtifacts } from "@/shared/hooks";
 import { useAppStore } from "@/shared/stores";
 import { useConversation } from "../hooks/use-conversation";
@@ -68,7 +68,13 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const isLive = useAppStore((s) => s.isLiveConversation);
   const pendingConversationRouteId = useAppStore((s) => s.pendingConversationRouteId);
 
-  const { historyMessages, historyEvents, isLoading: isLoadingHistory } = useConversationHistory(conversationId);
+  const {
+    historyMessages,
+    historyEvents,
+    historyArtifacts,
+    isLoading: isLoadingHistory,
+    refetchHistory,
+  } = useConversationHistory(conversationId);
   const shouldConnectEvents = shouldConnectConversationEvents(
     conversationId,
     isLive,
@@ -83,6 +89,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const {
     effectiveEvents,
     messages: effectiveMessages,
+    artifacts: transcriptArtifacts,
     agentState: {
       toolCalls,
       taskState,
@@ -90,16 +97,52 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       planSteps,
       currentIteration,
     reasoningSteps,
-    thinkingContent,
-    thinkingDurationMs,
+      thinkingContent,
+      thinkingDurationMs,
       currentThinkingEntries,
       isStreaming,
       assistantPhase: rawAssistantPhase,
-      artifacts: rawArtifacts,
     },
-  } = useConversationTranscript(historyMessages, historyEvents, events, isLive);
+  } = useConversationTranscript(
+    historyMessages,
+    historyEvents,
+    historyArtifacts,
+    events,
+    isLive,
+  );
 
-  const artifacts = useSessionFilteredArtifacts(rawArtifacts);
+  const artifacts = useSessionFilteredArtifacts(transcriptArtifacts);
+  const lastTerminalEventKeyRef = useRef<string | null>(null);
+  const wasConnectedRef = useRef(false);
+
+  useEffect(() => {
+    const lastEvent = effectiveEvents[effectiveEvents.length - 1];
+    if (
+      lastEvent?.type !== "turn_complete"
+      && lastEvent?.type !== "task_complete"
+      && lastEvent?.type !== "turn_cancelled"
+      && lastEvent?.type !== "task_error"
+    ) {
+      return;
+    }
+    const key = `${lastEvent.type}:${lastEvent.timestamp}:${lastEvent.iteration ?? ""}`;
+    if (lastTerminalEventKeyRef.current === key) {
+      return;
+    }
+    lastTerminalEventKeyRef.current = key;
+    void refetchHistory();
+  }, [effectiveEvents, refetchHistory]);
+
+  useEffect(() => {
+    if (isConnected) {
+      wasConnectedRef.current = true;
+      return;
+    }
+    if (!wasConnectedRef.current || !isLive || !conversationId) {
+      return;
+    }
+    void refetchHistory();
+  }, [conversationId, isConnected, isLive, refetchHistory]);
 
   const effectiveTaskState: TaskState = isLive ? taskState : "complete";
   // Force phase to idle for completed (non-live) conversations so the

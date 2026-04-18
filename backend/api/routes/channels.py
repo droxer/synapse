@@ -142,9 +142,20 @@ def _mask_token(token: str) -> str:
 def _webhook_url_for_request(request: Request) -> str:
     settings = get_settings()
     base = settings.CHANNELS_WEBHOOK_BASE_URL.rstrip("/")
-    if not base:
-        base = str(request.base_url).rstrip("/")
+    if base:
+        return f"{base}/api/channels/telegram/webhook"
+
+    base = str(request.base_url).rstrip("/")
+    if request.headers.get("x-proxy-secret"):
+        return f"{base}/api/channels/telegram/webhook"
     return f"{base}/channels/telegram/webhook"
+
+
+def _format_exception_detail(exc: Exception) -> str:
+    detail = str(exc).strip()
+    if detail:
+        return detail
+    return exc.__class__.__name__
 
 
 async def _resolve_user_id_or_401(
@@ -168,23 +179,27 @@ def _serialize_status(
     linked: bool,
     display_name: str | None,
 ) -> dict[str, Any]:
+    is_configured = bot_config is not None and bool(bot_config.enabled)
     provider: dict[str, Any] = {
-        "configured": bot_config is not None,
-        "linked": linked,
+        "configured": is_configured,
+        "linked": linked if is_configured else False,
         "enabled": bool(bot_config.enabled) if bot_config else False,
-        "webhook_status": bot_config.webhook_status if bot_config else "not_configured",
+        "webhook_status": bot_config.webhook_status
+        if is_configured
+        else "not_configured",
     }
-    if bot_config is not None:
+    if is_configured and bot_config is not None:
         provider["bot_username"] = bot_config.bot_username
         provider["bot_user_id"] = bot_config.bot_user_id
         provider["masked_token"] = _mask_token(bot_config.bot_token)
         provider["last_error"] = bot_config.last_error
-    if display_name:
+    if is_configured and display_name:
         provider["display_name"] = display_name
     return {"enabled": settings_enabled, "providers": {"telegram": provider}}
 
 
 @router.post("/telegram/webhook")
+@router.post("/telegram/webhook/", include_in_schema=False)
 async def telegram_webhook(
     request: Request,
     state: AppState = Depends(get_app_state),
@@ -561,7 +576,8 @@ async def save_telegram_bot_config(
         profile = await provider.get_me()
     except Exception as exc:
         raise HTTPException(
-            status_code=400, detail=f"Invalid Telegram bot token: {exc}"
+            status_code=400,
+            detail=f"Invalid Telegram bot token: {_format_exception_detail(exc)}",
         ) from exc
 
     webhook_url = _webhook_url_for_request(request)
@@ -571,7 +587,7 @@ async def save_telegram_bot_config(
         last_error = None
     except Exception as exc:
         webhook_status = "error"
-        last_error = str(exc)
+        last_error = _format_exception_detail(exc)
 
     async with state.db_session_factory() as db:
         config = await repo.upsert_telegram_bot_config(
