@@ -6,6 +6,12 @@ import { useAppStore } from "@/shared/stores";
 import { fetchMessages, fetchEvents, fetchArtifacts } from "../api/history-api";
 import { EVENT_TYPES } from "@/shared/types";
 import type { ChatMessage, AgentEvent, EventType, ArtifactInfo } from "@/shared/types";
+import { toHistoryChatMessage } from "../lib/message-identity";
+import type {
+  ConversationArtifactsResponse,
+  ConversationEventsResponse,
+  ConversationMessagesResponse,
+} from "../api/history-api";
 
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
 
@@ -13,8 +19,15 @@ function isEventType(value: string): value is EventType {
   return EVENT_TYPE_SET.has(value);
 }
 
-function isConversationNotFoundError(err: unknown): boolean {
+export function isConversationNotFoundError(err: unknown): boolean {
   return err instanceof Error && err.message.includes("404");
+}
+
+interface ResolvedConversationHistory {
+  readonly messages: ChatMessage[];
+  readonly events: AgentEvent[];
+  readonly artifacts: ArtifactInfo[];
+  readonly missingConversation: boolean;
 }
 
 export function isConversationHistoryLoading(
@@ -29,25 +42,15 @@ export function isConversationHistoryLoading(
 }
 
 export function normalizeHistoryMessage(
-  message: { role: "user" | "assistant" | "tool"; content: Record<string, unknown> | string; created_at: string },
+  message: { id?: string; role: "user" | "assistant" | "tool"; content: Record<string, unknown> | string; created_at: string },
 ): ChatMessage {
-  let text: string;
-  if (typeof message.content === "string") {
-    text = message.content;
-  } else if (
-    message.content &&
-    typeof message.content === "object" &&
-    "text" in message.content
-  ) {
-    text = String(message.content.text);
-  } else {
-    text = JSON.stringify(message.content);
-  }
-  return {
-    role: message.role as "user" | "assistant",
-    content: text,
-    timestamp: new Date(message.created_at).getTime(),
-  };
+  return toHistoryChatMessage({
+    id: message.id ?? "history-message",
+    role: message.role,
+    content: message.content,
+    iteration: null,
+    created_at: message.created_at,
+  });
 }
 
 export function normalizeHistoryEvent(
@@ -84,6 +87,40 @@ export function normalizeHistoryArtifact(
   };
 }
 
+export function resolveConversationHistoryResults(
+  messagesResult: PromiseSettledResult<ConversationMessagesResponse>,
+  eventsResult: PromiseSettledResult<ConversationEventsResponse>,
+  artifactsResult: PromiseSettledResult<ConversationArtifactsResponse>,
+): ResolvedConversationHistory {
+  const messages =
+    messagesResult.status === "fulfilled"
+      ? messagesResult.value.messages
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map(toHistoryChatMessage)
+      : [];
+
+  const events =
+    eventsResult.status === "fulfilled"
+      ? eventsResult.value.events.flatMap(normalizeHistoryEvent)
+      : [];
+
+  const artifacts =
+    artifactsResult.status === "fulfilled"
+      ? artifactsResult.value.artifacts.map(normalizeHistoryArtifact)
+      : [];
+
+  const missingConversation =
+    (messagesResult.status === "rejected" && isConversationNotFoundError(messagesResult.reason))
+    || (eventsResult.status === "rejected" && isConversationNotFoundError(eventsResult.reason));
+
+  return {
+    messages,
+    events,
+    artifacts,
+    missingConversation,
+  };
+}
+
 /**
  * Loads persisted messages and events for the selected conversation.
  * History remains available when transitioning between historical and live mode.
@@ -109,7 +146,7 @@ export function useConversationHistory(
     setIsLoading(true);
 
     try {
-      const [messagesResponse, eventsResponse, artifactsResponse] = await Promise.all([
+      const [messagesResult, eventsResult, artifactsResult] = await Promise.allSettled([
         fetchMessages(targetConversationId),
         fetchEvents(targetConversationId),
         fetchArtifacts(targetConversationId),
@@ -119,23 +156,13 @@ export function useConversationHistory(
         return false;
       }
 
-      const messages = messagesResponse.messages
-        .filter((m) => m.role === "user" || m.role === "assistant")
-        .map(normalizeHistoryMessage);
+      const resolved = resolveConversationHistoryResults(
+        messagesResult,
+        eventsResult,
+        artifactsResult,
+      );
 
-      const events = eventsResponse.events.flatMap(normalizeHistoryEvent);
-      const artifacts = artifactsResponse.artifacts.map(normalizeHistoryArtifact);
-
-      setHistoryMessages(messages);
-      setHistoryEvents(events);
-      setHistoryArtifacts(artifacts);
-      setLoadedConversationId(targetConversationId);
-      return true;
-    } catch (err) {
-      if (requestSeq !== requestSeqRef.current) {
-        return false;
-      }
-      if (isConversationNotFoundError(err)) {
+      if (resolved.missingConversation) {
         setHistoryMessages([]);
         setHistoryEvents([]);
         setHistoryArtifacts([]);
@@ -143,6 +170,27 @@ export function useConversationHistory(
         clearPendingConversationRoute();
         resetConversation();
         router.replace("/");
+        return false;
+      }
+
+      if (messagesResult.status === "rejected") {
+        console.error("Failed to load conversation messages:", messagesResult.reason);
+      }
+      if (eventsResult.status === "rejected") {
+        console.error("Failed to load conversation events:", eventsResult.reason);
+      }
+      if (artifactsResult.status === "rejected") {
+        console.error("Failed to load conversation artifacts:", artifactsResult.reason);
+      }
+
+      setHistoryMessages(resolved.messages);
+      setHistoryEvents(resolved.events);
+      setHistoryArtifacts(resolved.artifacts);
+      setLoadedConversationId(targetConversationId);
+      return true;
+    } catch (err) {
+      if (requestSeq !== requestSeqRef.current) {
+        return false;
       }
       console.error("Failed to load conversation history:", err);
       return false;

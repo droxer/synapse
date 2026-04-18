@@ -16,6 +16,7 @@ from starlette.datastructures import UploadFile
 from starlette.requests import Request
 
 from agent.llm.client import AnthropicClient
+from agent.logging import conversation_log_context
 from agent.memory.store import PersistentMemoryStore
 from api.dependencies import AppState, get_app_state, get_db_session
 from agent.state.schemas import EventRecord
@@ -203,6 +204,40 @@ async def _build_user_skill_registry(
 
 def _entry_runtime_ready(entry: ConversationEntry) -> bool:
     return entry.orchestrator is not None and entry.executor is not None
+
+
+def _attach_idempotency_tracking(
+    entry: ConversationEntry,
+    task: asyncio.Task[str],
+    *,
+    idempotency_key: str | None,
+) -> None:
+    if not idempotency_key:
+        return
+    entry.idempotency_tasks[idempotency_key] = task
+
+    def _cleanup(done_task: asyncio.Task[str]) -> None:
+        current = entry.idempotency_tasks.get(idempotency_key)
+        if current is done_task:
+            entry.idempotency_tasks.pop(idempotency_key, None)
+
+    task.add_done_callback(_cleanup)
+
+
+def _start_turn_task(
+    entry: ConversationEntry,
+    coroutine: Any,
+    *,
+    idempotency_key: str | None,
+) -> asyncio.Task[str]:
+    task = asyncio.create_task(coroutine)
+    entry.turn_task = task
+    _attach_idempotency_tracking(
+        entry,
+        task,
+        idempotency_key=idempotency_key,
+    )
+    return task
 
 
 async def _prepare_conversation_runtime(
@@ -581,7 +616,14 @@ async def _load_initial_messages_for_conversation(
                 compaction_profile.reconstruct_tail_messages,
             )
         else:
-            db_messages = await state.db_repo.get_messages(session, conv_uuid)
+            db_messages = await state.db_repo.get_recent_messages(
+                session,
+                conv_uuid,
+                max(
+                    compaction_profile.reconstruct_tail_messages,
+                    settings.RECONSTRUCT_MAX_MESSAGES_WITHOUT_SUMMARY,
+                ),
+            )
 
     initial_messages: list[dict[str, Any]] = []
     if convo.context_summary and convo.context_summary.strip():
@@ -650,7 +692,10 @@ async def _reconstruct_conversation(
         effective_runtime = compaction_runtime or "web_conversation"
     compaction_profile = resolve_compaction_profile(settings, effective_runtime)
 
-    emitter = EventEmitter()
+    emitter = EventEmitter(
+        conversation_id=conversation_id,
+        response_coordinator=getattr(state, "response_coordinator", None),
+    )
     event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
         maxsize=_EVENT_QUEUE_MAXSIZE,
     )
@@ -723,6 +768,7 @@ async def _reconstruct_conversation(
         state.db_session_factory,
         state.db_pending_writes,
         skill_repo=state.skill_repo,
+        prompt_repo=getattr(state, "user_prompt_repo", None),
         user_id=convo.user_id,
         usage_repo=state.usage_repo,
     )
@@ -1060,91 +1106,98 @@ async def create_conversation(
 
     conversation_id = str(uuid.uuid4())
     conv_uuid = uuid.UUID(conversation_id)
-    emitter = EventEmitter()
-    initial_mode = _planner_flag_to_mode(explicit_planner) or ORCHESTRATOR_AGENT
+    with conversation_log_context(conversation_id):
+        emitter = EventEmitter(
+            conversation_id=conversation_id,
+            response_coordinator=getattr(state, "response_coordinator", None),
+        )
+        initial_mode = _planner_flag_to_mode(explicit_planner) or ORCHESTRATOR_AGENT
 
-    event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
-        maxsize=_EVENT_QUEUE_MAXSIZE,
-    )
-    pending_callbacks: dict[str, Any] = {}
-    subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
-    emitter.subscribe(subscriber)
+        event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
+            maxsize=_EVENT_QUEUE_MAXSIZE,
+        )
+        pending_callbacks: dict[str, Any] = {}
+        subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
+        emitter.subscribe(subscriber)
 
-    entry = ConversationEntry(
-        emitter=emitter,
-        event_queue=event_queue,
-        orchestrator=_BootstrapPendingOrchestrator(),
-        executor=_NoopExecutor(),
-        pending_callbacks=pending_callbacks,
-        orchestrator_mode=initial_mode,
-    )
-    entry.subscriber = subscriber
-    state.conversations[conversation_id] = entry
-
-    user_resolution_started_at = time.perf_counter()
-    user_id = await _resolve_user_id(auth_user, state)
-    logger.info(
-        "conversation_create_user_ready id={} duration_ms={} authenticated={}",
-        conversation_id,
-        _elapsed_ms(user_resolution_started_at),
-        user_id is not None,
-    )
-
-    # Persist conversation and register DB subscriber
-    db_create_started_at = time.perf_counter()
-    async with state.db_session_factory() as session:
-        await state.db_repo.create_conversation(
-            session,
-            title=message[:80],
-            conversation_id=conv_uuid,
-            user_id=user_id,
+        entry = ConversationEntry(
+            emitter=emitter,
+            event_queue=event_queue,
+            orchestrator=_BootstrapPendingOrchestrator(),
+            executor=_NoopExecutor(),
+            pending_callbacks=pending_callbacks,
             orchestrator_mode=initial_mode,
         )
-    logger.info(
-        "conversation_create_persisted id={} duration_ms={} initial_mode={}",
-        conversation_id,
-        _elapsed_ms(db_create_started_at),
-        initial_mode,
-    )
+        entry.subscriber = subscriber
+        state.conversations[conversation_id] = entry
 
-    db_sub = create_db_subscriber(
-        conv_uuid,
-        state.db_repo,
-        state.db_session_factory,
-        state.db_pending_writes,
-        skill_repo=state.skill_repo,
-        user_id=user_id,
-        usage_repo=state.usage_repo,
-    )
-    emitter.subscribe(db_sub)
+        user_resolution_started_at = time.perf_counter()
+        user_id = await _resolve_user_id(auth_user, state)
+        logger.info(
+            "conversation_create_user_ready id={} duration_ms={} authenticated={}",
+            conversation_id,
+            _elapsed_ms(user_resolution_started_at),
+            user_id is not None,
+        )
 
-    # Start first turn
-    entry.turn_task = asyncio.create_task(
-        _bootstrap_and_run_initial_turn(
-            state,
-            conversation_id=conversation_id,
-            message=message,
-            attachments=attachments,
-            selected_skills=selected_skills,
-            initial_mode=initial_mode,
-            idempotency_key=idem_key,
+        # Persist conversation and register DB subscriber
+        db_create_started_at = time.perf_counter()
+        async with state.db_session_factory() as session:
+            await state.db_repo.create_conversation(
+                session,
+                title=message[:80],
+                conversation_id=conv_uuid,
+                user_id=user_id,
+                orchestrator_mode=initial_mode,
+            )
+        logger.info(
+            "conversation_create_persisted id={} duration_ms={} initial_mode={}",
+            conversation_id,
+            _elapsed_ms(db_create_started_at),
+            initial_mode,
+        )
+
+        db_sub = create_db_subscriber(
+            conv_uuid,
+            state.db_repo,
+            state.db_session_factory,
+            state.db_pending_writes,
+            skill_repo=state.skill_repo,
+            prompt_repo=getattr(state, "user_prompt_repo", None),
             user_id=user_id,
-        ),
-    )
+            usage_repo=state.usage_repo,
+        )
+        emitter.subscribe(db_sub)
 
-    # Generate a concise title in the background
-    asyncio.create_task(
-        _generate_title(state.claude_client, conversation_id, message, emitter),
-    )
+        # Start first turn
+        _start_turn_task(
+            entry,
+            _bootstrap_and_run_initial_turn(
+                state,
+                conversation_id=conversation_id,
+                message=message,
+                attachments=attachments,
+                selected_skills=selected_skills,
+                initial_mode=initial_mode,
+                idempotency_key=idem_key,
+                user_id=user_id,
+            ),
+            idempotency_key=idem_key,
+        )
 
-    logger.info(
-        "conversation_created id={} message={} skills={} attachments={} request_duration_ms={}",
-        conversation_id,
-        message[:100],
-        selected_skills,
-        len(attachments),
-        _elapsed_ms(request_started_at),
-    )
+        # Generate a concise title in the background
+        asyncio.create_task(
+            _generate_title(state.claude_client, conversation_id, message, emitter),
+        )
+
+        logger.info(
+            "conversation_created id={} message={} skills={} attachments={} request_duration_ms={}",
+            conversation_id,
+            message[:100],
+            selected_skills,
+            len(attachments),
+            _elapsed_ms(request_started_at),
+        )
     return ConversationResponse(conversation_id=conversation_id)
 
 
@@ -1193,172 +1246,218 @@ async def send_message(
 
     Accepts either JSON (MessageRequest) or multipart/form-data with files.
     """
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    content_type = request.headers.get("content-type", "")
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        content_type = request.headers.get("content-type", "")
 
-    if "multipart/form-data" in content_type:
-        form = await request.form()
-        message = form.get("message")
-        if not message or not str(message).strip():
-            raise HTTPException(status_code=422, detail="message must not be empty")
-        message = str(message)
-        use_planner_raw = form.get("use_planner")
-        explicit_planner: bool | None = (
-            str(use_planner_raw).lower() == "true"
-            if use_planner_raw is not None
-            else None
-        )
-        selected_skills = _extract_selected_skills(form)
-        raw_files = form.getlist("files")
-        upload_files = _extract_upload_files(raw_files)
-        attachments = await _parse_uploads(upload_files) if upload_files else ()
-    else:
-        body = MessageRequest(**(await request.json()))
-        message = body.message
-        explicit_planner = body.use_planner
-        selected_skills = tuple(body.skills)
-        attachments = ()
-
-    idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
-    if not idem_key:
         if "multipart/form-data" in content_type:
-            raw_ik = form.get("idempotency_key")
-            if raw_ik:
-                idem_key = str(raw_ik).strip()[:128]
+            form = await request.form()
+            message = form.get("message")
+            if not message or not str(message).strip():
+                raise HTTPException(status_code=422, detail="message must not be empty")
+            message = str(message)
+            use_planner_raw = form.get("use_planner")
+            explicit_planner: bool | None = (
+                str(use_planner_raw).lower() == "true"
+                if use_planner_raw is not None
+                else None
+            )
+            selected_skills = _extract_selected_skills(form)
+            raw_files = form.getlist("files")
+            upload_files = _extract_upload_files(raw_files)
+            attachments = await _parse_uploads(upload_files) if upload_files else ()
         else:
-            if body.idempotency_key:
-                idem_key = body.idempotency_key.strip()[:128]
+            body = MessageRequest(**(await request.json()))
+            message = body.message
+            explicit_planner = body.use_planner
+            selected_skills = tuple(body.skills)
+            attachments = ()
 
-    entry = state.conversations.get(conversation_id)
-    if entry is None:
-        entry = await _reconstruct_conversation(state, conversation_id)
+        idem_key = (request.headers.get("Idempotency-Key") or "").strip()[:128] or None
+        if not idem_key:
+            if "multipart/form-data" in content_type:
+                raw_ik = form.get("idempotency_key")
+                if raw_ik:
+                    idem_key = str(raw_ik).strip()[:128]
+            else:
+                if body.idempotency_key:
+                    idem_key = body.idempotency_key.strip()[:128]
+
+        entry = state.conversations.get(conversation_id)
         if entry is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Unknown conversation: {conversation_id}",
-            )
+            entry = await _reconstruct_conversation(state, conversation_id)
+            if entry is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Unknown conversation: {conversation_id}",
+                )
 
-    # Wait for any in-progress turn to finish before starting the next
-    if entry.turn_task is not None and not entry.turn_task.done():
-        await entry.turn_task
+        auto_detected = False
+        while True:
+            wait_task: asyncio.Task[str] | None = None
+            async with entry.lock:
+                if idem_key:
+                    if idem_key in entry.idempotency_cache:
+                        logger.info(
+                            "message_send_idempotent_hit conversation_id={} key={}",
+                            conversation_id,
+                            idem_key[:16],
+                        )
+                        return ConversationResponse(conversation_id=conversation_id)
+                    in_flight = entry.idempotency_tasks.get(idem_key)
+                    if in_flight is not None and not in_flight.done():
+                        logger.info(
+                            "message_send_idempotent_in_flight conversation_id={} key={}",
+                            conversation_id,
+                            idem_key[:16],
+                        )
+                        return ConversationResponse(conversation_id=conversation_id)
 
-    (
-        execution_shape,
-        execution_rationale,
-        target_mode,
-        auto_detected,
-    ) = await _resolve_execution_route(state.claude_client, message, explicit_planner)
-    current_mode = entry.orchestrator_mode
-    runtime_prompt_sections = _build_execution_shape_prompt_sections(
-        execution_shape,
-        execution_rationale,
-    )
-    turn_metadata = {
-        "execution_shape": execution_shape,
-        "execution_rationale": execution_rationale,
-    }
+                current_turn = entry.turn_task
+                if current_turn is not None and not current_turn.done():
+                    wait_task = current_turn
+                else:
+                    (
+                        execution_shape,
+                        execution_rationale,
+                        target_mode,
+                        auto_detected,
+                    ) = await _resolve_execution_route(
+                        state.claude_client,
+                        message,
+                        explicit_planner,
+                    )
+                    current_mode = entry.orchestrator_mode
+                    runtime_prompt_sections = _build_execution_shape_prompt_sections(
+                        execution_shape,
+                        execution_rationale,
+                    )
+                    turn_metadata = {
+                        "execution_shape": execution_shape,
+                        "execution_rationale": execution_rationale,
+                    }
 
-    if target_mode != current_mode or not _entry_runtime_ready(entry):
-        conv_uuid = uuid.UUID(conversation_id)
-        async with state.db_session_factory() as session:
-            convo = await state.db_repo.get_conversation(session, conv_uuid)
-        if convo is None:
-            raise HTTPException(status_code=404, detail="Conversation not found")
+                    if target_mode != current_mode or not _entry_runtime_ready(entry):
+                        conv_uuid = uuid.UUID(conversation_id)
+                        async with state.db_session_factory() as session:
+                            convo = await state.db_repo.get_conversation(
+                                session, conv_uuid
+                            )
+                        if convo is None:
+                            raise HTTPException(
+                                status_code=404,
+                                detail="Conversation not found",
+                            )
 
-        persistent_store = PersistentMemoryStore(
-            session_factory=state.db_session_factory,
-            user_id=convo.user_id,
-            conversation_id=conv_uuid,
-        )
-        memory_entries = await persistent_store.load_all()
-        user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
-        settings = get_settings()
-        compaction_profile = resolve_compaction_profile(
-            settings,
-            "planner" if target_mode == ORCHESTRATOR_PLANNER else "web_conversation",
-        )
-        initial_messages = await _load_initial_messages_for_conversation(
-            state,
-            convo,
-            memory_entries,
-            user_skill_registry,
-            compaction_profile,
-        )
-        if target_mode == ORCHESTRATOR_PLANNER:
-            orchestrator, executor = _build_planner_orchestrator(
-                state.claude_client,
-                entry.emitter,
-                state.sandbox_provider,
-                state.storage_backend,
-                persistent_store=persistent_store,
-                mcp_state=state.mcp_state,
-                skill_registry=user_skill_registry,
-                memory_entries=memory_entries,
-                conversation_id=conversation_id,
-                initial_messages=tuple(initial_messages),
-            )
-            entry.orchestrator = orchestrator
-            entry.executor = executor
-        else:
-            orchestrator, executor = _build_orchestrator(
-                state.claude_client,
-                entry.emitter,
-                state.sandbox_provider,
-                state.storage_backend,
-                initial_messages=tuple(initial_messages),
-                persistent_store=persistent_store,
-                mcp_state=state.mcp_state,
-                skill_registry=user_skill_registry,
-                memory_entries=memory_entries,
-                conversation_id=conversation_id,
-            )
-            entry.orchestrator = orchestrator
-            entry.executor = executor
-        entry.orchestrator_mode = target_mode
-        async with state.db_session_factory() as session:
-            await state.db_repo.update_conversation(
-                session,
-                conv_uuid,
-                orchestrator_mode=target_mode,
-            )
-        if target_mode != current_mode:
-            logger.info(
-                "conversation_mode_switched id={} from={} to={}",
+                        persistent_store = PersistentMemoryStore(
+                            session_factory=state.db_session_factory,
+                            user_id=convo.user_id,
+                            conversation_id=conv_uuid,
+                        )
+                        memory_entries = await persistent_store.load_all()
+                        user_skill_registry = await _build_user_skill_registry(
+                            state, convo.user_id
+                        )
+                        settings = get_settings()
+                        compaction_profile = resolve_compaction_profile(
+                            settings,
+                            (
+                                "planner"
+                                if target_mode == ORCHESTRATOR_PLANNER
+                                else "web_conversation"
+                            ),
+                        )
+                        initial_messages = (
+                            await _load_initial_messages_for_conversation(
+                                state,
+                                convo,
+                                memory_entries,
+                                user_skill_registry,
+                                compaction_profile,
+                            )
+                        )
+                        if target_mode == ORCHESTRATOR_PLANNER:
+                            orchestrator, executor = _build_planner_orchestrator(
+                                state.claude_client,
+                                entry.emitter,
+                                state.sandbox_provider,
+                                state.storage_backend,
+                                persistent_store=persistent_store,
+                                mcp_state=state.mcp_state,
+                                skill_registry=user_skill_registry,
+                                memory_entries=memory_entries,
+                                conversation_id=conversation_id,
+                                initial_messages=tuple(initial_messages),
+                            )
+                        else:
+                            orchestrator, executor = _build_orchestrator(
+                                state.claude_client,
+                                entry.emitter,
+                                state.sandbox_provider,
+                                state.storage_backend,
+                                initial_messages=tuple(initial_messages),
+                                persistent_store=persistent_store,
+                                mcp_state=state.mcp_state,
+                                skill_registry=user_skill_registry,
+                                memory_entries=memory_entries,
+                                conversation_id=conversation_id,
+                            )
+                        entry.orchestrator = orchestrator
+                        entry.executor = executor
+                        entry.orchestrator_mode = target_mode
+                        async with state.db_session_factory() as session:
+                            await state.db_repo.update_conversation(
+                                session,
+                                conv_uuid,
+                                orchestrator_mode=target_mode,
+                            )
+                        if target_mode != current_mode:
+                            logger.info(
+                                "conversation_mode_switched id={} from={} to={}",
+                                conversation_id,
+                                current_mode,
+                                target_mode,
+                            )
+
+                    entry.last_attachments = attachments
+                    entry.last_selected_skills = selected_skills
+                    _start_turn_task(
+                        entry,
+                        _run_turn(
+                            state,
+                            conversation_id,
+                            entry.orchestrator,
+                            message,
+                            attachments,
+                            selected_skills,
+                            runtime_prompt_sections=runtime_prompt_sections,
+                            turn_metadata=turn_metadata,
+                            idempotency_key=idem_key,
+                        ),
+                        idempotency_key=idem_key,
+                    )
+                    break
+
+            if wait_task is not None:
+                await wait_task
+
+        if auto_detected:
+            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
+
+        # Touch updated_at timestamp
+        try:
+            async with state.db_session_factory() as session:
+                await state.db_repo.update_conversation(
+                    session, uuid.UUID(conversation_id)
+                )
+        except Exception as exc:
+            logger.warning(
+                "failed_to_update_conversation_timestamp id={} error={}",
                 conversation_id,
-                current_mode,
-                target_mode,
+                exc,
             )
 
-    if auto_detected:
-        await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
-
-    # Start new turn on the same orchestrator (preserves full history)
-    entry.turn_task = asyncio.create_task(
-        _run_turn(
-            state,
-            conversation_id,
-            entry.orchestrator,
-            message,
-            attachments,
-            selected_skills,
-            runtime_prompt_sections=runtime_prompt_sections,
-            turn_metadata=turn_metadata,
-            idempotency_key=idem_key,
-        ),
-    )
-
-    # Touch updated_at timestamp
-    try:
-        async with state.db_session_factory() as session:
-            await state.db_repo.update_conversation(session, uuid.UUID(conversation_id))
-    except Exception as exc:
-        logger.warning(
-            "failed_to_update_conversation_timestamp id={} error={}",
-            conversation_id,
-            exc,
-        )
-
-    logger.info("message_sent conversation_id={}", conversation_id)
+        logger.info("message_sent conversation_id={}", conversation_id)
     return ConversationResponse(conversation_id=conversation_id)
 
 
@@ -1370,26 +1469,27 @@ async def get_conversation_messages(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Get all messages for a conversation (for history replay)."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    conv_uuid = uuid.UUID(conversation_id)
-    convo = await state.db_repo.get_conversation(session, conv_uuid)
-    if convo is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    messages = await state.db_repo.get_messages(session, conv_uuid)
-    return {
-        "conversation_id": str(convo.id),
-        "title": convo.title,
-        "messages": [
-            {
-                "id": str(m.id),
-                "role": m.role,
-                "content": m.content,
-                "iteration": m.iteration,
-                "created_at": m.created_at.isoformat(),
-            }
-            for m in messages
-        ],
-    }
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        conv_uuid = uuid.UUID(conversation_id)
+        convo = await state.db_repo.get_conversation(session, conv_uuid)
+        if convo is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        messages = await state.db_repo.get_messages(session, conv_uuid)
+        return {
+            "conversation_id": str(convo.id),
+            "title": convo.title,
+            "messages": [
+                {
+                    "id": str(m.id),
+                    "role": m.role,
+                    "content": m.content,
+                    "iteration": m.iteration,
+                    "created_at": m.created_at.isoformat(),
+                }
+                for m in messages
+            ],
+        }
 
 
 @router.get("/conversations/{conversation_id}/events")
@@ -1399,52 +1499,65 @@ async def stream_events(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> StreamingResponse:
     """Stream conversation events via Server-Sent Events (long-lived)."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    entry = state.conversations.get(conversation_id)
-    if entry is None:
-        entry = await _reconstruct_conversation(state, conversation_id)
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        entry = state.conversations.get(conversation_id)
         if entry is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Unknown conversation: {conversation_id}",
-            )
+            entry = await _reconstruct_conversation(state, conversation_id)
+            if entry is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Unknown conversation: {conversation_id}",
+                )
 
-    return StreamingResponse(
-        _event_generator(conversation_id, entry),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no",
-        },
-    )
+        return StreamingResponse(
+            _event_generator(conversation_id, entry),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
 
 
 @router.get("/conversations/{conversation_id}/events/history")
 async def get_conversation_events(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
+    limit: int = 500,
+    offset: int = 0,
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Return all stored events for a historical conversation."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    conv_uuid = uuid.UUID(conversation_id)
-    convo = await state.db_repo.get_conversation(session, conv_uuid)
-    if convo is None:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    events = await state.db_repo.get_events(session, conv_uuid)
-    return {
-        "events": [
-            {
-                "type": event.event_type,
-                "data": event.data,
-                "timestamp": event.timestamp.isoformat(),
-                "iteration": event.iteration,
-            }
-            for event in events
-        ],
-    }
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        conv_uuid = uuid.UUID(conversation_id)
+        convo = await state.db_repo.get_conversation(session, conv_uuid)
+        if convo is None:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        limit = max(1, min(limit, 2000))
+        offset = max(0, offset)
+        events = await state.db_repo.get_events(
+            session,
+            conv_uuid,
+            limit=limit,
+            offset=offset,
+        )
+        return {
+            "events": [
+                {
+                    "type": event.event_type,
+                    "data": event.data,
+                    "timestamp": event.timestamp.isoformat(),
+                    "iteration": event.iteration,
+                }
+                for event in events
+            ],
+            "limit": limit,
+            "offset": offset,
+        }
 
 
 @router.get(
@@ -1458,10 +1571,11 @@ async def get_conversation_metrics(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> ConversationMetricsResponse:
     """Return aggregated metrics for a conversation."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    conv_uuid = uuid.UUID(conversation_id)
-    events = await state.db_repo.get_events(session, conv_uuid)
-    return _build_conversation_metrics_response(str(conversation_id), events)
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        conv_uuid = uuid.UUID(conversation_id)
+        events = await state.db_repo.get_events(session, conv_uuid)
+        return _build_conversation_metrics_response(str(conversation_id), events)
 
 
 @router.post("/conversations/{conversation_id}/respond")
@@ -1472,32 +1586,42 @@ async def respond_to_prompt(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, str]:
     """Submit a user response to an ask_user prompt."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    entry = state.conversations.get(conversation_id)
-    if entry is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown conversation: {conversation_id}",
-        )
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        coordinator = state.response_coordinator
+        if coordinator is None:
+            raise HTTPException(
+                status_code=503, detail="Response coordinator unavailable"
+            )
 
-    callback = entry.pending_callbacks.pop(body.request_id, None)
-    if callback is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown request: {body.request_id}",
+        accepted = await coordinator.submit_response(
+            conversation_id=conversation_id,
+            request_id=body.request_id,
+            response=body.response,
         )
+        if not accepted:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Unknown request: {body.request_id}",
+            )
 
-    logger.info(
-        "user_response_received conversation_id={} request_id={}",
-        conversation_id,
-        body.request_id,
-    )
-    callback(body.response)
-    await entry.emitter.emit(
-        EventType.USER_RESPONSE,
-        {"request_id": body.request_id, "response": body.response},
-    )
-    return {"status": "ok"}
+        logger.info(
+            "user_response_received conversation_id={} request_id={}",
+            conversation_id,
+            body.request_id,
+        )
+        entry = state.conversations.get(conversation_id)
+        if entry is not None:
+            entry.pending_callbacks.pop(body.request_id, None)
+            await entry.emitter.emit(
+                EventType.USER_RESPONSE,
+                {
+                    "request_id": body.request_id,
+                    "response": body.response,
+                    "persisted": True,
+                },
+            )
+        return {"status": "ok"}
 
 
 @router.post("/conversations/{conversation_id}/cancel")
@@ -1511,43 +1635,45 @@ async def cancel_turn(
     Returns immediately after signalling cancellation.  A background task
     force-cancels the turn if it doesn't stop within 5 seconds.
     """
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    entry = state.conversations.get(conversation_id)
-    if entry is None:
-        # Conversation was evicted from memory (e.g. SSE reconnect).
-        # If it exists in DB there is simply no running turn to cancel.
-        entry = await _reconstruct_conversation(state, conversation_id)
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        entry = state.conversations.get(conversation_id)
         if entry is None:
-            raise HTTPException(
-                status_code=404,
-                detail=f"Unknown conversation: {conversation_id}",
-            )
-        return {"status": "no_active_turn"}
+            # Conversation was evicted from memory (e.g. SSE reconnect).
+            # If it exists in DB there is simply no running turn to cancel.
+            entry = await _reconstruct_conversation(state, conversation_id)
+            if entry is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Unknown conversation: {conversation_id}",
+                )
+            return {"status": "no_active_turn"}
 
-    if entry.turn_task is None or entry.turn_task.done():
-        return {"status": "no_active_turn"}
+        async with entry.lock:
+            if entry.turn_task is None or entry.turn_task.done():
+                return {"status": "no_active_turn"}
 
-    # Signal graceful cancellation via the orchestrator if supported
-    orch = entry.orchestrator
-    if orch is not None and hasattr(orch, "cancel"):
-        orch.cancel()  # type: ignore[union-attr]
+            # Signal graceful cancellation via the orchestrator if supported
+            orch = entry.orchestrator
+            if orch is not None and hasattr(orch, "cancel"):
+                orch.cancel()  # type: ignore[union-attr]
 
-    # Force-cancel in background so the HTTP response returns immediately
-    turn_task = entry.turn_task
+            # Force-cancel in background so the HTTP response returns immediately
+            turn_task = entry.turn_task
 
-    async def _force_cancel_after_timeout() -> None:
-        try:
-            await asyncio.wait_for(asyncio.shield(turn_task), timeout=5.0)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            turn_task.cancel()
+        async def _force_cancel_after_timeout() -> None:
             try:
-                await turn_task
-            except (asyncio.CancelledError, Exception):
-                pass
-        logger.info("turn_cancelled conversation_id={}", conversation_id)
+                await asyncio.wait_for(asyncio.shield(turn_task), timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                turn_task.cancel()
+                try:
+                    await turn_task
+                except (asyncio.CancelledError, Exception):
+                    pass
+            logger.info("turn_cancelled conversation_id={}", conversation_id)
 
-    asyncio.create_task(_force_cancel_after_timeout())
-    return {"status": "cancelling"}
+        asyncio.create_task(_force_cancel_after_timeout())
+        return {"status": "cancelling"}
 
 
 @router.post("/conversations/{conversation_id}/retry")
@@ -1557,69 +1683,75 @@ async def retry_turn(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """Cancel the last turn, roll back, and re-run the last user message."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    entry = state.conversations.get(conversation_id)
-    if entry is None:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Unknown conversation: {conversation_id}",
-        )
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        entry = state.conversations.get(conversation_id)
+        if entry is None:
+            entry = await _reconstruct_conversation(state, conversation_id)
+            if entry is None:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Unknown conversation: {conversation_id}",
+                )
 
-    orch = entry.orchestrator
-    if orch is None:
-        raise HTTPException(
-            status_code=409,
-            detail="Conversation runtime is not ready yet",
-        )
+        async with entry.lock:
+            orch = entry.orchestrator
+            if orch is None:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Conversation runtime is not ready yet",
+                )
 
-    # Cancel running turn first if needed
-    if entry.turn_task is not None and not entry.turn_task.done():
-        if hasattr(orch, "cancel"):
-            orch.cancel()  # type: ignore[union-attr]
-        try:
-            await asyncio.wait_for(asyncio.shield(entry.turn_task), timeout=5.0)
-        except (asyncio.TimeoutError, asyncio.CancelledError):
-            entry.turn_task.cancel()
-            try:
-                await entry.turn_task
-            except (asyncio.CancelledError, Exception):
-                pass
+            # Cancel running turn first if needed
+            if entry.turn_task is not None and not entry.turn_task.done():
+                if hasattr(orch, "cancel"):
+                    orch.cancel()  # type: ignore[union-attr]
+                try:
+                    await asyncio.wait_for(asyncio.shield(entry.turn_task), timeout=5.0)
+                except (asyncio.TimeoutError, asyncio.CancelledError):
+                    entry.turn_task.cancel()
+                    try:
+                        await entry.turn_task
+                    except (asyncio.CancelledError, Exception):
+                        pass
 
-    # Get the last user message before rolling back
-    if not hasattr(orch, "get_last_user_message") or not hasattr(
-        orch, "rollback_to_before_last_user_message"
-    ):
-        raise HTTPException(
-            status_code=400,
-            detail="Orchestrator does not support retry",
-        )
+            # Get the last user message before rolling back
+            if not hasattr(orch, "get_last_user_message") or not hasattr(
+                orch, "rollback_to_before_last_user_message"
+            ):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Orchestrator does not support retry",
+                )
 
-    last_msg = orch.get_last_user_message()  # type: ignore[union-attr]
-    if last_msg is None:
-        raise HTTPException(
-            status_code=400,
-            detail="No user message to retry",
-        )
+            last_msg = orch.get_last_user_message()  # type: ignore[union-attr]
+            if last_msg is None:
+                raise HTTPException(
+                    status_code=400,
+                    detail="No user message to retry",
+                )
 
-    # Roll back state and reset cancellation
-    orch.rollback_to_before_last_user_message()  # type: ignore[attr-defined,union-attr]
-    if hasattr(orch, "reset_cancel"):
-        orch.reset_cancel()  # type: ignore[union-attr]
+            # Roll back state and reset cancellation
+            orch.rollback_to_before_last_user_message()  # type: ignore[attr-defined,union-attr]
+            if hasattr(orch, "reset_cancel"):
+                orch.reset_cancel()  # type: ignore[union-attr]
 
-    # Start a new turn with the same message and original attachments
-    entry.turn_task = asyncio.create_task(
-        _run_turn(
-            state,
-            conversation_id,
-            orch,
-            last_msg,
-            attachments=entry.last_attachments,
-            selected_skills=entry.last_selected_skills,
-        ),
-    )
+            # Start a new turn with the same message and original attachments
+            _start_turn_task(
+                entry,
+                _run_turn(
+                    state,
+                    conversation_id,
+                    orch,
+                    last_msg,
+                    attachments=entry.last_attachments,
+                    selected_skills=entry.last_selected_skills,
+                ),
+                idempotency_key=None,
+            )
 
-    logger.info("turn_retried conversation_id={}", conversation_id)
-    return {"status": "retrying", "message": last_msg}
+        logger.info("turn_retried conversation_id={}", conversation_id)
+        return {"status": "retrying", "message": last_msg}
 
 
 @router.delete("/conversations/{conversation_id}")
@@ -1630,12 +1762,13 @@ async def delete_conversation(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, str]:
     """Delete a conversation and clean up in-memory resources."""
-    await _verify_conversation_ownership(state, conversation_id, auth_user)
-    await _cleanup_conversation(state, conversation_id)
-    deleted = await state.db_repo.delete_conversation(
-        session, uuid.UUID(conversation_id)
-    )
-    if not deleted:
-        raise HTTPException(status_code=404, detail="Conversation not found")
-    logger.info("conversation_deleted id={}", conversation_id)
-    return {"status": "ok"}
+    with conversation_log_context(conversation_id):
+        await _verify_conversation_ownership(state, conversation_id, auth_user)
+        await _cleanup_conversation(state, conversation_id)
+        deleted = await state.db_repo.delete_conversation(
+            session, uuid.UUID(conversation_id)
+        )
+        if not deleted:
+            raise HTTPException(status_code=404, detail="Conversation not found")
+        logger.info("conversation_deleted id={}", conversation_id)
+        return {"status": "ok"}

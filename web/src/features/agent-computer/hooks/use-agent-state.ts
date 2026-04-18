@@ -40,6 +40,7 @@ import type {
   TaskState,
   AgentStatus,
   PlanStep,
+  MessageAttachmentMetadata,
 } from "@/shared/types";
 
 function mapAgentTerminalStatus(value: unknown): AgentStatusState {
@@ -144,6 +145,27 @@ function thinkingEntriesEqual(
   return true;
 }
 
+function attachmentsEqual(
+  a: readonly MessageAttachmentMetadata[] | undefined,
+  b: readonly MessageAttachmentMetadata[] | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a?.length && !b?.length) return true;
+  if (!a || !b || a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    const ae = a[i];
+    const be = b[i];
+    if (
+      ae?.name !== be?.name ||
+      ae?.size !== be?.size ||
+      ae?.type !== be?.type
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
 function browserMetadataEqual(
   a: BrowserMetadata | undefined,
   b: BrowserMetadata | undefined,
@@ -187,6 +209,7 @@ function messagesEqualValue(a: ChatMessage, b: ChatMessage): boolean {
     a.thinkingContent === b.thinkingContent &&
     a.source === b.source &&
     a.turnId === b.turnId &&
+    attachmentsEqual(a.attachments, b.attachments) &&
     stringArrayEqual(a.imageArtifactIds, b.imageArtifactIds) &&
     thinkingEntriesEqual(a.thinkingEntries, b.thinkingEntries)
   );
@@ -280,10 +303,15 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     return finalized;
   };
 
-  const buildUserMessage = (content: string, timestamp: number): ChatMessage => ({
+  const buildUserMessage = (
+    content: string,
+    timestamp: number,
+    attachments?: readonly MessageAttachmentMetadata[],
+  ): ChatMessage => ({
     role: "user",
     content,
     timestamp,
+    ...(attachments?.length ? { attachments } : {}),
     messageId: `${currentTurnId}:user:0`,
     source: "event",
     turnId: currentTurnId,
@@ -730,11 +758,21 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       pendingThinkingParts = [];
     } else if (event.type === "turn_start") {
       const userText = String(event.data.message ?? "");
+      const attachments = Array.isArray(event.data.attachments)
+        ? event.data.attachments.filter(
+          (attachment): attachment is MessageAttachmentMetadata =>
+            Boolean(attachment) &&
+            typeof attachment === "object" &&
+            typeof attachment.name === "string" &&
+            typeof attachment.size === "number" &&
+            typeof attachment.type === "string",
+        )
+        : undefined;
       turnSequence += 1;
       currentTurnId = `event-turn:${turnSequence}`;
       assistantMessageSequence = 0;
       if (userText) {
-        messages.push(buildUserMessage(userText, event.timestamp));
+        messages.push(buildUserMessage(userText, event.timestamp, attachments));
       }
       planSteps = [];
       pendingThinkingEntries = [];

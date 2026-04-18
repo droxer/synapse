@@ -78,6 +78,29 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.timestamp).toBe(99);
   });
 
+  it("adds attachment metadata to user messages from turn_start events", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: {
+          message: "inspect this",
+          attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+        },
+        timestamp: 10,
+        iteration: null,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]).toMatchObject({
+      role: "user",
+      content: "inspect this",
+      attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+    });
+  });
+
   it("keeps in-flight streaming message timestamp at first text_delta", () => {
     const events: AgentEvent[] = [
       {

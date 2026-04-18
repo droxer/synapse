@@ -26,6 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from agent.state.repository import (
     ConversationRepository,
     SkillRepository,
+    UserPromptRepository,
     UsageRepository,
 )
 from agent.context.profiles import resolve_compaction_profile_by_name
@@ -230,14 +231,18 @@ def create_db_subscriber(
     session_factory: async_sessionmaker[AsyncSession],
     pending_writes: PendingWrites | None = None,
     skill_repo: SkillRepository | None = None,
+    prompt_repo: UserPromptRepository | None = None,
     user_id: uuid.UUID | None = None,
     usage_repo: UsageRepository | None = None,
 ) -> SubscriberCallback:
     """Create an async event subscriber that persists to PostgreSQL."""
 
     logger.info("db_subscriber_created conversation_id={}", conversation_id)
+    write_chain_lock = asyncio.Lock()
+    last_write_task: asyncio.Task[None] | None = None
 
     async def _subscriber(event: AgentEvent) -> None:
+        nonlocal last_write_task
         if event.type in _SKIP_EVENTS:
             return
 
@@ -247,11 +252,15 @@ def create_db_subscriber(
             async with session_factory() as session:
                 if event.type == EventType.TURN_START:
                     message = clean.get("message", "")
+                    attachments = clean.get("attachments")
+                    content: dict[str, Any] = {"text": message}
+                    if isinstance(attachments, list) and attachments:
+                        content["attachments"] = attachments
                     await repo.save_message(
                         session,
                         conversation_id,
                         role="user",
-                        content={"text": message},
+                        content=content,
                         iteration=None,
                     )
                     logger.info(
@@ -325,9 +334,19 @@ def create_db_subscriber(
                         conversation_id,
                     )
 
+                elif event.type == EventType.ASK_USER:
+                    await repo.save_event(
+                        session,
+                        conversation_id,
+                        event_type=event.type.value,
+                        data=clean,
+                        iteration=event.iteration,
+                    )
+
                 elif event.type == EventType.USER_RESPONSE:
                     reply = clean.get("response", "")
-                    if reply:
+                    already_persisted = bool(clean.get("persisted"))
+                    if reply and not already_persisted:
                         await repo.save_message(
                             session,
                             conversation_id,
@@ -340,13 +359,14 @@ def create_db_subscriber(
                             "conversation_id={}",
                             conversation_id,
                         )
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    if not already_persisted:
+                        await repo.save_event(
+                            session,
+                            conversation_id,
+                            event_type=event.type.value,
+                            data=clean,
+                            iteration=event.iteration,
+                        )
 
                 elif event.type == EventType.ARTIFACT_CREATED:
                     artifact_payload = _normalize_artifact_payload(clean)
@@ -462,20 +482,32 @@ def create_db_subscriber(
                         iteration=event.iteration,
                     )
 
-        try:
-            if pending_writes is not None:
-                async with pending_writes.track():
-                    await _retry_with_backoff(_do_write, conversation_id, event, clean)
-            else:
+        async def _persist() -> None:
+            try:
                 await _retry_with_backoff(_do_write, conversation_id, event, clean)
-        except Exception:
-            logger.error(
-                "db_subscriber_event_lost_unexpected "
-                "conversation_id={} event_type={} data={}",
-                conversation_id,
-                event.type.value,
-                clean,
-                exc_info=True,
-            )
+            except Exception:
+                logger.error(
+                    "db_subscriber_event_lost_unexpected "
+                    "conversation_id={} event_type={} data={}",
+                    conversation_id,
+                    event.type.value,
+                    clean,
+                    exc_info=True,
+                )
+
+        if pending_writes is None:
+            await _persist()
+        else:
+            async with write_chain_lock:
+                previous_task = last_write_task
+
+                async def _persist_in_order() -> None:
+                    async with pending_writes.track():
+                        if previous_task is not None:
+                            await asyncio.gather(previous_task, return_exceptions=True)
+                        await _persist()
+
+                last_write_task = asyncio.create_task(_persist_in_order())
+            await asyncio.sleep(0)
 
     return _subscriber

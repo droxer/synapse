@@ -31,6 +31,26 @@ function appendUniqueThinkingEntries(
   return merged;
 }
 
+function appendUniqueAttachments(
+  source: ChatMessage["attachments"],
+  additions: NonNullable<ChatMessage["attachments"]>,
+): NonNullable<ChatMessage["attachments"]> {
+  if (!source || source.length === 0) return [...additions];
+  const merged = [...source];
+  for (const item of additions) {
+    const exists = merged.some(
+      (attachment) =>
+        attachment.name === item.name &&
+        attachment.size === item.size &&
+        attachment.type === item.type,
+    );
+    if (!exists) {
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
 function thinkingEntriesEqual(a: ChatMessage["thinkingEntries"], b: ChatMessage["thinkingEntries"]): boolean {
   if (a === b) return true;
   if (!a?.length && !b?.length) return true;
@@ -104,7 +124,8 @@ export function mergeHistoryWithEventDerivedMessages(
       const hasNewArtifacts = (hm.imageArtifactIds?.length ?? 0) > 0;
       const hasNewThinking = (hm.thinkingEntries?.length ?? 0) > 0;
       const hasNewThinkingContent = Boolean(hm.thinkingContent && !existing.thinkingContent);
-      if (hasNewArtifacts || hasNewThinking || hasNewThinkingContent) {
+      const hasNewAttachments = (hm.attachments?.length ?? 0) > 0;
+      if (hasNewArtifacts || hasNewThinking || hasNewThinkingContent || hasNewAttachments) {
         const mergedArtifactIds = hasNewArtifacts
           ? appendUniqueStrings(existing.imageArtifactIds, hm.imageArtifactIds!)
           : existing.imageArtifactIds;
@@ -112,9 +133,13 @@ export function mergeHistoryWithEventDerivedMessages(
           ? appendUniqueThinkingEntries(existing.thinkingEntries, hm.thinkingEntries!)
           : existing.thinkingEntries;
         const mergedThinkingContent = existing.thinkingContent || hm.thinkingContent;
+        const mergedAttachments = hasNewAttachments
+          ? appendUniqueAttachments(existing.attachments, hm.attachments!)
+          : existing.attachments;
 
         if (
           mergedThinkingContent === existing.thinkingContent &&
+          mergedAttachments === existing.attachments &&
           stringArraysEqual(mergedArtifactIds, existing.imageArtifactIds) &&
           thinkingEntriesEqual(mergedThinkingEntries, existing.thinkingEntries)
         ) {
@@ -124,6 +149,7 @@ export function mergeHistoryWithEventDerivedMessages(
         merged[duplicateIdx] = {
           ...existing,
           thinkingContent: mergedThinkingContent,
+          attachments: mergedAttachments,
           imageArtifactIds: mergedArtifactIds,
           thinkingEntries: mergedThinkingEntries,
         };

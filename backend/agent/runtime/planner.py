@@ -38,6 +38,7 @@ from agent.runtime.turn_attachments import (
     build_user_message_content,
     upload_attachments_to_sandbox,
 )
+from agent.runtime.skill_selector import AttachmentDescriptor
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.meta.plan_create import PlanCreate
@@ -46,6 +47,7 @@ from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
 from agent.tools.meta.wait_for_agents import WaitForAgents
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
+from api.models import serialize_attachment_metadata
 from config.settings import get_settings
 
 PLANNER_SYSTEM_PROMPT = """You are a planning agent that decomposes complex tasks into sub-tasks.
@@ -132,6 +134,7 @@ class PlannerOrchestrator:
             else resolved_profile
         )
         self._task_complete_summary: str | None = None
+        self._cancel_event = asyncio.Event()
         self._system_prompt = system_prompt or PLANNER_SYSTEM_PROMPT
         self._skill_registry = skill_registry
         self._auto_injected_skill: str | None = None
@@ -167,6 +170,41 @@ class PlannerOrchestrator:
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
         self._task_complete_summary = summary
+
+    def cancel(self) -> None:
+        """Signal the current planner turn to stop."""
+        self._cancel_event.set()
+
+    def reset_cancel(self) -> None:
+        """Clear the cancellation signal."""
+        self._cancel_event.clear()
+
+    def get_last_user_message(self) -> str | None:
+        """Return the content of the most recent user message, or None."""
+        for msg in reversed(self._state.messages):
+            if msg.get("role") != "user":
+                continue
+            content = msg.get("content")
+            if isinstance(content, str):
+                return content
+            if isinstance(content, list):
+                for block in content:
+                    if isinstance(block, dict) and block.get("type") == "text":
+                        return block.get("text", "")
+        return None
+
+    def rollback_to_before_last_user_message(self) -> None:
+        """Remove the last user message and everything after it."""
+        messages = list(self._state.messages)
+        for i in range(len(messages) - 1, -1, -1):
+            if messages[i].get("role") == "user":
+                self._state = replace(
+                    self._state,
+                    messages=tuple(messages[:i]),
+                    completed=False,
+                    error=None,
+                )
+                return
 
     async def run(
         self,
@@ -207,6 +245,7 @@ class PlannerOrchestrator:
             EventType.TURN_START,
             {
                 "message": user_message,
+                "attachments": serialize_attachment_metadata(attachments),
                 "orchestrator_mode": "planner",
                 **(turn_metadata or {}),
             },
@@ -241,6 +280,13 @@ class PlannerOrchestrator:
         matched = await select_skill_for_message(
             user_message=user_message,
             selected_skills=selected_skills,
+            attachment_descriptors=tuple(
+                AttachmentDescriptor(
+                    filename=str(getattr(attachment, "filename", "") or ""),
+                    content_type=str(getattr(attachment, "content_type", "") or ""),
+                )
+                for attachment in attachments
+            ),
             skill_registry=self._skill_registry,
             client=self._client,
             model=settings.SKILL_SELECTOR_MODEL or settings.LITE_MODEL,
@@ -334,6 +380,8 @@ class PlannerOrchestrator:
 
         try:
             while not self._state.completed and self._state.error is None:
+                if self._cancel_event.is_set():
+                    break
                 self._state = self._state.increment_iteration()
                 self._state = await self._run_iteration(
                     self._state,
@@ -411,6 +459,7 @@ class PlannerOrchestrator:
             executor=self._executor,
             emitter=self._emitter,
             stop_check=lambda: self._task_complete_summary is not None,
+            cancel_check=lambda: self._cancel_event.is_set(),
         )
         state = tool_result.state
         self._turn_artifact_ids.extend(tool_result.artifact_ids)
@@ -588,6 +637,16 @@ class PlannerOrchestrator:
 
     async def _finalize(self, state: AgentState) -> str:
         """Emit final event and return the result text."""
+        if self._cancel_event.is_set():
+            self._cancel_event.clear()
+            final_text = extract_final_text(state)
+            await self._emitter.emit(
+                EventType.TURN_CANCELLED,
+                {"result": final_text},
+            )
+            self._state = replace(self._state, completed=False, error=None)
+            return final_text
+
         if state.error:
             err_msg = state.error
             retryable = "LLM call failed" in err_msg

@@ -7,6 +7,8 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, Callable, Coroutine
 
+from api.user_responses import UserResponseCoordinator
+
 
 class EventType(StrEnum):
     """Types of events emitted during agent execution."""
@@ -80,6 +82,16 @@ class AgentEvent:
 # Type alias for subscriber callbacks
 SubscriberCallback = Callable[[AgentEvent], Coroutine[Any, Any, None]]
 
+_NON_LOSSY_EVENTS = {
+    EventType.ASK_USER,
+    EventType.USER_RESPONSE,
+    EventType.TURN_COMPLETE,
+    EventType.TURN_CANCELLED,
+    EventType.TASK_COMPLETE,
+    EventType.TASK_ERROR,
+    EventType.AGENT_COMPLETE,
+}
+
 
 class EventEmitter:
     """Pub/sub event emitter for agent lifecycle events.
@@ -88,10 +100,18 @@ class EventEmitter:
     unbounded memory growth when subscribers are slow.
     """
 
-    def __init__(self, max_pending: int = 1000) -> None:
+    def __init__(
+        self,
+        max_pending: int = 1000,
+        *,
+        conversation_id: str | None = None,
+        response_coordinator: UserResponseCoordinator | None = None,
+    ) -> None:
         self._subscribers: list[SubscriberCallback] = []
         self._max_pending = max_pending
         self._pending_count = 0
+        self._conversation_id = conversation_id
+        self._response_coordinator = response_coordinator
 
     def subscribe(self, callback: SubscriberCallback) -> None:
         """Register an async callback to receive all emitted events.
@@ -130,7 +150,10 @@ class EventEmitter:
         from loguru import logger
 
         # Backpressure: drop events if too many pending
-        if self._pending_count >= self._max_pending:
+        if (
+            self._pending_count >= self._max_pending
+            and event_type not in _NON_LOSSY_EVENTS
+        ):
             logger.warning(
                 "event_emitter_backpressure event_type={} pending={} — dropping event",
                 event_type,
@@ -189,12 +212,38 @@ class EventEmitter:
         """
         ready = asyncio.Event()
         response_holder: list[str] = []
+        future: asyncio.Future[str] | None = None
 
         def response_callback(response: str) -> None:
             response_holder.append(response)
             ready.set()
+            if (
+                self._response_coordinator is not None
+                and self._conversation_id is not None
+            ):
+                self._response_coordinator.resolve_local(
+                    conversation_id=self._conversation_id,
+                    request_id=request_id,
+                    response=response,
+                )
 
         request_id = f"req_{uuid.uuid4().hex[:12]}"
+        if (
+            event_type == EventType.ASK_USER
+            and self._response_coordinator is not None
+            and self._conversation_id is not None
+        ):
+            question = str(data.get("question", "")).strip()
+            if question:
+                await self._response_coordinator.register_prompt(
+                    conversation_id=self._conversation_id,
+                    request_id=request_id,
+                    question=question,
+                )
+                future = self._response_coordinator.register_local_waiter(
+                    conversation_id=self._conversation_id,
+                    request_id=request_id,
+                )
         enriched_data = {
             **data,
             "response_callback": response_callback,
@@ -202,6 +251,18 @@ class EventEmitter:
         }
 
         await self.emit(event_type, enriched_data)
+
+        if (
+            future is not None
+            and self._response_coordinator is not None
+            and self._conversation_id is not None
+        ):
+            return await self._response_coordinator.wait_for_response(
+                conversation_id=self._conversation_id,
+                request_id=request_id,
+                future=future,
+                timeout=timeout,
+            )
 
         try:
             await asyncio.wait_for(ready.wait(), timeout=timeout)

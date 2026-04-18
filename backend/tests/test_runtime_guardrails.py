@@ -28,7 +28,7 @@ from agent.tools.executor import ToolExecutor
 from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.registry import ToolRegistry
 from api.builders import _build_planner_registry
-from api.events import EventEmitter
+from api.events import EventEmitter, EventType
 from api.models import FileAttachment
 
 
@@ -172,6 +172,26 @@ class _FakeWebSearchTool(LocalTool):
 
     async def execute(self, **kwargs: Any) -> ToolResult:
         return ToolResult.ok("ok")
+
+
+class _BlockingPlannerTool(LocalTool):
+    def __init__(self, started: asyncio.Event, release: asyncio.Event) -> None:
+        self._started = started
+        self._release = release
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="blocker",
+            description="Block until released.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        del kwargs
+        self._started.set()
+        await self._release.wait()
+        return ToolResult.ok("released")
 
 
 class _SequenceClient:
@@ -388,6 +408,47 @@ async def test_planner_serializes_concurrent_runs() -> None:
     )
 
     assert client.max_active_calls == 1
+
+
+@pytest.mark.asyncio
+async def test_planner_cancel_emits_turn_cancelled_and_cleans_up_workers() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+    events: list[EventType] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event.type)
+
+    emitter.subscribe(_capture)
+    cleanup = AsyncMock()
+    planner = PlannerOrchestrator(
+        claude_client=_SequenceClient(
+            LLMResponse(
+                text="",
+                tool_calls=(ToolCall(id="tool-1", name="blocker", input={}),),
+                stop_reason="tool_use",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+        ),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry().register(_BlockingPlannerTool(started, release)),
+        tool_executor=ToolExecutor(
+            registry=ToolRegistry().register(_BlockingPlannerTool(started, release))
+        ),
+        event_emitter=emitter,
+        sub_agent_manager=SimpleNamespace(cleanup=cleanup),
+        system_prompt="test",
+    )
+
+    run_task = asyncio.create_task(planner.run("cancel me"))
+    await started.wait()
+    planner.cancel()
+    release.set()
+
+    await run_task
+
+    assert EventType.TURN_CANCELLED in events
+    cleanup.assert_awaited_once()
 
 
 @pytest.mark.asyncio

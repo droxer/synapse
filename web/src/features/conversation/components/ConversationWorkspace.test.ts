@@ -235,6 +235,32 @@ describe("areMessageRowsEqual", () => {
     expect(html).toContain('data-testid="markdown"');
     expect(html).toContain("Part 1 and Part 2");
   });
+
+  it("renders attachment chips for replayed user messages", () => {
+    const userMessage: ChatMessage = {
+      role: "user",
+      content: "inspect this",
+      timestamp: 100,
+      attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+    };
+
+    const html = renderToStaticMarkup(createElement(MessageRow, {
+      msg: userMessage,
+      isLastAssistant: false,
+      isStreamingThis: false,
+      isThinkingThis: false,
+      messageWidthClass: "sm:max-w-[82%]",
+      embeddedPlanSteps: planSteps,
+      index: 0,
+      conversationId: "c1",
+      taskState: "idle",
+      locale: "en",
+      t: (key: string) => key,
+    }));
+
+    expect(html).toContain("inspect this");
+    expect(html).toContain("report.csv");
+  });
 });
 
 describe("ConversationWorkspace activity wiring", () => {

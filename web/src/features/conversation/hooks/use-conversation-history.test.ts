@@ -1,7 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
 import {
   isConversationHistoryLoading,
+  isConversationNotFoundError,
+  normalizeHistoryMessage,
   normalizeHistoryArtifact,
+  resolveConversationHistoryResults,
 } from "./use-conversation-history";
 
 describe("isConversationHistoryLoading", () => {
@@ -43,5 +46,147 @@ describe("isConversationHistoryLoading", () => {
       createdAt: "2026-04-18T07:14:52.297999Z",
       filePath: "/workspace/report.docx",
     });
+  });
+
+  it("normalizes persisted user attachments from message content", () => {
+    expect(normalizeHistoryMessage({
+      id: "message-1",
+      role: "user",
+      content: {
+        text: "inspect this",
+        attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+      },
+      created_at: "2026-04-18T07:14:52.297999Z",
+    })).toMatchObject({
+      role: "user",
+      content: "inspect this",
+      attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+    });
+  });
+
+  it("keeps messages and events when artifacts loading fails", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: { text: "hello" },
+              iteration: null,
+              created_at: "2026-04-18T07:14:52.297999Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: {
+          events: [
+            {
+              type: "turn_start",
+              data: { message: "hello" },
+              timestamp: "2026-04-18T07:14:52.297999Z",
+              iteration: null,
+            },
+          ],
+        },
+      },
+      {
+        status: "rejected",
+        reason: new Error("Failed to fetch artifacts: 500"),
+      },
+    );
+
+    expect(resolved.messages).toHaveLength(1);
+    expect(resolved.events).toHaveLength(1);
+    expect(resolved.artifacts).toEqual([]);
+    expect(resolved.missingConversation).toBe(false);
+  });
+
+  it("keeps messages when events loading fails", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "assistant",
+              content: { text: "done" },
+              iteration: null,
+              created_at: "2026-04-18T07:14:52.297999Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "rejected",
+        reason: new Error("Failed to fetch events: 500"),
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    expect(resolved.messages).toHaveLength(1);
+    expect(resolved.events).toEqual([]);
+    expect(resolved.missingConversation).toBe(false);
+  });
+
+  it("keeps events when messages loading fails", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "rejected",
+        reason: new Error("Failed to fetch messages: 500"),
+      },
+      {
+        status: "fulfilled",
+        value: {
+          events: [
+            {
+              type: "turn_start",
+              data: { message: "hello" },
+              timestamp: "2026-04-18T07:14:52.297999Z",
+              iteration: null,
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    expect(resolved.messages).toEqual([]);
+    expect(resolved.events).toHaveLength(1);
+    expect(resolved.missingConversation).toBe(false);
+  });
+
+  it("marks the conversation missing on message 404 errors", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "rejected",
+        reason: new Error("Failed to fetch messages: 404"),
+      },
+      {
+        status: "fulfilled",
+        value: { events: [] },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    expect(isConversationNotFoundError(new Error("Failed to fetch messages: 404"))).toBe(true);
+    expect(resolved.missingConversation).toBe(true);
   });
 });

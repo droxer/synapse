@@ -66,6 +66,19 @@ class EventRecord:
 
 
 @dataclass(frozen=True)
+class UserPromptRecord:
+    """Read-only persisted user prompt state."""
+
+    request_id: str
+    conversation_id: uuid.UUID
+    question: str
+    status: str
+    response: str | None
+    created_at: datetime
+    responded_at: datetime | None
+
+
+@dataclass(frozen=True)
 class ArtifactRecord:
     """Read-only artifact record."""
 

@@ -11,6 +11,7 @@ import pytest
 from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage
 from agent.skills.loader import SkillRegistry
 from agent.skills.models import SkillContent, SkillMetadata
+from agent.runtime.skill_selector import AttachmentDescriptor
 
 
 # ---------------------------------------------------------------------------
@@ -67,6 +68,9 @@ class TestExplicitSkillSelection:
         result = await select_skill_for_message(
             user_message="research the web",
             selected_skills=("web-research",),
+            attachment_descriptors=(
+                AttachmentDescriptor(filename="report.csv", content_type="text/csv"),
+            ),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -87,6 +91,7 @@ class TestExplicitSkillSelection:
         result = await select_skill_for_message(
             user_message="anything",
             selected_skills=("nonexistent-skill",),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -107,6 +112,7 @@ class TestExplicitSkillSelection:
         await select_skill_for_message(
             user_message="do some research",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -136,6 +142,7 @@ class TestModelDrivenSelection:
         result = await select_skill_for_message(
             user_message="analyze this CSV",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -156,6 +163,7 @@ class TestModelDrivenSelection:
         result = await select_skill_for_message(
             user_message="research this",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -175,6 +183,7 @@ class TestModelDrivenSelection:
         result = await select_skill_for_message(
             user_message="analyze my sheet",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -193,6 +202,7 @@ class TestModelDrivenSelection:
         result = await select_skill_for_message(
             user_message="what is 2+2",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -224,6 +234,7 @@ class TestFallbackToKeyword:
         result = await select_skill_for_message(
             user_message="please research this topic with web sources",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -248,6 +259,7 @@ class TestFallbackToKeyword:
         result = await select_skill_for_message(
             user_message="analyze these datasets with charts",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -271,6 +283,7 @@ class TestFallbackToKeyword:
         result = await select_skill_for_message(
             user_message="please research this topic with web sources",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -290,6 +303,7 @@ class TestFallbackToKeyword:
         result = await select_skill_for_message(
             user_message="hello world",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -338,6 +352,7 @@ class TestEdgeCases:
         result = await select_skill_for_message(
             user_message="anything",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=None,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -356,6 +371,7 @@ class TestEdgeCases:
         result = await select_skill_for_message(
             user_message="anything",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -376,6 +392,7 @@ class TestEdgeCases:
         await select_skill_for_message(
             user_message="research something",
             selected_skills=("  ",),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -396,6 +413,7 @@ class TestEdgeCases:
         await select_skill_for_message(
             user_message="research something",
             selected_skills=(),
+            attachment_descriptors=(),
             skill_registry=registry,
             client=client,
             model="claude-haiku-4-5-20251001",
@@ -405,3 +423,121 @@ class TestEdgeCases:
         system_prompt = call_args.kwargs.get("system") or call_args[1].get("system", "")
         assert "web-research" in system_prompt
         assert "Deep web research" in system_prompt
+
+
+class TestAttachmentAwareSelection:
+    @pytest.mark.asyncio
+    async def test_generic_analysis_with_csv_attachment_selects_data_analysis(
+        self,
+    ) -> None:
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        registry = SkillRegistry(
+            (
+                _make_skill(
+                    "data-analysis", "Analyze datasets charts CSV spreadsheet files"
+                ),
+            )
+        )
+        client = _mock_client(json.dumps({"skill": None}))
+
+        result = await select_skill_for_message(
+            user_message="analyze this file",
+            selected_skills=(),
+            attachment_descriptors=(
+                AttachmentDescriptor(filename="report.csv", content_type="text/csv"),
+            ),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is not None
+        assert result.metadata.name == "data-analysis"
+        client.create_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_spreadsheet_attachment_variants_select_data_analysis(self) -> None:
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        registry = SkillRegistry(
+            (
+                _make_skill(
+                    "data-analysis", "Analyze datasets charts CSV spreadsheet files"
+                ),
+            )
+        )
+        client = _mock_client(json.dumps({"skill": None}))
+
+        result = await select_skill_for_message(
+            user_message="please visualize this data",
+            selected_skills=(),
+            attachment_descriptors=(
+                AttachmentDescriptor(
+                    filename="budget.xlsx",
+                    content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                ),
+            ),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is not None
+        assert result.metadata.name == "data-analysis"
+        client.create_message.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_non_data_attachment_does_not_force_data_analysis(self) -> None:
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        registry = SkillRegistry(
+            (
+                _make_skill(
+                    "data-analysis", "Analyze datasets charts CSV spreadsheet files"
+                ),
+                _make_skill("web-research", "Deep web research"),
+            )
+        )
+        client = _mock_client(json.dumps({"skill": None}))
+
+        result = await select_skill_for_message(
+            user_message="analyze this file",
+            selected_skills=(),
+            attachment_descriptors=(
+                AttachmentDescriptor(filename="photo.png", content_type="image/png"),
+            ),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is None
+        client.create_message.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_malformed_attachment_metadata_does_not_break_selection(self) -> None:
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        registry = SkillRegistry(
+            (
+                _make_skill(
+                    "data-analysis", "Analyze datasets charts CSV spreadsheet files"
+                ),
+            )
+        )
+        client = _mock_client("not json")
+
+        result = await select_skill_for_message(
+            user_message="analyze datasets with charts",
+            selected_skills=(),
+            attachment_descriptors=(
+                AttachmentDescriptor(filename=" ", content_type=" "),
+            ),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is not None
+        assert result.metadata.name == "data-analysis"

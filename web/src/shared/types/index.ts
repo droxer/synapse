@@ -4,6 +4,7 @@ export type {
   AgentEvent,
   TaskState,
   ChatMessage,
+  MessageAttachmentMetadata,
   AttachedFile,
   ToolCallInfo,
   BrowserMetadata,

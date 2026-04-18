@@ -1,5 +1,5 @@
 import type { HistoryMessage } from "@/features/conversation/api/history-api";
-import type { ChatMessage } from "@/shared/types";
+import type { ChatMessage, MessageAttachmentMetadata } from "@/shared/types";
 
 const DEFAULT_MATCH_WINDOW_MS = 5_000;
 
@@ -11,6 +11,31 @@ function normalizeMessageContent(content: HistoryMessage["content"]): string {
     return String(content.text);
   }
   return JSON.stringify(content);
+}
+
+function isAttachmentMetadata(value: unknown): value is MessageAttachmentMetadata {
+  if (!value || typeof value !== "object") return false;
+  const candidate = value as Record<string, unknown>;
+  return (
+    typeof candidate.name === "string" &&
+    typeof candidate.size === "number" &&
+    Number.isFinite(candidate.size) &&
+    typeof candidate.type === "string"
+  );
+}
+
+export function normalizeMessageAttachments(
+  content: HistoryMessage["content"],
+): readonly MessageAttachmentMetadata[] | undefined {
+  if (!content || typeof content !== "object" || !("attachments" in content)) {
+    return undefined;
+  }
+  const attachments = content.attachments;
+  if (!Array.isArray(attachments)) {
+    return undefined;
+  }
+  const normalized = attachments.filter(isAttachmentMetadata);
+  return normalized.length > 0 ? normalized : undefined;
 }
 
 function mergeStringArrays(
@@ -97,6 +122,7 @@ export function toHistoryChatMessage(message: HistoryMessage): ChatMessage {
     content: normalizeMessageContent(message.content),
     timestamp: new Date(message.created_at).getTime(),
     source: "history",
+    attachments: normalizeMessageAttachments(message.content),
   };
 }
 

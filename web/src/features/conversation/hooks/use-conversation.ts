@@ -9,6 +9,7 @@ import {
   cancelTurn,
   retryTurn,
 } from "../api/conversation-api";
+import { createOptimisticMessageId, mergeConversationMessages } from "../lib/message-identity";
 import { getConversationPath } from "../lib/routes";
 import type { AgentEvent, AssistantPhase, ChatMessage, TaskState } from "@/shared/types";
 
@@ -55,6 +56,7 @@ export function useConversation(
   const [createError, setCreateError] = useState<string | null>(null);
   const [pendingSelectedSkills, setPendingSelectedSkills] = useState<PendingSelectedSkill[]>([]);
   const eventCountAtSendRef = useRef(events.length);
+  const optimisticMessageSequenceRef = useRef(0);
 
   const conversationId = useAppStore((s) => s.conversationId);
   const isLiveConversation = useAppStore((s) => s.isLiveConversation);
@@ -125,22 +127,32 @@ export function useConversation(
   }, [conversationId, events, updateConversationTitle]);
 
   const allMessages = useMemo(() => {
-    // Fast path: no pending user messages (common during streaming).
-    // Avoids filter + spread + sort when transcript is the only source.
     if (userMessages.length === 0) return transcriptMessages;
-
-    const pendingMessages = userMessages.filter((pending) => {
-      return !transcriptMessages.some(
-        (persisted) =>
-          persisted.role === pending.role &&
-          persisted.content === pending.content &&
-          Math.abs(persisted.timestamp - pending.timestamp) < 30_000,
-      );
-    });
-    if (pendingMessages.length === 0) return transcriptMessages;
-
-    return [...transcriptMessages, ...pendingMessages];
+    return mergeConversationMessages(userMessages, transcriptMessages);
   }, [userMessages, transcriptMessages]);
+
+  const buildOptimisticUserMessage = useCallback(
+    (message: string, timestamp: number, files?: File[]): ChatMessage => {
+      const attachments = files?.map((file) => ({
+        name: file.name,
+        size: file.size,
+        type: file.type,
+      }));
+      optimisticMessageSequenceRef.current += 1;
+      return {
+        messageId: createOptimisticMessageId(
+          conversationId ?? "new-conversation",
+          optimisticMessageSequenceRef.current,
+        ),
+        role: "user",
+        content: message,
+        timestamp,
+        source: "optimistic",
+        ...(attachments?.length ? { attachments } : {}),
+      };
+    },
+    [conversationId],
+  );
 
   const handleCreateConversation = useCallback(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
@@ -150,10 +162,7 @@ export function useConversation(
       setUserCancelled(false);
       setCreateError(null);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
-      const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
-      setUserMessages([
-        { role: "user", content: message, timestamp: now, ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
-      ]);
+      setUserMessages([buildOptimisticUserMessage(message, now, files)]);
 
       try {
         const data = await createConversation(message, files, skills, usePlanner);
@@ -197,10 +206,9 @@ export function useConversation(
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
-      const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
       setUserMessages((prev) => [
         ...prev,
-        { role: "user", content: message, timestamp: now, ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
+        buildOptimisticUserMessage(message, now, files),
       ]);
 
       try {
@@ -219,7 +227,7 @@ export function useConversation(
         ]);
       }
     },
-    [conversationId, events.length],
+    [buildOptimisticUserMessage, conversationId, events.length],
   );
 
   const handleResumeConversation = useCallback(
@@ -231,10 +239,9 @@ export function useConversation(
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
-      const attachmentMeta = files?.map(f => ({ name: f.name, size: f.size, type: f.type }));
       setUserMessages((prev) => [
         ...prev,
-        { role: "user", content: message, timestamp: now, ...(attachmentMeta?.length ? { attachments: attachmentMeta } : {}) },
+        buildOptimisticUserMessage(message, now, files),
       ]);
 
       try {
@@ -254,7 +261,7 @@ export function useConversation(
         ]);
       }
     },
-    [conversationId, resumeConversation, events.length],
+    [buildOptimisticUserMessage, conversationId, resumeConversation, events.length],
   );
 
   const handleSendMessage = useCallback(

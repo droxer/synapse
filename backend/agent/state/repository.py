@@ -21,6 +21,7 @@ from agent.state.models import (
     MessageModel,
     SkillModel,
     TokenUsageModel,
+    UserPromptModel,
     UserModel,
 )
 from agent.state.schemas import (
@@ -32,6 +33,7 @@ from agent.state.schemas import (
     MessageRecord,
     SkillRecord,
     TokenUsageRecord,
+    UserPromptRecord,
     UserRecord,
     UserUsageSummary,
 )
@@ -117,6 +119,18 @@ def _to_event(model: EventModel) -> EventRecord:
         data=model.data,
         iteration=model.iteration,
         timestamp=model.timestamp,
+    )
+
+
+def _to_user_prompt(model: UserPromptModel) -> UserPromptRecord:
+    return UserPromptRecord(
+        request_id=model.request_id,
+        conversation_id=model.conversation_id,
+        question=model.question,
+        status=model.status,
+        response=model.response,
+        created_at=model.created_at,
+        responded_at=model.responded_at,
     )
 
 
@@ -496,6 +510,67 @@ class ConversationRepository:
             )
 
         return records, total
+
+
+class UserPromptRepository:
+    """Async repository for persisted ask-user prompt state."""
+
+    async def create_prompt(
+        self,
+        session: AsyncSession,
+        *,
+        request_id: str,
+        conversation_id: uuid.UUID,
+        question: str,
+    ) -> UserPromptRecord:
+        existing = await self.get_prompt(session, request_id=request_id)
+        if existing is not None:
+            return existing
+
+        model = UserPromptModel(
+            request_id=request_id,
+            conversation_id=conversation_id,
+            question=question,
+            status="pending",
+        )
+        session.add(model)
+        await session.flush()
+        await session.refresh(model)
+        await session.commit()
+        return _to_user_prompt(model)
+
+    async def get_prompt(
+        self,
+        session: AsyncSession,
+        *,
+        request_id: str,
+    ) -> UserPromptRecord | None:
+        stmt = select(UserPromptModel).where(UserPromptModel.request_id == request_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_user_prompt(model) if model else None
+
+    async def fulfill_prompt(
+        self,
+        session: AsyncSession,
+        *,
+        request_id: str,
+        response: str,
+    ) -> UserPromptRecord | None:
+        stmt = select(UserPromptModel).where(UserPromptModel.request_id == request_id)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        if model is None:
+            return None
+        if model.status == "responded":
+            return _to_user_prompt(model)
+
+        model.status = "responded"
+        model.response = response
+        model.responded_at = datetime.now(timezone.utc)
+        await session.commit()
+        await session.refresh(model)
+        return _to_user_prompt(model)
 
 
 # ---------------------------------------------------------------------------

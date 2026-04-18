@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import uuid
 from contextlib import asynccontextmanager
@@ -21,6 +22,7 @@ os.environ.setdefault("TAVILY_API_KEY", "test-key")
 
 from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage  # noqa: E402
 from api.models import ConversationMetricsResponse  # noqa: E402
+from api.models import ConversationEntry  # noqa: E402
 from api.routes.conversations import (  # noqa: E402
     _EXECUTION_ROUTER_SYSTEM_PROMPT,
     _elapsed_ms,
@@ -34,7 +36,9 @@ from api.routes.conversations import (  # noqa: E402
     _planner_flag_to_mode,
     _resolve_execution_route,
     create_conversation,
+    send_message,
 )
+from api.events import EventEmitter  # noqa: E402
 import api.routes.conversations as conversation_routes  # noqa: E402
 
 
@@ -535,6 +539,17 @@ class _DummyRequest:
         return self._payload
 
 
+def _build_conversation_entry(orchestrator: object) -> ConversationEntry:
+    return ConversationEntry(
+        emitter=EventEmitter(),
+        event_queue=asyncio.Queue(),
+        orchestrator=orchestrator,  # type: ignore[arg-type]
+        executor=AsyncMock(),
+        pending_callbacks={},
+        orchestrator_mode=ORCHESTRATOR_AGENT,
+    )
+
+
 class TestCreateConversationBootstrap:
     @pytest.mark.asyncio
     async def test_create_conversation_returns_before_background_bootstrap(
@@ -603,3 +618,149 @@ class TestCreateConversationBootstrap:
             close = getattr(coro, "close", None)
             if callable(close):
                 close()
+
+
+class _ConcurrentOrchestrator:
+    def __init__(self) -> None:
+        self.calls = 0
+        self.active = 0
+        self.max_active = 0
+        self.first_release = asyncio.Event()
+
+    async def run(
+        self,
+        user_message: str,
+        attachments: tuple[object, ...] = (),
+        selected_skills: tuple[str, ...] = (),
+        runtime_prompt_sections: tuple[str, ...] = (),
+        turn_metadata: dict[str, object] | None = None,
+    ) -> str:
+        del attachments, selected_skills, runtime_prompt_sections, turn_metadata
+        self.calls += 1
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        try:
+            if self.calls == 1:
+                await self.first_release.wait()
+            else:
+                await asyncio.sleep(0.01)
+            return f"done:{user_message}"
+        finally:
+            self.active -= 1
+
+
+@asynccontextmanager
+async def _noop_session_factory():
+    yield object()
+
+
+def _build_state_with_entry(
+    conversation_id: str,
+    entry: ConversationEntry,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        conversations={conversation_id: entry},
+        claude_client=object(),
+        db_session_factory=_noop_session_factory,
+        db_repo=SimpleNamespace(update_conversation=AsyncMock()),
+    )
+
+
+@pytest.mark.asyncio
+async def test_send_message_deduplicates_same_inflight_idempotency_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conversation_id = str(uuid.uuid4())
+    orchestrator = _ConcurrentOrchestrator()
+    entry = _build_conversation_entry(orchestrator)
+    state = _build_state_with_entry(conversation_id, entry)
+
+    monkeypatch.setattr(
+        conversation_routes,
+        "_resolve_execution_route",
+        AsyncMock(
+            return_value=(
+                EXECUTION_SHAPE_SINGLE_AGENT,
+                "default",
+                ORCHESTRATOR_AGENT,
+                False,
+            )
+        ),
+    )
+
+    request = _DummyRequest(
+        {"message": "hello", "idempotency_key": "same-key", "skills": []}
+    )
+
+    await asyncio.gather(
+        send_message(
+            request, conversation_id=conversation_id, state=state, auth_user=None
+        ),
+        send_message(
+            request, conversation_id=conversation_id, state=state, auth_user=None
+        ),
+    )
+
+    orchestrator.first_release.set()
+    await entry.turn_task
+
+    assert orchestrator.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_send_message_serializes_distinct_concurrent_turns(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conversation_id = str(uuid.uuid4())
+    orchestrator = _ConcurrentOrchestrator()
+    entry = _build_conversation_entry(orchestrator)
+    state = _build_state_with_entry(conversation_id, entry)
+
+    monkeypatch.setattr(
+        conversation_routes,
+        "_resolve_execution_route",
+        AsyncMock(
+            return_value=(
+                EXECUTION_SHAPE_SINGLE_AGENT,
+                "default",
+                ORCHESTRATOR_AGENT,
+                False,
+            )
+        ),
+    )
+
+    first_request = _DummyRequest(
+        {"message": "first", "idempotency_key": "key-1", "skills": []}
+    )
+    second_request = _DummyRequest(
+        {"message": "second", "idempotency_key": "key-2", "skills": []}
+    )
+
+    first_task = asyncio.create_task(
+        send_message(
+            first_request,
+            conversation_id=conversation_id,
+            state=state,
+            auth_user=None,
+        )
+    )
+    second_task = asyncio.create_task(
+        send_message(
+            second_request,
+            conversation_id=conversation_id,
+            state=state,
+            auth_user=None,
+        )
+    )
+
+    while orchestrator.calls == 0:
+        await asyncio.sleep(0)
+    assert orchestrator.calls == 1
+    assert second_task.done() is False
+
+    orchestrator.first_release.set()
+    await asyncio.gather(first_task, second_task)
+    await entry.turn_task
+
+    assert orchestrator.calls == 2
+    assert orchestrator.max_active == 1

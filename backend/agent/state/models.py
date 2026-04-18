@@ -139,6 +139,29 @@ class EventModel(Base):
     conversation: Mapped[ConversationModel] = relationship(back_populates="events")
 
 
+class UserPromptModel(Base):
+    __tablename__ = "user_prompts"
+    __table_args__ = (
+        Index("ix_user_prompts_conversation_status", "conversation_id", "status"),
+    )
+
+    request_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    conversation_id: Mapped[uuid.UUID] = mapped_column(
+        Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
+    )
+    question: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
+    response: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    responded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    conversation: Mapped[ConversationModel] = relationship()
+
+
 class ArtifactModel(Base):
     __tablename__ = "artifacts"
     __table_args__ = (Index("ix_artifacts_conversation", "conversation_id"),)

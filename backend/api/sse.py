@@ -13,6 +13,16 @@ from loguru import logger
 from api.events import AgentEvent, EventType
 from api.models import ConversationEntry
 
+_NON_LOSSY_SSE_EVENTS = {
+    EventType.ASK_USER,
+    EventType.USER_RESPONSE,
+    EventType.TURN_COMPLETE,
+    EventType.TURN_CANCELLED,
+    EventType.TASK_COMPLETE,
+    EventType.TASK_ERROR,
+    EventType.AGENT_COMPLETE,
+}
+
 
 def _create_queue_subscriber(
     queue: asyncio.Queue[AgentEvent | None],
@@ -34,6 +44,9 @@ def _create_queue_subscriber(
         try:
             queue.put_nowait(event)
         except asyncio.QueueFull:
+            if event.type in _NON_LOSSY_SSE_EVENTS:
+                await queue.put(event)
+                return
             logger.warning(
                 "event_queue_full event_type={} — dropping event", event.type
             )

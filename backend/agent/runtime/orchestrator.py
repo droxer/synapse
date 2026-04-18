@@ -45,10 +45,12 @@ from agent.runtime.turn_attachments import (
     build_user_message_content,
     upload_attachments_to_sandbox,
 )
+from agent.runtime.skill_selector import AttachmentDescriptor
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
+from api.models import serialize_attachment_metadata
 from config.settings import get_settings
 
 _DEBUG_LOG_PATH = Path("/Users/feihe/Workspace/Synapse/.cursor/debug-caca61.log")
@@ -283,6 +285,7 @@ class AgentOrchestrator:
             EventType.TURN_START,
             {
                 "message": user_message,
+                "attachments": serialize_attachment_metadata(attachments),
                 "orchestrator_mode": "agent",
                 **(turn_metadata or {}),
             },
@@ -322,6 +325,13 @@ class AgentOrchestrator:
         matched = await select_skill_for_message(
             user_message=user_message,
             selected_skills=selected_skills,
+            attachment_descriptors=tuple(
+                AttachmentDescriptor(
+                    filename=str(getattr(attachment, "filename", "") or ""),
+                    content_type=str(getattr(attachment, "content_type", "") or ""),
+                )
+                for attachment in attachments
+            ),
             skill_registry=self._skill_registry,
             client=self._client,
             model=settings.SKILL_SELECTOR_MODEL or settings.LITE_MODEL,

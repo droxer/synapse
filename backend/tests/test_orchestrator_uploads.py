@@ -436,6 +436,36 @@ async def test_successful_upload_advertises_verified_paths_only() -> None:
 
 
 @pytest.mark.asyncio
+async def test_turn_start_event_includes_attachment_metadata() -> None:
+    client = _FakeClaudeClient()
+    executor = _FakeExecutor(session=_FakeSession())
+    emitter = EventEmitter()
+    events: list[tuple[EventType, dict[str, Any]]] = []
+
+    async def _collect(event: Any) -> None:
+        events.append((event.type, event.data))
+
+    emitter.subscribe(_collect)
+
+    orchestrator = AgentOrchestrator(
+        claude_client=client,
+        tool_registry=ToolRegistry(),
+        tool_executor=executor,  # type: ignore[arg-type]
+        event_emitter=emitter,
+        system_prompt="test",
+    )
+
+    await orchestrator.run("inspect this", attachments=(_attachment("report.csv"),))
+
+    turn_start = next(
+        data for event_type, data in events if event_type == EventType.TURN_START
+    )
+    assert turn_start["attachments"] == [
+        {"name": "report.csv", "size": 5, "type": "text/plain"},
+    ]
+
+
+@pytest.mark.asyncio
 async def test_content_policy_failure_emits_non_retryable_task_error() -> None:
     emitter = EventEmitter()
     events: list[tuple[EventType, dict[str, Any]]] = []

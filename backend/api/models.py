@@ -51,6 +51,20 @@ class FileAttachment:
     size: int
 
 
+def serialize_attachment_metadata(
+    attachments: tuple[FileAttachment, ...],
+) -> list[dict[str, str | int]]:
+    """Return stable metadata for attachment events and persisted messages."""
+    return [
+        {
+            "name": attachment.filename,
+            "size": attachment.size,
+            "type": attachment.content_type,
+        }
+        for attachment in attachments
+    ]
+
+
 class Runnable(Protocol):
     """Protocol for orchestrators that can run a turn."""
 
@@ -91,7 +105,9 @@ class ConversationEntry:
         "last_attachments",
         "last_selected_skills",
         "idempotency_cache",
+        "idempotency_tasks",
         "orchestrator_mode",
+        "lock",
     )
 
     def __init__(
@@ -114,7 +130,9 @@ class ConversationEntry:
         self.last_attachments: tuple[FileAttachment, ...] = ()
         self.last_selected_skills: tuple[str, ...] = ()
         self.idempotency_cache: dict[str, str] = {}
+        self.idempotency_tasks: dict[str, asyncio.Task[str]] = {}
         self.orchestrator_mode = orchestrator_mode
+        self.lock = asyncio.Lock()
 
 
 @dataclass

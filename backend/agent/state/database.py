@@ -11,12 +11,15 @@ from collections.abc import AsyncGenerator
 
 from loguru import logger
 from sqlalchemy import text
+from sqlalchemy.engine.url import make_url
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
     async_sessionmaker,
     create_async_engine,
 )
+
+from config.settings import get_settings
 
 
 def get_engine(database_url: str) -> AsyncEngine:
@@ -31,14 +34,20 @@ def get_engine(database_url: str) -> AsyncEngine:
     if not database_url:
         raise ValueError("database_url must not be empty")
 
-    return create_async_engine(
-        database_url,
-        pool_size=10,
-        max_overflow=20,
-        pool_timeout=30,
-        pool_pre_ping=True,
-        echo=False,
-    )
+    settings = get_settings()
+    engine_kwargs: dict[str, object] = {
+        "pool_pre_ping": True,
+        "echo": False,
+    }
+    backend = make_url(database_url).get_backend_name()
+    if backend != "sqlite":
+        engine_kwargs.update(
+            pool_size=settings.DB_POOL_SIZE,
+            max_overflow=settings.DB_MAX_OVERFLOW,
+            pool_timeout=settings.DB_POOL_TIMEOUT,
+        )
+
+    return create_async_engine(database_url, **engine_kwargs)
 
 
 def get_session_factory(engine: AsyncEngine) -> async_sessionmaker[AsyncSession]:

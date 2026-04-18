@@ -18,6 +18,7 @@ from pydantic import BaseModel, Field
 
 from agent.memory.facts import validate_fact_candidate
 from agent.memory.heuristic_extract import extract_fact_candidates
+from agent.logging import conversation_log_context
 from agent.memory.store import PersistentMemoryStore
 from api.auth.middleware import AuthUser, common_dependencies, get_current_user
 from api.builders import format_verified_facts_prompt_section
@@ -273,280 +274,293 @@ async def _handle_channel_message(
     if session_record is None:
         is_first_turn = True
         conv_uuid = uuid.uuid4()
-        emitter = EventEmitter()
-        event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
-            maxsize=_EVENT_QUEUE_MAXSIZE
-        )
-        pending_callbacks: dict[str, Any] = {}
-        subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
-        emitter.subscribe(subscriber)
+        with conversation_log_context(str(conv_uuid)):
+            emitter = EventEmitter(
+                conversation_id=str(conv_uuid),
+                response_coordinator=state.response_coordinator,
+            )
+            event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
+                maxsize=_EVENT_QUEUE_MAXSIZE
+            )
+            pending_callbacks: dict[str, Any] = {}
+            subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
+            emitter.subscribe(subscriber)
 
-        user_id = account.user_id
-        persistent_store = PersistentMemoryStore(
-            session_factory=state.db_session_factory,
-            user_id=user_id,
-            conversation_id=conv_uuid,
-        )
-        memory_entries = await persistent_store.load_all()
-
-        from api.routes.conversations import (
-            _build_user_skill_registry,
-            _reconstruct_conversation,
-            _run_turn,
-        )
-
-        user_skill_registry = await _build_user_skill_registry(state, user_id)
-        orchestrator, executor = _build_orchestrator(
-            state.claude_client,
-            emitter,
-            state.sandbox_provider,
-            state.storage_backend,
-            persistent_store=persistent_store,
-            mcp_state=state.mcp_state,
-            skill_registry=user_skill_registry,
-            memory_entries=memory_entries,
-            compaction_runtime="channel_conversation",
-        )
-
-        entry = ConversationEntry(
-            emitter=emitter,
-            event_queue=event_queue,
-            orchestrator=orchestrator,
-            executor=executor,
-            pending_callbacks=pending_callbacks,
-        )
-        entry.subscriber = subscriber
-        conversation_id_str = str(conv_uuid)
-        state.conversations[conversation_id_str] = entry
-
-        async with state.db_session_factory() as db:
-            await state.db_repo.create_conversation(
-                db,
-                title=(message.text or "Telegram chat")[:80],
-                conversation_id=conv_uuid,
+            user_id = account.user_id
+            persistent_store = PersistentMemoryStore(
+                session_factory=state.db_session_factory,
                 user_id=user_id,
-            )
-
-        for _attempt in range(10):
-            async with state.db_session_factory() as barrier_session:
-                if (
-                    await state.db_repo.get_conversation(barrier_session, conv_uuid)
-                    is not None
-                ):
-                    break
-            await asyncio.sleep(0.05)
-
-        db_sub = create_db_subscriber(
-            conv_uuid,
-            state.db_repo,
-            state.db_session_factory,
-            state.db_pending_writes,
-            skill_repo=state.skill_repo,
-            user_id=user_id,
-            usage_repo=state.usage_repo,
-        )
-        emitter.subscribe(db_sub)
-
-        async with state.db_session_factory() as db:
-            session_record = await repo.create_session(
-                db,
-                channel_account_id=account.id,
                 conversation_id=conv_uuid,
-                provider=message.provider,
-                provider_chat_id=message.provider_chat_id,
-                bot_config_id=bot_config_id,
+            )
+            memory_entries = await persistent_store.load_all()
+
+            from api.routes.conversations import (
+                _build_user_skill_registry,
+                _reconstruct_conversation,
+                _run_turn,
             )
 
-        emitter_for_turn = emitter
+            user_skill_registry = await _build_user_skill_registry(state, user_id)
+            orchestrator, executor = _build_orchestrator(
+                state.claude_client,
+                emitter,
+                state.sandbox_provider,
+                state.storage_backend,
+                persistent_store=persistent_store,
+                mcp_state=state.mcp_state,
+                skill_registry=user_skill_registry,
+                memory_entries=memory_entries,
+                compaction_runtime="channel_conversation",
+            )
+
+            entry = ConversationEntry(
+                emitter=emitter,
+                event_queue=event_queue,
+                orchestrator=orchestrator,
+                executor=executor,
+                pending_callbacks=pending_callbacks,
+            )
+            entry.subscriber = subscriber
+            conversation_id_str = str(conv_uuid)
+            state.conversations[conversation_id_str] = entry
+
+            async with state.db_session_factory() as db:
+                await state.db_repo.create_conversation(
+                    db,
+                    title=(message.text or "Telegram chat")[:80],
+                    conversation_id=conv_uuid,
+                    user_id=user_id,
+                )
+
+            for _attempt in range(10):
+                async with state.db_session_factory() as barrier_session:
+                    if (
+                        await state.db_repo.get_conversation(barrier_session, conv_uuid)
+                        is not None
+                    ):
+                        break
+                await asyncio.sleep(0.05)
+
+            db_sub = create_db_subscriber(
+                conv_uuid,
+                state.db_repo,
+                state.db_session_factory,
+                state.db_pending_writes,
+                skill_repo=state.skill_repo,
+                prompt_repo=state.user_prompt_repo,
+                user_id=user_id,
+                usage_repo=state.usage_repo,
+            )
+            emitter.subscribe(db_sub)
+
+            async with state.db_session_factory() as db:
+                session_record = await repo.create_session(
+                    db,
+                    channel_account_id=account.id,
+                    conversation_id=conv_uuid,
+                    provider=message.provider,
+                    provider_chat_id=message.provider_chat_id,
+                    bot_config_id=bot_config_id,
+                )
+
+            emitter_for_turn = emitter
     else:
         conv_uuid = session_record.conversation_id
         conversation_id_str = str(conv_uuid)
-        entry = state.conversations.get(conversation_id_str)
-        if entry is None:
-            from api.routes.conversations import _reconstruct_conversation, _run_turn
-
-            entry = await _reconstruct_conversation(
-                state,
-                conversation_id_str,
-                compaction_runtime="channel_conversation",
-            )
+        with conversation_log_context(conversation_id_str):
+            entry = state.conversations.get(conversation_id_str)
             if entry is None:
-                await provider.send_text(
-                    message.provider_chat_id,
-                    "Session expired. Use /new to start a fresh conversation.",
+                from api.routes.conversations import (
+                    _reconstruct_conversation,
+                    _run_turn,
+                )
+
+                entry = await _reconstruct_conversation(
+                    state,
+                    conversation_id_str,
+                    compaction_runtime="channel_conversation",
+                )
+                if entry is None:
+                    await provider.send_text(
+                        message.provider_chat_id,
+                        "Session expired. Use /new to start a fresh conversation.",
+                    )
+                    return
+
+            emitter_for_turn = entry.emitter
+
+    with conversation_log_context(conversation_id_str):
+        persistent_store = PersistentMemoryStore(
+            session_factory=state.db_session_factory,
+            user_id=account.user_id,
+            conversation_id=conv_uuid,
+        )
+
+        # Deduplicate: Telegram may retry webhooks — skip if already processed
+        async with state.db_session_factory() as db:
+            if await repo.is_message_seen(
+                db,
+                channel_session_id=session_record.id,
+                direction="inbound",
+                provider_message_id=message.provider_message_id,
+            ):
+                logger.info(
+                    "channel_inbound_duplicate_skipped session={} msg_id={}",
+                    session_record.id,
+                    message.provider_message_id,
                 )
                 return
 
-        emitter_for_turn = entry.emitter
-
-    persistent_store = PersistentMemoryStore(
-        session_factory=state.db_session_factory,
-        user_id=account.user_id,
-        conversation_id=conv_uuid,
-    )
-
-    # Deduplicate: Telegram may retry webhooks — skip if already processed
-    async with state.db_session_factory() as db:
-        if await repo.is_message_seen(
-            db,
-            channel_session_id=session_record.id,
-            direction="inbound",
-            provider_message_id=message.provider_message_id,
-        ):
+        try:
+            async with state.db_session_factory() as db:
+                await repo.log_message(
+                    db,
+                    channel_session_id=session_record.id,
+                    direction="inbound",
+                    provider_message_id=message.provider_message_id,
+                    content_preview=message.text,
+                )
+        except IntegrityError:
             logger.info(
-                "channel_inbound_duplicate_skipped session={} msg_id={}",
+                "channel_inbound_duplicate_race_skipped session={} msg_id={}",
                 session_record.id,
                 message.provider_message_id,
             )
             return
 
-    try:
-        async with state.db_session_factory() as db:
-            await repo.log_message(
-                db,
-                channel_session_id=session_record.id,
-                direction="inbound",
-                provider_message_id=message.provider_message_id,
-                content_preview=message.text,
-            )
-    except IntegrityError:
-        logger.info(
-            "channel_inbound_duplicate_race_skipped session={} msg_id={}",
-            session_record.id,
-            message.provider_message_id,
-        )
-        return
-
-    if channel_router.has_pending_prompt(conv_uuid):
-        request_id, callback = channel_router._pending_prompts[conv_uuid]  # noqa: SLF001
-        if not message.text:
-            await provider.send_text(
-                message.provider_chat_id,
-                "Please reply with text to continue.",
-            )
-            return
-        if callable(callback):
-            channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
-            callback(message.text)
-            await entry.emitter.emit(
-                EventType.USER_RESPONSE,
-                {"request_id": request_id, "response": message.text},
-            )
-            logger.info(
-                "channel_ask_user_fulfilled conv={} request={}",
+        if channel_router.has_pending_prompt(conv_uuid):
+            request_id, callback = channel_router._pending_prompts[conv_uuid]  # noqa: SLF001
+            if not message.text:
+                await provider.send_text(
+                    message.provider_chat_id,
+                    "Please reply with text to continue.",
+                )
+                return
+            if callable(callback):
+                channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
+                callback(message.text)
+                await entry.emitter.emit(
+                    EventType.USER_RESPONSE,
+                    {"request_id": request_id, "response": message.text},
+                )
+                logger.info(
+                    "channel_ask_user_fulfilled conv={} request={}",
+                    conv_uuid,
+                    request_id,
+                )
+                return
+            logger.warning(
+                "channel_ask_user_invalid_callback conv={} request={}",
                 conv_uuid,
                 request_id,
             )
-            return
-        logger.warning(
-            "channel_ask_user_invalid_callback conv={} request={}",
-            conv_uuid,
-            request_id,
+            channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
+
+        assert emitter_for_turn is not None
+        responder = ChannelResponder(
+            provider=provider,
+            chat_id=message.provider_chat_id,
+            channel_repo=repo,
+            session_factory=state.db_session_factory,
+            channel_session_id=session_record.id,
+            conversation_id=conv_uuid,
+            emitter=emitter_for_turn,
+            storage_backend=state.storage_backend,
+            on_ask_user=channel_router.register_pending_prompt,
         )
-        channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
+        emitter_for_turn.subscribe(responder)
 
-    assert emitter_for_turn is not None
-    responder = ChannelResponder(
-        provider=provider,
-        chat_id=message.provider_chat_id,
-        channel_repo=repo,
-        session_factory=state.db_session_factory,
-        channel_session_id=session_record.id,
-        conversation_id=conv_uuid,
-        emitter=emitter_for_turn,
-        storage_backend=state.storage_backend,
-        on_ask_user=channel_router.register_pending_prompt,
-    )
-    emitter_for_turn.subscribe(responder)
+        attachments: tuple[FileAttachment, ...] = ()
+        if message.file_id:
+            try:
+                file_data, filename, mime_type = await provider.download_file(
+                    message.file_id
+                )
+                attachments = (
+                    FileAttachment(
+                        filename=message.file_name or filename,
+                        content_type=message.file_mime_type or mime_type,
+                        data=file_data,
+                        size=len(file_data),
+                    ),
+                )
+            except Exception:
+                logger.warning(
+                    "channel_file_download_failed file_id={}", message.file_id
+                )
 
-    attachments: tuple[FileAttachment, ...] = ()
-    if message.file_id:
-        try:
-            file_data, filename, mime_type = await provider.download_file(
-                message.file_id
-            )
-            attachments = (
-                FileAttachment(
-                    filename=message.file_name or filename,
-                    content_type=message.file_mime_type or mime_type,
-                    data=file_data,
-                    size=len(file_data),
-                ),
-            )
-        except Exception:
-            logger.warning("channel_file_download_failed file_id={}", message.file_id)
+        if entry.turn_task is not None and not entry.turn_task.done():
+            try:
+                await asyncio.wait_for(asyncio.shield(entry.turn_task), timeout=30.0)
+            except asyncio.TimeoutError:
+                logger.warning(
+                    "channel_turn_task_timeout conversation_id={}", conversation_id_str
+                )
 
-    if entry.turn_task is not None and not entry.turn_task.done():
-        try:
-            await asyncio.wait_for(asyncio.shield(entry.turn_task), timeout=30.0)
-        except asyncio.TimeoutError:
-            logger.warning(
-                "channel_turn_task_timeout conversation_id={}", conversation_id_str
-            )
+        from api.routes.conversations import _generate_title, _run_turn
 
-    from api.routes.conversations import _generate_title, _run_turn
+        runtime_prompt_sections: tuple[str, ...] = ()
+        if message.text:
+            try:
+                settings = get_settings()
+                facts = await persistent_store.retrieve_relevant_facts(
+                    query=message.text,
+                    limit=settings.MEMORY_FACT_TOP_K,
+                )
+                section = format_verified_facts_prompt_section(
+                    facts,
+                    token_cap_chars=settings.MEMORY_FACT_PROMPT_TOKEN_CAP,
+                )
+                if section:
+                    runtime_prompt_sections = (section,)
+            except Exception:
+                logger.warning(
+                    "memory_fact_retrieval_failed conversation_id={}",
+                    conversation_id_str,
+                )
 
-    runtime_prompt_sections: tuple[str, ...] = ()
-    if message.text:
-        try:
-            settings = get_settings()
-            facts = await persistent_store.retrieve_relevant_facts(
-                query=message.text,
-                limit=settings.MEMORY_FACT_TOP_K,
-            )
-            section = format_verified_facts_prompt_section(
-                facts,
-                token_cap_chars=settings.MEMORY_FACT_PROMPT_TOKEN_CAP,
-            )
-            if section:
-                runtime_prompt_sections = (section,)
-        except Exception:
-            logger.warning(
-                "memory_fact_retrieval_failed conversation_id={}", conversation_id_str
-            )
-
-    entry.turn_task = asyncio.create_task(
-        _run_turn(
-            state,
-            conversation_id_str,
-            entry.orchestrator,
-            message.text or "",
-            attachments=attachments,
-            runtime_prompt_sections=runtime_prompt_sections,
-        )
-    )
-
-    if message.text:
-
-        def _schedule_fact_extraction(_done: asyncio.Task[str]) -> None:
-            async def _wrapped() -> None:
-                try:
-                    await _extract_and_upsert_facts_for_turn(
-                        store=persistent_store,
-                        conversation_id=conv_uuid,
-                        turn_id=message.provider_message_id,
-                        message_text=message.text or "",
-                        source_chat_id=message.provider_chat_id,
-                    )
-                except Exception:
-                    logger.warning(
-                        "memory_fact_extraction_failed conversation_id={}",
-                        conversation_id_str,
-                    )
-
-            asyncio.create_task(_wrapped())
-
-        entry.turn_task.add_done_callback(_schedule_fact_extraction)
-
-    if is_first_turn and message.text:
-        asyncio.create_task(
-            _generate_title(
-                state.claude_client,
+        entry.turn_task = asyncio.create_task(
+            _run_turn(
+                state,
                 conversation_id_str,
-                message.text,
-                entry.emitter,
+                entry.orchestrator,
+                message.text or "",
+                attachments=attachments,
+                runtime_prompt_sections=runtime_prompt_sections,
             )
         )
+
+        if message.text:
+
+            def _schedule_fact_extraction(_done: asyncio.Task[str]) -> None:
+                async def _wrapped() -> None:
+                    try:
+                        await _extract_and_upsert_facts_for_turn(
+                            store=persistent_store,
+                            conversation_id=conv_uuid,
+                            turn_id=message.provider_message_id,
+                            message_text=message.text or "",
+                            source_chat_id=message.provider_chat_id,
+                        )
+                    except Exception:
+                        logger.warning(
+                            "memory_fact_extraction_failed conversation_id={}",
+                            conversation_id_str,
+                        )
+
+                asyncio.create_task(_wrapped())
+
+            entry.turn_task.add_done_callback(_schedule_fact_extraction)
+
+        if is_first_turn and message.text:
+            asyncio.create_task(
+                _generate_title(
+                    state.claude_client,
+                    conversation_id_str,
+                    message.text,
+                    entry.emitter,
+                )
+            )
 
 
 @router.post("/telegram/config", dependencies=common_dependencies)

@@ -3,7 +3,7 @@ import { API_BASE } from "@/shared/constants";
 export interface HistoryMessage {
   readonly id: string;
   readonly role: "user" | "assistant" | "tool";
-  readonly content: Record<string, unknown>;
+  readonly content: string | Record<string, unknown>;
   readonly iteration: number | null;
   readonly created_at: string;
 }

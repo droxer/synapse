@@ -1,5 +1,6 @@
 """Tests for the database event subscriber."""
 
+import asyncio
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -49,6 +50,31 @@ async def test_persists_turn_start_as_user_message(repo, session_factory) -> Non
     repo.save_message.assert_called_once()
 
 
+async def test_persists_turn_start_attachments_in_user_message_content(
+    repo, session_factory
+) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.TURN_START,
+        {
+            "message": "inspect this file",
+            "attachments": [
+                {"name": "report.csv", "size": 12, "type": "text/csv"},
+            ],
+        },
+    )
+
+    await subscriber(event)
+
+    args, kwargs = repo.save_message.call_args
+    content = kwargs["content"] if "content" in kwargs else args[3]
+    assert content == {
+        "text": "inspect this file",
+        "attachments": [{"name": "report.csv", "size": 12, "type": "text/csv"}],
+    }
+
+
 async def test_persists_turn_complete_as_assistant_message(
     repo, session_factory
 ) -> None:
@@ -84,6 +110,28 @@ async def test_skips_text_delta(repo, session_factory) -> None:
     await subscriber(event)
     repo.save_event.assert_not_called()
     repo.save_message.assert_not_called()
+
+
+async def test_ask_user_event_does_not_create_prompt_record(
+    repo, session_factory
+) -> None:
+    conversation_id = uuid.uuid4()
+    prompt_repo = AsyncMock()
+    subscriber = create_db_subscriber(
+        conversation_id,
+        repo,
+        session_factory,
+        prompt_repo=prompt_repo,
+    )
+    event = _make_event(
+        EventType.ASK_USER,
+        {"question": "Need approval?", "request_id": "req_123"},
+    )
+
+    await subscriber(event)
+
+    prompt_repo.create_prompt.assert_not_called()
+    repo.save_event.assert_called_once()
 
 
 async def test_updates_title_on_conversation_title_event(repo, session_factory) -> None:
@@ -338,6 +386,58 @@ async def test_pending_writes_passed_to_subscriber(
     await subscriber(event)
     # After completion, should be drained
     assert pending_writes.count == 0
+
+
+async def test_pending_writes_serialize_background_event_persistence(
+    repo, session_factory, pending_writes
+) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(
+        conversation_id,
+        repo,
+        session_factory,
+        pending_writes,
+    )
+    first_started = asyncio.Event()
+    first_release = asyncio.Event()
+    second_started = asyncio.Event()
+    active_writes = 0
+    max_active_writes = 0
+    persisted_tools: list[str] = []
+
+    async def _save_event(
+        session, conversation_id_arg, *, event_type, data, iteration=None
+    ) -> None:
+        del session, conversation_id_arg, event_type, iteration
+        nonlocal active_writes, max_active_writes
+        active_writes += 1
+        max_active_writes = max(max_active_writes, active_writes)
+        try:
+            tool = str(data["tool"])
+            persisted_tools.append(tool)
+            if tool == "first":
+                first_started.set()
+                await first_release.wait()
+            else:
+                second_started.set()
+        finally:
+            active_writes -= 1
+
+    repo.save_event.side_effect = _save_event
+
+    await asyncio.gather(
+        subscriber(_make_event(EventType.TOOL_CALL, {"tool": "first"})),
+        subscriber(_make_event(EventType.TOOL_CALL, {"tool": "second"})),
+    )
+
+    await first_started.wait()
+    await asyncio.sleep(0)
+    assert second_started.is_set() is False
+
+    first_release.set()
+    assert await pending_writes.wait_drained(timeout=0.2) is True
+    assert persisted_tools == ["first", "second"]
+    assert max_active_writes == 1
 
 
 # ---------------------------------------------------------------------------

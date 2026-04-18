@@ -173,6 +173,27 @@ class TestMessages:
         assert messages[1].role == "assistant"
         assert messages[1].iteration == 1
 
+    async def test_save_and_get_messages_with_attachment_metadata(
+        self, repo, session: AsyncSession
+    ) -> None:
+        convo = await repo.create_conversation(
+            session, title="Attachment messages test"
+        )
+        content = {
+            "text": "use this upload",
+            "attachments": [
+                {"name": "report.csv", "size": 12, "type": "text/csv"},
+            ],
+        }
+        await repo.save_message(
+            session, convo.id, role="user", content=content, iteration=None
+        )
+
+        messages = await repo.get_messages(session, convo.id)
+
+        assert len(messages) == 1
+        assert messages[0].content == content
+
 
 class TestEvents:
     async def test_save_and_get_events(self, repo, session: AsyncSession) -> None:

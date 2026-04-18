@@ -20,6 +20,7 @@ from agent.state.database import get_engine, get_session_factory, init_db
 from agent.state.repository import (
     ConversationRepository,
     SkillRepository,
+    UserPromptRepository,
     UsageRepository,
     UserRepository,
 )
@@ -28,6 +29,7 @@ from api.builders import _build_sandbox_provider
 from api.db_subscriber import PendingWrites
 from api.dependencies import AppState
 from api.models import MCPState
+from api.user_responses import UserResponseCoordinator
 from api.routes import (
     artifacts,
     auth,
@@ -61,6 +63,7 @@ def _create_app() -> FastAPI:
     db_engine = get_engine(settings.DATABASE_URL)
     db_session_factory = get_session_factory(db_engine)
     db_repo = ConversationRepository()
+    user_prompt_repo = UserPromptRepository()
     user_repo = UserRepository()
     db_pending_writes = PendingWrites()
 
@@ -96,6 +99,7 @@ def _create_app() -> FastAPI:
         db_engine=db_engine,
         db_session_factory=db_session_factory,
         db_repo=db_repo,
+        user_prompt_repo=user_prompt_repo,
         user_repo=user_repo,
         db_pending_writes=db_pending_writes,
         mcp_state=mcp_state,
@@ -104,6 +108,11 @@ def _create_app() -> FastAPI:
         skill_installer=skill_installer,
         skill_repo=skill_repo,
         usage_repo=usage_repo,
+        response_coordinator=UserResponseCoordinator(
+            session_factory=db_session_factory,
+            prompt_repo=user_prompt_repo,
+            conversation_repo=db_repo,
+        ),
     )
 
     @asynccontextmanager

@@ -21,11 +21,13 @@ if TYPE_CHECKING:
     from agent.state.repository import (
         ConversationRepository,
         SkillRepository,
+        UserPromptRepository,
         UsageRepository,
         UserRepository,
     )
     from api.db_subscriber import PendingWrites
     from api.models import ConversationEntry, MCPState
+    from api.user_responses import UserResponseCoordinator
 
 
 @dataclass
@@ -38,6 +40,7 @@ class AppState:
     db_engine: AsyncEngine
     db_session_factory: async_sessionmaker[AsyncSession]
     db_repo: ConversationRepository
+    user_prompt_repo: UserPromptRepository
     user_repo: UserRepository
     db_pending_writes: PendingWrites
     conversations: dict[str, ConversationEntry] = field(default_factory=dict)
@@ -47,6 +50,7 @@ class AppState:
     skill_installer: SkillInstaller | None = None
     skill_repo: SkillRepository | None = None
     usage_repo: UsageRepository | None = None
+    response_coordinator: UserResponseCoordinator | None = None
 
 
 def get_app_state(request: Request) -> AppState:

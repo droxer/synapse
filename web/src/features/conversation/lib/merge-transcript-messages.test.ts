@@ -67,4 +67,25 @@ describe("mergeHistoryWithEventDerivedMessages", () => {
       "已成功生成 Palantir Ontology 技术深度研究报告 Word 文档。",
     ]);
   });
+
+  it("merges persisted attachments onto matching event-derived user messages", () => {
+    const history: ChatMessage[] = [
+      {
+        role: "user",
+        content: "inspect this",
+        timestamp: 100,
+        attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+      },
+    ];
+    const derived: ChatMessage[] = [
+      { role: "user", content: "inspect this", timestamp: 100 },
+    ];
+
+    const merged = mergeHistoryWithEventDerivedMessages(history, derived);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.attachments).toEqual([
+      { name: "report.csv", size: 42, type: "text/csv" },
+    ]);
+  });
 });

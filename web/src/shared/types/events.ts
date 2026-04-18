@@ -39,8 +39,15 @@ export type EventType = (typeof EVENT_TYPES)[number];
 
 type GenericEventData = Record<string, unknown>;
 
+export interface MessageAttachmentMetadata {
+  readonly name: string;
+  readonly size: number;
+  readonly type: string;
+}
+
 export interface TurnStartEventData extends GenericEventData {
   readonly message?: string;
+  readonly attachments?: readonly MessageAttachmentMetadata[];
   readonly orchestrator_mode?: "agent" | "planner";
   readonly execution_shape?: "single_agent" | "prompt_chain" | "parallel" | "orchestrator_workers";
   readonly execution_rationale?: string;
@@ -217,7 +224,7 @@ export interface ChatMessage {
   readonly role: "user" | "assistant";
   readonly content: string;
   readonly timestamp: number;
-  readonly attachments?: Array<{ readonly name: string; readonly size: number; readonly type: string }>;
+  readonly attachments?: readonly MessageAttachmentMetadata[];
   readonly imageArtifactIds?: readonly string[];
   readonly thinkingContent?: string;
   readonly thinkingEntries?: readonly ThinkingEntry[];

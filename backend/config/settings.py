@@ -57,6 +57,9 @@ class Settings(BaseSettings):
     SKILLS_TRUST_PROJECT: bool = False  # When True, project-level skills are loaded (supply-chain risk: untrusted repos can inject instructions)
     ENVIRONMENT: str = "development"  # "development" or "production"
     RATE_LIMIT_PER_MINUTE: int = 30
+    DB_POOL_SIZE: int = 10
+    DB_MAX_OVERFLOW: int = 20
+    DB_POOL_TIMEOUT: int = 30
 
     # Context compaction
     COMPACT_TOKEN_BUDGET: int = (
@@ -76,6 +79,7 @@ class Settings(BaseSettings):
     COMPACT_CONTEXT_SUMMARY_MAX_CHARS: int = 32_000
     # When context_summary is set, load only the last N DB messages on reconstruct
     COMPACT_RECONSTRUCT_TAIL_MESSAGES: int = 80
+    RECONSTRUCT_MAX_MESSAGES_WITHOUT_SUMMARY: int = 200
     # Before compaction, persist heuristic facts from user text in dropped context
     COMPACT_MEMORY_FLUSH: bool = False
     # Runtime-specific compaction overrides. Unset values inherit the base

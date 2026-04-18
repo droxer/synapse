@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useSSE, useSessionFilteredArtifacts } from "@/shared/hooks";
 import { ConversationWorkspace, usePendingAsk } from "@/features/conversation";
 import { useConversationTranscript } from "@/features/conversation/hooks/use-conversation-transcript";
+import { resolveConversationHistoryResults } from "@/features/conversation/hooks/use-conversation-history";
 import {
   sendFollowUpMessage,
   cancelTurn,
@@ -14,8 +15,7 @@ import {
   fetchEvents,
   fetchArtifacts,
 } from "@/features/conversation/api/history-api";
-import { EVENT_TYPES } from "@/shared/types";
-import type { ChatMessage, AgentEvent, EventType, ArtifactInfo } from "@/shared/types";
+import type { ChatMessage, AgentEvent, ArtifactInfo } from "@/shared/types";
 import type { ChannelConversation } from "../api/channel-api";
 import { getProviderLabel } from "./ChannelProviderIcon";
 import { MessageCircle } from "lucide-react";
@@ -25,12 +25,6 @@ import { useTranslation } from "@/i18n";
 interface ChannelChatViewProps {
   conversation: ChannelConversation;
   hideTopBar?: boolean;
-}
-
-const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
-
-function isEventType(value: string): value is EventType {
-  return EVENT_TYPE_SET.has(value);
 }
 
 export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewProps) {
@@ -61,53 +55,33 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     let cancelled = false;
     setIsLoadingHistory(true);
 
-    Promise.all([
+    Promise.allSettled([
       fetchMessages(conversationId),
       fetchEvents(conversationId),
       fetchArtifacts(conversationId),
     ])
-      .then(([msgRes, evtRes, artifactRes]) => {
+      .then(([messagesResult, eventsResult, artifactsResult]) => {
         if (cancelled) return;
 
-        const messages: ChatMessage[] = msgRes.messages
-          .filter((m) => m.role === "user" || m.role === "assistant")
-          .map((m) => {
-            let text: string;
-            const content = m.content as Record<string, unknown>;
-            if (typeof content === "string") {
-              text = content;
-            } else if (content && "text" in content) {
-              text = String(content.text);
-            } else {
-              text = JSON.stringify(content);
-            }
-            return { role: m.role as "user" | "assistant", content: text, timestamp: new Date(m.created_at).getTime() };
-          });
+        const resolved = resolveConversationHistoryResults(
+          messagesResult,
+          eventsResult,
+          artifactsResult,
+        );
 
-        const events: AgentEvent[] = evtRes.events.flatMap((e) => {
-          if (!isEventType(e.type)) {
-            return [];
-          }
-          return [{
-            type: e.type,
-            data: e.data,
-            timestamp: new Date(e.timestamp).getTime(),
-            iteration: e.iteration,
-          } as AgentEvent];
-        });
+        if (messagesResult.status === "rejected") {
+          console.error("Failed to load channel conversation messages:", messagesResult.reason);
+        }
+        if (eventsResult.status === "rejected") {
+          console.error("Failed to load channel conversation events:", eventsResult.reason);
+        }
+        if (artifactsResult.status === "rejected") {
+          console.error("Failed to load channel conversation artifacts:", artifactsResult.reason);
+        }
 
-        const artifacts: ArtifactInfo[] = artifactRes.artifacts.map((artifact) => ({
-          id: artifact.id,
-          name: artifact.name,
-          contentType: artifact.content_type,
-          size: artifact.size,
-          createdAt: artifact.created_at,
-          ...(artifact.file_path ? { filePath: artifact.file_path } : {}),
-        }));
-
-        setHistoryMessages(messages);
-        setHistoryEvents(events);
-        setHistoryArtifacts(artifacts);
+        setHistoryMessages(resolved.messages);
+        setHistoryEvents(resolved.events);
+        setHistoryArtifacts(resolved.artifacts);
       })
       .catch(() => {
         if (!cancelled) {
