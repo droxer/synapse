@@ -11,7 +11,11 @@ from typing import Any, Literal
 from uuid import uuid4
 
 from agent.context.profiles import CompactionProfile, resolve_compaction_profile
-from agent.llm.client import AnthropicClient, format_llm_failure
+from agent.llm.client import (
+    AnthropicClient,
+    SystemPrompt,
+    format_llm_failure,
+)
 from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
@@ -26,6 +30,7 @@ from agent.runtime.skill_setup import (
     emit_redundant_skill_activation,
     prepare_skill_for_turn,
 )
+from agent.runtime.prompting import PromptAssembly
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -124,32 +129,47 @@ class AgentResult:
     replan_required: bool = False
 
 
-TASK_AGENT_SYSTEM_PROMPT = """You are a task agent focused on completing a specific objective.
-{role_section}
-Your task: {task_description}
-{context_section}
+@dataclass(frozen=True)
+class TaskAgentPromptTemplate:
+    """Reusable immutable prompt template for task agents."""
 
-Guidelines:
+    header: str
+    guidelines: str
+
+    def render(self, config: TaskAgentConfig) -> str:
+        """Render the full system prompt for a specific task-agent config."""
+        role_section = f"\nYour role: {config.role}\n" if config.role else ""
+        context_section = (
+            f"\nAdditional context:\n{config.context}" if config.context else ""
+        )
+        return (
+            f"{self.header}\n"
+            f"{role_section}"
+            f"Your task: {config.task_description}\n"
+            f"{context_section}\n\n"
+            f"{self.guidelines}"
+        )
+
+
+TASK_AGENT_PROMPT_TEMPLATE = TaskAgentPromptTemplate(
+    header="You are a task agent focused on completing a specific objective.",
+    guidelines="""Guidelines:
 - Focus exclusively on the assigned task
 - Use available tools to accomplish the objective
 - Use agent_send and agent_receive to coordinate with other agents if needed
 - Be thorough but efficient
 - When done, call task_complete with a detailed summary of what was accomplished
-- Include any relevant file paths or outputs in your summary
-"""
+- Include any relevant file paths or outputs in your summary""",
+)
 
 
-def _build_system_prompt(config: TaskAgentConfig) -> str:
+def _build_system_prompt(
+    config: TaskAgentConfig,
+    *,
+    prompt_template: TaskAgentPromptTemplate = TASK_AGENT_PROMPT_TEMPLATE,
+) -> str:
     """Build the system prompt from a TaskAgentConfig."""
-    role_section = f"\nYour role: {config.role}\n" if config.role else ""
-    context_section = (
-        f"\nAdditional context:\n{config.context}" if config.context else ""
-    )
-    return TASK_AGENT_SYSTEM_PROMPT.format(
-        task_description=config.task_description,
-        role_section=role_section,
-        context_section=context_section,
-    )
+    return prompt_template.render(config)
 
 
 class TaskAgentRunner:
@@ -167,6 +187,9 @@ class TaskAgentRunner:
         observer: Observer | None = None,
         compaction_profile: CompactionProfile | None = None,
         skill_registry: SkillRegistry | None = None,
+        prompt_template: TaskAgentPromptTemplate = TASK_AGENT_PROMPT_TEMPLATE,
+        shared_tools: list[dict[str, Any]] | None = None,
+        shared_tools_fingerprint: str | None = None,
     ) -> None:
         if not agent_id:
             raise ValueError("agent_id must not be empty")
@@ -195,8 +218,12 @@ class TaskAgentRunner:
             if observer is not None
             else resolved_profile
         )
-        self._system_prompt = _build_system_prompt(config)
-        self._turn_base_prompt = self._system_prompt
+        self._prompt_template = prompt_template
+        self._system_prompt = _build_system_prompt(
+            config,
+            prompt_template=prompt_template,
+        )
+        self._turn_prompt_assembly = PromptAssembly.from_system(self._system_prompt)
         self._auto_injected_skill: str | None = None
         self._task_complete_summary: str | None = None
         self._handoff_request: HandoffRequest | None = None
@@ -206,6 +233,8 @@ class TaskAgentRunner:
         self._context_compaction_count = 0
         self._input_tokens = 0
         self._output_tokens = 0
+        self._shared_tools = shared_tools
+        self._shared_tools_fingerprint = shared_tools_fingerprint
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -304,7 +333,8 @@ class TaskAgentRunner:
         state = AgentState().add_message(
             {"role": "user", "content": self._config.task_description},
         )
-        effective_prompt = self._system_prompt
+        cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+        prompt_assembly = PromptAssembly.from_system(self._system_prompt)
         effective_registry = self._registry
         self._auto_injected_skill = None
 
@@ -317,7 +347,7 @@ class TaskAgentRunner:
         )
         if matched is not None:
             self._auto_injected_skill = matched.metadata.name
-            self._turn_base_prompt = self._system_prompt
+            self._turn_prompt_assembly = prompt_assembly
 
             from agent.tools.local.activate_skill import ActivateSkill
 
@@ -342,8 +372,8 @@ class TaskAgentRunner:
                     raise_on_error=True,
                 ),
             )
-            effective_prompt = (
-                self._system_prompt + "\n\n" + build_skill_prompt_content(matched)
+            prompt_assembly = prompt_assembly.with_volatile_sections(
+                build_skill_prompt_content(matched),
             )
 
             if matched.metadata.allowed_tools:
@@ -354,7 +384,14 @@ class TaskAgentRunner:
                     allowed_names, allowed_tags
                 )
 
-        tools = effective_registry.to_anthropic_tools()
+        registry_fingerprint = effective_registry.anthropic_tools_fingerprint()
+        if (
+            self._shared_tools is not None
+            and self._shared_tools_fingerprint == registry_fingerprint
+        ):
+            tools = self._shared_tools
+        else:
+            tools = effective_registry.to_anthropic_tools(cache_breakpoint=cache_prompt)
 
         while not state.completed and state.error is None:
             state = state.increment_iteration()
@@ -363,16 +400,16 @@ class TaskAgentRunner:
                 state,
                 tools,
                 settings,
-                effective_prompt,
+                prompt_assembly.system_with_cache_control(cache_prompt),
+                prompt_assembly.rendered,
             )
 
             updated = await self._check_mid_turn_skill_activation(
                 state,
-                effective_prompt,
                 effective_registry,
             )
             if updated is not None:
-                effective_prompt, effective_registry, tools = updated
+                prompt_assembly, effective_registry, tools = updated
 
         if state.error:
             raise RuntimeError(state.error)
@@ -384,14 +421,15 @@ class TaskAgentRunner:
         state: AgentState,
         tools: list[dict[str, Any]],
         settings: Settings,
-        system_prompt: str,
+        system_prompt: SystemPrompt,
+        system_prompt_text: str,
     ) -> AgentState:
         """Run a single iteration of the task agent loop."""
         # Compact history before the LLM call if needed
-        if self._observer.should_compact(state.messages, system_prompt):
+        if self._observer.should_compact(state.messages, system_prompt_text):
             compacted = await self._observer.compact(
                 state.messages,
-                system_prompt,
+                system_prompt_text,
             )
             self._context_compaction_count += 1
             await self._emitter.emit(
@@ -428,7 +466,7 @@ class TaskAgentRunner:
                 "messageCount": len(state.messages),
                 "messageChars": message_chars,
                 "toolCount": len(tools),
-                "systemPromptChars": len(system_prompt),
+                "systemPromptChars": len(system_prompt_text),
             },
         )
         # endregion
@@ -508,11 +546,9 @@ class TaskAgentRunner:
     async def _check_mid_turn_skill_activation(
         self,
         state: AgentState,
-        current_prompt: str,
         current_registry: ToolRegistry,
-    ) -> tuple[str, ToolRegistry, list[dict[str, Any]]] | None:
+    ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
         """Detect successful mid-turn skill activation and apply constraints."""
-        del current_prompt
         if self._skill_registry is None:
             return None
 
@@ -581,8 +617,8 @@ class TaskAgentRunner:
             return None
 
         self._auto_injected_skill = skill.metadata.name
-        effective_prompt = (
-            self._turn_base_prompt + "\n\n" + build_skill_prompt_content(skill)
+        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
+            build_skill_prompt_content(skill),
         )
 
         from agent.tools.local.activate_skill import ActivateSkill
@@ -619,4 +655,10 @@ class TaskAgentRunner:
             )
 
         logger.info("task_runner_mid_turn_skill_activated name={}", skill.metadata.name)
-        return effective_prompt, updated_registry, updated_registry.to_anthropic_tools()
+        return (
+            prompt_assembly,
+            updated_registry,
+            updated_registry.to_anthropic_tools(
+                cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+            ),
+        )

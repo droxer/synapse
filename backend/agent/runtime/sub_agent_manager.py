@@ -5,7 +5,7 @@ from __future__ import annotations
 import asyncio
 import re
 import uuid
-from dataclasses import asdict, replace
+from dataclasses import asdict, dataclass, replace
 from typing import Callable
 
 from agent.llm.client import AnthropicClient
@@ -14,7 +14,9 @@ from agent.runtime.task_runner import (
     AgentRunMetrics,
     HandoffRequest,
     TaskAgentConfig,
+    TaskAgentPromptTemplate,
     TaskAgentRunner,
+    TASK_AGENT_PROMPT_TEMPLATE,
 )
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -39,6 +41,15 @@ _FAILURE_MODE_PRIORITY: dict[str, int] = {
     "cancel_downstream": 1,
     "replan": 2,
 }
+
+
+@dataclass(frozen=True)
+class TaskAgentSharedBundle:
+    """Shared immutable task-agent prompt/tool bundle."""
+
+    prompt_template: TaskAgentPromptTemplate
+    tools: list[dict[str, object]]
+    tools_fingerprint: str
 
 
 def _normalize_task_signature(value: str) -> str:
@@ -133,6 +144,42 @@ class SubAgentManager:
         self._configs: dict[str, TaskAgentConfig] = {}
         self._executors: dict[str, list[ToolExecutor]] = {}
         self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._shared_bundle = self._build_shared_bundle()
+
+    def _build_shared_bundle(self) -> TaskAgentSharedBundle:
+        """Precompute shared task-agent prompt/tool payloads once per manager."""
+        registry = self._registry_factory()
+
+        async def _noop_complete(summary: str) -> None:
+            del summary
+
+        async def _noop_handoff(request: HandoffRequest) -> None:
+            del request
+
+        registry = registry.register(
+            SendToAgent(
+                self._message_bus,
+                sender_id="template",
+                target_validator=lambda agent_id: bool(agent_id),
+            )
+        )
+        registry = registry.register(
+            ReceiveMessages(self._message_bus, receiver_id="template")
+        )
+        registry = registry.register(TaskComplete(on_complete=_noop_complete))
+        registry = registry.register(
+            AgentHandoff(
+                on_handoff=_noop_handoff,
+                max_handoffs=3,
+            )
+        )
+        cache_breakpoint = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+
+        return TaskAgentSharedBundle(
+            prompt_template=TASK_AGENT_PROMPT_TEMPLATE,
+            tools=registry.to_anthropic_tools(cache_breakpoint=cache_breakpoint),
+            tools_fingerprint=registry.anthropic_tools_fingerprint(),
+        )
 
     @property
     def total_spawned(self) -> int:
@@ -598,6 +645,9 @@ class SubAgentManager:
                 event_emitter=self._emitter,
                 max_iterations=self._max_iterations,
                 skill_registry=self._skill_registry,
+                prompt_template=self._shared_bundle.prompt_template,
+                shared_tools=self._shared_bundle.tools,
+                shared_tools_fingerprint=self._shared_bundle.tools_fingerprint,
             )
             callback_target[0] = runner
             handoff_target[0] = runner

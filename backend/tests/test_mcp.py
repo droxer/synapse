@@ -263,6 +263,74 @@ class TestMCPBridgedTool:
         assert tools[0]["input_schema"]["required"] == ["q"]
         json.dumps(tools)
 
+    def test_registry_export_reuses_cached_anthropic_payload(self) -> None:
+        schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema={"type": "object"},
+            server_name="srv",
+        )
+        registry = ToolRegistry().register(MCPBridgedTool(schema, client=None))  # type: ignore[arg-type]
+
+        first = registry.to_anthropic_tools()
+        second = registry.to_anthropic_tools()
+
+        assert first is second
+
+    def test_registry_export_cache_breakpoint_marks_last_tool(self) -> None:
+        first_schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema={"type": "object"},
+            server_name="srv",
+        )
+        second_schema = MCPToolSchema(
+            name="fetch",
+            description="Fetch",
+            input_schema={"type": "object"},
+            server_name="srv",
+        )
+        registry = (
+            ToolRegistry()
+            .register(MCPBridgedTool(first_schema, client=None))  # type: ignore[arg-type]
+            .register(MCPBridgedTool(second_schema, client=None))  # type: ignore[arg-type]
+        )
+
+        tools = registry.to_anthropic_tools(cache_breakpoint=True)
+
+        assert "cache_control" not in tools[0]
+        assert tools[-1]["cache_control"] == {"type": "ephemeral"}
+
+    def test_registry_fingerprint_is_stable_for_same_schema(self) -> None:
+        schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema={"type": "object", "properties": {"q": {"type": "string"}}},
+            server_name="srv",
+        )
+        left = ToolRegistry().register(MCPBridgedTool(schema, client=None))  # type: ignore[arg-type]
+        right = ToolRegistry().register(MCPBridgedTool(schema, client=None))  # type: ignore[arg-type]
+
+        assert left.anthropic_tools_fingerprint() == right.anthropic_tools_fingerprint()
+
+    def test_registry_fingerprint_changes_when_schema_changes(self) -> None:
+        search_schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema={"type": "object"},
+            server_name="srv",
+        )
+        fetch_schema = MCPToolSchema(
+            name="fetch",
+            description="Fetch",
+            input_schema={"type": "object"},
+            server_name="srv",
+        )
+        left = ToolRegistry().register(MCPBridgedTool(search_schema, client=None))  # type: ignore[arg-type]
+        right = ToolRegistry().register(MCPBridgedTool(fetch_schema, client=None))  # type: ignore[arg-type]
+
+        assert left.anthropic_tools_fingerprint() != right.anthropic_tools_fingerprint()
+
 
 # ---------------------------------------------------------------------------
 # MCPStdioClient

@@ -14,9 +14,12 @@ from loguru import logger
 
 from agent.llm.client import (
     AnthropicClient,
+    SystemPrompt,
     format_llm_failure,
     is_content_policy_error,
+    render_system_prompt,
 )
+from agent.runtime.prompting import PromptAssembly
 from agent.context.profiles import CompactionProfile, resolve_compaction_profile
 from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.memory.store import PersistentMemoryStore
@@ -164,7 +167,7 @@ class AgentOrchestrator:
         self._last_tool_batch_signature: str | None = None
         self._identical_tool_batch_count: int = 0
         self._turn_artifact_ids: list[str] = []
-        self._turn_base_prompt = system_prompt
+        self._turn_prompt_assembly = PromptAssembly.from_system(system_prompt)
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -300,14 +303,17 @@ class AgentOrchestrator:
         self._task_complete_summary = None
 
         # Auto-match skill for this turn via shared selector
-        effective_prompt = self._system_prompt
+        cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+        prompt_assembly = PromptAssembly.from_system(self._system_prompt)
         if runtime_prompt_sections:
-            dynamic_sections = [
+            dynamic_sections = tuple(
                 section for section in runtime_prompt_sections if section
-            ]
+            )
             if dynamic_sections:
-                effective_prompt = "\n".join([effective_prompt, *dynamic_sections])
-        self._turn_base_prompt = effective_prompt
+                prompt_assembly = prompt_assembly.with_volatile_sections(
+                    *dynamic_sections,
+                )
+        self._turn_prompt_assembly = prompt_assembly
         self._auto_injected_skill = None
         settings = get_settings()
         matched = await select_skill_for_message(
@@ -354,8 +360,8 @@ class AgentOrchestrator:
                     retryable=False,
                 )
                 return f"Error: {error}"
-            effective_prompt = (
-                effective_prompt + "\n\n" + build_skill_prompt_content(matched)
+            prompt_assembly = prompt_assembly.with_volatile_sections(
+                build_skill_prompt_content(matched),
             )
 
         uploaded_paths: tuple[str, ...] = ()
@@ -403,22 +409,23 @@ class AgentOrchestrator:
                 allowed_names, allowed_tags
             )
 
-        tools = effective_registry.to_anthropic_tools()
+        tools = effective_registry.to_anthropic_tools(cache_breakpoint=cache_prompt)
 
         while not self._state.completed and self._state.error is None:
             if self._cancel_event.is_set():
                 break
             self._state = self._state.increment_iteration()
             self._state = await self._run_iteration(
-                self._state, tools, effective_prompt
+                self._state,
+                tools,
+                prompt_assembly.system_with_cache_control(cache_prompt),
+                prompt_assembly.rendered,
             )
 
             # Check if activate_skill was invoked mid-turn and enforce constraints
-            updated = await self._check_mid_turn_skill_activation(
-                effective_prompt, effective_registry
-            )
+            updated = await self._check_mid_turn_skill_activation(effective_registry)
             if updated is not None:
-                effective_prompt, effective_registry, tools = updated
+                prompt_assembly, effective_registry, tools = updated
 
         logger.info("turn_complete iterations={}", self._state.iteration)
 
@@ -455,9 +462,8 @@ class AgentOrchestrator:
 
     async def _check_mid_turn_skill_activation(
         self,
-        current_prompt: str,
         current_registry: ToolRegistry,
-    ) -> tuple[str, ToolRegistry, list[dict[str, Any]]] | None:
+    ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
         """Detect a successful mid-turn activate_skill call and enforce constraints.
 
         Returns (effective_prompt, effective_registry, tools) if a new skill was
@@ -535,8 +541,8 @@ class AgentOrchestrator:
         self._auto_injected_skill = skill.metadata.name
 
         # Inject skill instructions into prompt
-        effective_prompt = (
-            self._turn_base_prompt + "\n\n" + build_skill_prompt_content(skill)
+        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
+            build_skill_prompt_content(skill),
         )
 
         # Replace ActivateSkill tool with updated active skill name
@@ -574,20 +580,24 @@ class AgentOrchestrator:
                 allowed_names, allowed_tags
             )
 
-        tools = updated_registry.to_anthropic_tools()
+        tools = updated_registry.to_anthropic_tools(
+            cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+        )
 
         logger.info("mid_turn_skill_activated name={}", skill.metadata.name)
 
-        return effective_prompt, updated_registry, tools
+        return prompt_assembly, updated_registry, tools
 
     async def _run_iteration(
         self,
         state: AgentState,
         tools: list[dict[str, Any]],
-        system_prompt: str | None = None,
+        system_prompt: SystemPrompt | None = None,
+        system_prompt_text: str | None = None,
     ) -> AgentState:
         """Run a single iteration of the ReAct loop."""
-        effective_prompt = system_prompt or self._system_prompt
+        effective_system = system_prompt or self._system_prompt
+        effective_prompt = system_prompt_text or render_system_prompt(effective_system)
 
         settings = get_settings()
         if settings.VALIDATE_AGENT_MESSAGE_CHAIN:
@@ -676,7 +686,7 @@ class AgentOrchestrator:
                 )
 
             stream_kwargs = dict(
-                system=effective_prompt,
+                system=effective_system,
                 messages=list(state.messages),
                 tools=tools if tools else None,
                 on_text_delta=_on_text_delta,

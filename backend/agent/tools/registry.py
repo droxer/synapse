@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping
 from typing import Any
 
@@ -25,6 +27,11 @@ class ToolRegistry:
         tools: dict[str, LocalTool | SandboxTool] | None = None,
     ) -> None:
         self._tools: dict[str, LocalTool | SandboxTool] = dict(tools) if tools else {}
+        self._anthropic_tools_cache: list[dict[str, Any]] | None = None
+        self._anthropic_tools_cache_with_cache_breakpoint: (
+            list[dict[str, Any]] | None
+        ) = None
+        self._anthropic_tools_fingerprint: str | None = None
 
     # -- Mutation (returns new registry) ------------------------------------
 
@@ -117,19 +124,49 @@ class ToolRegistry:
             return [self._json_safe(item) for item in value]
         return value
 
-    def to_anthropic_tools(self) -> list[dict[str, Any]]:
-        """Convert all tools to Anthropic API format."""
-        results: list[dict[str, Any]] = []
-        for tool in self._tools.values():
-            defn = tool.definition()
-            results.append(
-                {
-                    "name": defn.name,
-                    "description": defn.description,
-                    "input_schema": self._json_safe(defn.input_schema),
-                }
+    def to_anthropic_tools(
+        self,
+        *,
+        cache_breakpoint: bool = False,
+    ) -> list[dict[str, Any]]:
+        """Convert all tools to Anthropic API format, caching the payload."""
+        if self._anthropic_tools_cache is None:
+            results: list[dict[str, Any]] = []
+            for tool in self._tools.values():
+                defn = tool.definition()
+                results.append(
+                    {
+                        "name": defn.name,
+                        "description": defn.description,
+                        "input_schema": self._json_safe(defn.input_schema),
+                    }
+                )
+            self._anthropic_tools_cache = results
+        if not cache_breakpoint or not self._anthropic_tools_cache:
+            return self._anthropic_tools_cache
+
+        if self._anthropic_tools_cache_with_cache_breakpoint is None:
+            cached = [dict(tool) for tool in self._anthropic_tools_cache]
+            cached[-1] = {
+                **cached[-1],
+                "cache_control": {"type": "ephemeral"},
+            }
+            self._anthropic_tools_cache_with_cache_breakpoint = cached
+        return self._anthropic_tools_cache_with_cache_breakpoint
+
+    def anthropic_tools_fingerprint(self) -> str:
+        """Return a stable digest for the serialized Anthropic tool schema set."""
+        if self._anthropic_tools_fingerprint is None:
+            payload = json.dumps(
+                self.to_anthropic_tools(),
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=True,
             )
-        return results
+            self._anthropic_tools_fingerprint = hashlib.sha256(
+                payload.encode("utf-8")
+            ).hexdigest()
+        return self._anthropic_tools_fingerprint
 
     def grouped_descriptions(self) -> str:
         """Return a human-readable string grouping tools by execution context."""

@@ -629,6 +629,12 @@ class TestSubAgentSpawnLimits:
 
         assert result.summary == "done"
         assert captured_runner_kwargs["max_iterations"] == 17
+        assert captured_runner_kwargs["prompt_template"] is not None
+        assert captured_runner_kwargs["shared_tools"] is manager._shared_bundle.tools
+        assert (
+            captured_runner_kwargs["shared_tools_fingerprint"]
+            == manager._shared_bundle.tools_fingerprint
+        )
 
     @pytest.mark.asyncio
     async def test_max_total_is_enforced_during_concurrent_spawn_attempts(self):

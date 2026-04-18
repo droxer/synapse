@@ -12,8 +12,10 @@ from agent.context.profiles import CompactionProfile, resolve_compaction_profile
 from agent.llm.client import (
     AnthropicClient,
     LLMResponse,
+    SystemPrompt,
     format_llm_failure,
     is_content_policy_error,
+    render_system_prompt,
 )
 from agent.runtime.helpers import (
     apply_response_to_state,
@@ -29,6 +31,7 @@ from agent.runtime.skill_setup import (
     emit_redundant_skill_activation,
     prepare_skill_for_turn,
 )
+from agent.runtime.prompting import PromptAssembly
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.task_runner import TaskAgentConfig
 from agent.runtime.turn_attachments import (
@@ -131,7 +134,7 @@ class PlannerOrchestrator:
         self._system_prompt = system_prompt or PLANNER_SYSTEM_PROMPT
         self._skill_registry = skill_registry
         self._auto_injected_skill: str | None = None
-        self._turn_base_prompt = self._system_prompt
+        self._turn_prompt_assembly = PromptAssembly.from_system(self._system_prompt)
 
         # Register meta-tools into the provided registry
         registry_with_meta = tool_registry.register(
@@ -212,15 +215,17 @@ class PlannerOrchestrator:
         self._task_complete_summary = None
         self._auto_injected_skill = None
 
-        base_prompt = self._system_prompt
+        cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+        prompt_assembly = PromptAssembly.from_system(self._system_prompt)
         if runtime_prompt_sections:
-            dynamic = [s for s in runtime_prompt_sections if s]
+            dynamic = tuple(s for s in runtime_prompt_sections if s)
             if dynamic:
-                base_prompt = "\n".join([base_prompt, *dynamic])
-        self._turn_base_prompt = base_prompt
+                prompt_assembly = prompt_assembly.with_volatile_sections(
+                    *dynamic,
+                )
+        self._turn_prompt_assembly = prompt_assembly
 
         # Skill matching via shared selector (before user message / uploads)
-        effective_prompt = base_prompt
         effective_registry = self._registry
         settings = get_settings()
         matched = await select_skill_for_message(
@@ -270,8 +275,8 @@ class PlannerOrchestrator:
                     },
                 )
                 return f"Error: {exc}"
-            effective_prompt = (
-                base_prompt + "\n\n" + build_skill_prompt_content(matched)
+            prompt_assembly = prompt_assembly.with_volatile_sections(
+                build_skill_prompt_content(matched),
             )
 
             # Filter tools by allowed_tools
@@ -311,7 +316,7 @@ class PlannerOrchestrator:
         self._state = replace(self._state, completed=False, error=None, iteration=0)
         self._turn_artifact_ids = []
 
-        tools = effective_registry.to_anthropic_tools()
+        tools = effective_registry.to_anthropic_tools(cache_breakpoint=cache_prompt)
         model = get_settings().PLANNING_MODEL
 
         try:
@@ -321,15 +326,15 @@ class PlannerOrchestrator:
                     self._state,
                     tools,
                     model,
-                    effective_prompt,
+                    prompt_assembly.system_with_cache_control(cache_prompt),
+                    prompt_assembly.rendered,
                 )
 
                 updated = await self._check_mid_turn_skill_activation(
-                    effective_prompt,
-                    effective_registry,
+                    effective_registry
                 )
                 if updated is not None:
-                    effective_prompt, effective_registry, tools = updated
+                    prompt_assembly, effective_registry, tools = updated
         finally:
             await self._cleanup_sub_agents()
 
@@ -340,10 +345,12 @@ class PlannerOrchestrator:
         state: AgentState,
         tools: list[dict[str, Any]],
         model: str,
-        system_prompt: str | None = None,
+        system_prompt: SystemPrompt | None = None,
+        system_prompt_text: str | None = None,
     ) -> AgentState:
         """Run a single iteration of the planner ReAct loop."""
-        effective_prompt = system_prompt or self._system_prompt
+        effective_system = system_prompt or self._system_prompt
+        effective_prompt = system_prompt_text or render_system_prompt(effective_system)
 
         # Compact history before the LLM call if needed
         if self._observer.should_compact(state.messages, effective_prompt):
@@ -373,7 +380,7 @@ class PlannerOrchestrator:
             )
 
         response, llm_error = await self._call_llm(
-            state, tools, model, effective_prompt
+            state, tools, model, effective_system, effective_prompt
         )
         if llm_error is not None:
             return state.mark_error(llm_error)
@@ -402,9 +409,8 @@ class PlannerOrchestrator:
 
     async def _check_mid_turn_skill_activation(
         self,
-        current_prompt: str,
         current_registry: ToolRegistry,
-    ) -> tuple[str, ToolRegistry, list[dict[str, Any]]] | None:
+    ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
         """Detect a successful mid-turn skill activation and enforce constraints."""
         if self._skill_registry is None:
             return None
@@ -474,8 +480,8 @@ class PlannerOrchestrator:
             return None
 
         self._auto_injected_skill = skill.metadata.name
-        effective_prompt = (
-            self._turn_base_prompt + "\n\n" + build_skill_prompt_content(skill)
+        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
+            build_skill_prompt_content(skill),
         )
 
         from agent.tools.local.activate_skill import ActivateSkill
@@ -511,16 +517,19 @@ class PlannerOrchestrator:
                 allowed_names, allowed_tags
             )
 
-        tools = updated_registry.to_anthropic_tools()
+        tools = updated_registry.to_anthropic_tools(
+            cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+        )
         logger.info("planner_mid_turn_skill_activated name={}", skill.metadata.name)
-        return effective_prompt, updated_registry, tools
+        return prompt_assembly, updated_registry, tools
 
     async def _call_llm(
         self,
         state: AgentState,
         tools: list[dict[str, Any]],
         model: str,
-        system_prompt: str | None = None,
+        system_prompt: SystemPrompt | None = None,
+        system_prompt_text: str | None = None,
     ) -> tuple[LLMResponse | None, str | None]:
         """Call the LLM with streaming and return the response or an error."""
         try:

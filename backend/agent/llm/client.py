@@ -1,13 +1,13 @@
-"""Claude API client with tool support and streaming."""
+"""Claude API client with tool support, prompt sections, and streaming."""
 
 import asyncio
 import json
 import time
 from pathlib import Path
 from uuid import uuid4
-from collections.abc import Callable, Coroutine
+from collections.abc import Callable, Coroutine, Sequence
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 
 import anthropic
 from loguru import logger
@@ -51,6 +51,79 @@ def _emit_debug_log(
 
 class LLMContentPolicyError(RuntimeError):
     """Raised when the provider rejects a request due to content inspection."""
+
+
+PromptCacheType = Literal["ephemeral"]
+
+
+@dataclass(frozen=True)
+class PromptCacheControl:
+    """Anthropic-compatible cache-control metadata for prompt blocks."""
+
+    type: PromptCacheType = "ephemeral"
+    ttl: str | None = None
+
+
+@dataclass(frozen=True)
+class PromptTextBlock:
+    """Typed system-prompt text block with optional cache metadata."""
+
+    text: str
+    cache_control: PromptCacheControl | None = None
+
+
+SystemPrompt = str | Sequence[PromptTextBlock]
+
+
+def _serialize_cache_control(
+    cache_control: PromptCacheControl | None,
+) -> dict[str, Any] | None:
+    """Return provider-ready cache metadata, omitting unset fields."""
+    if cache_control is None:
+        return None
+    payload: dict[str, Any] = {"type": cache_control.type}
+    if cache_control.ttl:
+        payload["ttl"] = cache_control.ttl
+    return payload
+
+
+def build_system_prompt_blocks(
+    *sections: str | PromptTextBlock,
+) -> tuple[PromptTextBlock, ...]:
+    """Build system-prompt blocks from raw strings and prebuilt blocks."""
+    blocks: list[PromptTextBlock] = []
+    for section in sections:
+        if isinstance(section, PromptTextBlock):
+            if section.text:
+                blocks.append(section)
+            continue
+        if section:
+            blocks.append(PromptTextBlock(text=section))
+    return tuple(blocks)
+
+
+def render_system_prompt(system: SystemPrompt) -> str:
+    """Flatten a system prompt to text for logs, tests, and estimation."""
+    if isinstance(system, str):
+        return system
+    return "\n\n".join(block.text for block in system if block.text)
+
+
+def _serialize_system_prompt(system: SystemPrompt) -> str | list[dict[str, Any]]:
+    """Normalize system prompt input for the Anthropic API."""
+    if isinstance(system, str):
+        return system
+
+    blocks: list[dict[str, Any]] = []
+    for block in system:
+        if not block.text:
+            continue
+        payload: dict[str, Any] = {"type": "text", "text": block.text}
+        cache_payload = _serialize_cache_control(block.cache_control)
+        if cache_payload is not None:
+            payload["cache_control"] = cache_payload
+        blocks.append(payload)
+    return blocks
 
 
 def _flatten_payload_strings(value: Any) -> list[str]:
@@ -286,12 +359,13 @@ class AnthropicClient:
 
     async def create_message(
         self,
-        system: str,
+        system: SystemPrompt,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
         max_tokens: int | None = None,
         thinking_budget: int = 0,
+        request_cache_control: PromptCacheControl | None = None,
     ) -> LLMResponse:
         """Send a message to the Claude API and return a parsed response.
 
@@ -327,12 +401,15 @@ class AnthropicClient:
         kwargs: dict[str, Any] = {
             "model": effective_model,
             "max_tokens": max_tokens or self._default_max_tokens,
-            "system": system,
+            "system": _serialize_system_prompt(system),
             "messages": messages,
         }
 
         if tools:
             kwargs["tools"] = tools
+        cache_payload = _serialize_cache_control(request_cache_control)
+        if cache_payload is not None:
+            kwargs["cache_control"] = cache_payload
 
         if thinking_budget > 0:
             kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
@@ -375,7 +452,7 @@ class AnthropicClient:
 
     async def create_message_stream(
         self,
-        system: str,
+        system: SystemPrompt,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
         model: str | None = None,
@@ -383,6 +460,7 @@ class AnthropicClient:
         on_text_delta: Callable[[str], Coroutine[Any, Any, None]] | None = None,
         on_thinking_ready: Callable[[str], Coroutine[Any, Any, None]] | None = None,
         thinking_budget: int = 0,
+        request_cache_control: PromptCacheControl | None = None,
     ) -> LLMResponse:
         """Send a message to the Claude API with streaming, invoking on_text_delta for each token.
 
@@ -412,11 +490,14 @@ class AnthropicClient:
         kwargs: dict[str, Any] = {
             "model": effective_model,
             "max_tokens": max_tokens or self._default_max_tokens,
-            "system": system,
+            "system": _serialize_system_prompt(system),
             "messages": messages,
         }
         if tools:
             kwargs["tools"] = tools
+        cache_payload = _serialize_cache_control(request_cache_control)
+        if cache_payload is not None:
+            kwargs["cache_control"] = cache_payload
 
         if thinking_budget > 0:
             kwargs["thinking"] = {"type": "enabled", "budget_tokens": thinking_budget}
@@ -429,6 +510,7 @@ class AnthropicClient:
             len(json.dumps(message, ensure_ascii=True)) for message in messages
         )
         tool_chars = len(json.dumps(tools or [], ensure_ascii=True))
+        system_text = render_system_prompt(system)
         # region agent log
         _emit_debug_log(
             run_id="initial",
@@ -439,9 +521,10 @@ class AnthropicClient:
                 "model": effective_model,
                 "messageCount": len(messages),
                 "messageChars": message_chars,
-                "systemChars": len(system),
+                "systemChars": len(system_text),
                 "toolCount": len(tools or []),
                 "toolSchemaChars": tool_chars,
+                "requestCacheControl": cache_payload,
             },
         )
         # endregion

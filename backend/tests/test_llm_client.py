@@ -1,12 +1,18 @@
 import json
+from types import SimpleNamespace
 
 import anthropic
 import httpx
+import pytest
 
 from agent.llm.client import (
+    AnthropicClient,
+    PromptCacheControl,
+    PromptTextBlock,
     _extract_tool_calls,
     format_llm_failure,
     is_content_policy_error,
+    render_system_prompt,
 )
 
 
@@ -18,6 +24,19 @@ class _ToolUseBlock:
         self.input = input_payload
         if arguments is not None:
             self.arguments = arguments
+
+
+class _CapturingMessagesAPI:
+    def __init__(self) -> None:
+        self.last_kwargs: dict | None = None
+
+    async def create(self, **kwargs):
+        self.last_kwargs = kwargs
+        return SimpleNamespace(
+            content=[SimpleNamespace(type="text", text="ok")],
+            stop_reason="end_turn",
+            usage=SimpleNamespace(input_tokens=1, output_tokens=1),
+        )
 
 
 def test_extract_tool_calls_uses_arguments_when_input_empty() -> None:
@@ -70,3 +89,47 @@ def test_format_llm_failure_normalizes_content_policy_rejection() -> None:
     assert is_content_policy_error(message) is True
     assert message.startswith("LLM content policy rejection:")
     assert "content inspection" in message
+
+
+@pytest.mark.asyncio
+async def test_create_message_serializes_structured_system_blocks():
+    messages_api = _CapturingMessagesAPI()
+    client = AnthropicClient.__new__(AnthropicClient)
+    client._default_model = "test-model"
+    client._default_max_tokens = 1024
+    client._client = SimpleNamespace(messages=messages_api)
+
+    response = await client.create_message(
+        system=(
+            PromptTextBlock(
+                text="base",
+                cache_control=PromptCacheControl(type="ephemeral"),
+            ),
+            PromptTextBlock(text="dynamic"),
+        ),
+        messages=[{"role": "user", "content": "hi"}],
+        request_cache_control=PromptCacheControl(type="ephemeral"),
+    )
+
+    assert response.text == "ok"
+    assert messages_api.last_kwargs is not None
+    assert messages_api.last_kwargs["system"] == [
+        {
+            "type": "text",
+            "text": "base",
+            "cache_control": {"type": "ephemeral"},
+        },
+        {"type": "text", "text": "dynamic"},
+    ]
+    assert messages_api.last_kwargs["cache_control"] == {"type": "ephemeral"}
+
+
+def test_render_system_prompt_flattens_structured_blocks() -> None:
+    text = render_system_prompt(
+        (
+            PromptTextBlock(text="base"),
+            PromptTextBlock(text="dynamic"),
+        )
+    )
+
+    assert text == "base\n\ndynamic"

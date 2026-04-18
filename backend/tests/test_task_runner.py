@@ -3,6 +3,7 @@
 import asyncio
 from pathlib import Path
 from types import SimpleNamespace
+from unittest.mock import MagicMock
 
 import pytest
 
@@ -511,6 +512,53 @@ async def test_task_runner_mid_turn_skill_activation_restricts_tools(monkeypatch
         "web_search",
     }
     assert client.tool_batches[1] == {"activate_skill", "web_search"}
+
+
+@pytest.mark.asyncio
+async def test_task_runner_reuses_shared_tool_bundle_when_fingerprint_matches(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: _task_settings(timeout_seconds=5.0),
+    )
+
+    class _CapturingClient(_SequenceClient):
+        def __init__(self, *responses: LLMResponse) -> None:
+            super().__init__(*responses)
+            self.last_tools_ref = None
+
+        async def create_message_stream(self, **kwargs) -> LLMResponse:
+            self.last_tools_ref = kwargs.get("tools")
+            return await super().create_message_stream(**kwargs)
+
+    registry = ToolRegistry().register(_FakeWebSearchTool())
+    shared_tools = registry.to_anthropic_tools()
+    client = _CapturingClient(
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        )
+    )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-shared-tools",
+        config=TaskAgentConfig(task_description="help me"),
+        claude_client=client,
+        tool_registry=registry,
+        tool_executor=MagicMock(),
+        event_emitter=EventEmitter(),
+        observer=_NoopObserver(),
+        shared_tools=shared_tools,
+        shared_tools_fingerprint=registry.anthropic_tools_fingerprint(),
+    )
+
+    result = await runner.run()
+
+    assert result.success is True
+    assert client.last_tools_ref is shared_tools
 
 
 @pytest.mark.asyncio

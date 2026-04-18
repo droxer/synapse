@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     MAX_AGENT_ITERATIONS: int = 50
     AGENT_TIMEOUT_SECONDS: int = 300
     THINKING_BUDGET: int = 10000  # Budget tokens for extended thinking (0 = disabled)
+    PROMPT_CACHE_ENABLED: bool = False  # Emit Anthropic prompt-cache breakpoints
     LOG_LEVEL: str = "INFO"
     HOST: str = "0.0.0.0"
     PORT: int = 8000

@@ -12,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from agent.llm.client import LLMResponse, TokenUsage, ToolCall
+from agent.llm.client import render_system_prompt
 from agent.runtime.helpers import (
     _tool_batch_allows_parallel_execution,
     process_tool_calls,
@@ -443,6 +444,7 @@ async def test_orchestrator_mid_turn_skill_activation_preserves_runtime_prompt_s
             COMPACT_SUMMARY_MODEL="",
             LITE_MODEL="claude-lite-test",
             SKILL_SELECTOR_MODEL="",
+            PROMPT_CACHE_ENABLED=False,
             THINKING_BUDGET=0,
             VALIDATE_AGENT_MESSAGE_CHAIN=False,
             STUCK_LOOP_TOOL_REPEAT_THRESHOLD=0,
@@ -461,7 +463,7 @@ async def test_orchestrator_mid_turn_skill_activation_preserves_runtime_prompt_s
             )
 
         async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
-            captured_system_prompts.append(kwargs["system"])
+            captured_system_prompts.append(render_system_prompt(kwargs["system"]))
             return await super().create_message_stream(**kwargs)
 
     client = _PromptRecordingClient(
@@ -510,6 +512,76 @@ async def test_orchestrator_mid_turn_skill_activation_preserves_runtime_prompt_s
     assert "<verified_user_facts>" in captured_system_prompts[0]
     assert "<verified_user_facts>" in captured_system_prompts[-1]
     assert '<skill_content name="deep-research">' in captured_system_prompts[-1]
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_emits_cache_controls_on_stable_prompt_and_tools(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "agent.runtime.orchestrator.get_settings",
+        lambda: SimpleNamespace(
+            COMPACT_FULL_INTERACTIONS=5,
+            COMPACT_FULL_DIALOGUE_TURNS=5,
+            COMPACT_TOKEN_BUDGET=150_000,
+            COMPACT_SUMMARY_MODEL="",
+            LITE_MODEL="claude-lite-test",
+            SKILL_SELECTOR_MODEL="",
+            PROMPT_CACHE_ENABLED=True,
+            THINKING_BUDGET=0,
+            VALIDATE_AGENT_MESSAGE_CHAIN=False,
+            STUCK_LOOP_TOOL_REPEAT_THRESHOLD=0,
+        ),
+    )
+
+    captured_requests: list[dict[str, Any]] = []
+
+    class _CacheRecordingClient(_SequenceClient):
+        async def create_message(self, **kwargs: Any) -> LLMResponse:
+            return LLMResponse(
+                text='{"skill": null}',
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+
+        async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
+            captured_requests.append(kwargs)
+            return await super().create_message_stream(**kwargs)
+
+    client = _CacheRecordingClient(
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        )
+    )
+    registry = ToolRegistry().register(_FakeWebSearchTool())
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        system_prompt="base system",
+    )
+
+    result = await orchestrator.run(
+        "help me",
+        runtime_prompt_sections=(
+            "<verified_user_facts>\n- timezone: Asia/Shanghai\n</verified_user_facts>",
+        ),
+    )
+
+    assert result == "done"
+    assert captured_requests
+    first = captured_requests[0]
+    system_blocks = first["system"]
+    assert isinstance(system_blocks, tuple)
+    assert getattr(system_blocks[0].cache_control, "type", None) == "ephemeral"
+    assert system_blocks[-1].text.startswith("<verified_user_facts>")
+    assert system_blocks[-1].cache_control is None
+    assert first["tools"][-1]["cache_control"] == {"type": "ephemeral"}
 
 
 @pytest.mark.asyncio

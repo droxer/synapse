@@ -14,7 +14,13 @@ from agent.context.profiles import (
     CompactionRuntimeKind,
     resolve_compaction_profile,
 )
-from agent.llm.client import AnthropicClient
+from agent.llm.client import (
+    AnthropicClient,
+    PromptTextBlock,
+    build_system_prompt_blocks,
+    render_system_prompt,
+)
+from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from agent.llm.image import MiniMaxImageClient
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.runtime.planner import PlannerOrchestrator
@@ -407,16 +413,52 @@ def build_agent_system_prompt(
     skill_registry: SkillRegistry | None,
 ) -> str:
     """Assemble the same system prompt string used by the main orchestrator."""
+    return render_system_prompt(
+        build_default_agent_system_prompt_sections(memory_entries, skill_registry)
+    )
+
+
+def build_agent_system_prompt_sections(
+    base_prompt: str,
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> tuple[PromptTextBlock, ...]:
+    """Assemble system-prompt sections without flattening them."""
     settings = get_settings()
-    system_prompt = settings.DEFAULT_SYSTEM_PROMPT
+    sections: list[str | PromptTextBlock] = [base_prompt]
     if skill_registry is not None and settings.SKILLS_ENABLED:
         catalog_section = skill_registry.catalog_prompt_section()
         if catalog_section:
-            system_prompt = system_prompt + "\n" + catalog_section
+            sections.append(catalog_section)
     memory_section = _format_memory_prompt_section(memory_entries or [])
     if memory_section:
-        system_prompt = system_prompt + "\n" + memory_section
-    return system_prompt
+        sections.append(memory_section)
+    return build_system_prompt_blocks(*sections)
+
+
+def build_default_agent_system_prompt_sections(
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> tuple[PromptTextBlock, ...]:
+    """Assemble default agent system-prompt sections."""
+    settings = get_settings()
+    return build_agent_system_prompt_sections(
+        settings.DEFAULT_SYSTEM_PROMPT,
+        memory_entries,
+        skill_registry,
+    )
+
+
+def build_planner_system_prompt_sections(
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> tuple[PromptTextBlock, ...]:
+    """Assemble planner system-prompt sections."""
+    return build_agent_system_prompt_sections(
+        PLANNER_SYSTEM_PROMPT,
+        memory_entries,
+        skill_registry,
+    )
 
 
 def format_verified_facts_prompt_section(
@@ -491,7 +533,9 @@ def _build_orchestrator(
         conversation_id=conversation_id,
     )
 
-    system_prompt = build_agent_system_prompt(memory_entries, skill_registry)
+    system_prompt = render_system_prompt(
+        build_default_agent_system_prompt_sections(memory_entries, skill_registry)
+    )
 
     orchestrator = AgentOrchestrator(
         claude_client=claude_client,
@@ -570,19 +614,9 @@ def _build_planner_orchestrator(
         conversation_id=conversation_id,
     )
 
-    from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
-
-    # Append skill catalog to planner system prompt if available
-    planner_prompt = PLANNER_SYSTEM_PROMPT
-    if skill_registry is not None and settings.SKILLS_ENABLED:
-        catalog_section = skill_registry.catalog_prompt_section()
-        if catalog_section:
-            planner_prompt = PLANNER_SYSTEM_PROMPT + "\n" + catalog_section
-
-    # Append personal memory to planner system prompt
-    memory_section = _format_memory_prompt_section(memory_entries or [])
-    if memory_section:
-        planner_prompt = planner_prompt + "\n" + memory_section
+    planner_prompt = render_system_prompt(
+        build_planner_system_prompt_sections(memory_entries, skill_registry)
+    )
 
     orchestrator = PlannerOrchestrator(
         claude_client=claude_client,
