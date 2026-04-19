@@ -129,9 +129,13 @@ function LoginForm() {
   return (
     <div className="relative flex min-h-screen items-center justify-center px-4">
       <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/55" aria-hidden="true" />
+      <div
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,color-mix(in_srgb,var(--color-primary),transparent_92%)_0%,transparent_55%)]"
+        aria-hidden="true"
+      />
       <div className="relative z-10 w-full max-w-sm">
         {/* Card */}
-        <div className="relative overflow-hidden rounded-2xl border border-border-strong bg-card p-8 shadow-[var(--shadow-elevated)] sm:p-10">
+        <div className="relative overflow-hidden rounded-[1.25rem] border border-border-strong glass-surface p-8 shadow-[var(--shadow-elevated)] sm:p-10">
           <div className="flex flex-col items-center gap-6">
             <div className="rounded-xl">
               <Logo size={64} tone="auto" className="rounded-xl" />
@@ -139,7 +143,7 @@ function LoginForm() {
 
             {/* Title block */}
             <div className="text-center">
-              <h1 className="text-3xl font-semibold tracking-tight text-foreground sm:text-[2rem]">
+              <h1 className="text-3xl font-semibold tracking-tight gradient-heading sm:text-[2rem]">
                 Welcome to Synapse
               </h1>
               <p className="mt-2 text-sm text-muted-foreground">
@@ -235,7 +239,8 @@ function LoginForm() {
         </div>
 
         {/* Footer flourish */}
-        <p className="mt-6 text-center text-xs tracking-[0.02em] text-muted-foreground-dim">
+        <div className="mx-auto mt-6 mb-3 h-px w-24 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden="true" />
+        <p className="text-center text-xs tracking-[0.02em] text-muted-foreground-dim">
           <span>Secure</span>
           <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
           <span>Private</span>

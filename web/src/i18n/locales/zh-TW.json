@@ -75,6 +75,13 @@
   "conversation.copySectionAnswer": "回答",
   "conversation.copySectionPlan": "計畫",
   "conversation.copySectionImages": "圖片",
+  "threadTasks.title": "執行緒任務",
+  "threadTasks.subtitle": "目前執行緒中的即時後續任務",
+  "threadTasks.statusScheduled": "已排程",
+  "threadTasks.statusRunning": "執行中",
+  "threadTasks.dueAt": "{time} 到期",
+  "threadTasks.scope": "執行緒內",
+  "threadTasks.fallbackMessage": "對話內提醒",
 
   "progress.taskStarted": "任務已開始",
   "progress.reasoning": "思考中",

@@ -349,7 +349,7 @@ export function Sidebar({
               )} />
               {t("sidebar.library")}
             </Link>
-            <div role="separator" aria-hidden="true" className="my-1 mx-2.5 h-px bg-border" />
+            <div role="separator" aria-hidden="true" className="my-1 mx-2.5 h-px bg-gradient-to-r from-transparent via-border to-transparent" />
             <Link
               href="/skills"
               onClick={createNavClickHandler("/skills")}
@@ -451,8 +451,8 @@ export function Sidebar({
                     onClick={() => onSelectTask?.(task.id)}
                     className={cn(
                       "relative flex w-full cursor-pointer items-center gap-2.5 rounded-md px-3 py-1.5 pr-9 text-left",
-                      "transition-colors duration-200 ease-out",
-                      "hover:bg-sidebar-hover",
+                      "transition-[color,background-color,transform] duration-200 ease-out",
+                      "hover:bg-sidebar-hover hover:translate-x-0.5",
                       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                       isActive && "bg-sidebar-active ring-1 ring-border-strong",
                     )}

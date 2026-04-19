@@ -75,6 +75,13 @@
   "conversation.copySectionAnswer": "回答",
   "conversation.copySectionPlan": "计划",
   "conversation.copySectionImages": "图片",
+  "threadTasks.title": "线程任务",
+  "threadTasks.subtitle": "当前线程中的实时后续任务",
+  "threadTasks.statusScheduled": "已调度",
+  "threadTasks.statusRunning": "运行中",
+  "threadTasks.dueAt": "{time} 到期",
+  "threadTasks.scope": "线程内",
+  "threadTasks.fallbackMessage": "对话内提醒",
 
   "progress.taskStarted": "任务已开始",
   "progress.reasoning": "思考中",

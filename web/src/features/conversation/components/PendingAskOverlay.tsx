@@ -12,7 +12,10 @@ export function PendingAskOverlay() {
   return (
     <div>
       <InputPrompt
+        title={pendingAsk.title}
         question={pendingAsk.question}
+        options={pendingAsk.options}
+        allowFreeform={pendingAsk.allowFreeform}
         onSubmit={handlePromptSubmit}
       />
       {respondError && (

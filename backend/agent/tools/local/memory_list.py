@@ -33,7 +33,10 @@ class MemoryList(LocalTool):
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
             name="memory_list",
-            description="List all stored memory entries, grouped by namespace.",
+            description=(
+                "List stored memory entries in a namespace. Reads persistent "
+                "user-scoped memory when available, otherwise the current runtime store."
+            ),
             input_schema={
                 "type": "object",
                 "properties": {
@@ -57,7 +60,11 @@ class MemoryList(LocalTool):
                 entries = await self._persistent.list_entries(namespace)
                 return ToolResult.ok(
                     json.dumps(entries, ensure_ascii=False),
-                    metadata={"count": len(entries), "namespace": namespace},
+                    metadata={
+                        "count": len(entries),
+                        "namespace": namespace,
+                        "persistent": True,
+                    },
                 )
             except Exception as exc:
                 logger.warning(
@@ -71,5 +78,9 @@ class MemoryList(LocalTool):
         matches = {k: v for k, v in self._store.items() if k.startswith(prefix)}
         return ToolResult.ok(
             json.dumps(matches, ensure_ascii=False),
-            metadata={"count": len(matches), "namespace": namespace},
+            metadata={
+                "count": len(matches),
+                "namespace": namespace,
+                "persistent": False,
+            },
         )

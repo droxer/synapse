@@ -35,7 +35,8 @@ class MemoryRecall(LocalTool):
             name="memory_search",
             description=(
                 "Search agent memory for entries matching a query string. "
-                "Searches both conversation-specific and global memories."
+                "Searches persistent user-scoped memory when available, "
+                "otherwise the current runtime store."
             ),
             input_schema={
                 "type": "object",
@@ -68,7 +69,11 @@ class MemoryRecall(LocalTool):
                 matches = await self._persistent.recall(query, namespace)
                 return ToolResult.ok(
                     json.dumps(matches, ensure_ascii=False),
-                    metadata={"match_count": len(matches), "namespace": namespace},
+                    metadata={
+                        "match_count": len(matches),
+                        "namespace": namespace,
+                        "persistent": True,
+                    },
                 )
             except Exception as exc:
                 logger.warning(
@@ -86,5 +91,9 @@ class MemoryRecall(LocalTool):
         }
         return ToolResult.ok(
             json.dumps(matches, ensure_ascii=False),
-            metadata={"match_count": len(matches), "namespace": namespace},
+            metadata={
+                "match_count": len(matches),
+                "namespace": namespace,
+                "persistent": False,
+            },
         )

@@ -150,6 +150,12 @@ class UserPromptModel(Base):
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
     question: Mapped[str] = mapped_column(Text, nullable=False)
+    prompt_kind: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="freeform"
+    )
+    title: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    options: Mapped[list[dict] | None] = mapped_column(JSON, nullable=True)
+    prompt_metadata: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="pending")
     response: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(

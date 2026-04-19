@@ -162,7 +162,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out",
+            "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out focus-within:border-border-active focus-within:shadow-[var(--shadow-input-focus)]",
             isDragOver && "border-dashed border-border-active bg-secondary",
           )}
         >
@@ -313,6 +313,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     title={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                     className={cn(
                       "h-9 w-9",
+                      hasContent && "shadow-[var(--shadow-primary-glow)]",
                       !hasContent && "bg-muted text-placeholder hover:bg-muted",
                     )}
                   >

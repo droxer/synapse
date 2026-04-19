@@ -5,12 +5,12 @@ import { Slot } from "radix-ui"
 import { cn } from "@/shared/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,text-decoration-color] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,text-decoration-color,transform] duration-150 ease-out outline-none active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-primary/65 disabled:text-primary-foreground/85",
+          "bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 hover:shadow-md disabled:bg-primary/65 disabled:text-primary-foreground/85",
         destructive:
           "bg-destructive text-primary-foreground hover:bg-destructive/90 disabled:bg-destructive/70 disabled:text-primary-foreground/85 focus-visible:ring-destructive/40 dark:bg-destructive/60",
         outline:

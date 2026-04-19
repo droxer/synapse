@@ -31,16 +31,41 @@ from agent.skills.loader import SkillRegistry as SkillRegistry
 from agent.tools.executor import ToolExecutor
 from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.local.ask_user import AskUser
+from agent.tools.local.background_tasks import (
+    BackgroundTaskManager,
+    NotifyUser,
+    TaskCancel,
+    TaskResume,
+    TaskSchedule,
+    TaskWatch,
+)
 from agent.tools.local.image_gen import ImageGen
+from agent.tools.local.mcp_resources import (
+    MCPGetPrompt,
+    MCPListPrompts,
+    MCPListResources,
+    MCPReadResource,
+)
 from agent.tools.local.memory_list import MemoryList
 from agent.tools.local.memory_recall import MemoryRecall
 from agent.tools.local.memory_store import MemoryStore
 from agent.tools.local.message_user import MessageUser
+from agent.tools.local.structured_interaction import (
+    ConfirmAction,
+    RequestApproval,
+    RequestUserInput,
+)
 from agent.tools.local.task_complete import TaskComplete
 from agent.tools.local.web_fetch import WebFetch
 from agent.tools.local.web_search import TavilyWebSearch
 from agent.tools.registry import ToolRegistry
 from agent.tools.sandbox.browser import BrowserUse
+from agent.tools.sandbox.browser_session_tools import (
+    BrowserDownloads,
+    BrowserSessionLoad,
+    BrowserSessionSave,
+    BrowserUpload,
+)
 from agent.tools.sandbox.browser_tools import (
     BrowserClick,
     BrowserConsoleExec,
@@ -60,6 +85,16 @@ from agent.tools.sandbox.computer_use import ComputerAction, ComputerScreenshot
 from agent.tools.sandbox.database import DbCreate, DbQuery, DbSchema
 from agent.tools.sandbox.doc_read import DocRead
 from agent.tools.sandbox.file_ops import FileEdit, FileList, FileRead, FileWrite
+from agent.tools.sandbox.office_tools import (
+    DocumentEdit,
+    DocumentWrite,
+    FileConvert,
+    SlidesCreate,
+    SlidesEdit,
+    SpreadsheetEdit,
+    SpreadsheetRead,
+    SpreadsheetWrite,
+)
 from agent.tools.sandbox.package_install import PackageInstall
 from agent.tools.sandbox.preview import PreviewStart, PreviewStop
 from agent.tools.sandbox.shell_exec import ShellExec
@@ -141,6 +176,7 @@ def _build_base_registry(
     """Build the shared tool registry with all standard tools registered."""
     settings = get_settings()
     memory: dict[str, str] = {}
+    background_tasks = BackgroundTaskManager(event_emitter)
 
     registry = ToolRegistry()
     # Local tools
@@ -149,6 +185,14 @@ def _build_base_registry(
     registry = registry.register(MessageUser(event_emitter=event_emitter))
     registry = registry.register(AskUser(event_emitter=event_emitter))
     registry = registry.register(TaskComplete(on_complete=on_complete))
+    registry = registry.register(RequestUserInput(event_emitter=event_emitter))
+    registry = registry.register(RequestApproval(event_emitter=event_emitter))
+    registry = registry.register(ConfirmAction(event_emitter=event_emitter))
+    registry = registry.register(NotifyUser(event_emitter=event_emitter))
+    registry = registry.register(TaskSchedule(background_tasks))
+    registry = registry.register(TaskWatch(background_tasks))
+    registry = registry.register(TaskResume(background_tasks))
+    registry = registry.register(TaskCancel(background_tasks))
     registry = registry.register(
         MemoryStore(store=memory, persistent_store=persistent_store)
     )
@@ -189,6 +233,14 @@ def _build_base_registry(
     registry = registry.register(FileGlob())
     registry = registry.register(FileSearch())
     registry = registry.register(DocRead())
+    registry = registry.register(SpreadsheetRead())
+    registry = registry.register(SpreadsheetWrite())
+    registry = registry.register(SpreadsheetEdit())
+    registry = registry.register(DocumentWrite())
+    registry = registry.register(DocumentEdit())
+    registry = registry.register(SlidesCreate())
+    registry = registry.register(SlidesEdit())
+    registry = registry.register(FileConvert())
     # Browser tools — high-level autonomous agent
     registry = registry.register(
         BrowserUse(
@@ -208,6 +260,10 @@ def _build_base_registry(
     registry = registry.register(BrowserPressKey())
     registry = registry.register(BrowserConsoleExec())
     registry = registry.register(BrowserConsoleView())
+    registry = registry.register(BrowserSessionSave())
+    registry = registry.register(BrowserSessionLoad())
+    registry = registry.register(BrowserDownloads())
+    registry = registry.register(BrowserUpload())
     # Database tools
     registry = registry.register(DbCreate())
     registry = registry.register(DbQuery())
@@ -222,6 +278,10 @@ def _build_base_registry(
     # Merge MCP tools if available
     if mcp_state.registry is not None:
         registry = registry.merge(mcp_state.registry)
+    registry = registry.register(MCPListResources(mcp_state))
+    registry = registry.register(MCPReadResource(mcp_state))
+    registry = registry.register(MCPListPrompts(mcp_state))
+    registry = registry.register(MCPGetPrompt(mcp_state))
 
     # Register activate_skill tool if skills are enabled
     if skill_registry is not None and settings.SKILLS_ENABLED:
@@ -233,12 +293,14 @@ def _build_base_registry(
 def _build_planner_registry(
     event_emitter: EventEmitter,
     on_complete: Any,
+    mcp_state: MCPState,
     persistent_store: PersistentMemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
 ) -> ToolRegistry:
     """Build the planner-only registry without sandbox execution tools."""
     settings = get_settings()
     memory: dict[str, str] = {}
+    background_tasks = BackgroundTaskManager(event_emitter)
 
     registry = ToolRegistry()
     registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
@@ -246,6 +308,14 @@ def _build_planner_registry(
     registry = registry.register(MessageUser(event_emitter=event_emitter))
     registry = registry.register(AskUser(event_emitter=event_emitter))
     registry = registry.register(TaskComplete(on_complete=on_complete))
+    registry = registry.register(RequestUserInput(event_emitter=event_emitter))
+    registry = registry.register(RequestApproval(event_emitter=event_emitter))
+    registry = registry.register(ConfirmAction(event_emitter=event_emitter))
+    registry = registry.register(NotifyUser(event_emitter=event_emitter))
+    registry = registry.register(TaskSchedule(background_tasks))
+    registry = registry.register(TaskWatch(background_tasks))
+    registry = registry.register(TaskResume(background_tasks))
+    registry = registry.register(TaskCancel(background_tasks))
     registry = registry.register(
         MemoryStore(store=memory, persistent_store=persistent_store)
     )
@@ -255,6 +325,10 @@ def _build_planner_registry(
     registry = registry.register(
         MemoryList(store=memory, persistent_store=persistent_store)
     )
+    registry = registry.register(MCPListResources(mcp_state))
+    registry = registry.register(MCPReadResource(mcp_state))
+    registry = registry.register(MCPListPrompts(mcp_state))
+    registry = registry.register(MCPGetPrompt(mcp_state))
 
     if skill_registry is not None and settings.SKILLS_ENABLED:
         registry = registry.register(ActivateSkill(skill_registry=skill_registry))
@@ -273,10 +347,19 @@ def _build_sub_agent_registry_factory(
     def factory() -> ToolRegistry:
         settings = get_settings()
         memory: dict[str, str] = {}
+        background_tasks = BackgroundTaskManager(event_emitter)
         registry = ToolRegistry()
         registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
         registry = registry.register(WebFetch())
         registry = registry.register(MessageUser(event_emitter=event_emitter))
+        registry = registry.register(NotifyUser(event_emitter=event_emitter))
+        registry = registry.register(RequestUserInput(event_emitter=event_emitter))
+        registry = registry.register(RequestApproval(event_emitter=event_emitter))
+        registry = registry.register(ConfirmAction(event_emitter=event_emitter))
+        registry = registry.register(TaskSchedule(background_tasks))
+        registry = registry.register(TaskWatch(background_tasks))
+        registry = registry.register(TaskResume(background_tasks))
+        registry = registry.register(TaskCancel(background_tasks))
         registry = registry.register(MemoryStore(store=memory))
         registry = registry.register(MemoryRecall(store=memory))
         # Sandbox tools
@@ -295,6 +378,14 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(FileGlob())
         registry = registry.register(FileSearch())
         registry = registry.register(DocRead())
+        registry = registry.register(SpreadsheetRead())
+        registry = registry.register(SpreadsheetWrite())
+        registry = registry.register(SpreadsheetEdit())
+        registry = registry.register(DocumentWrite())
+        registry = registry.register(DocumentEdit())
+        registry = registry.register(SlidesCreate())
+        registry = registry.register(SlidesEdit())
+        registry = registry.register(FileConvert())
         # Browser tools — high-level autonomous agent
         registry = registry.register(
             BrowserUse(
@@ -314,6 +405,10 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(BrowserPressKey())
         registry = registry.register(BrowserConsoleExec())
         registry = registry.register(BrowserConsoleView())
+        registry = registry.register(BrowserSessionSave())
+        registry = registry.register(BrowserSessionLoad())
+        registry = registry.register(BrowserDownloads())
+        registry = registry.register(BrowserUpload())
         # Database tools
         registry = registry.register(DbCreate())
         registry = registry.register(DbQuery())
@@ -328,6 +423,10 @@ def _build_sub_agent_registry_factory(
         # Merge MCP tools if available
         if mcp_state.registry is not None:
             registry = registry.merge(mcp_state.registry)
+        registry = registry.register(MCPListResources(mcp_state))
+        registry = registry.register(MCPReadResource(mcp_state))
+        registry = registry.register(MCPListPrompts(mcp_state))
+        registry = registry.register(MCPGetPrompt(mcp_state))
 
         if skill_registry is not None and settings.SKILLS_ENABLED:
             registry = registry.register(ActivateSkill(skill_registry=skill_registry))
@@ -604,6 +703,7 @@ def _build_planner_orchestrator(
     planner_registry = _build_planner_registry(
         event_emitter,
         callback_holder,
+        resolved_mcp_state,
         persistent_store,
         skill_registry,
     )

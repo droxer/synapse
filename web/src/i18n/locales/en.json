@@ -75,6 +75,13 @@
   "conversation.copySectionAnswer": "Answer",
   "conversation.copySectionPlan": "Plan",
   "conversation.copySectionImages": "Images",
+  "threadTasks.title": "Thread tasks",
+  "threadTasks.subtitle": "Live thread-local follow-ups",
+  "threadTasks.statusScheduled": "Scheduled",
+  "threadTasks.statusRunning": "Running",
+  "threadTasks.dueAt": "Due {time}",
+  "threadTasks.scope": "thread-local",
+  "threadTasks.fallbackMessage": "Conversation-local reminder",
 
   "progress.taskStarted": "Task Started",
   "progress.reasoning": "Thinking",

@@ -27,11 +27,98 @@ class MCPToolSchema:
 
 
 @dataclass(frozen=True)
+class MCPResourceSchema:
+    """Immutable MCP resource descriptor."""
+
+    uri: str
+    name: str
+    description: str
+    mime_type: str | None
+    server_name: str
+
+
+@dataclass(frozen=True)
+class MCPResourceTemplateSchema:
+    """Immutable MCP resource template descriptor."""
+
+    uri_template: str
+    name: str
+    description: str
+    mime_type: str | None
+    server_name: str
+
+
+@dataclass(frozen=True)
+class MCPPromptArgumentSchema:
+    """Immutable MCP prompt argument descriptor."""
+
+    name: str
+    description: str
+    required: bool
+
+
+@dataclass(frozen=True)
+class MCPPromptSchema:
+    """Immutable MCP prompt descriptor."""
+
+    name: str
+    description: str
+    arguments: tuple[MCPPromptArgumentSchema, ...]
+    server_name: str
+
+
+@dataclass(frozen=True)
 class MCPCallResult:
     """Immutable result of calling an MCP tool."""
 
     content: str
     is_error: bool = False
+
+
+@dataclass(frozen=True)
+class MCPResourceReadResult:
+    """Immutable result of reading an MCP resource."""
+
+    content: str
+    mime_type: str | None = None
+    is_error: bool = False
+
+
+@dataclass(frozen=True)
+class MCPPromptResult:
+    """Immutable result of retrieving an MCP prompt."""
+
+    content: str
+    is_error: bool = False
+
+
+def _extract_text_content(parts: list[dict[str, Any]]) -> str:
+    """Flatten mixed MCP content blocks into a readable text form."""
+    text_parts: list[str] = []
+    for part in parts:
+        if not isinstance(part, dict):
+            continue
+        if part.get("type") == "text":
+            text = str(part.get("text", "")).strip()
+            if text:
+                text_parts.append(text)
+            continue
+        if "text" in part:
+            text = str(part.get("text", "")).strip()
+            if text:
+                text_parts.append(text)
+            continue
+        if "uri" in part:
+            uri = str(part.get("uri", "")).strip()
+            mime_type = str(part.get("mimeType", "")).strip()
+            blob = str(part.get("blob", "")).strip()
+            if blob:
+                size_hint = len(blob)
+                text_parts.append(
+                    f"[binary resource: {uri or 'inline'}"
+                    f"{f' ({mime_type})' if mime_type else ''}, {size_hint} chars]"
+                )
+    return "\n\n".join(text_parts)
 
 
 @runtime_checkable
@@ -41,6 +128,20 @@ class MCPClient(Protocol):
     async def connect(self) -> None: ...
 
     async def list_tools(self) -> tuple[MCPToolSchema, ...]: ...
+
+    async def list_resources(self) -> tuple[MCPResourceSchema, ...]: ...
+
+    async def list_resource_templates(
+        self,
+    ) -> tuple[MCPResourceTemplateSchema, ...]: ...
+
+    async def read_resource(self, uri: str) -> MCPResourceReadResult: ...
+
+    async def list_prompts(self) -> tuple[MCPPromptSchema, ...]: ...
+
+    async def get_prompt(
+        self, name: str, arguments: dict[str, Any] | None = None
+    ) -> MCPPromptResult: ...
 
     async def call_tool(
         self, name: str, arguments: dict[str, Any]
@@ -120,6 +221,109 @@ class MCPStdioClient:
             )
             for t in tools
         )
+
+    async def list_resources(self) -> tuple[MCPResourceSchema, ...]:
+        """Request the list of available resources from the server."""
+        result = await self._send_request("resources/list", {})
+        resources = result.get("resources", [])
+        return tuple(
+            MCPResourceSchema(
+                uri=r["uri"],
+                name=r.get("name", r["uri"]),
+                description=r.get("description", ""),
+                mime_type=r.get("mimeType"),
+                server_name=self._server_name,
+            )
+            for r in resources
+        )
+
+    async def list_resource_templates(self) -> tuple[MCPResourceTemplateSchema, ...]:
+        """Request the list of available resource templates from the server."""
+        result = await self._send_request("resources/templates/list", {})
+        templates = result.get("resourceTemplates", [])
+        return tuple(
+            MCPResourceTemplateSchema(
+                uri_template=t["uriTemplate"],
+                name=t.get("name", t["uriTemplate"]),
+                description=t.get("description", ""),
+                mime_type=t.get("mimeType"),
+                server_name=self._server_name,
+            )
+            for t in templates
+        )
+
+    async def read_resource(self, uri: str) -> MCPResourceReadResult:
+        """Read a resource from the MCP server."""
+        try:
+            result = await self._send_request("resources/read", {"uri": uri})
+            contents = result.get("contents", [])
+            mime_type = None
+            if contents and isinstance(contents[0], dict):
+                mime_type = contents[0].get("mimeType")
+            return MCPResourceReadResult(
+                content=_extract_text_content(contents),
+                mime_type=mime_type,
+            )
+        except Exception as exc:
+            return MCPResourceReadResult(
+                content=f"MCP resource read failed: {exc}",
+                is_error=True,
+            )
+
+    async def list_prompts(self) -> tuple[MCPPromptSchema, ...]:
+        """Request the list of available prompts from the server."""
+        result = await self._send_request("prompts/list", {})
+        prompts = result.get("prompts", [])
+        parsed: list[MCPPromptSchema] = []
+        for prompt in prompts:
+            arguments = tuple(
+                MCPPromptArgumentSchema(
+                    name=arg.get("name", ""),
+                    description=arg.get("description", ""),
+                    required=bool(arg.get("required", False)),
+                )
+                for arg in prompt.get("arguments", [])
+                if arg.get("name")
+            )
+            parsed.append(
+                MCPPromptSchema(
+                    name=prompt["name"],
+                    description=prompt.get("description", ""),
+                    arguments=arguments,
+                    server_name=self._server_name,
+                )
+            )
+        return tuple(parsed)
+
+    async def get_prompt(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> MCPPromptResult:
+        """Retrieve a prompt from the MCP server."""
+        try:
+            result = await self._send_request(
+                "prompts/get",
+                {"name": name, "arguments": arguments or {}},
+            )
+            messages = result.get("messages", [])
+            prompt_parts: list[str] = []
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                role = str(message.get("role", "assistant"))
+                content = message.get("content", [])
+                if isinstance(content, list):
+                    rendered = _extract_text_content(content)
+                else:
+                    rendered = str(content)
+                prompt_parts.append(f"[{role}] {rendered}".strip())
+            return MCPPromptResult(content="\n\n".join(prompt_parts))
+        except Exception as exc:
+            return MCPPromptResult(
+                content=f"MCP prompt retrieval failed: {exc}",
+                is_error=True,
+            )
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> MCPCallResult:
         """Call a tool on the MCP server."""

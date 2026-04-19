@@ -124,6 +124,34 @@ class ToolRegistry:
             return [self._json_safe(item) for item in value]
         return value
 
+    def _serialize_tool_description(self, defn: ToolDefinition) -> str:
+        """Return a model-facing description that includes rich metadata."""
+        description = defn.description
+        metadata_lines: list[str] = []
+        if defn.title:
+            metadata_lines.append(f"Title: {defn.title}")
+        if defn.tags:
+            metadata_lines.append(f"Tags: {', '.join(defn.tags)}")
+        if defn.annotations:
+            annotations = json.dumps(
+                self._json_safe(defn.annotations),
+                sort_keys=True,
+                ensure_ascii=True,
+                separators=(",", ":"),
+            )
+            metadata_lines.append(f"Behavior hints: {annotations}")
+        if defn.output_schema is not None:
+            output_schema = json.dumps(
+                self._json_safe(defn.output_schema),
+                sort_keys=True,
+                ensure_ascii=True,
+                separators=(",", ":"),
+            )
+            metadata_lines.append(f"Output schema: {output_schema}")
+        if not metadata_lines:
+            return description
+        return f"{description}\n\nTool metadata:\n" + "\n".join(metadata_lines)
+
     def to_anthropic_tools(
         self,
         *,
@@ -137,7 +165,7 @@ class ToolRegistry:
                 results.append(
                     {
                         "name": defn.name,
-                        "description": defn.description,
+                        "description": self._serialize_tool_description(defn),
                         "input_schema": self._json_safe(defn.input_schema),
                     }
                 )

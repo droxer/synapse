@@ -32,8 +32,9 @@ class MemoryStore(LocalTool):
         return ToolDefinition(
             name="memory_store",
             description=(
-                "Store a key-value pair in the agent's persistent memory. "
-                "Memory persists across conversations."
+                "Store a key-value pair in agent memory. Uses persistent "
+                "user-scoped storage when available; otherwise stores only "
+                "for the current runtime."
             ),
             input_schema={
                 "type": "object",
@@ -83,6 +84,6 @@ class MemoryStore(LocalTool):
         compound_key = f"{namespace}:{key}"
         self._store[compound_key] = value
         return ToolResult.ok(
-            f"Stored value under '{compound_key}'.",
+            f"Stored value under '{compound_key}' for the current runtime only (not persistent).",
             metadata={"namespace": namespace, "key": key, "persistent": False},
         )

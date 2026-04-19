@@ -127,6 +127,10 @@ def _to_user_prompt(model: UserPromptModel) -> UserPromptRecord:
         request_id=model.request_id,
         conversation_id=model.conversation_id,
         question=model.question,
+        prompt_kind=model.prompt_kind,
+        title=model.title,
+        options=tuple(model.options or ()),
+        prompt_metadata=model.prompt_metadata,
         status=model.status,
         response=model.response,
         created_at=model.created_at,
@@ -522,6 +526,10 @@ class UserPromptRepository:
         request_id: str,
         conversation_id: uuid.UUID,
         question: str,
+        prompt_kind: str = "freeform",
+        title: str | None = None,
+        options: list[dict[str, object]] | None = None,
+        prompt_metadata: dict[str, object] | None = None,
     ) -> UserPromptRecord:
         existing = await self.get_prompt(session, request_id=request_id)
         if existing is not None:
@@ -531,6 +539,10 @@ class UserPromptRepository:
             request_id=request_id,
             conversation_id=conversation_id,
             question=question,
+            prompt_kind=prompt_kind,
+            title=title,
+            options=options,
+            prompt_metadata=prompt_metadata,
             status="pending",
         )
         session.add(model)

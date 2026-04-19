@@ -11,7 +11,18 @@ from typing import Any
 import httpx
 from loguru import logger
 
-from agent.mcp.client import MCP_PROTOCOL_VERSION, MCPCallResult, MCPToolSchema
+from agent.mcp.client import (
+    MCP_PROTOCOL_VERSION,
+    MCPCallResult,
+    MCPPromptArgumentSchema,
+    MCPPromptResult,
+    MCPPromptSchema,
+    MCPResourceReadResult,
+    MCPResourceSchema,
+    MCPResourceTemplateSchema,
+    MCPToolSchema,
+    _extract_text_content,
+)
 
 
 def _parse_sse_events(text: str) -> list[tuple[str, str]]:
@@ -155,6 +166,110 @@ class MCPSSEClient:
             )
             for t in tools
         )
+
+    async def list_resources(self) -> tuple[MCPResourceSchema, ...]:
+        """Request the list of available resources from the server."""
+        result = await self._send_request("resources/list", {})
+        resources = result.get("resources", [])
+        return tuple(
+            MCPResourceSchema(
+                uri=r["uri"],
+                name=r.get("name", r["uri"]),
+                description=r.get("description", ""),
+                mime_type=r.get("mimeType"),
+                server_name=self._server_name,
+            )
+            for r in resources
+        )
+
+    async def list_resource_templates(self) -> tuple[MCPResourceTemplateSchema, ...]:
+        """Request the list of available resource templates from the server."""
+        result = await self._send_request("resources/templates/list", {})
+        templates = result.get("resourceTemplates", [])
+        return tuple(
+            MCPResourceTemplateSchema(
+                uri_template=t["uriTemplate"],
+                name=t.get("name", t["uriTemplate"]),
+                description=t.get("description", ""),
+                mime_type=t.get("mimeType"),
+                server_name=self._server_name,
+            )
+            for t in templates
+        )
+
+    async def read_resource(self, uri: str) -> MCPResourceReadResult:
+        """Read a resource from the MCP server."""
+        try:
+            result = await self._send_request("resources/read", {"uri": uri})
+            contents = result.get("contents", [])
+            mime_type = None
+            if contents and isinstance(contents[0], dict):
+                mime_type = contents[0].get("mimeType")
+            return MCPResourceReadResult(
+                content=_extract_text_content(contents),
+                mime_type=mime_type,
+            )
+        except Exception as exc:
+            return MCPResourceReadResult(
+                content=f"MCP resource read failed: {exc}",
+                is_error=True,
+            )
+
+    async def list_prompts(self) -> tuple[MCPPromptSchema, ...]:
+        """Request the list of available prompts from the server."""
+        result = await self._send_request("prompts/list", {})
+        prompts = result.get("prompts", [])
+        parsed: list[MCPPromptSchema] = []
+        for prompt in prompts:
+            arguments = tuple(
+                MCPPromptArgumentSchema(
+                    name=arg.get("name", ""),
+                    description=arg.get("description", ""),
+                    required=bool(arg.get("required", False)),
+                )
+                for arg in prompt.get("arguments", [])
+                if arg.get("name")
+            )
+            parsed.append(
+                MCPPromptSchema(
+                    name=prompt["name"],
+                    description=prompt.get("description", ""),
+                    arguments=arguments,
+                    server_name=self._server_name,
+                )
+            )
+        return tuple(parsed)
+
+    async def get_prompt(
+        self,
+        name: str,
+        arguments: dict[str, Any] | None = None,
+    ) -> MCPPromptResult:
+        """Retrieve a prompt from the MCP server."""
+        try:
+            result = await self._send_request(
+                "prompts/get",
+                {"name": name, "arguments": arguments or {}},
+            )
+            messages = result.get("messages", [])
+            rendered_parts: list[str] = []
+            for message in messages:
+                if not isinstance(message, dict):
+                    continue
+                role = str(message.get("role", "assistant"))
+                content = message.get("content", [])
+                rendered = (
+                    _extract_text_content(content)
+                    if isinstance(content, list)
+                    else str(content)
+                )
+                rendered_parts.append(f"[{role}] {rendered}".strip())
+            return MCPPromptResult(content="\n\n".join(rendered_parts))
+        except Exception as exc:
+            return MCPPromptResult(
+                content=f"MCP prompt retrieval failed: {exc}",
+                is_error=True,
+            )
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> MCPCallResult:
         """Call a tool on the MCP server."""

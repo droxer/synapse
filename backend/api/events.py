@@ -239,6 +239,22 @@ class EventEmitter:
                     conversation_id=self._conversation_id,
                     request_id=request_id,
                     question=question,
+                    prompt_kind=str(data.get("prompt_kind", "freeform")),
+                    title=(
+                        str(data["title"])
+                        if data.get("title") not in (None, "")
+                        else None
+                    ),
+                    options=(
+                        list(data["options"])
+                        if isinstance(data.get("options"), list)
+                        else None
+                    ),
+                    prompt_metadata=(
+                        dict(data["prompt_metadata"])
+                        if isinstance(data.get("prompt_metadata"), dict)
+                        else None
+                    ),
                 )
                 future = self._response_coordinator.register_local_waiter(
                     conversation_id=self._conversation_id,

@@ -27,9 +27,9 @@
   --color-popover-foreground: #000000;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
-  --radius-lg: 0.5rem;
-  --radius-xl: 0.75rem;
-  --radius-2xl: 1rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 1rem;
+  --radius-2xl: 1.25rem;
 
   --color-border-strong: #C7CEDA;
   --color-border-active: #7F8A9B;
@@ -106,17 +106,28 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 32%);
-  --shadow-card-hover: 0 1px 2px rgba(15, 23, 42, 0.03), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 24%);
-  --shadow-elevated: 0 14px 34px rgba(15, 23, 42, 0.1), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 40%), 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%), 0 2px 8px rgba(15, 23, 42, 0.06), 0 12px 24px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 8px 20px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.12);
+
+  /* Glass / frost surface for elevated elements */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-backdrop: blur(16px) saturate(1.8);
+
+  /* Focus & glow effects */
+  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 80%);
+  --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 60%);
+
+  /* Gradient accent for display headings */
+  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
 
   /* Agent computer panel width */
   --agent-panel-width: 44%;
 
   /* Animations — keep useful ones, remove glow/orbital */
-  --animate-fade-in: fadeIn 0.3s ease-out;
-  --animate-slide-up: slideUp 0.4s ease-out;
-  --animate-slide-in-right: slideInRight 0.3s ease-out;
+  --animate-fade-in: fadeIn 0.35s ease-out;
+  --animate-slide-up: slideUp 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  --animate-slide-in-right: slideInRight 0.35s cubic-bezier(0.22, 1, 0.36, 1);
 
   @keyframes fadeIn {
     0% { opacity: 0; }
@@ -232,9 +243,15 @@
   --logo-bg: var(--logo-black);
   --logo-glyph: var(--logo-white);
   --color-overlay: rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 32%);
-  --shadow-card-hover: 0 1px 2px rgba(15, 23, 42, 0.03), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 24%);
-  --shadow-elevated: 0 14px 34px rgba(15, 23, 42, 0.1), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%);
+  --topbar-bg: rgba(255, 255, 255, 0.8);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 40%), 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%), 0 2px 8px rgba(15, 23, 42, 0.06), 0 12px 24px rgba(15, 23, 42, 0.06);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 8px 20px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.12);
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-backdrop: blur(16px) saturate(1.8);
+  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 80%);
+  --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 60%);
+  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
 }
 
 /* ─── Dark mode ───
@@ -295,9 +312,15 @@
   --logo-bg: var(--logo-white);
   --logo-glyph: var(--logo-black);
   --color-overlay: rgba(0, 0, 0, 0.5);
-  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 22%);
-  --shadow-card-hover: 0 6px 14px rgba(0, 0, 0, 0.28), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 14%);
-  --shadow-elevated: 0 20px 48px rgba(0, 0, 0, 0.48), 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 8%);
+  --topbar-bg: rgba(16, 17, 20, 0.8);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 22%), 0 1px 3px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 14%), 0 2px 8px rgba(0, 0, 0, 0.18), 0 12px 24px rgba(0, 0, 0, 0.16);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 8%), 0 8px 20px rgba(0, 0, 0, 0.24), 0 24px 48px rgba(0, 0, 0, 0.32);
+  --glass-bg: rgba(24, 26, 30, 0.78);
+  --glass-backdrop: blur(16px) saturate(1.8);
+  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 75%);
+  --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 55%);
+  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -334,8 +357,27 @@
 @utility surface-overlay {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background-color: var(--color-popover);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
   box-shadow: var(--shadow-elevated);
+}
+
+@utility glass-surface {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-backdrop);
+  -webkit-backdrop-filter: var(--glass-backdrop);
+}
+
+@utility gradient-heading {
+  background: var(--gradient-text-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+@utility focus-glow {
+  box-shadow: var(--shadow-input-focus);
 }
 
 @utility chip-muted {

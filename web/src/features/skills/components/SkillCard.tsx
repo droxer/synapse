@@ -28,10 +28,10 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
   return (
     <article
       className={cn(
-        "group relative flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color] duration-200 ease-out",
+        "group relative flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out",
         isDisabled
           ? "border-border hover:border-border"
-          : "border-border hover:border-border-strong hover:bg-muted",
+          : "border-border hover:border-border-strong hover:bg-muted hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5",
       )}
     >
       {/* Top row: icon + badge + optional delete */}

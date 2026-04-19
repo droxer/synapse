@@ -72,6 +72,10 @@ class UserPromptRecord:
     request_id: str
     conversation_id: uuid.UUID
     question: str
+    prompt_kind: str
+    title: str | None
+    options: tuple[dict[str, Any], ...]
+    prompt_metadata: dict[str, Any] | None
     status: str
     response: str | None
     created_at: datetime

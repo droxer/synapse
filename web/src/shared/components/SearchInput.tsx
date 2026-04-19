@@ -16,8 +16,8 @@ export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear 
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg border border-input bg-card px-2.5 py-1.5",
-        "focus-within:border-border-active focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background",
+        "flex items-center gap-2 rounded-lg border border-input bg-card px-2.5 py-1.5 transition-[border-color,box-shadow]",
+        "focus-within:border-border-active focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background focus-within:shadow-[var(--shadow-input-focus)]",
         className,
       )}
     >

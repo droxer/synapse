@@ -41,7 +41,7 @@ export function TopBar({
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-[var(--topbar-bg)] backdrop-blur-md px-4">
       {/* Left: Breadcrumb */}
       <div className="min-w-0 flex items-center gap-1.5">
         <Button

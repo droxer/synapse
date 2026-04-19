@@ -28,12 +28,15 @@ class TestMemoryStoreBackcompat:
         result = await tool.execute(key="k", value="v")
         assert result.success
         assert store["default:k"] == "v"
+        assert result.metadata["persistent"] is False
+        assert "current runtime only" in result.output
 
     async def test_with_none_persistent(self) -> None:
         store: dict[str, str] = {}
         tool = MemoryStore(store=store, persistent_store=None)
         result = await tool.execute(key="k", value="v")
         assert result.success
+        assert result.metadata["persistent"] is False
 
     async def test_empty_key_fails(self) -> None:
         tool = MemoryStore(store={})
@@ -51,6 +54,11 @@ class TestMemoryStoreBackcompat:
         await tool.execute(key="k", value="v", namespace="ns")
         assert "ns:k" in store
 
+    def test_definition_describes_runtime_fallback(self) -> None:
+        description = MemoryStore(store={}).definition().description
+        assert "persistent user-scoped storage when available" in description
+        assert "current runtime" in description
+
 
 class TestMemoryRecallBackcompat:
     async def test_dict_only(self) -> None:
@@ -58,6 +66,7 @@ class TestMemoryRecallBackcompat:
         tool = MemoryRecall(store=store)
         result = await tool.execute(query="hello")
         assert result.success
+        assert result.metadata["persistent"] is False
         data = json.loads(result.output)
         assert "default:hello" in data
 
@@ -80,12 +89,14 @@ class TestMemoryList:
         result = await tool.execute()
         assert result.success
         assert result.metadata["count"] == 0
+        assert result.metadata["persistent"] is False
 
     async def test_list_entries(self) -> None:
         store = {"default:a": "1", "default:b": "2", "other:c": "3"}
         tool = MemoryList(store=store)
         result = await tool.execute(namespace="default")
         assert result.success
+        assert result.metadata["persistent"] is False
         data = json.loads(result.output)
         assert len(data) == 2
 
@@ -136,9 +147,12 @@ class TestPersistentMemoryStoreAnonymousGuard:
 
         assert store_result.success
         assert store_result.metadata["persistent"] is False
+        assert "current runtime only" in store_result.output
         assert local_store == {"default:color": "blue"}
         assert json.loads(recall_result.output) == {"default:color": "blue"}
+        assert recall_result.metadata["persistent"] is False
         assert json.loads(list_result.output) == {"default:color": "blue"}
+        assert list_result.metadata["persistent"] is False
 
 
 @pytest.mark.asyncio

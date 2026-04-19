@@ -29,6 +29,10 @@ class UserResponseCoordinator:
         conversation_id: str,
         request_id: str,
         question: str,
+        prompt_kind: str = "freeform",
+        title: str | None = None,
+        options: list[dict[str, object]] | None = None,
+        prompt_metadata: dict[str, object] | None = None,
     ) -> None:
         async with self._session_factory() as session:
             await self._prompt_repo.create_prompt(
@@ -36,6 +40,10 @@ class UserResponseCoordinator:
                 request_id=request_id,
                 conversation_id=uuid.UUID(conversation_id),
                 question=question,
+                prompt_kind=prompt_kind,
+                title=title,
+                options=options,
+                prompt_metadata=prompt_metadata,
             )
 
     def register_local_waiter(

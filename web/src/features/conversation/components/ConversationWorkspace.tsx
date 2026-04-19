@@ -13,6 +13,7 @@ import { ChatInput } from "@/features/conversation";
 import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
+import { ThreadTasksPanel } from "./ThreadTasksPanel";
 import { areMessageRowsEqual, type MessageRowMemoProps } from "./message-row-memo";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import {
@@ -20,6 +21,7 @@ import {
   getLatestTurnMode,
   getPlanMessageIndex,
 } from "./conversation-mode";
+import { resolveThreadTasks } from "../lib/background-tasks";
 import {
   buildAssistantCopyText,
 } from "../lib/assistant-copy-text";
@@ -161,12 +163,12 @@ export const MessageRow = memo(function MessageRow({
         <motion.div
           initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
           className="flex justify-end"
         >
           <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
             {/* User bubble */}
-            <div className="rounded-xl border border-border bg-secondary px-4 py-3 shadow-card">
+            <div className="rounded-xl border border-border bg-secondary/80 px-4 py-3 shadow-card">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                 {msg.content}
               </p>
@@ -199,7 +201,7 @@ export const MessageRow = memo(function MessageRow({
         <motion.div
           initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
             "conversation-assistant-message group relative max-w-full min-w-0",
             messageWidthClass,
@@ -274,7 +276,7 @@ export const MessageRow = memo(function MessageRow({
 
             {/* Message action bar */}
             {isLastAssistant && !isStreamingThis && (taskState === "idle" || taskState === "complete") && (
-              <div className="mt-2 flex origin-left items-center gap-0.5 scale-95 opacity-0 transition-[opacity,transform] duration-150 ease-out group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100">
+              <div className="mt-2 flex origin-left items-center gap-0.5 scale-[0.97] opacity-0 transition-[opacity,transform] duration-200 ease-out group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -387,6 +389,7 @@ export function ConversationWorkspace({
 
   const latestTurnMode = useMemo(() => getLatestTurnMode(events), [events]);
   const isCurrentTurnAutoDetected = useMemo(() => getIsCurrentTurnAutoDetected(events), [events]);
+  const threadTasks = useMemo(() => resolveThreadTasks(toolCalls, events), [toolCalls, events]);
 
   const hasArtifacts = useMemo(
     () => toolCalls.some((tc) => tc.output !== undefined && !NON_ARTIFACT_TOOLS.has(tc.name)),
@@ -465,7 +468,6 @@ export function ConversationWorkspace({
             isPlannerAutoDetected={isCurrentTurnAutoDetected}
           />
         )}
-
         <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
         {/* Left pane: Conversation */}
         <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[56%]" : "w-full")}>
@@ -581,21 +583,30 @@ export function ConversationWorkspace({
           {panelOpen && (
             <motion.div
               key="agent-computer-panel"
-              className="relative z-10 flex w-full flex-col border-l border-border bg-card md:w-[var(--agent-panel-width)]"
+              className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border bg-card/95 backdrop-blur-sm md:w-[var(--agent-panel-width)]"
               initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: "easeOut" }}
+              transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
             >
-              <AgentComputerPanel
-                conversationId={conversationId}
-                toolCalls={toolCalls}
-                agentStatuses={agentStatuses}
-                artifacts={artifacts}
-                taskState={taskState}
-                highlightedStepId={highlightedStepId}
-                onClose={() => setPanelOpen(false)}
-              />
+              {isConnected && threadTasks.length > 0 && (
+                <ThreadTasksPanel
+                  tasks={threadTasks}
+                  locale={locale}
+                  t={t}
+                />
+              )}
+              <div className="min-h-0 flex-1">
+                <AgentComputerPanel
+                  conversationId={conversationId}
+                  toolCalls={toolCalls}
+                  agentStatuses={agentStatuses}
+                  artifacts={artifacts}
+                  taskState={taskState}
+                  highlightedStepId={highlightedStepId}
+                  onClose={() => setPanelOpen(false)}
+                />
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

@@ -7,20 +7,37 @@ import { Input } from "@/shared/components/ui/input";
 import { FOCUSABLE_SELECTOR } from "@/shared/lib/a11y";
 import { useTranslation } from "@/i18n";
 
+interface PromptOption {
+  readonly id?: string;
+  readonly label: string;
+  readonly value?: string;
+  readonly description?: string;
+}
+
 interface InputPromptProps {
+  title?: string;
   question: string;
+  options?: readonly PromptOption[];
+  allowFreeform?: boolean;
   onSubmit: (response: string) => void;
 }
 
-export function InputPrompt({ question, onSubmit }: InputPromptProps) {
+export function InputPrompt({
+  title,
+  question,
+  options = [],
+  allowFreeform = true,
+  onSubmit,
+}: InputPromptProps) {
   const { t } = useTranslation();
   const [value, setValue] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!allowFreeform) return;
     inputRef.current?.focus();
-  }, []);
+  }, [allowFreeform]);
 
   // Focus trap
   useEffect(() => {
@@ -78,7 +95,7 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
             </div>
             <div>
               <h3 id="input-prompt-title" className="text-base font-semibold text-foreground">
-                {t("inputPrompt.title")}
+                {title ?? t("inputPrompt.title")}
               </h3>
               <p className="text-xs text-muted-foreground">{t("inputPrompt.subtitle")}</p>
             </div>
@@ -91,26 +108,48 @@ export function InputPrompt({ question, onSubmit }: InputPromptProps) {
             </p>
           </div>
 
-          {/* Input */}
-          <form onSubmit={handleSubmit} className="flex gap-3">
-            <Input
-              ref={inputRef}
-              type="text"
-              value={value}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
-              placeholder={t("inputPrompt.placeholder")}
-              aria-label={t("inputPrompt.ariaLabel")}
-              className="h-10 flex-1 px-4"
-            />
-            <Button
-              type="submit"
-              disabled={!value.trim()}
-              className="h-10 gap-2 rounded-lg"
-            >
-              <Send className="h-4 w-4" />
-              {t("inputPrompt.send")}
-            </Button>
-          </form>
+          {options.length > 0 && (
+            <div className="mb-4 flex flex-col gap-2">
+              {options.map((option, idx) => (
+                <Button
+                  key={option.id ?? option.value ?? option.label ?? idx}
+                  type="button"
+                  variant="outline"
+                  className="h-auto items-start justify-start whitespace-normal px-4 py-3 text-left"
+                  onClick={() => onSubmit(option.value ?? option.label)}
+                >
+                  <span className="flex flex-col gap-1">
+                    <span className="text-sm font-medium text-foreground">{option.label}</span>
+                    {option.description && (
+                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                    )}
+                  </span>
+                </Button>
+              ))}
+            </div>
+          )}
+
+          {allowFreeform && (
+            <form onSubmit={handleSubmit} className="flex gap-3">
+              <Input
+                ref={inputRef}
+                type="text"
+                value={value}
+                onChange={(e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
+                placeholder={t("inputPrompt.placeholder")}
+                aria-label={t("inputPrompt.ariaLabel")}
+                className="h-10 flex-1 px-4"
+              />
+              <Button
+                type="submit"
+                disabled={!value.trim()}
+                className="h-10 gap-2 rounded-lg"
+              >
+                <Send className="h-4 w-4" />
+                {t("inputPrompt.send")}
+              </Button>
+            </form>
+          )}
         </div>
       </div>
     </div>

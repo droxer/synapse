@@ -70,6 +70,7 @@ _SCRIPT_STYLE_RE = re.compile(
 )
 _HTML_TAG_RE = re.compile(r"<[^>]+>")
 _WHITESPACE_RE = re.compile(r"\n{3,}")
+_MAX_REDIRECTS = 10
 
 
 def _strip_html_regex(html: str) -> str:
@@ -99,6 +100,37 @@ def _extract_content(html: str, url: str) -> str:
     except Exception as exc:
         logger.debug("trafilatura_extraction_failed error={}", exc)
     return _strip_html_regex(html)
+
+
+async def _fetch_with_safe_redirects(url: str) -> httpx.Response:
+    """Fetch a URL while validating every redirect target."""
+    current_url = url
+
+    async with httpx.AsyncClient(follow_redirects=False, timeout=30.0) as client:
+        for redirect_count in range(_MAX_REDIRECTS + 1):
+            ssrf_error = _validate_url(current_url)
+            if ssrf_error is not None:
+                logger.warning(
+                    "web_fetch_ssrf_blocked url={} reason={}",
+                    current_url,
+                    ssrf_error,
+                )
+                raise ValueError(f"URL blocked: {ssrf_error}")
+
+            response = await client.get(current_url)
+            if not response.has_redirect_location:
+                response.raise_for_status()
+                return response
+
+            if redirect_count >= _MAX_REDIRECTS:
+                raise ValueError(f"Too many redirects while fetching {url}")
+
+            location = response.headers.get("location", "").strip()
+            if not location:
+                raise ValueError("Redirect response missing Location header")
+            current_url = urllib.parse.urljoin(current_url, location)
+
+    raise RuntimeError(f"Failed to fetch URL: {url}")
 
 
 class WebFetch(LocalTool):
@@ -137,26 +169,28 @@ class WebFetch(LocalTool):
         if not url.strip():
             return ToolResult.fail("URL must not be empty")
 
-        ssrf_error = _validate_url(url)
-        if ssrf_error is not None:
-            logger.warning("web_fetch_ssrf_blocked url={} reason={}", url, ssrf_error)
-            return ToolResult.fail(f"URL blocked: {ssrf_error}")
-
         try:
-            async with httpx.AsyncClient(follow_redirects=True, timeout=30.0) as client:
-                response = await client.get(url)
-                response.raise_for_status()
+            response = await _fetch_with_safe_redirects(url)
+        except ValueError as exc:
+            return ToolResult.fail(str(exc))
         except httpx.HTTPStatusError as exc:
             return ToolResult.fail(f"HTTP {exc.response.status_code}: {exc}")
         except Exception as exc:
             logger.warning("web_fetch_failed url={} error={}", url, exc)
             return ToolResult.fail(f"Fetch failed: {exc}")
 
-        content = _extract_content(response.text, url)
+        final_url = str(response.url)
+        content = _extract_content(response.text, final_url)
         truncated = len(content) > max_length
         content = content[:max_length]
 
         return ToolResult.ok(
             content,
-            metadata={"url": url, "truncated": truncated, "length": len(content)},
+            metadata={
+                "url": final_url,
+                "requested_url": url,
+                "truncated": truncated,
+                "length": len(content),
+                "redirected": final_url != url,
+            },
         )

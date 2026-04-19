@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any
 
 from agent.tools.base import (
@@ -167,33 +168,55 @@ class FileSearch(SandboxTool):
         if not pattern.strip():
             return ToolResult.fail("Pattern must not be empty")
 
-        # Build grep command
-        cmd_parts = ["grep", "-rn", "--color=never"]
-        if context_lines > 0:
-            cmd_parts.append(f"-C {context_lines}")
-        if include:
-            cmd_parts.append(f'--include="{include}"')
-        # Escape pattern for shell
-        escaped_pattern = pattern.replace("'", "'\\''")
-        cmd_parts.append(f"'{escaped_pattern}'")
-        cmd_parts.append(f'"{path}"')
-        cmd = " ".join(cmd_parts)
-        cmd = f"{cmd} | head -n {max_results * (1 + 2 * context_lines) + max_results}"
-
-        result = await session.exec(cmd, timeout=30)
+        payload = {
+            "pattern": pattern,
+            "path": path,
+            "include": include,
+            "max_results": max_results,
+            "context_lines": context_lines,
+        }
+        script = (
+            "import json, subprocess\n"
+            f"payload = json.loads({json.dumps(payload, ensure_ascii=True)!r})\n"
+            "cmd = ['grep', '-rn', '--color=never', '-m', str(payload['max_results'])]\n"
+            "context_lines = int(payload.get('context_lines', 0))\n"
+            "if context_lines > 0:\n"
+            "    cmd.extend(['-C', str(context_lines)])\n"
+            "include = str(payload.get('include', '')).strip()\n"
+            "if include:\n"
+            "    cmd.extend(['--include', include])\n"
+            "cmd.extend([payload['pattern'], payload['path']])\n"
+            "result = subprocess.run(cmd, capture_output=True, text=True)\n"
+            "print(json.dumps({'exit_code': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr}))\n"
+        )
+        script_path = "/tmp/file_search.py"
+        await session.write_file(script_path, script)
+        result = await session.exec(f"python3 {shlex.quote(script_path)}", timeout=30)
 
         # grep returns exit code 1 when no matches found
-        if result.exit_code == 1 and not result.stdout:
+        if result.exit_code != 0:
+            error = result.stderr or result.stdout or "Unknown error"
+            return ToolResult.fail(f"Search failed: {error}")
+
+        try:
+            payload_result = json.loads(result.stdout)
+        except json.JSONDecodeError:
+            return ToolResult.fail(f"Failed to parse search results: {result.stdout}")
+
+        exit_code = int(payload_result.get("exit_code", 1))
+        stdout = str(payload_result.get("stdout", ""))
+        stderr = str(payload_result.get("stderr", ""))
+
+        if exit_code == 1 and not stdout:
             return ToolResult.ok(
                 f"No matches found for '{pattern}' in {path}",
                 metadata={"count": 0, "pattern": pattern},
             )
 
-        if result.exit_code not in (0, 1):
-            error = result.stderr or "Unknown error"
-            return ToolResult.fail(f"Search failed: {error}")
+        if exit_code not in (0, 1):
+            return ToolResult.fail(f"Search failed: {stderr or 'Unknown error'}")
 
-        output = result.stdout.strip()
+        output = stdout.strip()
         if not output:
             return ToolResult.ok(
                 f"No matches found for '{pattern}' in {path}",

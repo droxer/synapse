@@ -48,6 +48,9 @@ class ToolDefinition:
     description: str
     input_schema: Mapping[str, Any]
     execution_context: ExecutionContext
+    title: str | None = None
+    output_schema: Mapping[str, Any] | None = None
+    annotations: Mapping[str, Any] = field(default_factory=dict)
     tags: tuple[str, ...] = field(default=())
 
 

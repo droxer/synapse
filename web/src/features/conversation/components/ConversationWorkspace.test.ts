@@ -9,6 +9,7 @@ import { ConversationWorkspace, MessageRow } from "./ConversationWorkspace";
 import type { AgentEvent, ChatMessage, PlanStep } from "@/shared/types";
 
 let lastAgentProgressCardProps: Record<string, unknown> | null = null;
+let lastThreadTasksPanelProps: Record<string, unknown> | null = null;
 
 jest.mock("framer-motion", () => ({
   __esModule: true,
@@ -37,6 +38,14 @@ jest.mock("@/features/agent-computer", () => ({
     return null;
   },
   AgentComputerPanel: () => null,
+}));
+
+jest.mock("./ThreadTasksPanel", () => ({
+  __esModule: true,
+  ThreadTasksPanel: (props: Record<string, unknown>) => {
+    lastThreadTasksPanelProps = props;
+    return createElement("div", { "data-testid": "thread-tasks-panel" });
+  },
 }));
 
 jest.mock("@/features/conversation", () => ({
@@ -266,6 +275,7 @@ describe("areMessageRowsEqual", () => {
 describe("ConversationWorkspace activity wiring", () => {
   it("passes optimistic selected skills through to both activity surfaces during a live turn", () => {
     lastAgentProgressCardProps = null;
+    lastThreadTasksPanelProps = null;
 
     renderToStaticMarkup(createElement(ConversationWorkspace, {
       conversationId: "c1",
@@ -296,5 +306,56 @@ describe("ConversationWorkspace activity wiring", () => {
     expect(lastAgentProgressCardProps).not.toBeNull();
     const progressToolCalls = ((lastAgentProgressCardProps as { toolCalls?: unknown } | null)?.toolCalls ?? []) as Array<{ input: { name?: string } }>;
     expect(progressToolCalls[0]?.input.name).toBe("frontend-design");
+  });
+
+  it("passes active thread tasks into the right-rail panel only when the panel is open", () => {
+    lastThreadTasksPanelProps = null;
+
+    renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [{ type: "turn_start", data: { message: "Later" }, timestamp: 100, iteration: null }],
+      messages: [{ role: "user", content: "Later", timestamp: 100 }],
+      toolCalls: [
+        {
+          id: "artifact-1",
+          toolUseId: "artifact-1",
+          name: "file_write",
+          input: { path: "/workspace/report.md" },
+          output: "Wrote report",
+          timestamp: 99,
+        },
+        {
+          id: "tool-1",
+          toolUseId: "tool-1",
+          name: "task_watch",
+          input: { task_id: "bg_1" },
+          output: JSON.stringify({
+            task_id: "bg_1",
+            title: "Follow up",
+            message: "Check the report",
+            status: "scheduled",
+            scheduled_for: 1735718400,
+          }),
+          timestamp: 100,
+        },
+      ],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "executing",
+      currentThinkingEntries: [],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: false,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    const tasks = (lastThreadTasksPanelProps as { tasks?: Array<{ title?: string }> } | null)?.tasks ?? [];
+    expect(tasks).toHaveLength(1);
+    expect(tasks[0]?.title).toBe("Follow up");
   });
 });
