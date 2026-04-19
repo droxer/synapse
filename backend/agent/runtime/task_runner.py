@@ -169,6 +169,16 @@ TASK_AGENT_PROMPT_TEMPLATE = TaskAgentPromptTemplate(
 )
 
 
+def ensure_task_agent_name_suffix(name: str) -> str:
+    """Ensure user-facing task-agent names end with the ``agent`` suffix."""
+    trimmed = name.strip()
+    if not trimmed:
+        return ""
+    if trimmed.lower().endswith(" agent"):
+        return trimmed
+    return f"{trimmed} agent"
+
+
 def _build_system_prompt(
     config: TaskAgentConfig,
     *,

@@ -18,6 +18,7 @@ from agent.runtime.task_runner import (
     TaskAgentPromptTemplate,
     TaskAgentRunner,
     TASK_AGENT_PROMPT_TEMPLATE,
+    ensure_task_agent_name_suffix,
 )
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -239,6 +240,10 @@ class SubAgentManager:
         """
         if self.total_spawned >= self._max_total:
             raise RuntimeError(f"Maximum total agents reached ({self._max_total})")
+
+        normalized_name = ensure_task_agent_name_suffix(config.name)
+        if normalized_name != config.name:
+            config = replace(config, name=normalized_name)
 
         unknown_dependencies = sorted(
             dep_id for dep_id in config.depends_on if dep_id not in self._configs

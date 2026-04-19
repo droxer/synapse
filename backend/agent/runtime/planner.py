@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import re
 from dataclasses import replace
 from typing import Any, Protocol
 
@@ -74,6 +75,91 @@ Guidelines:
 - Keep sub-tasks focused and specific
 - You do NOT have sandbox access — delegate execution to task agents
 """
+
+_TRIVIAL_PLANNER_MESSAGES = {
+    "",
+    "hi",
+    "hello",
+    "hey",
+    "thanks",
+    "thank you",
+    "ok",
+    "okay",
+    "continue",
+}
+_ACTIONABLE_PLANNER_KEYWORDS = (
+    "analyze",
+    "audit",
+    "build",
+    "compare",
+    "create",
+    "debug",
+    "design",
+    "draft",
+    "edit",
+    "evaluate",
+    "fix",
+    "generate",
+    "implement",
+    "investigate",
+    "plan",
+    "prepare",
+    "refactor",
+    "research",
+    "review",
+    "run",
+    "search",
+    "summarize",
+    "test",
+    "update",
+    "write",
+)
+_QUESTION_ONLY_PREFIXES = (
+    "what ",
+    "when ",
+    "where ",
+    "who ",
+    "why ",
+    "how ",
+    "can you explain",
+    "could you explain",
+    "tell me",
+)
+
+
+def _normalize_policy_text(value: str) -> str:
+    return re.sub(r"\s+", " ", value.strip().lower())
+
+
+def _explicit_planner_requires_visible_plan(
+    user_message: str,
+    attachments: tuple[Any, ...],
+) -> bool:
+    if attachments:
+        return True
+    normalized = _normalize_policy_text(user_message)
+    if normalized in _TRIVIAL_PLANNER_MESSAGES:
+        return False
+    return bool(normalized)
+
+
+def _explicit_planner_requires_worker_delegation(
+    user_message: str,
+    attachments: tuple[Any, ...],
+) -> bool:
+    if not _explicit_planner_requires_visible_plan(user_message, attachments):
+        return False
+    if attachments:
+        return True
+
+    normalized = _normalize_policy_text(user_message)
+    if any(keyword in normalized for keyword in _ACTIONABLE_PLANNER_KEYWORDS):
+        return True
+
+    if normalized.startswith(_QUESTION_ONLY_PREFIXES) and "?" in normalized:
+        return False
+
+    return len(normalized.split()) >= 12 and not normalized.endswith("?")
 
 
 class SubAgentManagerProtocol(Protocol):
@@ -179,6 +265,10 @@ class PlannerOrchestrator:
         ) = None
         self._processed_skill_activation_tool_ids: set[str] = set()
         self._current_turn_start_index = len(initial_messages)
+        self._explicit_planner_requested = False
+        self._explicit_planner_requires_plan = False
+        self._explicit_planner_requires_worker = False
+        self._explicit_policy_nudge_count = 0
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -360,6 +450,20 @@ class PlannerOrchestrator:
         self._pending_mid_turn_update = None
         self._processed_skill_activation_tool_ids = set()
         self._current_turn_start_index = len(self._state.messages)
+        explicit_planner = bool((turn_metadata or {}).get("explicit_planner"))
+        self._explicit_planner_requested = explicit_planner
+        self._explicit_planner_requires_plan = (
+            explicit_planner
+            and _explicit_planner_requires_visible_plan(user_message, attachments)
+        )
+        self._explicit_planner_requires_worker = (
+            explicit_planner
+            and _explicit_planner_requires_worker_delegation(
+                user_message,
+                attachments,
+            )
+        )
+        self._explicit_policy_nudge_count = 0
 
         cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
         prompt_assembly = PromptAssembly.from_system(self._system_prompt)
@@ -369,6 +473,9 @@ class PlannerOrchestrator:
                 prompt_assembly = prompt_assembly.with_volatile_sections(
                     *dynamic,
                 )
+        explicit_sections = self._build_explicit_planner_runtime_sections()
+        if explicit_sections:
+            prompt_assembly = prompt_assembly.with_volatile_sections(*explicit_sections)
         self._turn_prompt_assembly = prompt_assembly
 
         # Skill matching via shared selector (before user message / uploads)
@@ -555,6 +662,12 @@ class PlannerOrchestrator:
         state = apply_response_to_state(state, response)
 
         if not response.tool_calls:
+            policy_state = await self._apply_explicit_planner_policy(
+                state,
+                trigger="inline_completion",
+            )
+            if policy_state is not None:
+                return policy_state
             return state.mark_completed()
 
         async def _post_tool_callback(tc: Any, result: Any) -> None:
@@ -584,6 +697,12 @@ class PlannerOrchestrator:
         self._turn_artifact_ids.extend(tool_result.artifact_ids)
 
         if self._task_complete_summary is not None:
+            policy_state = await self._apply_explicit_planner_policy(
+                state,
+                trigger="task_complete",
+            )
+            if policy_state is not None:
+                return policy_state
             return state.mark_completed(self._task_complete_summary)
 
         return state
@@ -696,6 +815,99 @@ class PlannerOrchestrator:
             },
             iteration=state.iteration,
         )
+
+    @staticmethod
+    def _append_text_guard_to_last_user_message(
+        state: AgentState,
+        extra_text: str,
+    ) -> AgentState:
+        """Append a planner policy reminder to the last user message when possible."""
+        if not state.messages:
+            return state.add_message({"role": "user", "content": extra_text})
+        messages = list(state.messages)
+        last = messages[-1]
+        if last.get("role") != "user":
+            return state.add_message({"role": "user", "content": extra_text})
+        content = last.get("content")
+        if isinstance(content, str):
+            messages[-1] = {**last, "content": f"{content}\n\n{extra_text}"}
+        elif isinstance(content, list):
+            messages[-1] = {
+                **last,
+                "content": [
+                    *content,
+                    {"type": "text", "text": extra_text},
+                ],
+            }
+        else:
+            return state.add_message({"role": "user", "content": extra_text})
+        return replace(state, messages=tuple(messages))
+
+    def _build_explicit_planner_runtime_sections(self) -> tuple[str, ...]:
+        if not self._explicit_planner_requested:
+            return ()
+
+        sections = [
+            (
+                "Explicit planner mode is enabled for this turn.\n"
+                "- Produce visible planner activity rather than answering inline.\n"
+                "- Call plan_create before finishing unless you are only refusing the request, "
+                "asking a clarification question, or handling trivial chit-chat."
+            )
+        ]
+        if self._explicit_planner_requires_worker:
+            sections.append(
+                "This request is actionable tasking. Before finishing, delegate at least one "
+                "focused worker with agent_spawn and then synthesize the result."
+            )
+        return tuple(sections)
+
+    def _explicit_planner_policy_violation(self) -> str | None:
+        if not self._explicit_planner_requested:
+            return None
+        if self._explicit_planner_requires_plan and not self._planner_state.has_plan:
+            return (
+                "System notice: Planner mode was explicitly forced for this turn. "
+                "Before you finish, call plan_create so the user sees a visible plan. "
+                "Only skip this if you are refusing the request or asking a clarification question."
+            )
+        if (
+            self._explicit_planner_requires_worker
+            and self._planner_state.spawned_agent_count == 0
+        ):
+            return (
+                "System notice: This explicit planner turn is actionable tasking. "
+                "Before you finish, delegate at least one focused worker with agent_spawn, "
+                "then wait for the result and synthesize it for the user."
+            )
+        return None
+
+    async def _apply_explicit_planner_policy(
+        self,
+        state: AgentState,
+        *,
+        trigger: str,
+    ) -> AgentState | None:
+        violation = self._explicit_planner_policy_violation()
+        if violation is None:
+            return None
+
+        self._task_complete_summary = None
+        self._explicit_policy_nudge_count += 1
+        if self._explicit_policy_nudge_count >= 3:
+            return state.mark_error(
+                "Explicit planner mode could not produce the required visible plan or worker delegation."
+            )
+
+        await self._emitter.emit(
+            EventType.LOOP_GUARD_NUDGE,
+            {
+                "iteration": state.iteration,
+                "repeated_signature": f"explicit_planner_policy:{trigger}",
+            },
+            iteration=state.iteration,
+        )
+        return self._append_text_guard_to_last_user_message(state, violation)
 
     async def _finalize(self, state: AgentState) -> str:
         """Emit final event and return the result text."""

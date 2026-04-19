@@ -18,12 +18,31 @@ export interface PendingSelectedSkill {
   readonly timestamp: number;
 }
 
+const TERMINAL_EVENT_TYPES = new Set<AgentEvent["type"]>([
+  "task_complete",
+  "task_error",
+  "turn_complete",
+  "turn_cancelled",
+]);
+
 export function shouldClearWaitingForTerminalState(
   isWaitingForAgent: boolean,
   taskState: TaskState,
 ): boolean {
   if (!isWaitingForAgent) return false;
   return taskState === "complete" || taskState === "error";
+}
+
+export function hasTerminalEventSince(
+  events: readonly AgentEvent[],
+  startIndex: number,
+): boolean {
+  for (let i = Math.max(0, startIndex); i < events.length; i += 1) {
+    if (TERMINAL_EVENT_TYPES.has(events[i]!.type)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 export function normalizeSelectedSkills(
@@ -55,6 +74,7 @@ export function useConversation(
   const [userCancelled, setUserCancelled] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [pendingSelectedSkills, setPendingSelectedSkills] = useState<PendingSelectedSkill[]>([]);
+  const [explicitPlannerPending, setExplicitPlannerPending] = useState(false);
   const eventCountAtSendRef = useRef(events.length);
   const optimisticMessageSequenceRef = useRef(0);
 
@@ -73,10 +93,20 @@ export function useConversation(
   useEffect(() => {
     if (!isWaitingForAgent) return;
     const hasNewEvents = events.length > eventCountAtSendRef.current;
-    if (hasNewEvents && (taskState !== "idle" || assistantPhase.phase !== "idle")) {
+    if (!hasNewEvents) return;
+
+    if (hasTerminalEventSince(events, eventCountAtSendRef.current)) {
       setIsWaitingForAgent(false);
+      setPendingSelectedSkills([]);
+      setExplicitPlannerPending(false);
+      return;
     }
-  }, [isWaitingForAgent, taskState, events.length, assistantPhase.phase]);
+
+    if (taskState !== "idle" || assistantPhase.phase !== "idle") {
+      setIsWaitingForAgent(false);
+      setExplicitPlannerPending(false);
+    }
+  }, [isWaitingForAgent, taskState, events, assistantPhase.phase]);
 
   // Failsafe: clear waiting when task reaches a terminal state.
   // Handles fast responses where all events batch-arrive and both
@@ -85,6 +115,7 @@ export function useConversation(
     if (shouldClearWaitingForTerminalState(isWaitingForAgent, taskState)) {
       setIsWaitingForAgent(false);
       setPendingSelectedSkills([]);
+      setExplicitPlannerPending(false);
     }
   }, [isWaitingForAgent, taskState]);
 
@@ -109,6 +140,7 @@ export function useConversation(
       setUserCancelled(false);
       setCreateError(null);
       setPendingSelectedSkills([]);
+      setExplicitPlannerPending(false);
     }
   }, [conversationId]);
 
@@ -162,6 +194,7 @@ export function useConversation(
       setUserCancelled(false);
       setCreateError(null);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
+      setExplicitPlannerPending(usePlanner === true);
       setUserMessages([buildOptimisticUserMessage(message, now, files)]);
 
       try {
@@ -176,6 +209,7 @@ export function useConversation(
         clearPendingConversationRoute();
         setIsWaitingForAgent(false);
         setPendingSelectedSkills([]);
+        setExplicitPlannerPending(false);
         const errorMessage = err instanceof Error ? err.message : "Unknown error";
         setCreateError(`Failed to start conversation: ${errorMessage}`);
         setUserMessages((prev) => [
@@ -189,6 +223,7 @@ export function useConversation(
       }
     },
     [
+      buildOptimisticUserMessage,
       clearPendingConversationRoute,
       router,
       setPendingConversationRoute,
@@ -206,6 +241,7 @@ export function useConversation(
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
+      setExplicitPlannerPending(usePlanner === true);
       setUserMessages((prev) => [
         ...prev,
         buildOptimisticUserMessage(message, now, files),
@@ -217,6 +253,7 @@ export function useConversation(
         console.error("Failed to send message:", err);
         setIsWaitingForAgent(false);
         setPendingSelectedSkills([]);
+        setExplicitPlannerPending(false);
         setUserMessages((prev) => [
           ...prev,
           {
@@ -239,6 +276,7 @@ export function useConversation(
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
+      setExplicitPlannerPending(usePlanner === true);
       setUserMessages((prev) => [
         ...prev,
         buildOptimisticUserMessage(message, now, files),
@@ -251,6 +289,7 @@ export function useConversation(
         console.error("Failed to resume conversation:", err);
         setIsWaitingForAgent(false);
         setPendingSelectedSkills([]);
+        setExplicitPlannerPending(false);
         setUserMessages((prev) => [
           ...prev,
           {
@@ -334,6 +373,7 @@ export function useConversation(
     conversationId,
     allMessages,
     pendingSelectedSkills,
+    explicitPlannerPending,
     isWaitingForAgent,
     userCancelled,
     createError,

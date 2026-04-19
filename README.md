@@ -28,9 +28,15 @@ An open-source AI agent platform that does the work for you. Describe any task i
 
 ## Screenshots
 
+Synapse includes dedicated views for planning, skills, MCP configuration, artifact browsing, and channel integrations.
+
 | Multi-Agent Planning | Skills System | MCP Integration |
 |:---:|:---:|:---:|
 | ![Multi-Agent Planning](images/multi-agents.png) | ![Skills System](images/skills.png) | ![MCP Integration](images/mcp.png) |
+
+| Artifact Library | Channel Integrations |
+|:---:|:---:|
+| ![Artifact Library](images/library.png) | ![Channel Integrations](images/channels.png) |
 
 ## Brand Assets
 

@@ -55,6 +55,7 @@ interface ConversationWorkspaceProps {
   isStreaming: boolean;
   assistantPhase: AssistantPhase;
   isConnected: boolean;
+  explicitPlannerPending?: boolean;
   onSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   onNavigateHome?: () => void;
   isWaitingForAgent?: boolean;
@@ -337,6 +338,7 @@ export function ConversationWorkspace({
   isStreaming,
   assistantPhase,
   isConnected,
+  explicitPlannerPending = false,
   onSendMessage,
   onNavigateHome,
   isWaitingForAgent = false,
@@ -388,6 +390,25 @@ export function ConversationWorkspace({
   }, [events, messages]);
 
   const latestTurnMode = useMemo(() => getLatestTurnMode(events), [events]);
+  const effectiveTurnMode = latestTurnMode ?? (explicitPlannerPending ? "planner" : null);
+  const effectiveTaskState: TaskState =
+    explicitPlannerPending && taskState === "idle" ? "planning" : taskState;
+  const effectivePlanSteps = useMemo<readonly PlanStep[]>(
+    () =>
+      planSteps.length > 0
+        ? planSteps
+        : explicitPlannerPending
+          ? [
+              {
+                name: "Planner mode active",
+                description: "Preparing a visible plan for this turn.",
+                executionType: "planner_owned",
+                status: "running",
+              } satisfies PlanStep,
+            ]
+          : [],
+    [planSteps, explicitPlannerPending],
+  );
   const isCurrentTurnAutoDetected = useMemo(() => getIsCurrentTurnAutoDetected(events), [events]);
   const threadTasks = useMemo(() => resolveThreadTasks(toolCalls, events), [toolCalls, events]);
 
@@ -441,6 +462,8 @@ export function ConversationWorkspace({
       ? lastMessage?.role !== "assistant"
       : (assistantPhase.phase !== "idle" && !isStreaming)) &&
     messages.length > 0;
+  const showPlannerChecklist = planMessageIndex === null && effectivePlanSteps.length > 0;
+  const showEmptyState = messages.length === 0 && !showPlannerChecklist;
 
   const effectivePhase: AssistantPhase = isWaitingForAgent && assistantPhase.phase === "idle"
     ? { phase: "thinking" }
@@ -455,16 +478,16 @@ export function ConversationWorkspace({
         className="flex h-full flex-col"
         role="region"
         aria-label="Conversation"
-        aria-busy={taskState === "executing" || taskState === "planning"}
+        aria-busy={effectiveTaskState === "executing" || effectiveTaskState === "planning"}
       >
         {!hideTopBar && (
           <TopBar
-            taskState={taskState}
+            taskState={effectiveTaskState}
             isConnected={isConnected}
             onNavigateHome={onNavigateHome}
             conversationTitle={conversationTitle}
             conversationId={conversationId}
-            orchestratorMode={latestTurnMode}
+            orchestratorMode={effectiveTurnMode}
             isPlannerAutoDetected={isCurrentTurnAutoDetected}
           />
         )}
@@ -472,7 +495,7 @@ export function ConversationWorkspace({
         {/* Left pane: Conversation */}
         <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[56%]" : "w-full")}>
           <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-            {messages.length === 0 && (
+            {showEmptyState && (
               <div className="flex h-full items-center justify-center">
                 <EmptyState
                   icon={MessageSquare}
@@ -493,7 +516,7 @@ export function ConversationWorkspace({
                   isLastAssistant &&
                   assistantPhase.phase === "thinking";
                 const embeddedPlanSteps =
-                  i === planMessageIndex && planSteps.length > 0 ? planSteps : [];
+                  i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
                 const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
 
                 return (
@@ -507,7 +530,7 @@ export function ConversationWorkspace({
                     embeddedPlanSteps={embeddedPlanSteps}
                     index={i}
                     conversationId={conversationId}
-                    taskState={taskState}
+                    taskState={effectiveTaskState}
                     locale={locale}
                     onRetry={onRetry}
                     t={t}
@@ -515,9 +538,9 @@ export function ConversationWorkspace({
                 );
               })}
 
-              {planMessageIndex === null && planSteps.length > 0 && (
+              {showPlannerChecklist && (
                 <div className={cn("mt-4", messageWidthClass)}>
-                  <PlanChecklistPanel planSteps={planSteps} />
+                  <PlanChecklistPanel planSteps={effectivePlanSteps} />
                 </div>
               )}
 
@@ -547,7 +570,7 @@ export function ConversationWorkspace({
 
           </div>
 
-          {(events.length > 0 || isWaitingForAgent || taskState === "planning" || taskState === "executing") && (
+          {(events.length > 0 || isWaitingForAgent || effectiveTaskState === "planning" || effectiveTaskState === "executing") && (
             <div
               className={cn(
                 "px-4 py-3 sm:px-6",
@@ -559,7 +582,7 @@ export function ConversationWorkspace({
                 events={events}
                 toolCalls={toolCalls}
                 agentStatuses={agentStatuses}
-                taskState={taskState}
+                taskState={effectiveTaskState}
                 isWaitingForAgent={isWaitingForAgent}
                 onClick={handleProgressCardClick}
                 onStepClick={handleStepClick}
@@ -571,9 +594,9 @@ export function ConversationWorkspace({
           <div className={cn("mx-auto w-full", contentWidthClass)}>
             <ChatInput
               onSendMessage={onSendMessage}
-              disabled={!userCancelled && (isWaitingForAgent || taskState === "executing" || taskState === "planning")}
+              disabled={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
               onCancel={onCancel}
-              isAgentRunning={!userCancelled && (isWaitingForAgent || taskState === "executing" || taskState === "planning")}
+              isAgentRunning={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
             />
           </div>
         </div>
@@ -602,7 +625,7 @@ export function ConversationWorkspace({
                   toolCalls={toolCalls}
                   agentStatuses={agentStatuses}
                   artifacts={artifacts}
-                  taskState={taskState}
+                  taskState={effectiveTaskState}
                   highlightedStepId={highlightedStepId}
                   onClose={() => setPanelOpen(false)}
                 />

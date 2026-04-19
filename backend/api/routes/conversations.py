@@ -392,10 +392,12 @@ async def _bootstrap_and_run_initial_turn(
         runtime_prompt_sections = _build_execution_shape_prompt_sections(
             execution_shape,
             execution_rationale,
+            explicit_planner=initial_mode == ORCHESTRATOR_PLANNER,
         )
         turn_metadata = {
             "execution_shape": execution_shape,
             "execution_rationale": execution_rationale,
+            "explicit_planner": initial_mode == ORCHESTRATOR_PLANNER,
         }
 
         result = await _run_turn(
@@ -568,6 +570,8 @@ async def _resolve_execution_route(
 def _build_execution_shape_prompt_sections(
     execution_shape: str,
     rationale: str,
+    *,
+    explicit_planner: bool = False,
 ) -> tuple[str, ...]:
     settings = get_settings()
     sections: list[str] = [
@@ -594,6 +598,12 @@ def _build_execution_shape_prompt_sections(
         sections.append(
             "Routing guidance: planner-managed worker orchestration is allowed, but only when decomposition is not knowable upfront. "
             f"Soft spawn budget: {settings.EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT} workers."
+        )
+    if explicit_planner:
+        sections.append(
+            "Planner mode was explicitly requested by the user for this turn. "
+            "Produce visible planning activity. Call plan_create before finishing, and for actionable tasks "
+            "delegate at least one focused worker with agent_spawn."
         )
     return tuple(sections)
 
@@ -1331,10 +1341,12 @@ async def send_message(
                     runtime_prompt_sections = _build_execution_shape_prompt_sections(
                         execution_shape,
                         execution_rationale,
+                        explicit_planner=explicit_planner is True,
                     )
                     turn_metadata = {
                         "execution_shape": execution_shape,
                         "execution_rationale": execution_rationale,
+                        "explicit_planner": explicit_planner is True,
                     }
 
                     if target_mode != current_mode or not _entry_runtime_ready(entry):

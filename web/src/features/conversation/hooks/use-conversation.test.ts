@@ -1,5 +1,10 @@
 import { describe, expect, it } from "@jest/globals";
-import { normalizeSelectedSkills, shouldClearWaitingForTerminalState } from "./use-conversation";
+import {
+  hasTerminalEventSince,
+  normalizeSelectedSkills,
+  shouldClearWaitingForTerminalState,
+} from "./use-conversation";
+import type { AgentEvent } from "@/shared/types";
 
 describe("shouldClearWaitingForTerminalState", () => {
   it("returns false when the UI is not waiting for the agent", () => {
@@ -18,6 +23,28 @@ describe("shouldClearWaitingForTerminalState", () => {
     expect(shouldClearWaitingForTerminalState(true, "planning")).toBe(false);
     expect(shouldClearWaitingForTerminalState(true, "executing")).toBe(false);
     expect(shouldClearWaitingForTerminalState(true, "idle")).toBe(false);
+  });
+});
+
+describe("hasTerminalEventSince", () => {
+  it("detects batched terminal events after the send snapshot", () => {
+    const events: AgentEvent[] = [
+      { type: "turn_start", data: { message: "hi" }, timestamp: 1, iteration: null },
+      { type: "task_complete", data: { summary: "done" }, timestamp: 2, iteration: 1 },
+      { type: "turn_complete", data: { result: "done" }, timestamp: 3, iteration: 1 },
+    ];
+
+    expect(hasTerminalEventSince(events, 1)).toBe(true);
+  });
+
+  it("ignores non-terminal events after the send snapshot", () => {
+    const events: AgentEvent[] = [
+      { type: "turn_start", data: { message: "hi" }, timestamp: 1, iteration: null },
+      { type: "thinking", data: { thinking: "working" }, timestamp: 2, iteration: 1 },
+      { type: "text_delta", data: { delta: "partial" }, timestamp: 3, iteration: 1 },
+    ];
+
+    expect(hasTerminalEventSince(events, 1)).toBe(false);
   });
 });
 

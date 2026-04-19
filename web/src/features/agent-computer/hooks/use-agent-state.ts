@@ -107,8 +107,44 @@ function getTerminalResultText(event: Extract<AgentEvent, { type: "turn_complete
   return String(event.data.result ?? "");
 }
 
+function buildPlannerFallbackStep(
+  status: PlanStep["status"],
+  variant: "active" | "inline" | "error",
+): PlanStep {
+  if (variant === "inline") {
+    return {
+      name: "Planner answered inline without worker delegation",
+      description: "Structured planning was skipped for this turn.",
+      executionType: "planner_owned",
+      status,
+    };
+  }
+  if (variant === "error") {
+    return {
+      name: "Planner turn ended before publishing a structured plan",
+      description: "Planner mode was active, but no visible plan was created.",
+      executionType: "planner_owned",
+      status,
+    };
+  }
+  return {
+    name: "Planner mode active",
+    description: "Preparing a visible plan for this turn.",
+    executionType: "planner_owned",
+    status,
+  };
+}
+
 function normalizeComparableMessageContent(content: string): string {
   return content.trim();
+}
+
+function normalizeAgentStepMatchName(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/\s+agent$/, "")
+    .replace(/\s+/g, " ");
 }
 
 function stringArrayEqual(
@@ -284,6 +320,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let turnSequence = 0;
   let currentTurnId = "event-turn:0";
   let assistantMessageSequence = 0;
+  let currentTurnIsPlanner = false;
+  let currentTurnHadPlanCreated = false;
+  let currentTurnHadAgentSpawn = false;
   const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
   let isDeepResearchTurn = false;
@@ -462,8 +501,10 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       currentIteration = event.iteration;
     }
 
-    if (event.type === "turn_start" || event.type === "task_start" || event.type === "iteration_start" || event.type === "tool_call") {
-      taskState = "executing";
+    if (event.type === "turn_start") {
+      taskState = event.data.orchestrator_mode === "planner" ? "planning" : "executing";
+    } else if (event.type === "task_start" || event.type === "iteration_start" || event.type === "tool_call") {
+      taskState = currentTurnIsPlanner && !currentTurnHadAgentSpawn ? "planning" : "executing";
     } else if (event.type === "agent_spawn") {
       taskState = "planning";
     } else if (event.type === "turn_complete" || event.type === "turn_cancelled") {
@@ -777,7 +818,10 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       if (userText) {
         messages.push(buildUserMessage(userText, event.timestamp, attachments));
       }
-      planSteps = [];
+      currentTurnIsPlanner = event.data.orchestrator_mode === "planner";
+      currentTurnHadPlanCreated = false;
+      currentTurnHadAgentSpawn = false;
+      planSteps = currentTurnIsPlanner ? [buildPlannerFallbackStep("running", "active")] : [];
       pendingThinkingEntries = [];
       pendingThinkingParts = [];
       pendingDeepResearchVisibleParts = [];
@@ -812,6 +856,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       isStreaming = false;
       streamingText = "";
       streamingTimestamp = 0;
+      if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
+        planSteps = [buildPlannerFallbackStep("complete", "inline")];
+      }
       if (event.type === "task_complete") {
         planSteps = planSteps.map((step) =>
           step.executionType === "planner_owned" && step.status !== "complete"
@@ -901,6 +948,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       isDeepResearchTurn = false;
     } else if (event.type === "task_error") {
       isStreaming = false;
+      if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
+        planSteps = [buildPlannerFallbackStep("error", "error")];
+      }
       consumeDeepResearchFallbackContent(streamingText);
       if (streamingText) {
         const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
@@ -956,6 +1006,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         imageArtifactIdSet.add(artifactId);
       }
     } else if (event.type === "agent_spawn") {
+      currentTurnHadAgentSpawn = true;
       const agentId = String(event.data.agent_id ?? event.data.id ?? "");
       const agentName = String(event.data.name ?? "");
       agentMap.set(agentId, {
@@ -966,12 +1017,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         timestamp: event.timestamp,
       });
 
-      const normalizedName = agentName.trim().toLowerCase();
+      const normalizedName = normalizeAgentStepMatchName(agentName);
       const pendingStepIdx = planSteps.findIndex(
         (step) =>
           step.status === "pending"
           && step.executionType !== "planner_owned"
-          && step.name.trim().toLowerCase() === normalizedName,
+          && normalizeAgentStepMatchName(step.name) === normalizedName,
       );
       if (pendingStepIdx !== -1) {
         planSteps = planSteps.map((step, idx) => idx === pendingStepIdx ? { ...step, status: "running", agentId } : step);
@@ -1046,6 +1097,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         });
       }
     } else if (event.type === "plan_created") {
+      currentTurnHadPlanCreated = true;
       if (Array.isArray(event.data.steps)) {
         planSteps = event.data.steps.map((step) => ({
           name: String(step.name ?? ""),

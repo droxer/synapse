@@ -28,6 +28,7 @@ export function ConversationView() {
     isStreaming,
     assistantPhase,
     isConnected,
+    explicitPlannerPending,
     handleSendMessage,
     handleCreateConversation,
     handleNewConversation,
@@ -136,6 +137,7 @@ export function ConversationView() {
               isStreaming={isStreaming}
               assistantPhase={assistantPhase}
               isConnected={isConnected}
+              explicitPlannerPending={explicitPlannerPending}
               onSendMessage={handleSendMessage}
               onNavigateHome={handleNewConversation}
               isWaitingForAgent={isWaitingForAgent}

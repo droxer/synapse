@@ -21,6 +21,7 @@ from agent.runtime.message_chain import collect_message_chain_warnings
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.runtime.orchestrator import AgentState
 from agent.runtime.planner import PlannerOrchestrator
+from agent.runtime.task_runner import AgentResult
 from agent.skills.loader import SkillRegistry
 from agent.skills.models import SkillContent, SkillMetadata
 from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolResult
@@ -502,6 +503,169 @@ async def test_planner_cancel_interrupts_agent_wait() -> None:
 
     assert result == ""
     cleanup.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_requires_plan_create_before_completion() -> None:
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _RecordingSequenceClient(
+        LLMResponse(
+            text="I can answer inline.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="plan_create",
+                    input={
+                        "steps": [
+                            {
+                                "name": "Frame answer",
+                                "description": "Outline the response structure.",
+                                "execution_type": "planner_owned",
+                            }
+                        ]
+                    },
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="Here is the structured answer.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=emitter,
+        sub_agent_manager=SimpleNamespace(cleanup=AsyncMock()),
+        system_prompt="test",
+    )
+
+    result = await planner.run(
+        "How should I approach learning Rust?",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "Here is the structured answer."
+    assert any(event.type == EventType.PLAN_CREATED for event in events)
+    assert client.message_history[1][-1]["role"] == "user"
+    assert "call plan_create" in str(client.message_history[1][-1]["content"]).lower()
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_actionable_turn_requires_agent_spawn() -> None:
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+
+    class _WaitingManager:
+        def __init__(self) -> None:
+            self.cleanup = AsyncMock()
+
+        async def spawn(self, config: Any) -> str:
+            return "agent-1"
+
+        async def wait(self, agent_ids=None, cancel_check=None):
+            del agent_ids, cancel_check
+            return {
+                "agent-1": AgentResult(
+                    agent_id="agent-1",
+                    success=True,
+                    summary="Research completed.",
+                )
+            }
+
+    client = _RecordingSequenceClient(
+        LLMResponse(
+            text="I can handle this myself.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="plan_create",
+                    input={
+                        "steps": [
+                            {
+                                "name": "Research trends",
+                                "description": "Collect the current trend signals.",
+                                "execution_type": "parallel_worker",
+                            },
+                            {
+                                "name": "Synthesize findings",
+                                "description": "Combine the worker output into a report.",
+                                "execution_type": "planner_owned",
+                            },
+                        ]
+                    },
+                ),
+                ToolCall(
+                    id="tool-2",
+                    name="agent_spawn",
+                    input={
+                        "name": "Research trends",
+                        "task_description": "Research the current AI trends.",
+                    },
+                ),
+                ToolCall(
+                    id="tool-3",
+                    name="agent_wait",
+                    input={"agent_ids": ["agent-1"]},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="Delegated work completed.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    manager = _WaitingManager()
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=emitter,
+        sub_agent_manager=manager,
+        system_prompt="test",
+    )
+
+    result = await planner.run(
+        "Research current AI trends and write a summary report.",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "Delegated work completed."
+    assert any(event.type == EventType.AGENT_SPAWN for event in events)
+    assert client.message_history[1][-1]["role"] == "user"
+    assert "call plan_create" in str(client.message_history[1][-1]["content"]).lower()
 
 
 @pytest.mark.asyncio

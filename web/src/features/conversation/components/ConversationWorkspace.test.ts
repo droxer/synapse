@@ -10,6 +10,7 @@ import type { AgentEvent, ChatMessage, PlanStep } from "@/shared/types";
 
 let lastAgentProgressCardProps: Record<string, unknown> | null = null;
 let lastThreadTasksPanelProps: Record<string, unknown> | null = null;
+let lastTopBarProps: Record<string, unknown> | null = null;
 
 jest.mock("framer-motion", () => ({
   __esModule: true,
@@ -23,7 +24,10 @@ jest.mock("framer-motion", () => ({
 
 jest.mock("@/shared/components", () => ({
   __esModule: true,
-  TopBar: () => null,
+  TopBar: (props: Record<string, unknown>) => {
+    lastTopBarProps = props;
+    return null;
+  },
   MarkdownRenderer: ({
     content,
   }: {
@@ -273,6 +277,65 @@ describe("areMessageRowsEqual", () => {
 });
 
 describe("ConversationWorkspace activity wiring", () => {
+  it("shows planner badge and checklist while explicit planner is pending before events arrive", () => {
+    lastTopBarProps = null;
+    lastAgentProgressCardProps = null;
+
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [],
+      messages: [{ role: "user", content: "Plan this task", timestamp: 100 }],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "idle",
+      currentThinkingEntries: [],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      explicitPlannerPending: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: true,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect((lastTopBarProps as { orchestratorMode?: unknown } | null)?.orchestratorMode).toBe("planner");
+    expect((lastAgentProgressCardProps as { taskState?: unknown } | null)?.taskState).toBe("planning");
+    expect(html).toContain("Planner mode active");
+  });
+
+  it("shows the planner checklist immediately even before any message rows exist", () => {
+    lastTopBarProps = null;
+
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [],
+      messages: [],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "idle",
+      currentThinkingEntries: [],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      explicitPlannerPending: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: true,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect((lastTopBarProps as { orchestratorMode?: unknown } | null)?.orchestratorMode).toBe("planner");
+    expect(html).toContain("Planner mode active");
+    expect(html).not.toContain("conversation.waiting");
+  });
+
   it("passes optimistic selected skills through to both activity surfaces during a live turn", () => {
     lastAgentProgressCardProps = null;
     lastThreadTasksPanelProps = null;

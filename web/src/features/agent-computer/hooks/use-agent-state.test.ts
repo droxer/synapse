@@ -405,7 +405,26 @@ describe("deriveAgentState", () => {
     expect(state.toolCalls[0]?.output).toBe(JSON.stringify({ ok: true, count: 2 }));
   });
 
-  it("keeps plan steps empty when planner turn has no plan_created event", () => {
+  it("shows planning state immediately for planner turns", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "plan this", orchestrator_mode: "planner" },
+        timestamp: 1,
+        iteration: null,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.taskState).toBe("planning");
+    expect(state.planSteps).toHaveLength(1);
+    expect(state.planSteps[0]).toMatchObject({
+      name: "Planner mode active",
+      status: "running",
+    });
+  });
+
+  it("renders a fallback planner step when no plan_created event is emitted", () => {
     const events: AgentEvent[] = [
       {
         type: "turn_start",
@@ -414,15 +433,67 @@ describe("deriveAgentState", () => {
         iteration: null,
       },
       {
-        type: "llm_response",
-        data: { text: "Working on it" },
+        type: "turn_complete",
+        data: { result: "Working on it" },
         timestamp: 2,
         iteration: 1,
       },
     ];
 
     const state = deriveAgentState(events);
-    expect(state.planSteps).toHaveLength(0);
+    expect(state.planSteps).toHaveLength(1);
+    expect(state.planSteps[0]).toMatchObject({
+      name: "Planner answered inline without worker delegation",
+      status: "complete",
+    });
+  });
+
+  it("replaces the fallback planner step when plan_created and agent_spawn arrive", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "plan this", orchestrator_mode: "planner" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "plan_created",
+        data: {
+          steps: [
+            {
+              name: "Research topic",
+              description: "Collect source material.",
+              execution_type: "parallel_worker",
+            },
+            {
+              name: "Synthesize findings",
+              description: "Combine worker output.",
+              execution_type: "planner_owned",
+            },
+          ],
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "agent_spawn",
+        data: { agent_id: "agent-1", name: "Research topic agent", description: "Collect source material." },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.planSteps).toHaveLength(2);
+    expect(state.planSteps[0]).toMatchObject({
+      name: "Research topic",
+      status: "running",
+      agentId: "agent-1",
+    });
+    expect(state.planSteps[1]).toMatchObject({
+      name: "Synthesize findings",
+      status: "running",
+    });
   });
 
   it("streams sandbox stdout/stderr into active shell/code tool output", () => {

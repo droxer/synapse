@@ -24,7 +24,11 @@ import {
   getToolCallVisualClasses,
 } from "../lib/format-tools";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
-import { HIDDEN_ACTIVITY_TOOLS, normalizeToolNameI18n } from "../lib/tool-constants";
+import {
+  HIDDEN_ACTIVITY_TOOLS,
+  normalizeAgentName,
+  normalizeToolNameI18n,
+} from "../lib/tool-constants";
 import { getSkillIcon, getToolIcon } from "../lib/tool-visual-icons";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { ToolOutputRenderer } from "./ToolOutputRenderer";
@@ -67,7 +71,7 @@ function SpawnAgentDisplay({ tc }: { readonly tc: ToolCallInfo }) {
     <div className={cn("mb-2 py-1.5", EVENT_LEFT_RAIL_CLASSES)}>
       <div className="flex items-center gap-2">
         <GitFork className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-        <span className="text-sm font-medium text-foreground">{agentName}</span>
+        <span className="text-sm font-medium text-foreground">{normalizeAgentName(agentName)}</span>
         {role && (
           <span className="status-pill status-neutral">
             {role}
@@ -483,7 +487,7 @@ export function AgentComputerPanel({
     const map = new Map<string, string>();
     for (const agent of agentStatuses) {
       if (agent.name) {
-        map.set(agent.agentId, agent.name);
+        map.set(agent.agentId, normalizeAgentName(agent.name));
       }
     }
     return map;

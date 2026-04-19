@@ -143,12 +143,15 @@ export function normalizeToolName(rawName: string): string {
 export function normalizeAgentName(raw: string): string {
   const trimmed = raw.trim();
   if (!trimmed) return "Agent";
-  return trimmed
+  const titleCased = trimmed
     .replace(/_/g, " ")
     .split(" ")
     .filter(Boolean)
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
+  return titleCased.toLowerCase().endsWith(" agent")
+    ? titleCased
+    : `${titleCased} Agent`;
 }
 
 export type ToolCategory = "code" | "file" | "search" | "memory" | "browser" | "computer" | "preview" | "mcp" | "agent" | "database" | "default";

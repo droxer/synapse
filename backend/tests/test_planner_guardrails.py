@@ -147,6 +147,7 @@ async def test_agent_spawn_accepts_declared_worker_step() -> None:
     assert plan_result.success is True
     assert spawn_result.success is True
     assert len(manager.spawn_calls) == 1
+    assert manager.spawn_calls[0].name == "Research topic agent"
 
 
 @pytest.mark.asyncio

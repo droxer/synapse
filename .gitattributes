@@ -37,3 +37,5 @@ web/src-tauri/icons/Square310x310Logo.png filter=lfs diff=lfs merge=lfs -text
 web/src-tauri/icons/android/mipmap-hdpi/ic_launcher_foreground.png filter=lfs diff=lfs merge=lfs -text
 web/src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png filter=lfs diff=lfs merge=lfs -text
 web/src-tauri/icons/android/mipmap-hdpi/ic_launcher.png filter=lfs diff=lfs merge=lfs -text
+images/library.png filter=lfs diff=lfs merge=lfs -text
+images/channels.png filter=lfs diff=lfs merge=lfs -text

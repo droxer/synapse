@@ -6,6 +6,7 @@ from typing import Any, cast
 
 from loguru import logger
 
+from agent.runtime.task_runner import ensure_task_agent_name_suffix
 from agent.tools.base import (
     ExecutionContext,
     LocalTool,
@@ -136,6 +137,7 @@ class SpawnTaskAgent(LocalTool):
             return ToolResult.fail("task_description must not be empty")
         if error := self._planner_state.validate_spawn(name):
             return ToolResult.fail(error)
+        display_name = ensure_task_agent_name_suffix(name)
 
         try:
             from agent.runtime.task_runner import DependencyFailureMode, TaskAgentConfig
@@ -145,7 +147,7 @@ class SpawnTaskAgent(LocalTool):
 
             config = TaskAgentConfig(
                 task_description=task_description,
-                name=name,
+                name=display_name,
                 context=context,
                 sandbox_template=sandbox_template,
                 depends_on=tuple(depends_on),
@@ -162,12 +164,13 @@ class SpawnTaskAgent(LocalTool):
 
         # Emit AGENT_SPAWN immediately so the frontend can update the plan
         # checklist without waiting for the async task to acquire the semaphore.
+        self._planner_state.record_spawn(name)
         if self._emitter is not None:
             await self._emitter.emit(
                 EventType.AGENT_SPAWN,
                 {
                     "agent_id": agent_id,
-                    "name": name,
+                    "name": display_name,
                     "description": task_description,
                     "task": task_description,
                 },

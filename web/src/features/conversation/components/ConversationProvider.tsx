@@ -41,6 +41,7 @@ export interface ConversationContextValue {
   readonly artifacts: readonly ArtifactInfo[];
   readonly allMessages: readonly ChatMessage[];
   readonly pendingSelectedSkills: readonly PendingSelectedSkill[];
+  readonly explicitPlannerPending: boolean;
   readonly isWaitingForAgent: boolean;
   readonly userCancelled: boolean;
   readonly handleSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
@@ -155,6 +156,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const {
     allMessages,
     pendingSelectedSkills,
+    explicitPlannerPending,
     isWaitingForAgent,
     userCancelled,
     createError,
@@ -199,6 +201,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       artifacts,
       allMessages,
       pendingSelectedSkills,
+      explicitPlannerPending,
       isWaitingForAgent: effectiveIsWaitingForAgent,
       userCancelled: effectiveUserCancelled,
       handleSendMessage,
@@ -219,6 +222,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       currentIteration, reasoningSteps, thinkingContent, thinkingDurationMs,
       currentThinkingEntries, effectiveIsStreaming, assistantPhase, artifacts,
       allMessages, pendingSelectedSkills, effectiveIsWaitingForAgent, effectiveUserCancelled,
+      explicitPlannerPending,
       handleSendMessage, handleCreateConversation, handleSwitchConversation,
       handleNewConversation, handleCancel, handleRetry, createError,
       pendingAsk, handlePromptSubmit, respondError, isLoadingHistory,

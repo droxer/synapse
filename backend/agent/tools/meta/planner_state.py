@@ -26,11 +26,13 @@ class PlannerState:
     def __init__(self) -> None:
         self._steps_by_name: dict[str, PlannedStep] = {}
         self._plan_created = False
+        self._spawned_step_names: list[str] = []
 
     def reset(self) -> None:
         """Clear any prior plan state at the start of a new turn."""
         self._steps_by_name.clear()
         self._plan_created = False
+        self._spawned_step_names.clear()
 
     def register_steps(self, steps: list[dict[str, Any]]) -> None:
         """Persist the current plan and validate duplicate step names."""
@@ -49,6 +51,16 @@ class PlannerState:
             )
         self._steps_by_name = normalized
         self._plan_created = True
+
+    @property
+    def has_plan(self) -> bool:
+        """Return whether the planner declared a plan for the active turn."""
+        return self._plan_created
+
+    @property
+    def spawned_agent_count(self) -> int:
+        """Return the number of worker spawns recorded for the active turn."""
+        return len(self._spawned_step_names)
 
     def validate_spawn(self, step_name: str) -> str | None:
         """Return an error message when a spawn violates the active plan."""
@@ -70,3 +82,9 @@ class PlannerState:
             )
 
         return None
+
+    def record_spawn(self, step_name: str) -> None:
+        """Record a successful worker spawn for the current plan."""
+        normalized_name = _normalize_step_name(step_name)
+        if normalized_name:
+            self._spawned_step_names.append(normalized_name)
