@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 from unittest.mock import AsyncMock
@@ -164,6 +165,53 @@ class _PathReportingLocalTool(LocalTool):
         return ToolResult.ok("文件路径：/workspace/palantir-ontology-report.docx")
 
 
+class _StructuredEchoTool(LocalTool):
+    def __init__(self) -> None:
+        self.calls: list[dict[str, Any]] = []
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="structured_echo",
+            description="Echo a structured payload.",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "count": {"type": "integer"},
+                },
+                "required": ["count"],
+            },
+            output_schema={
+                "type": "object",
+                "properties": {"count": {"type": "integer"}},
+                "required": ["count"],
+            },
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        self.calls.append(kwargs)
+        return ToolResult.ok(json.dumps({"count": kwargs["count"]}))
+
+
+class _InvalidStructuredOutputTool(LocalTool):
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="bad_structured_output",
+            description="Return invalid structured output.",
+            input_schema={"type": "object", "properties": {}},
+            output_schema={
+                "type": "object",
+                "properties": {"approved": {"type": "boolean"}},
+                "required": ["approved"],
+            },
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        del kwargs
+        return ToolResult.ok("not-json")
+
+
 @pytest.mark.asyncio
 async def test_executor_defaults_shell_exec_workdir_to_active_skill_directory() -> None:
     tool = _RecordingShellExec()
@@ -322,3 +370,27 @@ async def test_executor_allows_same_remote_path_again_after_turn_reset() -> None
     assert first.success
     assert second.success
     assert artifact_manager.extract_from_sandbox.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_executor_rejects_invalid_structured_tool_input() -> None:
+    tool = _StructuredEchoTool()
+    executor = ToolExecutor(registry=ToolRegistry().register(tool))
+
+    result = await executor.execute("structured_echo", {"count": "three"})
+
+    assert not result.success
+    assert "schema validation failed" in (result.error or "").lower()
+    assert tool.calls == []
+
+
+@pytest.mark.asyncio
+async def test_executor_rejects_invalid_structured_tool_output() -> None:
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(_InvalidStructuredOutputTool())
+    )
+
+    result = await executor.execute("bad_structured_output", {})
+
+    assert not result.success
+    assert "schema validation failed" in (result.error or "").lower()

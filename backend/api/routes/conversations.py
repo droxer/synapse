@@ -61,6 +61,8 @@ EXECUTION_SHAPE_SINGLE_AGENT = "single_agent"
 EXECUTION_SHAPE_PROMPT_CHAIN = "prompt_chain"
 EXECUTION_SHAPE_PARALLEL = "parallel"
 EXECUTION_SHAPE_ORCHESTRATOR_WORKERS = "orchestrator_workers"
+_LOCALE_COOKIE_NAME = "synapse-locale"
+_SUPPORTED_UI_LOCALES = frozenset({"en", "zh-CN", "zh-TW"})
 
 
 class _BootstrapPendingOrchestrator:
@@ -147,6 +149,32 @@ async def _resolve_user_id(
             picture=auth_user.picture,
         )
     return user.id
+
+
+async def _resolve_turn_locale(
+    request: Request,
+    state: AppState,
+    *,
+    auth_user: AuthUser | None,
+    user_id: uuid.UUID | None = None,
+) -> str | None:
+    """Resolve the preferred locale for user-facing turn output."""
+    user_repo = getattr(state, "user_repo", None)
+    if user_repo is not None:
+        async with state.db_session_factory() as session:
+            if user_id is not None:
+                user = await user_repo.find_by_id(session, user_id)
+                if user is not None and user.locale in _SUPPORTED_UI_LOCALES:
+                    return user.locale
+            elif auth_user is not None:
+                user = await user_repo.find_by_google_id(session, auth_user.google_id)
+                if user is not None and user.locale in _SUPPORTED_UI_LOCALES:
+                    return user.locale
+
+    cookie_locale = request.cookies.get(_LOCALE_COOKIE_NAME)
+    if cookie_locale in _SUPPORTED_UI_LOCALES:
+        return cookie_locale
+    return None
 
 
 async def _verify_conversation_ownership(
@@ -337,24 +365,18 @@ async def _bootstrap_and_run_initial_turn(
     attachments: tuple[FileAttachment, ...],
     selected_skills: tuple[str, ...],
     initial_mode: str,
+    execution_shape: str,
+    execution_rationale: str,
+    explicit_planner: bool,
     idempotency_key: str | None,
     user_id: uuid.UUID | None = None,
+    turn_locale: str | None = None,
 ) -> str:
     bootstrap_started_at = time.perf_counter()
     conv_uuid = uuid.UUID(conversation_id)
     entry = state.conversations[conversation_id]
 
     try:
-        execution_shape = (
-            EXECUTION_SHAPE_SINGLE_AGENT
-            if initial_mode == ORCHESTRATOR_AGENT
-            else EXECUTION_SHAPE_ORCHESTRATOR_WORKERS
-        )
-        execution_rationale = (
-            "planner forced by user"
-            if initial_mode == ORCHESTRATOR_PLANNER
-            else "defaulted to single agent for initial turn"
-        )
         logger.info(
             "conversation_bootstrap_route_ready id={} mode={} shape={} duration_ms={}",
             conversation_id,
@@ -392,12 +414,13 @@ async def _bootstrap_and_run_initial_turn(
         runtime_prompt_sections = _build_execution_shape_prompt_sections(
             execution_shape,
             execution_rationale,
-            explicit_planner=initial_mode == ORCHESTRATOR_PLANNER,
+            explicit_planner=explicit_planner,
         )
         turn_metadata = {
             "execution_shape": execution_shape,
             "execution_rationale": execution_rationale,
-            "explicit_planner": initial_mode == ORCHESTRATOR_PLANNER,
+            "explicit_planner": explicit_planner,
+            **({"locale": turn_locale} if turn_locale else {}),
         }
 
         result = await _run_turn(
@@ -603,7 +626,7 @@ def _build_execution_shape_prompt_sections(
         sections.append(
             "Planner mode was explicitly requested by the user for this turn. "
             "Produce visible planning activity. Call plan_create before finishing, and for actionable tasks "
-            "delegate at least one focused worker with agent_spawn."
+            "delegate at least one focused worker with agent_spawn, wait for results with agent_wait, and synthesize the worker output."
         )
     return tuple(sections)
 
@@ -1121,7 +1144,16 @@ async def create_conversation(
             conversation_id=conversation_id,
             response_coordinator=getattr(state, "response_coordinator", None),
         )
-        initial_mode = _planner_flag_to_mode(explicit_planner) or ORCHESTRATOR_AGENT
+        (
+            execution_shape,
+            execution_rationale,
+            initial_mode,
+            auto_detected,
+        ) = await _resolve_execution_route(
+            state.claude_client,
+            message,
+            explicit_planner,
+        )
 
         event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
             maxsize=_EVENT_QUEUE_MAXSIZE,
@@ -1143,6 +1175,12 @@ async def create_conversation(
 
         user_resolution_started_at = time.perf_counter()
         user_id = await _resolve_user_id(auth_user, state)
+        turn_locale = await _resolve_turn_locale(
+            request,
+            state,
+            auth_user=auth_user,
+            user_id=user_id,
+        )
         logger.info(
             "conversation_create_user_ready id={} duration_ms={} authenticated={}",
             conversation_id,
@@ -1189,11 +1227,17 @@ async def create_conversation(
                 attachments=attachments,
                 selected_skills=selected_skills,
                 initial_mode=initial_mode,
+                execution_shape=execution_shape,
+                execution_rationale=execution_rationale,
+                explicit_planner=explicit_planner is True,
                 idempotency_key=idem_key,
                 user_id=user_id,
+                turn_locale=turn_locale,
             ),
             idempotency_key=idem_key,
         )
+        if auto_detected:
+            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
 
         # Generate a concise title in the background
         asyncio.create_task(
@@ -1258,6 +1302,13 @@ async def send_message(
     """
     with conversation_log_context(conversation_id):
         await _verify_conversation_ownership(state, conversation_id, auth_user)
+        user_id = await _resolve_user_id(auth_user, state)
+        turn_locale = await _resolve_turn_locale(
+            request,
+            state,
+            auth_user=auth_user,
+            user_id=user_id,
+        )
         content_type = request.headers.get("content-type", "")
 
         if "multipart/form-data" in content_type:
@@ -1347,6 +1398,7 @@ async def send_message(
                         "execution_shape": execution_shape,
                         "execution_rationale": execution_rationale,
                         "explicit_planner": explicit_planner is True,
+                        **({"locale": turn_locale} if turn_locale else {}),
                     }
 
                     if target_mode != current_mode or not _entry_runtime_ready(entry):

@@ -440,6 +440,11 @@
 
   "plan.title": "计划",
   "plan.progress": "{completed}/{total} 已完成",
+  "plan.placeholderDescription": "正在为此轮准备可见计划。",
+  "plan.statusPending": "待处理",
+  "plan.statusRunning": "运行中",
+  "plan.statusComplete": "已完成",
+  "plan.statusError": "失败",
 
   "tools.arg.url": "网址",
   "tools.arg.task": "任务",

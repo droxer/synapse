@@ -8,7 +8,10 @@ import pytest
 
 from agent.llm.client import LLMResponse, TokenUsage
 from agent.runtime.orchestrator import AgentState
-from agent.runtime.planner import PlannerOrchestrator
+from agent.runtime.planner import (
+    PlannerOrchestrator,
+    _build_turn_locale_runtime_sections,
+)
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter
@@ -63,3 +66,14 @@ class TestPlannerCompaction:
         assert result.completed is True
         assert observer.should_compact_calls == [(state.messages, "expanded prompt")]
         assert observer.compact_calls == [(state.messages, "expanded prompt")]
+
+
+def test_build_turn_locale_runtime_sections_requires_localized_plan_output() -> None:
+    sections = _build_turn_locale_runtime_sections({"locale": "zh-CN"})
+
+    assert len(sections) == 1
+    assert "preferred_language: Simplified Chinese" in sections[0]
+    assert (
+        "plan_create step names and descriptions must be written in this language"
+        in sections[0]
+    )

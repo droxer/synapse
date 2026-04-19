@@ -1046,6 +1046,41 @@ class TestSubAgentSpawnLimits:
             )
 
     @pytest.mark.asyncio
+    async def test_spawn_reserves_estimated_tokens_before_results_exist(
+        self, monkeypatch
+    ):
+        monkeypatch.setattr(
+            "agent.runtime.sub_agent_manager.get_settings",
+            lambda: SimpleNamespace(
+                AGENT_GLOBAL_TOKEN_BUDGET=100,
+                SKILLS_ENABLED=True,
+                PROMPT_CACHE_ENABLED=False,
+                HANDOFF_MESSAGE_SNIPPET_CHARS=2000,
+            ),
+        )
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+        manager._estimate_spawn_token_reservation = lambda config: 60  # type: ignore[method-assign]
+
+        async def mock_run_agent(agent_id, config):
+            del agent_id, config
+            await asyncio.sleep(0.05)
+            return AgentResult(agent_id="agent", success=True, summary="done")
+
+        manager._run_agent = mock_run_agent  # type: ignore[method-assign]
+
+        await manager.spawn(TaskAgentConfig(task_description="first"))
+
+        with pytest.raises(RuntimeError, match="Global agent token budget exceeded"):
+            await manager.spawn(TaskAgentConfig(task_description="second"))
+
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
     async def test_spawn_allows_redundant_task_when_enabled(self):
         manager = SubAgentManager(
             claude_client=MagicMock(),

@@ -27,12 +27,14 @@ class PlannerState:
         self._steps_by_name: dict[str, PlannedStep] = {}
         self._plan_created = False
         self._spawned_step_names: list[str] = []
+        self._waited_agent_ids: set[str] = set()
 
     def reset(self) -> None:
         """Clear any prior plan state at the start of a new turn."""
         self._steps_by_name.clear()
         self._plan_created = False
         self._spawned_step_names.clear()
+        self._waited_agent_ids.clear()
 
     def register_steps(self, steps: list[dict[str, Any]]) -> None:
         """Persist the current plan and validate duplicate step names."""
@@ -62,6 +64,11 @@ class PlannerState:
         """Return the number of worker spawns recorded for the active turn."""
         return len(self._spawned_step_names)
 
+    @property
+    def waited_agent_count(self) -> int:
+        """Return the number of worker results observed via agent_wait."""
+        return len(self._waited_agent_ids)
+
     def validate_spawn(self, step_name: str) -> str | None:
         """Return an error message when a spawn violates the active plan."""
         if not self._plan_created:
@@ -88,3 +95,7 @@ class PlannerState:
         normalized_name = _normalize_step_name(step_name)
         if normalized_name:
             self._spawned_step_names.append(normalized_name)
+
+    def record_wait(self, agent_ids: list[str]) -> None:
+        """Record worker results observed via a successful agent_wait call."""
+        self._waited_agent_ids.update(agent_id for agent_id in agent_ids if agent_id)

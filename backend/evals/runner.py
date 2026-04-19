@@ -10,14 +10,18 @@ from loguru import logger
 from agent.llm.client import AnthropicClient
 from agent.context.compaction import Observer
 from agent.runtime.orchestrator import AgentOrchestrator
-from agent.tools.base import ToolResult
+from agent.runtime.planner import PlannerOrchestrator
+from agent.runtime.task_runner import AgentResult, TaskAgentConfig
+from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolResult
+from agent.tools.executor import ToolExecutor
+from agent.tools.local.task_complete import TaskComplete
 from agent.tools.registry import ToolRegistry
-from api.events import EventEmitter
+from api.events import EventEmitter, EventType
 
 from evals.collector import EvalCollector
 from evals.grader import grade_criteria
 from evals.llm_judge import judge_with_llm
-from evals.mock_client import MockToolExecutor, ScriptedLLMClient
+from evals.mock_client import ScriptedLLMClient
 from evals.models import EvalCase, EvalReport, EvalResult
 
 
@@ -53,27 +57,177 @@ class _SimpleLocalTool:
         )
 
     async def execute(self, **kwargs: Any) -> ToolResult:
+        del kwargs
         return ToolResult.ok(f"[mock] {self._name} executed")
 
 
-def _build_mock_registry() -> ToolRegistry:
-    """Build a minimal tool registry with placeholder tools for mock mode."""
+class _MockActivateSkillTool(LocalTool):
+    def __init__(self, emitter: EventEmitter) -> None:
+        self._emitter = emitter
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="activate_skill",
+            description="Activate a skill for expert methodology",
+            input_schema={
+                "type": "object",
+                "properties": {"name": {"type": "string"}},
+                "required": ["name"],
+            },
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        skill_name = str(kwargs.get("name", "")).strip()
+        if not skill_name:
+            return ToolResult.fail("name must not be empty")
+        await self._emitter.emit(
+            EventType.SKILL_ACTIVATED,
+            {"name": skill_name, "source": "explicit"},
+        )
+        return ToolResult.ok(f"[mock] activate_skill executed for {skill_name}")
+
+
+class _MockAgentSpawnTool(LocalTool):
+    def __init__(self, emitter: EventEmitter) -> None:
+        self._emitter = emitter
+        self._spawn_count = 0
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="agent_spawn",
+            description="Spawn a new task agent for a sub-task",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "task_description": {"type": "string"},
+                    "name": {"type": "string"},
+                },
+                "required": ["task_description"],
+            },
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        task = str(kwargs.get("task_description", "")).strip()
+        if not task:
+            return ToolResult.fail("task_description must not be empty")
+        self._spawn_count += 1
+        agent_id = f"mock-agent-{self._spawn_count}"
+        await self._emitter.emit(
+            EventType.AGENT_SPAWN,
+            {
+                "agent_id": agent_id,
+                "task": task,
+                "description": task,
+            },
+        )
+        return ToolResult.ok(
+            f"[mock] agent_spawn executed for {task}",
+            metadata={"agent_id": agent_id},
+        )
+
+
+class _MockAgentHandoffTool(LocalTool):
+    def __init__(self, emitter: EventEmitter) -> None:
+        self._emitter = emitter
+        self._handoff_count = 0
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="agent_handoff",
+            description="Hand off to a specialist agent",
+            input_schema={
+                "type": "object",
+                "properties": {
+                    "target_role": {"type": "string"},
+                    "context": {"type": "string"},
+                    "task_description": {"type": "string"},
+                },
+                "required": ["target_role"],
+            },
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs: Any) -> ToolResult:
+        target_role = str(kwargs.get("target_role", "")).strip()
+        if not target_role:
+            return ToolResult.fail("target_role must not be empty")
+        reason = str(
+            kwargs.get("context") or kwargs.get("task_description") or ""
+        ).strip()
+        self._handoff_count += 1
+        await self._emitter.emit(
+            EventType.AGENT_HANDOFF,
+            {
+                "source_agent_id": f"mock-agent-handoff-{self._handoff_count}",
+                "target_role": target_role,
+                "reason": reason,
+                "handoff_depth": 1,
+            },
+        )
+        return ToolResult.ok(f"[mock] agent_handoff executed for {target_role}")
+
+
+class _EvalSubAgentManager:
+    """Minimal in-memory task-agent manager for planner evals."""
+
+    def __init__(self) -> None:
+        self._results: dict[str, AgentResult] = {}
+        self._spawn_count = 0
+
+    async def spawn(self, config: TaskAgentConfig) -> str:
+        self._spawn_count += 1
+        agent_id = f"mock-agent-{self._spawn_count}"
+        self._results[agent_id] = AgentResult(
+            agent_id=agent_id,
+            success=True,
+            summary=f"[mock] completed: {config.task_description}",
+        )
+        return agent_id
+
+    async def wait(
+        self,
+        agent_ids: list[str] | None = None,
+    ) -> dict[str, AgentResult]:
+        ids_to_wait = agent_ids or list(self._results)
+        missing = [
+            agent_id for agent_id in ids_to_wait if agent_id not in self._results
+        ]
+        if missing:
+            raise KeyError(", ".join(missing))
+        return {agent_id: self._results[agent_id] for agent_id in ids_to_wait}
+
+    async def cleanup(self) -> None:
+        return None
+
+
+def _build_mock_registry(
+    *,
+    emitter: EventEmitter,
+    on_complete: _NoOpTaskComplete,
+    planner_mode: bool,
+) -> ToolRegistry:
+    """Build a minimal tool registry for mock and live eval backends."""
     registry = ToolRegistry()
-    tools = [
+    generic_tools = [
         ("web_search", "Search the web for information"),
         ("web_fetch", "Fetch content from a URL"),
         ("code_run", "Run code in a sandbox"),
         ("code_interpret", "Interpret and execute Python code"),
         ("shell_exec", "Execute a shell command"),
-        ("task_complete", "Mark the task as complete"),
         ("message_user", "Send a message to the user"),
-        ("activate_skill", "Activate a skill for expert methodology"),
-        ("agent_spawn", "Spawn a new task agent for a sub-task"),
-        ("agent_wait", "Wait for task agents to complete"),
-        ("agent_handoff", "Hand off to a specialist agent"),
     ]
-    for name, desc in tools:
+    for name, desc in generic_tools:
         registry = registry.register(_SimpleLocalTool(name, desc))
+    registry = registry.register(TaskComplete(on_complete))
+    registry = registry.register(_MockActivateSkillTool(emitter))
+    if not planner_mode:
+        registry = registry.register(_MockAgentSpawnTool(emitter))
+        registry = registry.register(
+            _SimpleLocalTool("agent_wait", "Wait for task agents to complete")
+        )
+        registry = registry.register(_MockAgentHandoffTool(emitter))
     return registry
 
 
@@ -96,6 +250,7 @@ async def run_case(
     emitter.subscribe(collector.on_event)
 
     try:
+        on_complete = _NoOpTaskComplete()
         if backend == "mock":
             if case.mock_responses:
                 client: Any = ScriptedLLMClient.from_raw(case.mock_responses)
@@ -113,38 +268,74 @@ async def run_case(
                         ),
                     )
                 )
-            registry = _build_mock_registry()
-            executor = MockToolExecutor(emitter=emitter)
+            planner_mode = case.orchestrator_mode == "planner"
+            registry = _build_mock_registry(
+                emitter=emitter,
+                on_complete=on_complete,
+                planner_mode=planner_mode,
+            )
+            executor = ToolExecutor(registry=registry, event_emitter=emitter)
         elif backend == "live":
             if live_client is None:
                 return _error_result(case, "live_client required for backend='live'")
             client = live_client
-            registry = _build_mock_registry()
-            # In live mode, use mock executor for tool execution
-            # (we're testing the LLM, not the tools)
-            executor = MockToolExecutor(emitter=emitter)
+            planner_mode = case.orchestrator_mode == "planner"
+            registry = _build_mock_registry(
+                emitter=emitter,
+                on_complete=on_complete,
+                planner_mode=planner_mode,
+            )
+            executor = ToolExecutor(registry=registry, event_emitter=emitter)
         else:
             return _error_result(case, f"Unknown backend: {backend}")
-
-        on_complete = _NoOpTaskComplete()
 
         # Use custom token budget if specified in the eval case
         observer = None
         if case.token_budget > 0:
             observer = Observer(token_budget=case.token_budget)
 
-        orchestrator = AgentOrchestrator(
-            claude_client=client,
-            tool_registry=registry,
-            tool_executor=executor,  # type: ignore[arg-type]
-            event_emitter=emitter,
-            system_prompt="You are a helpful assistant being evaluated. Use the available tools to complete the task.",
-            max_iterations=case.max_iterations,
-            observer=observer,
-        )
+        if planner_mode:
+            orchestrator = PlannerOrchestrator(
+                claude_client=client,
+                tool_registry=registry,
+                tool_executor=executor,
+                event_emitter=emitter,
+                sub_agent_manager=_EvalSubAgentManager(),
+                system_prompt="You are a helpful planning assistant being evaluated. Use the available tools to decompose work and coordinate task agents when needed.",
+                max_iterations=case.max_iterations,
+                observer=observer,
+            )
+        else:
+            orchestrator = AgentOrchestrator(
+                claude_client=client,
+                tool_registry=registry,
+                tool_executor=executor,
+                event_emitter=emitter,
+                system_prompt="You are a helpful assistant being evaluated. Use the available tools to complete the task.",
+                max_iterations=case.max_iterations,
+                observer=observer,
+            )
         on_complete.set(orchestrator.on_task_complete)
 
-        await orchestrator.run(case.user_message)
+        execution_shape = "orchestrator_workers" if planner_mode else "single_agent"
+        execution_rationale = (
+            "eval configured explicit planner mode"
+            if planner_mode and case.explicit_planner
+            else "eval configured planner mode"
+            if planner_mode
+            else "eval configured single agent mode"
+        )
+        if planner_mode and not case.explicit_planner:
+            await emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
+
+        await orchestrator.run(
+            case.user_message,
+            turn_metadata={
+                "execution_shape": execution_shape,
+                "execution_rationale": execution_rationale,
+                "explicit_planner": case.explicit_planner,
+            },
+        )
 
     except Exception as exc:
         logger.error("Eval case '{}' raised: {}", case.id, exc)

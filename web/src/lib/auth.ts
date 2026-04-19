@@ -4,6 +4,7 @@ import Credentials from "next-auth/providers/credentials";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
 const PROXY_SECRET = process.env.PROXY_SECRET ?? "";
+const BACKEND_API_KEY = process.env.API_KEY ?? "";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
@@ -56,6 +57,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (PROXY_SECRET) {
             syncHeaders["X-Proxy-Secret"] = PROXY_SECRET;
           }
+          if (BACKEND_API_KEY) {
+            syncHeaders.Authorization = `Bearer ${BACKEND_API_KEY}`;
+          }
           await fetch(`${BACKEND_URL}/auth/me`, {
             method: "POST",
             headers: syncHeaders,
@@ -83,6 +87,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           if (PROXY_SECRET) {
             syncHeaders["X-Proxy-Secret"] = PROXY_SECRET;
           }
+          if (BACKEND_API_KEY) {
+            syncHeaders.Authorization = `Bearer ${BACKEND_API_KEY}`;
+          }
           const res = await fetch(`${BACKEND_URL}/auth/me`, {
             method: "POST",
             headers: syncHeaders,
@@ -107,6 +114,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       if (token.googleId) {
         session.user.googleId = token.googleId as string;
+      } else if (token.userId) {
+        session.user.googleId = token.userId as string;
       }
       return session;
     },

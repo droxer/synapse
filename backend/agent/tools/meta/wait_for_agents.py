@@ -14,6 +14,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.tools.meta.planner_state import PlannerState
 
 
 class WaitForAgents(LocalTool):
@@ -23,11 +24,13 @@ class WaitForAgents(LocalTool):
         self,
         sub_agent_manager: Any,
         cancel_check: Callable[[], bool] | None = None,
+        planner_state: PlannerState | None = None,
     ) -> None:
         if sub_agent_manager is None:
             raise ValueError("SubAgentManager must not be None")
         self._manager = sub_agent_manager
         self._cancel_check = cancel_check
+        self._planner_state = planner_state
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -93,6 +96,8 @@ class WaitForAgents(LocalTool):
             }
             for aid, result in results.items()
         }
+        if self._planner_state is not None and summaries:
+            self._planner_state.record_wait(list(summaries))
 
         return ToolResult.ok(
             json.dumps(summaries, ensure_ascii=False),

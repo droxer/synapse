@@ -26,11 +26,13 @@ from api.models import ConversationEntry  # noqa: E402
 from api.routes.conversations import (  # noqa: E402
     _EXECUTION_ROUTER_SYSTEM_PROMPT,
     _elapsed_ms,
+    _resolve_turn_locale,
     EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
     EXECUTION_SHAPE_PARALLEL,
     EXECUTION_SHAPE_PROMPT_CHAIN,
     EXECUTION_SHAPE_SINGLE_AGENT,
     ORCHESTRATOR_AGENT,
+    ORCHESTRATOR_PLANNER,
     _build_conversation_metrics_response,
     _classify_execution_shape,
     _planner_flag_to_mode,
@@ -531,9 +533,15 @@ class TestClassifyExecutionShape:
 
 
 class _DummyRequest:
-    def __init__(self, payload: dict[str, object]) -> None:
+    def __init__(
+        self,
+        payload: dict[str, object],
+        *,
+        cookies: dict[str, str] | None = None,
+    ) -> None:
         self.headers = {"content-type": "application/json"}
         self._payload = payload
+        self.cookies = cookies or {}
 
     async def json(self) -> dict[str, object]:
         return self._payload
@@ -552,7 +560,7 @@ def _build_conversation_entry(orchestrator: object) -> ConversationEntry:
 
 class TestCreateConversationBootstrap:
     @pytest.mark.asyncio
-    async def test_create_conversation_returns_before_background_bootstrap(
+    async def test_create_conversation_classifies_initial_turn_before_background_bootstrap(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         scheduled: list[object] = []
@@ -582,10 +590,10 @@ class TestCreateConversationBootstrap:
 
         resolve_route = AsyncMock(
             return_value=(
-                EXECUTION_SHAPE_SINGLE_AGENT,
-                "default",
-                ORCHESTRATOR_AGENT,
-                False,
+                EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+                "open ended decomposition",
+                ORCHESTRATOR_PLANNER,
+                True,
             )
         )
         monkeypatch.setattr(
@@ -609,15 +617,55 @@ class TestCreateConversationBootstrap:
         assert state.db_repo.create_conversation.await_count == 1
         assert (
             state.conversations[response.conversation_id].orchestrator_mode
-            == ORCHESTRATOR_AGENT
+            == ORCHESTRATOR_PLANNER
         )
-        assert resolve_route.await_count == 0
+        assert resolve_route.await_count == 1
         assert len(scheduled) == 2
 
         for coro in scheduled:
             close = getattr(coro, "close", None)
             if callable(close):
                 close()
+
+
+class TestResolveTurnLocale:
+    @pytest.mark.asyncio
+    async def test_uses_persisted_user_locale_before_cookie(self) -> None:
+        @asynccontextmanager
+        async def _session_factory():
+            yield object()
+
+        request = _DummyRequest({"message": "hello"}, cookies={"synapse-locale": "en"})
+        state = SimpleNamespace(
+            db_session_factory=_session_factory,
+            user_repo=SimpleNamespace(
+                find_by_id=AsyncMock(return_value=SimpleNamespace(locale="zh-CN"))
+            ),
+        )
+
+        locale = await _resolve_turn_locale(
+            request,
+            state,
+            auth_user=None,
+            user_id=uuid.uuid4(),
+        )
+
+        assert locale == "zh-CN"
+
+    @pytest.mark.asyncio
+    async def test_falls_back_to_locale_cookie_for_anonymous_turns(self) -> None:
+        request = _DummyRequest(
+            {"message": "hello"}, cookies={"synapse-locale": "zh-TW"}
+        )
+        state = SimpleNamespace()
+
+        locale = await _resolve_turn_locale(
+            request,
+            state,
+            auth_user=None,
+        )
+
+        assert locale == "zh-TW"
 
 
 class _ConcurrentOrchestrator:

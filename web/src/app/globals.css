@@ -291,7 +291,7 @@
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #DEDEDE;
   --color-user-accent-dim: rgba(255, 255, 255, 0.08);
-  --color-ai-surface: rgba(255, 255, 255, 0.04);
+  --color-ai-surface: rgba(255, 255, 255, 0.06);
   --color-ai-border: rgba(255, 255, 255, 0.1);
   --color-input-glow: rgba(255, 255, 255, 0.08);
   --color-sidebar-bg: #12151B;
@@ -787,13 +787,8 @@ pre, code {
 }
 
 /* ─── Conversation response surface (Cursor-style) ───
-   Soft left rule (using the AI signaling border token) gives the assistant
-   message its own visual identity without a heavy bubble — mirrors the
-   weight of the user-message bubble while staying chrome-light. */
-.conversation-assistant-message {
-  padding-left: 0.875rem;
-  border-left: 2px solid var(--color-ai-border);
-}
+   Assistant messages render borderless — prose flows directly without
+   decorative chrome, matching Cursor's flat-text approach. */
 
 .conversation-response-body {
   color: var(--color-foreground);

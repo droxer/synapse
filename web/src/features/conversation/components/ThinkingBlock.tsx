@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useId } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
-import { Brain, ChevronDown } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { MarkdownRenderer } from "@/shared/components";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
@@ -33,14 +33,20 @@ export function ThinkingBlock({
 }: ThinkingBlockProps) {
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
-  const [expanded, setExpanded] = useState(true);
+  // Collapsed by default; auto-expand only while actively thinking.
+  const [expanded, setExpanded] = useState(isThinking);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const wasTurnStreamingRef = useRef(isTurnStreaming);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
 
-  // Auto-collapse only when the streaming turn finishes, not when the
-  // assistant moves from "thinking" to "writing".
+  // Auto-expand when thinking starts, auto-collapse when streaming turn finishes.
+  useEffect(() => {
+    if (isThinking) {
+      setExpanded(true);
+    }
+  }, [isThinking]);
+
   useEffect(() => {
     setExpanded((prev) => getNextThinkingBlockExpanded(prev, wasTurnStreamingRef.current, isTurnStreaming));
     wasTurnStreamingRef.current = isTurnStreaming;
@@ -78,61 +84,60 @@ export function ThinkingBlock({
     : (summaryLabel ?? t("thinking.thoughtFor", { seconds: durationSeconds }));
   const steps = parseThinkingTimeline(content);
   const isMultiStep = steps.length > 1 || steps.some((step) => step.title);
-  const leadingVisual = isThinking
-    ? (
-      <span
-        className={cn(
-          "h-1.5 w-1.5 shrink-0 rounded-full bg-focus",
-          !shouldReduceMotion && "animate-pulse",
-        )}
-        aria-hidden="true"
-      />
-    )
-    : <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-border-strong" aria-hidden="true" />;
+
+  // Collapsed preview: first meaningful line of content
+  const previewSnippet = !expanded && !isThinking
+    ? content.replace(/^#+\s*/m, "").split("\n").filter((l) => l.trim().length > 0)[0]?.trim().slice(0, 60) ?? ""
+    : "";
 
   return (
-    <section
-      data-thinking-block=""
-      className={cn(
-        "overflow-hidden rounded-xl border border-ai-border bg-ai-surface transition-[border-color,background-color,box-shadow] duration-150",
-        expanded && "bg-ai-surface shadow-[var(--shadow-card)]",
-      )}
-    >
+    <div data-thinking-block="" className="group/thinking">
+      {/* Toggle header — inline text, no card wrapper */}
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-caption font-medium tracking-[0.01em] text-muted-foreground transition-[background-color,color]",
-          "hover:bg-muted hover:text-foreground",
-          expanded && "text-foreground",
+          "flex w-full items-center gap-1.5 rounded-md py-1 text-left text-caption text-muted-foreground transition-colors",
+          "hover:text-foreground",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
       >
-        <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
-          {leadingVisual}
+        <motion.span
+          animate={{ rotate: expanded ? 90 : 0 }}
+          transition={{ duration: 0.12 * dur }}
+          className="shrink-0"
+        >
+          <ChevronRight className="h-3 w-3" />
+        </motion.span>
+
+        {isThinking && (
           <span
             className={cn(
-              "inline-flex h-6 w-6 items-center justify-center rounded-md border border-ai-border bg-background",
-              expanded && "text-foreground",
+              "h-1.5 w-1.5 shrink-0 rounded-full bg-focus",
+              !shouldReduceMotion && "animate-pulse",
             )}
             aria-hidden="true"
-          >
-            <Brain className="h-3.5 w-3.5" />
-          </span>
-        </span>
-        <span className="min-w-0 flex-1 truncate">{label}</span>
+          />
+        )}
 
-        <motion.span
-          animate={{ rotate: expanded ? 180 : 0 }}
-          transition={{ duration: 0.15 * dur }}
-          className="shrink-0 text-muted-foreground"
-        >
-          <ChevronDown className="h-3.5 w-3.5" />
-        </motion.span>
+        <span className="font-medium">{label}</span>
+
+        {!expanded && isMultiStep && !isThinking && (
+          <span className="text-muted-foreground-dim">
+            &middot; {steps.length} steps
+          </span>
+        )}
+
+        {previewSnippet && !expanded && (
+          <span className="hidden min-w-0 flex-1 truncate text-muted-foreground-dim sm:block">
+            &mdash; {previewSnippet}{previewSnippet.length >= 60 ? "..." : ""}
+          </span>
+        )}
       </button>
 
+      {/* Expanded body */}
       <AnimatePresence initial={false}>
         {expanded && (
           <motion.div
@@ -141,68 +146,63 @@ export function ThinkingBlock({
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.15 * dur, ease: [0.33, 1, 0.68, 1] }}
+            transition={{ duration: 0.12 * dur, ease: [0.33, 1, 0.68, 1] }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 pt-0.5">
-              <div
-                ref={scrollRef}
-                data-thinking-panel=""
-                className={cn(
-                  "max-h-96 overflow-y-auto rounded-lg border border-ai-border bg-background p-3",
-                  showBottomFade && "thinking-scroll-mask",
-                )}
-              >
-                {isMultiStep ? (
-                  <div data-thinking-mode="steps" className="space-y-3">
-                    {steps.map((step, idx) => (
-                      <section
-                        key={step.id}
-                        data-thinking-step={idx + 1}
-                        className={cn(
-                          "rounded-lg border border-transparent px-0.5 py-0.5",
-                          idx > 0 && "border-t border-ai-border pt-3",
-                        )}
-                      >
-                        <div className="flex items-start gap-3">
-                          <span
-                            className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-muted px-1.5 text-[10px] font-medium text-muted-foreground"
-                            aria-hidden="true"
-                          >
-                            {idx + 1}
-                          </span>
-                          <div className="min-w-0 flex-1">
-                            {step.title ? (
-                              <h3 className="text-sm font-medium text-foreground/90">
-                                {step.title}
-                              </h3>
-                            ) : null}
-                            <div className={cn(step.title && "mt-1.5")}>
-                              <MarkdownRenderer
-                                content={step.body}
-                                isStreaming={isThinking}
-                                className="markdown-reasoning"
-                              />
-                            </div>
+            <div
+              ref={scrollRef}
+              data-thinking-panel=""
+              className={cn(
+                "mt-1 max-h-80 overflow-y-auto rounded-lg border border-border bg-muted/50 px-3 py-2.5",
+                showBottomFade && "thinking-scroll-mask",
+              )}
+            >
+              {isMultiStep ? (
+                <div data-thinking-mode="steps" className="space-y-2.5">
+                  {steps.map((step, idx) => (
+                    <section
+                      key={step.id}
+                      data-thinking-step={idx + 1}
+                      className={cn(
+                        idx > 0 && "border-t border-border pt-2.5",
+                      )}
+                    >
+                      <div className="flex items-start gap-2.5">
+                        <span
+                          className="inline-flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground"
+                          aria-hidden="true"
+                        >
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          {step.title ? (
+                            <h3 className="text-sm font-medium text-foreground/90">
+                              {step.title}
+                            </h3>
+                          ) : null}
+                          <div className={cn(step.title && "mt-1")}>
+                            <MarkdownRenderer
+                              content={step.body}
+                              isStreaming={isThinking}
+                              className="markdown-reasoning"
+                            />
                           </div>
                         </div>
-                      </section>
-                    ))}
-                  </div>
-                ) : (
-                  <div data-thinking-mode="note" className="rounded-lg border border-ai-border bg-ai-surface px-3 py-2.5">
-                    <MarkdownRenderer
-                      content={steps[0]?.body ?? content}
-                      isStreaming={isThinking}
-                      className="markdown-reasoning"
-                    />
-                  </div>
-                )}
-              </div>
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              ) : (
+                <MarkdownRenderer
+                  content={steps[0]?.body ?? content}
+                  isStreaming={isThinking}
+                  className="markdown-reasoning"
+                />
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
-    </section>
+    </div>
   );
 }

@@ -11,7 +11,7 @@ class GradingCriteria:
     """A single grading criterion for an eval case."""
 
     name: str
-    type: str  # tool_used | tool_not_used | output_regex | output_contains | max_iterations | no_errors | skill_activated | agent_spawned | agent_handoff | tool_call_count | context_compacted | tool_not_repeated | execution_shape
+    type: str  # tool_used | tool_not_used | output_regex | output_contains | max_iterations | no_errors | skill_activated | agent_spawned | agent_handoff | tool_call_count | context_compacted | tool_not_repeated | execution_shape | orchestrator_mode | plan_created | loop_guard_nudged | planner_auto_selected
     value: str | int | None = None
     weight: float = 1.0
 
@@ -32,6 +32,8 @@ class EvalCase:
     max_iterations: int = 50
     token_budget: int = 0  # 0 = use default (150K)
     mock_responses: tuple[dict[str, Any], ...] | None = None
+    orchestrator_mode: str = "agent"
+    explicit_planner: bool = False
 
 
 @dataclass(frozen=True)
@@ -89,6 +91,10 @@ class EvalMetrics:
     per_agent_metrics: dict[str, dict[str, Any]] = field(default_factory=dict)
     execution_shape: str = ""
     execution_rationale: str = ""
+    orchestrator_mode: str = ""
+    plan_created_count: int = 0
+    loop_guard_nudge_count: int = 0
+    planner_auto_selected_count: int = 0
 
 
 @dataclass(frozen=True)

@@ -220,6 +220,70 @@ def _grade_execution_shape(
     )
 
 
+def _grade_orchestrator_mode(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    expected = str(criteria.value or "")
+    passed = metrics.orchestrator_mode == expected
+    return CriterionResult(
+        criterion_name=criteria.name,
+        passed=passed,
+        detail=(
+            f"Orchestrator mode: {metrics.orchestrator_mode or '(missing)'} "
+            f"(expected: {expected})"
+        ),
+    )
+
+
+def _grade_count_at_least(
+    *,
+    criterion_name: str,
+    label: str,
+    count: int,
+    required_value: str | int | None,
+) -> CriterionResult:
+    required = int(required_value) if required_value is not None else 1
+    passed = count >= required
+    return CriterionResult(
+        criterion_name=criterion_name,
+        passed=passed,
+        detail=f"{label}: {count} (required: >= {required})",
+    )
+
+
+def _grade_plan_created(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    return _grade_count_at_least(
+        criterion_name=criteria.name,
+        label="Plans created",
+        count=metrics.plan_created_count,
+        required_value=criteria.value,
+    )
+
+
+def _grade_loop_guard_nudged(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    return _grade_count_at_least(
+        criterion_name=criteria.name,
+        label="Loop guard nudges",
+        count=metrics.loop_guard_nudge_count,
+        required_value=criteria.value,
+    )
+
+
+def _grade_planner_auto_selected(
+    criteria: GradingCriteria, metrics: EvalMetrics
+) -> CriterionResult:
+    return _grade_count_at_least(
+        criterion_name=criteria.name,
+        label="Planner auto-selected events",
+        count=metrics.planner_auto_selected_count,
+        required_value=criteria.value,
+    )
+
+
 _GRADERS = {
     "tool_used": _grade_tool_used,
     "tool_not_used": _grade_tool_not_used,
@@ -234,6 +298,10 @@ _GRADERS = {
     "context_compacted": _grade_context_compacted,
     "tool_not_repeated": _grade_tool_not_repeated,
     "execution_shape": _grade_execution_shape,
+    "orchestrator_mode": _grade_orchestrator_mode,
+    "plan_created": _grade_plan_created,
+    "loop_guard_nudged": _grade_loop_guard_nudged,
+    "planner_auto_selected": _grade_planner_auto_selected,
 }
 
 

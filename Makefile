@@ -8,7 +8,7 @@ SANDBOX_TAGS_default :=
 SANDBOX_TAGS_data_science :=
 SANDBOX_TAGS_browser := v3
 
-.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals pre-commit lint-web test-web desktop build-desktop generate-favicons
+.PHONY: backend web dev install install-backend install-web build-web build-sandbox push-sandbox migrate clean test lint format evals pre-commit lint-web test-web desktop build-desktop generate-favicons tui
 
 # Start both backend and web concurrently
 dev: install
@@ -18,6 +18,10 @@ dev: install
 # Backend (FastAPI + uvicorn)
 backend:
 	cd backend && uv run python -m api.main
+
+# TypeScript TUI client
+tui:
+	cd tui && node --experimental-strip-types src/index.ts
 
 # Web (Vite dev server)
 web:

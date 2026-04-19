@@ -80,6 +80,30 @@ class TestLoadCase:
         assert len(case.mock_responses) == 1
         assert case.mock_responses[0]["text"] == "Done"
 
+    def test_load_planner_eval_fields(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "planner.yaml",
+            """\
+            id: planner_case
+            name: Planner Case
+            description: planner eval
+            user_message: plan this
+            grading_mode: programmatic
+            orchestrator_mode: planner
+            explicit_planner: true
+            criteria:
+              - name: planner_mode
+                type: orchestrator_mode
+                value: planner
+            """,
+        )
+
+        case = load_case(path)
+
+        assert case.orchestrator_mode == "planner"
+        assert case.explicit_planner is True
+
     def test_invalid_mock_responses_not_list(self, tmp_cases_dir: Path) -> None:
         path = _write_yaml(
             tmp_cases_dir,
@@ -231,6 +255,26 @@ class TestLoadCase:
             """,
         )
         with pytest.raises(LoadError, match="Invalid criterion type"):
+            load_case(path)
+
+    def test_invalid_orchestrator_mode(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "bad_orchestrator_mode.yaml",
+            """\
+            id: bad_mode
+            name: Bad Mode
+            description: desc
+            user_message: msg
+            grading_mode: programmatic
+            orchestrator_mode: router
+            criteria:
+              - name: c
+                type: no_errors
+            """,
+        )
+
+        with pytest.raises(LoadError, match="Invalid orchestrator_mode"):
             load_case(path)
 
     def test_empty_criteria_list(self, tmp_cases_dir: Path) -> None:

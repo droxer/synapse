@@ -564,8 +564,172 @@ async def test_explicit_planner_requires_plan_create_before_completion() -> None
 
     assert result == "Here is the structured answer."
     assert any(event.type == EventType.PLAN_CREATED for event in events)
-    assert client.message_history[1][-1]["role"] == "user"
-    assert "call plan_create" in str(client.message_history[1][-1]["content"]).lower()
+    assert any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
+    assert planner.get_last_user_message() == "How should I approach learning Rust?"
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_allows_pure_clarification_question() -> None:
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    planner = PlannerOrchestrator(
+        claude_client=_RecordingSequenceClient(
+            LLMResponse(
+                text="Which repository should I inspect?",
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+        ),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=emitter,
+        sub_agent_manager=SimpleNamespace(cleanup=AsyncMock()),
+        system_prompt="test",
+    )
+
+    result = await planner.run(
+        "Please plan this vague task.",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "Which repository should I inspect?"
+    assert not any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
+    assert planner.get_last_user_message() == "Please plan this vague task."
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_does_not_exempt_refusal_like_inline_text() -> None:
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _RecordingSequenceClient(
+        LLMResponse(
+            text="I can't recommend a single framework, but here's a build plan.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="plan_create",
+                    input={
+                        "steps": [
+                            {
+                                "name": "Frame answer",
+                                "description": "Outline the response structure.",
+                                "execution_type": "planner_owned",
+                            }
+                        ]
+                    },
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="Here is the structured answer.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=emitter,
+        sub_agent_manager=SimpleNamespace(cleanup=AsyncMock()),
+        system_prompt="test",
+    )
+
+    result = await planner.run(
+        "What stack should I choose for a starter app?",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "Here is the structured answer."
+    assert any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
+    assert (
+        planner.get_last_user_message()
+        == "What stack should I choose for a starter app?"
+    )
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_does_not_exempt_question_with_extra_instruction() -> (
+    None
+):
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _RecordingSequenceClient(
+        LLMResponse(
+            text="Which repository should I inspect? Please share the repo.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="plan_create",
+                    input={
+                        "steps": [
+                            {
+                                "name": "Frame answer",
+                                "description": "Outline the response structure.",
+                                "execution_type": "planner_owned",
+                            }
+                        ]
+                    },
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="Here is the structured answer.",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=emitter,
+        sub_agent_manager=SimpleNamespace(cleanup=AsyncMock()),
+        system_prompt="test",
+    )
+
+    result = await planner.run(
+        "Which repository should I inspect?",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "Here is the structured answer."
+    assert any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
+    assert planner.get_last_user_message() == "Which repository should I inspect?"
 
 
 @pytest.mark.asyncio
@@ -664,8 +828,120 @@ async def test_explicit_planner_actionable_turn_requires_agent_spawn() -> None:
 
     assert result == "Delegated work completed."
     assert any(event.type == EventType.AGENT_SPAWN for event in events)
-    assert client.message_history[1][-1]["role"] == "user"
-    assert "call plan_create" in str(client.message_history[1][-1]["content"]).lower()
+    assert any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
+    assert (
+        planner.get_last_user_message()
+        == "Research current AI trends and write a summary report."
+    )
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_actionable_turn_requires_agent_wait_before_completion() -> (
+    None
+):
+    events: list[Any] = []
+    emitter = EventEmitter()
+    captured_system_prompts: list[str] = []
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+
+    class _WaitingManager:
+        def __init__(self) -> None:
+            self.cleanup = AsyncMock()
+
+        async def spawn(self, config: Any) -> str:
+            return "agent-1"
+
+        async def wait(self, agent_ids=None, cancel_check=None):
+            del agent_ids, cancel_check
+            return {
+                "agent-1": AgentResult(
+                    agent_id="agent-1",
+                    success=True,
+                    summary="Research completed.",
+                )
+            }
+
+    class _SystemRecordingClient(_RecordingSequenceClient):
+        async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
+            captured_system_prompts.append(render_system_prompt(kwargs["system"]))
+            return await super().create_message_stream(**kwargs)
+
+    planner = PlannerOrchestrator(
+        claude_client=_SystemRecordingClient(
+            LLMResponse(
+                text="",
+                tool_calls=(
+                    ToolCall(
+                        id="tool-1",
+                        name="plan_create",
+                        input={
+                            "steps": [
+                                {
+                                    "name": "Research trends",
+                                    "description": "Collect the current trend signals.",
+                                    "execution_type": "parallel_worker",
+                                }
+                            ]
+                        },
+                    ),
+                    ToolCall(
+                        id="tool-2",
+                        name="agent_spawn",
+                        input={
+                            "name": "Research trends",
+                            "task_description": "Research the current AI trends.",
+                        },
+                    ),
+                ),
+                stop_reason="tool_use",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            ),
+            LLMResponse(
+                text="Done without waiting.",
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            ),
+            LLMResponse(
+                text="",
+                tool_calls=(
+                    ToolCall(
+                        id="tool-3",
+                        name="agent_wait",
+                        input={"agent_ids": ["agent-1"]},
+                    ),
+                ),
+                stop_reason="tool_use",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            ),
+            LLMResponse(
+                text="Delegated work completed.",
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            ),
+        ),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=emitter,
+        sub_agent_manager=_WaitingManager(),
+        system_prompt="test",
+    )
+
+    result = await planner.run(
+        "Research current AI trends and write a summary report.",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "Delegated work completed."
+    assert any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
+    assert any(
+        "call agent_wait" in prompt.lower() for prompt in captured_system_prompts
+    )
 
 
 @pytest.mark.asyncio
@@ -1020,7 +1296,124 @@ async def test_planner_applies_mid_turn_skill_activation_constraints() -> None:
         "plan_create",
         "web_search",
     }
-    assert client.tool_batches[1] == {"activate_skill", "web_search"}
+    assert client.tool_batches[1] == {
+        "activate_skill",
+        "agent_spawn",
+        "agent_wait",
+        "plan_create",
+        "web_search",
+    }
+
+
+@pytest.mark.asyncio
+async def test_explicit_planner_preserves_meta_tools_after_skill_activation() -> None:
+    class _WaitingManager:
+        def __init__(self) -> None:
+            self.cleanup = AsyncMock()
+
+        async def spawn(self, config: Any) -> str:
+            del config
+            return "agent-1"
+
+        async def wait(self, agent_ids=None, cancel_check=None):
+            del agent_ids, cancel_check
+            return {
+                "agent-1": AgentResult(
+                    agent_id="agent-1",
+                    success=True,
+                    summary="Research completed.",
+                )
+            }
+
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-2",
+                    name="plan_create",
+                    input={
+                        "steps": [
+                            {
+                                "name": "Research findings",
+                                "description": "Collect the repo findings.",
+                                "execution_type": "parallel_worker",
+                            }
+                        ]
+                    },
+                ),
+                ToolCall(
+                    id="tool-3",
+                    name="agent_spawn",
+                    input={
+                        "name": "Research findings",
+                        "task_description": "Research the repository findings.",
+                    },
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-4",
+                    name="agent_wait",
+                    input={"agent_ids": ["agent-1"]},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=_WaitingManager(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    result = await planner.run(
+        "Research the repository and summarize the findings.",
+        turn_metadata={"explicit_planner": True},
+    )
+
+    assert result == "done"
+    assert client.tool_batches[1] == {
+        "activate_skill",
+        "agent_spawn",
+        "agent_wait",
+        "plan_create",
+        "web_search",
+    }
 
 
 @pytest.mark.asyncio
@@ -1147,6 +1540,10 @@ async def test_planner_builder_registry_keeps_skill_filtering_without_sandbox_to
     assert "file_read" not in client.tool_batches[0]
     assert client.tool_batches[1] == {
         "activate_skill",
+        "agent_spawn",
+        "agent_wait",
+        "plan_create",
+        "task_complete",
         "user_message",
         "web_fetch",
         "web_search",

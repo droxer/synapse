@@ -12,6 +12,26 @@ let lastAgentProgressCardProps: Record<string, unknown> | null = null;
 let lastThreadTasksPanelProps: Record<string, unknown> | null = null;
 let lastTopBarProps: Record<string, unknown> | null = null;
 
+jest.mock("@/i18n", () => ({
+  __esModule: true,
+  useTranslation: () => ({
+    locale: "en",
+    setLocale: () => undefined,
+    t: (key: string) => {
+      const map: Record<string, string> = {
+        "chat.plannerModeActive": "Planner mode active",
+        "plan.placeholderDescription": "Preparing a visible plan for this turn.",
+        "conversation.emptyAssistantBody": "No text in this reply.",
+        "conversation.imageAlt": "AI-generated image artifact",
+        "conversation.imageUnavailable": "Image unavailable",
+        "thinking.reasoning": "Reasoning",
+      };
+      return map[key] ?? key;
+    },
+    tArray: (key: string) => [key],
+  }),
+}));
+
 jest.mock("framer-motion", () => ({
   __esModule: true,
   AnimatePresence: ({ children }: { children: React.ReactNode }) => createElement(React.Fragment, null, children),

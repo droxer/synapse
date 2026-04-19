@@ -2,6 +2,7 @@
 
 import { startTransition, useEffect, useCallback } from "react";
 import { useRouter, usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Sidebar } from "@/shared/components";
 import { MobileDrawer } from "@/shared/components/MobileDrawer";
 import { UserMenu } from "@/shared/components/UserMenu";
@@ -12,6 +13,7 @@ import { getRecentTaskNavigationDecision } from "./app-sidebar-navigation";
 export function AppSidebar() {
   const router = useRouter();
   const pathname = usePathname();
+  const { status } = useSession();
   const isMobile = useIsMobile();
   const conversationId = useAppStore((s) => s.conversationId);
   const conversationHistory = useAppStore((s) => s.conversationHistory);
@@ -32,15 +34,24 @@ export function AppSidebar() {
   );
 
   useEffect(() => {
+    if (status !== "authenticated") {
+      return;
+    }
     loadConversations();
-  }, [loadConversations]);
+  }, [loadConversations, status]);
 
   useEffect(() => {
     const refresh = () => {
+      if (status !== "authenticated") {
+        return;
+      }
       loadConversations();
     };
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
+      if (
+        status === "authenticated" &&
+        document.visibilityState === "visible"
+      ) {
         refresh();
       }
     };
@@ -50,7 +61,7 @@ export function AppSidebar() {
       window.removeEventListener("focus", refresh);
       document.removeEventListener("visibilitychange", onVisibilityChange);
     };
-  }, [loadConversations]);
+  }, [loadConversations, status]);
 
   const handleNewConversation = useCallback(() => {
     clearPendingNewTask();

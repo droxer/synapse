@@ -5,9 +5,11 @@ from __future__ import annotations
 
 def split_allowed_tools(
     allowed_tools: tuple[str, ...],
+    *,
+    preserved_names: tuple[str, ...] = (),
 ) -> tuple[set[str], set[str]]:
     """Split skill ``allowed_tools`` into tool names and registry tags."""
-    names: set[str] = {"activate_skill"}
+    names: set[str] = {"activate_skill", *preserved_names}
     tags: set[str] = set()
     for entry in allowed_tools:
         if ":" in entry:

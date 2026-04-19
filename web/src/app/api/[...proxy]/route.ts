@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
 const PROXY_SECRET = process.env.PROXY_SECRET ?? "";
+const BACKEND_API_KEY = process.env.API_KEY ?? "";
 
 /**
  * Proxy all /api/* requests (except /api/auth/*) to the FastAPI backend.
@@ -26,11 +27,16 @@ async function handler(req: NextRequest) {
     headers.set("X-Proxy-Secret", PROXY_SECRET);
   }
 
+  if (BACKEND_API_KEY) {
+    headers.set("Authorization", `Bearer ${BACKEND_API_KEY}`);
+  }
+
   if (session?.user) {
+    const googleId = session.user.googleId ?? session.user.id ?? "";
     headers.set("X-User-Email", session.user.email ?? "");
     headers.set("X-User-Name", session.user.name ?? "");
     headers.set("X-User-Picture", session.user.image ?? "");
-    headers.set("X-User-Google-Id", session.user.googleId ?? "");
+    headers.set("X-User-Google-Id", googleId);
   }
 
   try {

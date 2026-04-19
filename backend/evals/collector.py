@@ -45,6 +45,10 @@ class EvalCollector:
         self._per_agent_metrics: dict[str, dict[str, Any]] = {}
         self._execution_shape: str = ""
         self._execution_rationale: str = ""
+        self._orchestrator_mode: str = ""
+        self._plan_created_count: int = 0
+        self._loop_guard_nudge_count: int = 0
+        self._planner_auto_selected_count: int = 0
 
     async def on_event(self, event: AgentEvent) -> None:
         """Async event handler — pass to ``EventEmitter.subscribe()``."""
@@ -61,6 +65,9 @@ class EvalCollector:
                 execution_rationale = event.data.get("execution_rationale")
                 if isinstance(execution_rationale, str):
                     self._execution_rationale = execution_rationale
+                orchestrator_mode = event.data.get("orchestrator_mode")
+                if isinstance(orchestrator_mode, str):
+                    self._orchestrator_mode = orchestrator_mode
 
             case EventType.LLM_RESPONSE:
                 usage = event.data.get("usage")
@@ -131,6 +138,15 @@ class EvalCollector:
                 if agent_id:
                     self._per_agent_metrics[agent_id] = event.data.get("metrics") or {}
 
+            case EventType.PLAN_CREATED:
+                self._plan_created_count += 1
+
+            case EventType.LOOP_GUARD_NUDGE:
+                self._loop_guard_nudge_count += 1
+
+            case EventType.PLANNER_AUTO_SELECTED:
+                self._planner_auto_selected_count += 1
+
     def to_metrics(self) -> EvalMetrics:
         """Freeze collected data into an immutable EvalMetrics."""
         elapsed = time.monotonic() - self._start_time
@@ -149,4 +165,8 @@ class EvalCollector:
             per_agent_metrics=dict(self._per_agent_metrics),
             execution_shape=self._execution_shape,
             execution_rationale=self._execution_rationale,
+            orchestrator_mode=self._orchestrator_mode,
+            plan_created_count=self._plan_created_count,
+            loop_guard_nudge_count=self._loop_guard_nudge_count,
+            planner_auto_selected_count=self._planner_auto_selected_count,
         )

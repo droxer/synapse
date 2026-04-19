@@ -21,23 +21,19 @@ const PHASE_CONFIG: Record<
   ActivePhase,
   {
     readonly icon: typeof Brain;
-    readonly badgeClass: string;
     readonly dotClass: string;
   }
 > = {
   thinking: {
     icon: Brain,
-    badgeClass: "bg-ai-surface border border-ai-border text-muted-foreground",
     dotClass: "bg-focus",
   },
   writing: {
     icon: Pencil,
-    badgeClass: "bg-muted border border-border text-muted-foreground",
     dotClass: "bg-muted-foreground",
   },
   using_tool: {
     icon: Wrench,
-    badgeClass: "bg-focus/5 border border-focus/20 text-muted-foreground",
     dotClass: "bg-focus",
   },
 };
@@ -108,45 +104,41 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
       aria-live="polite"
       aria-label={t("assistant.ariaLoading", { label })}
     >
-      {/* Phase badge */}
-      <div className="mb-3 flex items-center gap-2 pt-1">
-        <div
-          className={cn("inline-flex items-center gap-2 rounded-md border px-2.5 py-1 text-sm font-medium", config.badgeClass)}
-        >
-          {activePhase === "thinking" || activePhase === "using_tool" ? (
-            <motion.span
-              animate={shouldReduceMotion ? {} : { opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
-            >
-              <Icon className="h-3 w-3" />
-            </motion.span>
-          ) : (
+      {/* Phase indicator — flat inline label, no card */}
+      <div className="mb-2.5 flex items-center gap-1.5 text-caption text-muted-foreground">
+        {activePhase === "thinking" || activePhase === "using_tool" ? (
+          <motion.span
+            animate={shouldReduceMotion ? {} : { opacity: [0.5, 1, 0.5] }}
+            transition={{ duration: 1.8, repeat: Infinity, ease: "easeInOut" }}
+          >
             <Icon className="h-3 w-3" />
-          )}
-          <span>{label}</span>
-          <span className="flex items-center gap-0.5">
-            {[0, 1, 2].map((i) => (
-              <motion.span
-                key={i}
-                className={`inline-block h-1 w-1 rounded-full ${config.dotClass}`}
-                animate={shouldReduceMotion ? {} : { opacity: [0.3, 1, 0.3] }}
-                transition={{
-                  duration: 1.4,
-                  repeat: Infinity,
-                  delay: i * 0.2,
-                  ease: "easeInOut",
-                }}
-              />
-            ))}
-          </span>
-        </div>
+          </motion.span>
+        ) : (
+          <Icon className="h-3 w-3" />
+        )}
+        <span className="font-medium">{label}</span>
+        <span className="flex items-center gap-0.5">
+          {[0, 1, 2].map((i) => (
+            <motion.span
+              key={i}
+              className={cn("inline-block h-1 w-1 rounded-full", config.dotClass)}
+              animate={shouldReduceMotion ? {} : { opacity: [0.3, 1, 0.3] }}
+              transition={{
+                duration: 1.4,
+                repeat: Infinity,
+                delay: i * 0.2,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </span>
       </div>
 
       {/* Skeleton paragraph lines */}
       <div className="flex flex-col gap-2.5 pl-1">
         {lines.map((widthClass, i) => (
           <motion.div key={`line-${i}`} variants={lineVariants}>
-            <Skeleton className={`h-3 rounded-md opacity-60 ${widthClass}`} />
+            <Skeleton className={cn("h-3 rounded-md opacity-50", widthClass)} />
           </motion.div>
         ))}
       </div>

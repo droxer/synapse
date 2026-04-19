@@ -8,6 +8,7 @@ import uuid
 from dataclasses import asdict, dataclass, replace
 from typing import Callable
 
+from agent.context.compaction import _estimate_tokens
 from agent.llm.client import AnthropicClient
 from agent.memory.store import PersistentMemoryStore
 from agent.runtime.task_runner import (
@@ -18,6 +19,7 @@ from agent.runtime.task_runner import (
     TaskAgentPromptTemplate,
     TaskAgentRunner,
     TASK_AGENT_PROMPT_TEMPLATE,
+    _build_system_prompt,
     ensure_task_agent_name_suffix,
 )
 from agent.skills.loader import SkillRegistry
@@ -157,6 +159,7 @@ class SubAgentManager:
         self._configs: dict[str, TaskAgentConfig] = {}
         self._executors: dict[str, list[ToolExecutor]] = {}
         self._agent_memory_stores: dict[str, dict[str, str]] = {}
+        self._reserved_agent_token_estimates: dict[str, int] = {}
         self._terminal_events_emitted: set[str] = set()
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._shared_bundle = self._build_shared_bundle()
@@ -232,6 +235,40 @@ class SubAgentManager:
         """Total number of agents spawned (running + completed)."""
         return len(self._configs)
 
+    def _current_total_agent_tokens(self) -> int:
+        completed_tokens = sum(
+            r.metrics.input_tokens + r.metrics.output_tokens
+            for r in self._results.values()
+            if r.metrics is not None
+        )
+        return completed_tokens + sum(self._reserved_agent_token_estimates.values())
+
+    def _estimate_spawn_token_reservation(self, config: TaskAgentConfig) -> int:
+        settings = get_settings()
+        system_prompt = _build_system_prompt(
+            config,
+            prompt_template=self._shared_bundle.prompt_template,
+            memory_entries=self._memory_entries,
+            skill_registry=(
+                self._skill_registry
+                if getattr(settings, "SKILLS_ENABLED", True)
+                else None
+            ),
+            settings=settings,
+        )
+        seed_messages = (
+            {
+                "role": "user",
+                "content": config.task_description,
+            },
+        )
+        return _estimate_tokens(tuple(seed_messages), system_prompt)
+
+    def _store_result(self, agent_id: str, result: AgentResult) -> AgentResult:
+        self._reserved_agent_token_estimates.pop(agent_id, None)
+        self._results[agent_id] = result
+        return result
+
     async def spawn(self, config: TaskAgentConfig) -> str:
         """Spawn a new task agent and return its agent_id.
 
@@ -254,17 +291,17 @@ class SubAgentManager:
 
         settings = get_settings()
         if settings.AGENT_GLOBAL_TOKEN_BUDGET > 0:
-            total_tokens = sum(
-                r.metrics.input_tokens + r.metrics.output_tokens
-                for r in self._results.values()
-                if r.metrics is not None
-            )
-            if total_tokens >= settings.AGENT_GLOBAL_TOKEN_BUDGET:
+            total_tokens = self._current_total_agent_tokens()
+            estimated_tokens = self._estimate_spawn_token_reservation(config)
+            if total_tokens + estimated_tokens >= settings.AGENT_GLOBAL_TOKEN_BUDGET:
                 raise RuntimeError(
                     "Global agent token budget exceeded "
-                    f"({total_tokens} >= {settings.AGENT_GLOBAL_TOKEN_BUDGET}); "
+                    f"({total_tokens} + {estimated_tokens} >= "
+                    f"{settings.AGENT_GLOBAL_TOKEN_BUDGET}); "
                     "refuse spawning further task agents",
                 )
+        else:
+            estimated_tokens = 0
 
         if not config.allow_redundant:
             new_signature = _normalize_task_signature(config.task_description)
@@ -283,6 +320,8 @@ class SubAgentManager:
 
         agent_id = str(uuid.uuid4())
         self._configs[agent_id] = config
+        if estimated_tokens > 0:
+            self._reserved_agent_token_estimates[agent_id] = estimated_tokens
 
         task = asyncio.create_task(
             self._run_agent(agent_id, config),
@@ -377,6 +416,7 @@ class SubAgentManager:
         self._configs.clear()
         self._executors.clear()
         self._agent_memory_stores.clear()
+        self._reserved_agent_token_estimates.clear()
         self._terminal_events_emitted.clear()
         self._message_bus.clear()
 
@@ -460,8 +500,7 @@ class SubAgentManager:
             else:
                 result = task_result
 
-        self._results[agent_id] = result
-        return result
+        return self._store_result(agent_id, result)
 
     async def _run_agent(
         self,
@@ -479,7 +518,7 @@ class SubAgentManager:
                     [dep_outcome.metrics] if dep_outcome.metrics is not None else []
                 ),
             )
-            self._results[agent_id] = final_result
+            self._store_result(agent_id, final_result)
             await self._emit_terminal_events(agent_id, config, final_result)
             return final_result
 
@@ -513,7 +552,7 @@ class SubAgentManager:
                     artifacts=tuple(stage_artifacts),
                     metrics=_aggregate_metrics(stage_metrics),
                 )
-                self._results[agent_id] = final_result
+                self._store_result(agent_id, final_result)
                 await self._emit_terminal_events(agent_id, current_config, final_result)
                 return final_result
 
@@ -615,7 +654,7 @@ class SubAgentManager:
                     default_error="dependency terminated unexpectedly",
                 )
                 if synthesized is not None:
-                    self._results[dep_id] = synthesized
+                    self._store_result(dep_id, synthesized)
 
         # Check for dependency failures and apply failure mode policy
         failed_deps: list[tuple[str, AgentResult]] = []

@@ -8,6 +8,10 @@ const t = (key: string) => {
     "conversation.copySectionAnswer": "Answer",
     "conversation.copySectionPlan": "Plan",
     "conversation.copySectionImages": "Images",
+    "plan.statusPending": "Pending",
+    "plan.statusRunning": "Running",
+    "plan.statusComplete": "Done",
+    "plan.statusError": "Failed",
   };
   return map[key] ?? key;
 };
@@ -56,7 +60,7 @@ describe("buildAssistantCopyText", () => {
     expect(text).toContain("Answer");
     expect(text).toContain("Hello");
     expect(text).toContain("Plan");
-    expect(text).toContain("[complete] Research");
+    expect(text).toContain("[Done] Research");
     expect(text).toContain("Images");
     expect(text).toContain("https://example.com/a.png");
     expect(text.indexOf("Reasoning")).toBeLessThan(text.indexOf("Answer"));

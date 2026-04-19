@@ -67,10 +67,12 @@ class ScriptedLLMClient:
         system: str,
         messages: list[dict[str, Any]],
         tools: list[dict[str, Any]] | None = None,
+        model: str | None = None,
         on_text_delta: Callable[[str], Coroutine[Any, Any, None]] | None = None,
         thinking_budget: int = 0,
     ) -> LLMResponse:
         """Return the next scripted response, or a fallback."""
+        del system, messages, tools, model, thinking_budget
         if self._index < len(self._responses):
             response = self._responses[self._index]
             self._index += 1
@@ -92,6 +94,7 @@ class ScriptedLLMClient:
         thinking_budget: int = 0,
     ) -> LLMResponse:
         """Non-streaming variant — same sequencing logic."""
+        del system, messages, tools, model, max_tokens, thinking_budget
         if self._index < len(self._responses):
             response = self._responses[self._index]
             self._index += 1

@@ -330,6 +330,91 @@ class TestRunCase:
         assert result.passed is True
         assert result.metrics.agent_handoffs[0].target_role == "security_reviewer"
 
+    async def test_mock_planner_case_runs_real_planner_path(self) -> None:
+        case = EvalCase(
+            id="planner_mode",
+            name="Planner Mode",
+            description="Exercise planner guardrails in eval harness",
+            user_message="Research the repository and summarize the findings.",
+            grading_mode="programmatic",
+            orchestrator_mode="planner",
+            explicit_planner=True,
+            criteria=(
+                GradingCriteria(
+                    name="planner_mode",
+                    type="orchestrator_mode",
+                    value="planner",
+                ),
+                GradingCriteria(name="plan_visible", type="plan_created", value=1),
+                GradingCriteria(
+                    name="nudged_before_plan",
+                    type="loop_guard_nudged",
+                    value=1,
+                ),
+                GradingCriteria(name="spawned", type="agent_spawned", value=1),
+            ),
+            mock_responses=(
+                {
+                    "text": "Done without planning.",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+                {
+                    "text": "",
+                    "tool_calls": [
+                        {
+                            "id": "tc_plan",
+                            "name": "plan_create",
+                            "input": {
+                                "steps": [
+                                    {
+                                        "name": "Research findings",
+                                        "description": "Collect the relevant findings.",
+                                        "execution_type": "parallel_worker",
+                                    }
+                                ]
+                            },
+                        },
+                        {
+                            "id": "tc_spawn",
+                            "name": "agent_spawn",
+                            "input": {
+                                "name": "Research findings",
+                                "task_description": "Research the repository findings.",
+                            },
+                        },
+                    ],
+                    "stop_reason": "tool_use",
+                },
+                {
+                    "text": "",
+                    "tool_calls": [
+                        {
+                            "id": "tc_wait",
+                            "name": "agent_wait",
+                            "input": {"agent_ids": ["mock-agent-1"]},
+                        }
+                    ],
+                    "stop_reason": "tool_use",
+                },
+                {
+                    "text": "Done",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+
+        result = await run_case(case, backend="mock")
+
+        assert result.passed is True
+        assert result.metrics.orchestrator_mode == "planner"
+        assert result.metrics.plan_created_count == 1
+        assert result.metrics.loop_guard_nudge_count == 1
+        assert (
+            result.metrics.agent_spawns[0].task == "Research the repository findings."
+        )
+
 
 class TestRunAll:
     async def test_run_multiple_cases(self) -> None:

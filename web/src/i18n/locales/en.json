@@ -440,6 +440,11 @@
 
   "plan.title": "Plan",
   "plan.progress": "{completed}/{total} complete",
+  "plan.placeholderDescription": "Preparing a visible plan for this turn.",
+  "plan.statusPending": "Pending",
+  "plan.statusRunning": "Running",
+  "plan.statusComplete": "Done",
+  "plan.statusError": "Failed",
 
   "tools.arg.url": "URL",
   "tools.arg.task": "Task",

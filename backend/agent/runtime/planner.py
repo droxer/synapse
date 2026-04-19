@@ -125,6 +125,36 @@ _QUESTION_ONLY_PREFIXES = (
     "could you explain",
     "tell me",
 )
+_CLARIFICATION_PREFIXES = (
+    "what ",
+    "which ",
+    "who ",
+    "where ",
+    "when ",
+    "why ",
+    "how ",
+    "can you ",
+    "could you ",
+    "would you ",
+    "do you ",
+    "did you ",
+    "is the ",
+    "are the ",
+    "should i ",
+    "should we ",
+    "please clarify",
+)
+_SUPPORTED_TURN_LOCALES = {
+    "en": "English",
+    "zh-CN": "Simplified Chinese",
+    "zh-TW": "Traditional Chinese",
+}
+_PLANNER_PRESERVED_TOOL_NAMES = (
+    "task_complete",
+    "plan_create",
+    "agent_spawn",
+    "agent_wait",
+)
 
 
 def _normalize_policy_text(value: str) -> str:
@@ -160,6 +190,39 @@ def _explicit_planner_requires_worker_delegation(
         return False
 
     return len(normalized.split()) >= 12 and not normalized.endswith("?")
+
+
+def _build_turn_locale_runtime_sections(
+    turn_metadata: dict[str, Any] | None,
+) -> tuple[str, ...]:
+    locale = (turn_metadata or {}).get("locale")
+    if not isinstance(locale, str):
+        return ()
+    language_name = _SUPPORTED_TURN_LOCALES.get(locale)
+    if language_name is None:
+        return ()
+    return (
+        (
+            "User locale for this turn:\n"
+            f"- locale: {locale}\n"
+            f"- preferred_language: {language_name}\n"
+            "- Keep user-visible planner output in this language unless the user explicitly requests another one.\n"
+            "- In particular, plan_create step names and descriptions must be written in this language."
+        ),
+    )
+
+
+def _is_clarification_question(text: str) -> bool:
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    if len(lines) != 1:
+        return False
+    candidate = lines[0]
+    normalized = _normalize_policy_text(candidate)
+    if not normalized or not candidate.endswith("?"):
+        return False
+    if candidate.count("?") != 1:
+        return False
+    return normalized.startswith(_CLARIFICATION_PREFIXES)
 
 
 class SubAgentManagerProtocol(Protocol):
@@ -249,6 +312,7 @@ class PlannerOrchestrator:
             WaitForAgents(
                 sub_agent_manager=sub_agent_manager,
                 cancel_check=lambda: self._cancel_event.is_set(),
+                planner_state=self._planner_state,
             ),
         )
 
@@ -269,6 +333,7 @@ class PlannerOrchestrator:
         self._explicit_planner_requires_plan = False
         self._explicit_planner_requires_worker = False
         self._explicit_policy_nudge_count = 0
+        self._explicit_policy_reminder: str | None = None
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -373,7 +438,8 @@ class PlannerOrchestrator:
 
         if skill.metadata.allowed_tools:
             allowed_names, allowed_tags = split_allowed_tools(
-                skill.metadata.allowed_tools
+                skill.metadata.allowed_tools,
+                preserved_names=_PLANNER_PRESERVED_TOOL_NAMES,
             )
             set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
             if callable(set_allowed_tools):
@@ -464,6 +530,7 @@ class PlannerOrchestrator:
             )
         )
         self._explicit_policy_nudge_count = 0
+        self._explicit_policy_reminder = None
 
         cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
         prompt_assembly = PromptAssembly.from_system(self._system_prompt)
@@ -476,6 +543,9 @@ class PlannerOrchestrator:
         explicit_sections = self._build_explicit_planner_runtime_sections()
         if explicit_sections:
             prompt_assembly = prompt_assembly.with_volatile_sections(*explicit_sections)
+        locale_sections = _build_turn_locale_runtime_sections(turn_metadata)
+        if locale_sections:
+            prompt_assembly = prompt_assembly.with_volatile_sections(*locale_sections)
         self._turn_prompt_assembly = prompt_assembly
 
         # Skill matching via shared selector (before user message / uploads)
@@ -543,7 +613,8 @@ class PlannerOrchestrator:
             # Filter tools by allowed_tools
             if matched.metadata.allowed_tools:
                 allowed_names, allowed_tags = split_allowed_tools(
-                    matched.metadata.allowed_tools
+                    matched.metadata.allowed_tools,
+                    preserved_names=_PLANNER_PRESERVED_TOOL_NAMES,
                 )
                 set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
                 if callable(set_allowed_tools):
@@ -589,13 +660,20 @@ class PlannerOrchestrator:
             while not self._state.completed and self._state.error is None:
                 if self._cancel_event.is_set():
                     break
+                iteration_prompt_assembly = prompt_assembly
+                if self._explicit_policy_reminder:
+                    iteration_prompt_assembly = (
+                        iteration_prompt_assembly.with_volatile_sections(
+                            self._explicit_policy_reminder
+                        )
+                    )
                 self._state = self._state.increment_iteration()
                 self._state = await self._run_iteration(
                     self._state,
                     tools,
                     model,
-                    prompt_assembly.system_with_cache_control(cache_prompt),
-                    prompt_assembly.rendered,
+                    iteration_prompt_assembly.system_with_cache_control(cache_prompt),
+                    iteration_prompt_assembly.rendered,
                 )
 
                 if self._pending_mid_turn_update is not None:
@@ -662,6 +740,9 @@ class PlannerOrchestrator:
         state = apply_response_to_state(state, response)
 
         if not response.tool_calls:
+            if self._explicit_planner_completion_is_exempt(response.text):
+                self._explicit_policy_reminder = None
+                return state.mark_completed()
             policy_state = await self._apply_explicit_planner_policy(
                 state,
                 trigger="inline_completion",
@@ -816,32 +897,10 @@ class PlannerOrchestrator:
             iteration=state.iteration,
         )
 
-    @staticmethod
-    def _append_text_guard_to_last_user_message(
-        state: AgentState,
-        extra_text: str,
-    ) -> AgentState:
-        """Append a planner policy reminder to the last user message when possible."""
-        if not state.messages:
-            return state.add_message({"role": "user", "content": extra_text})
-        messages = list(state.messages)
-        last = messages[-1]
-        if last.get("role") != "user":
-            return state.add_message({"role": "user", "content": extra_text})
-        content = last.get("content")
-        if isinstance(content, str):
-            messages[-1] = {**last, "content": f"{content}\n\n{extra_text}"}
-        elif isinstance(content, list):
-            messages[-1] = {
-                **last,
-                "content": [
-                    *content,
-                    {"type": "text", "text": extra_text},
-                ],
-            }
-        else:
-            return state.add_message({"role": "user", "content": extra_text})
-        return replace(state, messages=tuple(messages))
+    def _explicit_planner_completion_is_exempt(self, text: str) -> bool:
+        if not self._explicit_planner_requested:
+            return False
+        return _is_clarification_question(text)
 
     def _build_explicit_planner_runtime_sections(self) -> tuple[str, ...]:
         if not self._explicit_planner_requested:
@@ -851,14 +910,15 @@ class PlannerOrchestrator:
             (
                 "Explicit planner mode is enabled for this turn.\n"
                 "- Produce visible planner activity rather than answering inline.\n"
-                "- Call plan_create before finishing unless you are only refusing the request, "
-                "asking a clarification question, or handling trivial chit-chat."
+                "- Call plan_create before finishing unless you are only asking a "
+                "clarification question or handling trivial chit-chat."
             )
         ]
         if self._explicit_planner_requires_worker:
             sections.append(
                 "This request is actionable tasking. Before finishing, delegate at least one "
-                "focused worker with agent_spawn and then synthesize the result."
+                "focused worker with agent_spawn, wait for the result with agent_wait, and "
+                "then synthesize the worker output."
             )
         return tuple(sections)
 
@@ -869,7 +929,7 @@ class PlannerOrchestrator:
             return (
                 "System notice: Planner mode was explicitly forced for this turn. "
                 "Before you finish, call plan_create so the user sees a visible plan. "
-                "Only skip this if you are refusing the request or asking a clarification question."
+                "Only skip this if you are asking a clarification question."
             )
         if (
             self._explicit_planner_requires_worker
@@ -879,6 +939,15 @@ class PlannerOrchestrator:
                 "System notice: This explicit planner turn is actionable tasking. "
                 "Before you finish, delegate at least one focused worker with agent_spawn, "
                 "then wait for the result and synthesize it for the user."
+            )
+        if (
+            self._explicit_planner_requires_worker
+            and self._planner_state.waited_agent_count == 0
+        ):
+            return (
+                "System notice: This explicit planner turn already spawned a worker, but "
+                "you have not waited for any worker results yet. Before you finish, call "
+                "agent_wait and then synthesize the worker output for the user."
             )
         return None
 
@@ -890,9 +959,11 @@ class PlannerOrchestrator:
     ) -> AgentState | None:
         violation = self._explicit_planner_policy_violation()
         if violation is None:
+            self._explicit_policy_reminder = None
             return None
 
         self._task_complete_summary = None
+        self._explicit_policy_reminder = violation
         self._explicit_policy_nudge_count += 1
         if self._explicit_policy_nudge_count >= 3:
             return state.mark_error(
@@ -907,7 +978,7 @@ class PlannerOrchestrator:
             },
             iteration=state.iteration,
         )
-        return self._append_text_guard_to_last_user_message(state, violation)
+        return state
 
     async def _finalize(self, state: AgentState) -> str:
         """Emit final event and return the result text."""

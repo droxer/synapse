@@ -43,11 +43,17 @@ class PlanCreate(LocalTool):
                             "properties": {
                                 "name": {
                                     "type": "string",
-                                    "description": "Short user-friendly label (3-5 words).",
+                                    "description": (
+                                        "Short user-friendly label (3-5 words). "
+                                        "Use the user's current UI/request language unless they explicitly asked for another language."
+                                    ),
                                 },
                                 "description": {
                                     "type": "string",
-                                    "description": "Brief description of what this step does.",
+                                    "description": (
+                                        "Brief description of what this step does. "
+                                        "Use the user's current UI/request language unless they explicitly asked for another language."
+                                    ),
                                 },
                                 "execution_type": {
                                     "type": "string",

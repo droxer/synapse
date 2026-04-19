@@ -10,6 +10,7 @@ import yaml
 from evals.models import EvalCase, GradingCriteria
 
 _VALID_GRADING_MODES = frozenset({"programmatic", "llm_judge", "both"})
+_VALID_ORCHESTRATOR_MODES = frozenset({"agent", "planner"})
 
 _VALID_CRITERIA_TYPES = frozenset(
     {
@@ -26,6 +27,10 @@ _VALID_CRITERIA_TYPES = frozenset(
         "context_compacted",
         "tool_not_repeated",
         "execution_shape",
+        "orchestrator_mode",
+        "plan_created",
+        "loop_guard_nudged",
+        "planner_auto_selected",
     }
 )
 
@@ -177,6 +182,12 @@ def load_case(path: Path) -> EvalCase:
     tags_raw = data.get("tags", [])
     if not isinstance(tags_raw, list):
         raise LoadError(f"'tags' must be a list in {path}")
+    orchestrator_mode = str(data.get("orchestrator_mode", "agent"))
+    if orchestrator_mode not in _VALID_ORCHESTRATOR_MODES:
+        raise LoadError(
+            f"Invalid orchestrator_mode '{orchestrator_mode}' in {path}. "
+            f"Must be one of: {sorted(_VALID_ORCHESTRATOR_MODES)}"
+        )
 
     return EvalCase(
         id=str(data["id"]),
@@ -191,6 +202,8 @@ def load_case(path: Path) -> EvalCase:
         max_iterations=int(data.get("max_iterations", 50)),
         token_budget=int(data.get("token_budget", 0)),
         mock_responses=_parse_mock_responses(data.get("mock_responses")),
+        orchestrator_mode=orchestrator_mode,
+        explicit_planner=bool(data.get("explicit_planner", False)),
     )
 
 

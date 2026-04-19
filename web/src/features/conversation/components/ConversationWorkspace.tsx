@@ -27,7 +27,6 @@ import {
 } from "../lib/assistant-copy-text";
 import { selectThinkingDisplay } from "../lib/thinking-display";
 import { cn } from "@/shared/lib/utils";
-import { formatClockTime } from "@/shared/lib/date-time";
 import { useTranslation } from "@/i18n";
 import type {
   AgentEvent,
@@ -160,16 +159,15 @@ export const MessageRow = memo(function MessageRow({
   return (
     <div data-role={msg.role} className={cn(index > 0 && "mt-4")}>
       {msg.role === "user" ? (
-        /* ─── User message ─── right-aligned command surface */
+        /* ─── User message ─── right-aligned, flat (Cursor-style) */
         <motion.div
           initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="flex justify-end"
         >
           <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
-            {/* User bubble */}
-            <div className="rounded-xl border border-border bg-secondary/80 px-4 py-3 shadow-card">
+            <div className="rounded-lg bg-secondary/60 px-4 py-2.5">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                 {msg.content}
               </p>
@@ -187,31 +185,23 @@ export const MessageRow = memo(function MessageRow({
                 </div>
               )}
             </div>
-            {/* Timestamp below, right-aligned */}
-            {msg.timestamp && (
-              <div className="mt-1 flex items-center justify-end gap-1.5 pr-1">
-                <span className="text-micro font-mono text-muted-foreground-dim tabular-nums">
-                  {formatClockTime(msg.timestamp, locale)}
-                </span>
-              </div>
-            )}
           </div>
         </motion.div>
       ) : (
-        /* ─── Assistant message ─── left-aligned, bounded width */
+        /* ─── Assistant message ─── left-aligned, borderless (Cursor-style) */
         <motion.div
-          initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
+          initial={isStreamingThis ? false : { opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            "conversation-assistant-message group relative max-w-full min-w-0",
+            "group relative max-w-full min-w-0",
             messageWidthClass,
           )}
         >
           <div className="relative">
-            {/* Reasoning: event-sourced entries first, then inline-only thinkingContent (not duplicated). */}
+            {/* Reasoning blocks */}
             {hasThinking ? (
-              <div className="mb-3 space-y-2">
+              <div className="mb-2 space-y-1.5">
                 {visibleThinkingEntries.map((entry, idx) => (
                   <ThinkingBlock
                     key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
@@ -233,7 +223,7 @@ export const MessageRow = memo(function MessageRow({
                 ) : null}
               </div>
             ) : null}
-            {/* Message body: prose, then images, then embedded plan (matches read order). */}
+            {/* Message body */}
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
               {showMarkdown ? (
                 <MarkdownRenderer
@@ -245,9 +235,8 @@ export const MessageRow = memo(function MessageRow({
                 <p className="text-muted-foreground">{t("conversation.emptyAssistantBody")}</p>
               ) : null}
 
-              {/* Inline images for this message */}
               {imageUrls.length > 0 ? (
-                <div className="mt-4 flex flex-wrap gap-3">
+                <div className="mt-3 flex flex-wrap gap-3">
                   {imageUrls.map((url) => (
                     <InlineImage
                       key={url}
@@ -259,25 +248,16 @@ export const MessageRow = memo(function MessageRow({
                 </div>
               ) : null}
 
-              {/* Plan checklist embedded in this message */}
               {hasPlanHere && (
-                <div className="mt-4">
+                <div className="mt-3">
                   <PlanChecklistPanel planSteps={embeddedPlanSteps} />
                 </div>
               )}
             </div>
 
-            {msg.timestamp && (
-              <div className="mt-2 flex items-center gap-1.5">
-                <span className="text-micro font-mono text-muted-foreground-dim/70 tabular-nums select-none">
-                  {formatClockTime(msg.timestamp, locale)}
-                </span>
-              </div>
-            )}
-
-            {/* Message action bar */}
+            {/* Message action bar — inline, no timestamp */}
             {isLastAssistant && !isStreamingThis && (taskState === "idle" || taskState === "complete") && (
-              <div className="mt-2 flex origin-left items-center gap-0.5 scale-[0.97] opacity-0 transition-[opacity,transform] duration-200 ease-out group-hover:scale-100 group-hover:opacity-100 group-focus-within:scale-100 group-focus-within:opacity-100">
+              <div className="mt-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -285,7 +265,7 @@ export const MessageRow = memo(function MessageRow({
                       variant="ghost"
                       size="icon-xs"
                       onClick={() => handleCopy(copyAssistantText.trim() || msg.content)}
-                      className="text-muted-foreground-dim hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
+                      className="text-muted-foreground-dim hover:text-foreground hover:bg-muted"
                     >
                       {copied
                         ? <Check className="h-3.5 w-3.5 text-accent-emerald" />
@@ -305,7 +285,7 @@ export const MessageRow = memo(function MessageRow({
                         variant="ghost"
                         size="icon-xs"
                         onClick={onRetry}
-                        className="text-muted-foreground-dim hover:text-foreground hover:bg-secondary active:translate-y-[0.5px]"
+                        className="text-muted-foreground-dim hover:text-foreground hover:bg-muted"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                       </Button>
@@ -400,14 +380,14 @@ export function ConversationWorkspace({
         : explicitPlannerPending
           ? [
               {
-                name: "Planner mode active",
-                description: "Preparing a visible plan for this turn.",
+                name: t("chat.plannerModeActive"),
+                description: t("plan.placeholderDescription"),
                 executionType: "planner_owned",
                 status: "running",
               } satisfies PlanStep,
             ]
           : [],
-    [planSteps, explicitPlannerPending],
+    [planSteps, explicitPlannerPending, t],
   );
   const isCurrentTurnAutoDetected = useMemo(() => getIsCurrentTurnAutoDetected(events), [events]);
   const threadTasks = useMemo(() => resolveThreadTasks(toolCalls, events), [toolCalls, events]);
@@ -544,26 +524,33 @@ export function ConversationWorkspace({
                 </div>
               )}
 
-              {/* Standalone thinking block when no assistant message yet */}
-              {showLoadingSkeleton && currentThinkingEntries.length > 0 && (
-                <div className={cn("mt-4 max-w-full space-y-2", messageWidthClass)}>
-                  {currentThinkingEntries.map((entry, idx) => (
-                    <ThinkingBlock
-                      key={`current-thinking-${entry.timestamp}-${idx}`}
-                      content={entry.content}
-                      isThinking={effectivePhase.phase === "thinking"}
-                      isTurnStreaming={isStreaming}
-                      durationMs={entry.durationMs}
-                    />
-                  ))}
-                </div>
-              )}
-
-              <AnimatePresence mode="wait">
+              {/* Standalone thinking + loading skeleton — fade out together */}
+              <AnimatePresence>
                 {showLoadingSkeleton && (
-                  <div className="mt-4" role="status" aria-live="polite" aria-atomic="true">
-                    <AssistantLoadingSkeleton phase={effectivePhase} />
-                  </div>
+                  <motion.div
+                    key="pre-response-chrome"
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.12 }}
+                  >
+                    {currentThinkingEntries.length > 0 && (
+                      <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
+                        {currentThinkingEntries.map((entry, idx) => (
+                          <ThinkingBlock
+                            key={`current-thinking-${entry.timestamp}-${idx}`}
+                            content={entry.content}
+                            isThinking={effectivePhase.phase === "thinking"}
+                            isTurnStreaming={isStreaming}
+                            durationMs={entry.durationMs}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    <div className="mt-3" role="status" aria-live="polite" aria-atomic="true">
+                      <AssistantLoadingSkeleton phase={effectivePhase} />
+                    </div>
+                  </motion.div>
                 )}
               </AnimatePresence>
             </div>

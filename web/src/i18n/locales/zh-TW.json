@@ -439,6 +439,11 @@
 
   "plan.title": "計畫",
   "plan.progress": "{completed}/{total} 已完成",
+  "plan.placeholderDescription": "正在為此輪準備可見計畫。",
+  "plan.statusPending": "待處理",
+  "plan.statusRunning": "執行中",
+  "plan.statusComplete": "已完成",
+  "plan.statusError": "失敗",
 
   "tools.arg.url": "網址",
   "tools.arg.task": "任務",

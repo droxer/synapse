@@ -9,6 +9,17 @@ export interface BuildAssistantCopyTextOptions {
   readonly t: (key: string) => string;
 }
 
+const PLAN_STATUS_I18N: Record<PlanStep["status"], string> = {
+  pending: "plan.statusPending",
+  running: "plan.statusRunning",
+  complete: "plan.statusComplete",
+  error: "plan.statusError",
+};
+
+function getPlanStatusLabel(status: PlanStep["status"], t: (key: string) => string): string {
+  return t(PLAN_STATUS_I18N[status]);
+}
+
 /**
  * Plain text for clipboard: reasoning (entries + non-redundant thinkingContent), answer,
  * embedded plan steps, and image URLs when present.
@@ -43,7 +54,7 @@ export function buildAssistantCopyText(
       const detail = step.description.trim()
         ? `: ${step.description.trim()}`
         : "";
-      return `${i + 1}. [${step.status}] ${step.name.trim()}${detail}`;
+      return `${i + 1}. [${getPlanStatusLabel(step.status, t)}] ${step.name.trim()}${detail}`;
     });
     chunks.push(`${t("conversation.copySectionPlan")}\n\n${lines.join("\n")}`);
   }

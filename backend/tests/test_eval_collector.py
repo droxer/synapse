@@ -43,14 +43,28 @@ class TestEvalCollector:
             _event(
                 EventType.TURN_START,
                 {
+                    "orchestrator_mode": "planner",
                     "execution_shape": "parallel",
                     "execution_rationale": "independent tasks",
                 },
             )
         )
         metrics = collector.to_metrics()
+        assert metrics.orchestrator_mode == "planner"
         assert metrics.execution_shape == "parallel"
         assert metrics.execution_rationale == "independent tasks"
+
+    async def test_tracks_planner_only_events(self, collector: EvalCollector) -> None:
+        await collector.on_event(_event(EventType.PLAN_CREATED, {"steps": []}))
+        await collector.on_event(_event(EventType.LOOP_GUARD_NUDGE, {"iteration": 1}))
+        await collector.on_event(_event(EventType.LOOP_GUARD_NUDGE, {"iteration": 2}))
+        await collector.on_event(_event(EventType.PLANNER_AUTO_SELECTED, {}))
+
+        metrics = collector.to_metrics()
+
+        assert metrics.plan_created_count == 1
+        assert metrics.loop_guard_nudge_count == 2
+        assert metrics.planner_auto_selected_count == 1
 
     async def test_tracks_tool_calls(self, collector: EvalCollector) -> None:
         await collector.on_event(

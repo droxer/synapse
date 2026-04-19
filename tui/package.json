@@ -1,0 +1,14 @@
+{
+  "name": "synapse-tui",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=25"
+  },
+  "scripts": {
+    "start": "node --experimental-strip-types src/index.ts",
+    "test": "node --test --experimental-strip-types tests/*.test.ts",
+    "typecheck": "../web/node_modules/.bin/tsc -p tsconfig.json --noEmit",
+    "lint": "../web/node_modules/.bin/eslint -c eslint.config.mjs src tests"
+  }
+}

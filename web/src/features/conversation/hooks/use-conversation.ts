@@ -160,7 +160,7 @@ export function useConversation(
 
   const allMessages = useMemo(() => {
     if (userMessages.length === 0) return transcriptMessages;
-    return mergeConversationMessages(userMessages, transcriptMessages);
+    return mergeConversationMessages(transcriptMessages, userMessages);
   }, [userMessages, transcriptMessages]);
 
   const buildOptimisticUserMessage = useCallback(

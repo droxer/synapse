@@ -9,6 +9,11 @@ from loguru import logger
 from agent.artifacts.manager import Artifact, ArtifactManager
 from agent.tools.base import LocalTool, SandboxTool, ToolResult
 from agent.tools.registry import ToolRegistry
+from agent.tools.schema_validation import (
+    ToolSchemaValidationError,
+    parse_and_validate_json_output,
+    validate_schema,
+)
 from agent.tools.sandbox.artifact_detection import extract_artifact_paths_from_text
 from api.events import EventType
 
@@ -303,14 +308,22 @@ class ToolExecutor:
                 f"Tool '{tool_name}' is not allowed in the current skill/runtime context."
             )
 
+        definition = tool.definition()
         try:
+            validate_schema(resolved_input, definition.input_schema, path="$")
+
             if isinstance(tool, LocalTool):
-                return await tool.execute(**resolved_input)
+                result = await tool.execute(**resolved_input)
+                return self._validate_tool_result_schema(
+                    tool_name=tool_name,
+                    definition=definition,
+                    result=result,
+                )
 
             if isinstance(tool, SandboxTool):
                 from config.settings import get_settings
 
-                tags = tool.definition().tags
+                tags = definition.tags
                 if "shell" in tags:
                     self._shell_tools_this_turn += 1
                     cap = get_settings().MAX_SHELL_TOOLS_PER_TURN
@@ -332,14 +345,40 @@ class ToolExecutor:
                     **resolved_input,
                 )
                 result = await self._extract_artifacts(result, session)
-                return result
+                return self._validate_tool_result_schema(
+                    tool_name=tool_name,
+                    definition=definition,
+                    result=result,
+                )
 
             return ToolResult.fail(
                 f"Tool '{tool_name}' has an unrecognised type: {type(tool).__name__}",
             )
+        except ToolSchemaValidationError as exc:
+            logger.warning(
+                "tool_schema_validation_failed name={} error={}",
+                tool_name,
+                exc,
+            )
+            return ToolResult.fail(
+                f"Tool '{tool_name}' schema validation failed: {exc}"
+            )
         except Exception as exc:
             logger.exception("tool_execution_failed name={}", tool_name)
             return ToolResult.fail(f"Tool '{tool_name}' failed: {exc}")
+
+    @staticmethod
+    def _validate_tool_result_schema(
+        *,
+        tool_name: str,
+        definition: Any,
+        result: ToolResult,
+    ) -> ToolResult:
+        """Validate structured tool outputs declared via ``output_schema``."""
+        if not result.success or definition.output_schema is None:
+            return result
+        parse_and_validate_json_output(result.output, definition.output_schema)
+        return result
 
     async def _extract_artifacts(
         self,
