@@ -114,7 +114,7 @@ async def run_case(
                     )
                 )
             registry = _build_mock_registry()
-            executor = MockToolExecutor()
+            executor = MockToolExecutor(emitter=emitter)
         elif backend == "live":
             if live_client is None:
                 return _error_result(case, "live_client required for backend='live'")
@@ -122,7 +122,7 @@ async def run_case(
             registry = _build_mock_registry()
             # In live mode, use mock executor for tool execution
             # (we're testing the LLM, not the tools)
-            executor = MockToolExecutor()
+            executor = MockToolExecutor(emitter=emitter)
         else:
             return _error_result(case, f"Unknown backend: {backend}")
 
@@ -154,28 +154,39 @@ async def run_case(
 
     # Grade
     criterion_results_list: list[Any] = []
-    score = 0.0
+    programmatic_score = 0.0
+    judge_score = 0.0
+    judge_passed = False
 
     if case.grading_mode in ("programmatic", "both"):
-        programmatic_results, score = grade_criteria(case.criteria, metrics)
+        programmatic_results, programmatic_score = grade_criteria(
+            case.criteria, metrics
+        )
         criterion_results_list.extend(programmatic_results)
 
     if case.grading_mode in ("llm_judge", "both"):
         if live_client is not None:
-            judge_result = await judge_with_llm(
+            judge_outcome = await judge_with_llm(
                 case, metrics, live_client, model=judge_model
             )
-            criterion_results_list.append(judge_result)
-            if case.grading_mode == "llm_judge":
-                # For pure LLM judge, extract score from the detail
-                score = 1.0 if judge_result.passed else 0.0
+            criterion_results_list.append(judge_outcome.result)
+            judge_score = judge_outcome.score
+            judge_passed = judge_outcome.result.passed
         else:
             criterion_results_list.append(
                 _skip_judge_result("No live client available for LLM judge")
             )
 
     criterion_results = tuple(criterion_results_list)
-    passed = score >= 0.7  # Pass threshold
+    if case.grading_mode == "programmatic":
+        score = programmatic_score
+        passed = score >= 0.7
+    elif case.grading_mode == "llm_judge":
+        score = judge_score
+        passed = judge_passed
+    else:
+        score = round((programmatic_score + judge_score) / 2.0, 4)
+        passed = programmatic_score >= 0.7 and judge_passed
 
     return EvalResult(
         case_id=case.id,

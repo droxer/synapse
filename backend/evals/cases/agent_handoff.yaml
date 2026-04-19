@@ -15,8 +15,8 @@ criteria:
     value: code_run
     weight: 2.0
   - name: performed_handoff
-    type: tool_used
-    value: agent_handoff
+    type: agent_handoff
+    value: security_reviewer
     weight: 3.0
   - name: output_mentions_review
     type: output_contains

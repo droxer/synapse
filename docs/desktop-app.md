@@ -9,27 +9,26 @@ Synapse Desktop wraps the existing web frontend in a [Tauri v2](https://v2.tauri
 │         Tauri Desktop Shell      │
 │  ┌────────────────────────────┐  │
 │  │   WKWebView / WebView2    │  │
-│  │   (loads localhost:3000)   │  │
+│  │   (loads configured web UI)│  │
 │  └────────────┬───────────────┘  │
 │               │                  │
 │  ┌────────────▼───────────────┐  │
-│  │   Sidecar Process Manager  │  │
+│  │   Desktop Bootstrap        │  │
 │  │   (Rust / tokio)           │  │
 │  └──────┬────────────┬────────┘  │
 │         │            │           │
 │    ┌────▼────┐  ┌────▼────┐     │
-│    │ Next.js │  │ FastAPI │     │
-│    │ :3000   │  │ :8000   │     │
+│    │ Synapse │  │ Synapse │     │
+│    │ Web     │  │ API     │     │
 │    └─────────┘  └─────────┘     │
 └──────────────────────────────────┘
 ```
 
-The desktop app runs both the Next.js frontend and Python backend as **sidecar processes** managed by Tauri's Rust layer. This means:
+The desktop shell has two runtime modes:
 
-- Zero changes to the existing web codebase for core functionality
-- SSE streaming, API proxy all work as-is
-- Sidecars are auto-started on launch and cleaned up on quit
-- If a port is already in use (e.g. you ran `make dev`), the sidecar is skipped
+- **Dev**: Tauri starts the local Next.js dev server and Python backend from the repo checkout.
+- **Release**: the packaged app connects only to explicitly configured Synapse frontend/backend URLs.
+- In both modes, the app attaches only to services that pass Synapse-specific health checks.
 
 ## Prerequisites
 
@@ -56,7 +55,9 @@ web/src-tauri/target/release/bundle/macos/Synapse.app
 
 ## Configuration
 
-All settings are driven by environment variables with sensible defaults:
+### Dev mode (`make desktop`)
+
+Dev mode starts local services from the repo checkout.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
@@ -69,6 +70,20 @@ All settings are driven by environment variables with sensible defaults:
 ```bash
 SYNAPSE_FRONTEND_PORT=4000 SYNAPSE_BACKEND_PORT=9000 make desktop
 ```
+
+### Release mode (`make build-desktop`)
+
+Release builds do not start local `npm run dev` or `uv run` processes. The packaged app requires explicit Synapse service URLs:
+
+| Variable | Description |
+|----------|-------------|
+| `SYNAPSE_FRONTEND_URL` | Required URL for the hosted Synapse frontend |
+| `SYNAPSE_BACKEND_URL` | Required URL for the hosted Synapse backend |
+
+The desktop shell validates:
+
+- `GET {SYNAPSE_FRONTEND_URL}/api/desktop/health` returns `service: "synapse-web"`
+- `GET {SYNAPSE_BACKEND_URL}/health` returns `service: "synapse-api"`
 
 ### Backend environment
 
@@ -127,8 +142,8 @@ web/
 │   └── src/
 │       ├── main.rs                     # Entry point
 │       ├── lib.rs                      # Tauri setup, commands (open_url, get_frontend_url)
-│       ├── config.rs                   # Env-based configuration (ports, project dir)
-│       └── sidecar.rs                  # Process manager for backend + frontend
+│       ├── config.rs                   # Dev/release bootstrap config
+│       └── sidecar.rs                  # Service probes + dev sidecar manager
 ├── dist/
 │   └── index.html                      # Loading screen (polls until frontend ready)
 ├── src/
@@ -136,6 +151,8 @@ web/
 │   │   ├── tauri.ts                    # isTauri(), openInSystemBrowser(), getFrontendUrl()
 │   │   └── auth.ts                     # NextAuth config (Google + desktop-token providers)
 │   ├── app/
+│   │   ├── api/desktop/health/
+│   │   │   └── route.ts               # Frontend identity health endpoint
 │   │   ├── providers.tsx               # DesktopModeDetector component
 │   │   ├── auth/desktop-callback/
 │   │   │   └── page.tsx                # Browser OAuth callback → token handoff
@@ -165,9 +182,9 @@ web/
 
 ### Port already in use
 
-The sidecar manager checks if ports are occupied before starting. If you already have `make dev` running, the desktop app will connect to the existing services instead of starting new ones.
+Dev mode reuses an existing local service only when it passes the Synapse health probe. If another process is listening on the configured port, the desktop app fails closed instead of attaching to that service.
 
-### Backend fails to start
+### Backend fails to start in dev
 
 Check that `backend/.env` exists with valid API keys. You can also start the backend manually and let the desktop app detect it:
 
@@ -194,6 +211,8 @@ The bundle target is set to `app` only by default. To enable DMG, change `target
 
 Ensure your Google OAuth client has `http://localhost:<SYNAPSE_FRONTEND_PORT>/api/auth/callback/google` as an authorized redirect URI.
 
+For release builds, `SYNAPSE_FRONTEND_URL` must point at a deployment whose OAuth configuration already matches that hosted frontend.
+
 ### System browser doesn't open for OAuth
 
 The `open_url` Tauri command uses the `open` crate which calls the OS default browser. If the Tauri shell plugin is blocked by ACL, it falls through to this command automatically. Check the Tauri dev console for `[tauri] invoke open_url failed` errors.
@@ -201,3 +220,7 @@ The `open_url` Tauri command uses the `open` crate which calls the OS default br
 ### Auth callback page shows error
 
 The `/auth/desktop-callback` page must be accessible without authentication. Verify `proxy.ts` has the `isDesktopCallback` exclusion check.
+
+### Release app shows a configuration error
+
+Set both `SYNAPSE_FRONTEND_URL` and `SYNAPSE_BACKEND_URL` before launching the packaged app. The desktop shell refuses to boot if either URL is missing, unavailable, or does not identify itself as Synapse.

@@ -10,8 +10,8 @@ max_iterations: 15
 
 criteria:
   - name: activated_skill
-    type: tool_used
-    value: activate_skill
+    type: skill_activated
+    value: data_science
     weight: 2.0
   - name: used_code_after_skill
     type: tool_used

@@ -59,12 +59,92 @@ def _parse_criteria(raw_list: list[dict[str, Any]]) -> tuple[GradingCriteria, ..
 
 
 def _parse_mock_responses(
-    raw: list[dict[str, Any]] | None,
+    raw: Any,
 ) -> tuple[dict[str, Any], ...] | None:
-    """Parse optional mock_responses list into a tuple of dicts."""
+    """Parse optional mock_responses list into a validated tuple of dicts."""
     if raw is None:
         return None
-    return tuple(raw)
+    if not isinstance(raw, list):
+        raise LoadError("'mock_responses' must be a list")
+
+    parsed: list[dict[str, Any]] = []
+    for response_index, item in enumerate(raw):
+        if not isinstance(item, dict):
+            raise LoadError(
+                f"'mock_responses[{response_index}]' must be a mapping, "
+                f"got {type(item).__name__}"
+            )
+
+        response: dict[str, Any] = {}
+        for field in ("text", "stop_reason", "thinking"):
+            value = item.get(field)
+            if value is not None:
+                if not isinstance(value, str):
+                    raise LoadError(
+                        f"'mock_responses[{response_index}].{field}' must be a string"
+                    )
+                response[field] = value
+
+        tool_calls = item.get("tool_calls")
+        if tool_calls is not None:
+            if not isinstance(tool_calls, list):
+                raise LoadError(
+                    f"'mock_responses[{response_index}].tool_calls' must be a list"
+                )
+            parsed_tool_calls: list[dict[str, Any]] = []
+            for tool_call_index, tool_call in enumerate(tool_calls):
+                if not isinstance(tool_call, dict):
+                    raise LoadError(
+                        f"'mock_responses[{response_index}].tool_calls"
+                        f"[{tool_call_index}]' must be a mapping"
+                    )
+                name = tool_call.get("name")
+                if not isinstance(name, str) or not name:
+                    raise LoadError(
+                        f"'mock_responses[{response_index}].tool_calls"
+                        f"[{tool_call_index}].name' must be a non-empty string"
+                    )
+                parsed_tool_call: dict[str, Any] = {"name": name}
+                tool_id = tool_call.get("id")
+                if tool_id is not None:
+                    if not isinstance(tool_id, str):
+                        raise LoadError(
+                            f"'mock_responses[{response_index}].tool_calls"
+                            f"[{tool_call_index}].id' must be a string"
+                        )
+                    parsed_tool_call["id"] = tool_id
+                tool_input = tool_call.get("input")
+                if tool_input is not None:
+                    if not isinstance(tool_input, dict):
+                        raise LoadError(
+                            f"'mock_responses[{response_index}].tool_calls"
+                            f"[{tool_call_index}].input' must be a mapping"
+                        )
+                    parsed_tool_call["input"] = tool_input
+                parsed_tool_calls.append(parsed_tool_call)
+            response["tool_calls"] = parsed_tool_calls
+
+        usage = item.get("usage")
+        if usage is not None:
+            if not isinstance(usage, dict):
+                raise LoadError(
+                    f"'mock_responses[{response_index}].usage' must be a mapping"
+                )
+            parsed_usage: dict[str, int] = {}
+            for token_field in ("input_tokens", "output_tokens"):
+                token_value = usage.get(token_field)
+                if token_value is not None:
+                    if not isinstance(token_value, int):
+                        raise LoadError(
+                            f"'mock_responses[{response_index}].usage.{token_field}' "
+                            f"must be an integer"
+                        )
+                    parsed_usage[token_field] = token_value
+            response["usage"] = parsed_usage
+
+        parsed.append(response)
+
+    return tuple(parsed)
 
 
 def load_case(path: Path) -> EvalCase:

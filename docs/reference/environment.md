@@ -25,7 +25,11 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 
 ## Desktop
 
-Optional: `SYNAPSE_FRONTEND_PORT`, `SYNAPSE_BACKEND_PORT`, `SYNAPSE_PROJECT_DIR` (see [Desktop shell](desktop-shell.md)).
+Dev-only: `SYNAPSE_FRONTEND_PORT`, `SYNAPSE_BACKEND_PORT`, `SYNAPSE_PROJECT_DIR`
+
+Release-only: `SYNAPSE_FRONTEND_URL`, `SYNAPSE_BACKEND_URL`
+
+See [Desktop shell](desktop-shell.md).
 
 ## Related
 

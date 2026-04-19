@@ -11,8 +11,8 @@ max_iterations: 15
 
 criteria:
   - name: spawned_agents
-    type: tool_used
-    value: agent_spawn
+    type: agent_spawned
+    value: 3
     weight: 3.0
   - name: waited_for_agents
     type: tool_used

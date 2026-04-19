@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+
+import pytest
+
 from evals.models import EvalCase, GradingCriteria
 from evals.runner import run_all, run_case
 
@@ -49,6 +53,32 @@ def _simple_case(
     )
 
 
+class _JudgeClient:
+    def __init__(self, *, passed: bool, score: float, reasoning: str = "ok") -> None:
+        self._response_text = json.dumps(
+            {
+                "passed": passed,
+                "score": score,
+                "reasoning": reasoning,
+            }
+        )
+
+    async def create_message(
+        self,
+        system: str,
+        messages: list[dict],
+        model: str | None = None,
+        max_tokens: int | None = None,
+    ):
+        return type("JudgeResponse", (), {"text": self._response_text})()
+
+
+@pytest.fixture(autouse=True)
+def _required_eval_env(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test")
+    monkeypatch.setenv("TAVILY_API_KEY", "test")
+
+
 class TestRunCase:
     async def test_mock_case_passes(self) -> None:
         case = _simple_case()
@@ -87,6 +117,218 @@ class TestRunCase:
         case = _simple_case()
         result = await run_case(case, backend="live", live_client=None)
         assert result.error is not None
+
+    async def test_both_mode_passes_only_when_programmatic_and_judge_pass(
+        self,
+    ) -> None:
+        case = EvalCase(
+            id="both_pass",
+            name="Both Pass",
+            description="desc",
+            user_message="hello",
+            grading_mode="both",
+            criteria=(
+                GradingCriteria(name="hello", type="output_contains", value="hello"),
+            ),
+            mock_responses=(
+                {
+                    "text": "hello there",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(
+            case,
+            backend="mock",
+            live_client=_JudgeClient(passed=True, score=0.8),
+        )
+        assert result.passed is True
+        assert result.score == 0.9
+
+    async def test_both_mode_fails_when_judge_fails(self) -> None:
+        case = EvalCase(
+            id="both_judge_fail",
+            name="Both Judge Fail",
+            description="desc",
+            user_message="hello",
+            grading_mode="both",
+            criteria=(
+                GradingCriteria(name="hello", type="output_contains", value="hello"),
+            ),
+            mock_responses=(
+                {
+                    "text": "hello there",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(
+            case,
+            backend="mock",
+            live_client=_JudgeClient(passed=False, score=0.2),
+        )
+        assert result.passed is False
+        assert result.score == 0.6
+
+    async def test_both_mode_fails_when_programmatic_fails(self) -> None:
+        case = EvalCase(
+            id="both_programmatic_fail",
+            name="Both Programmatic Fail",
+            description="desc",
+            user_message="hello",
+            grading_mode="both",
+            criteria=(
+                GradingCriteria(name="hello", type="output_contains", value="hello"),
+            ),
+            mock_responses=(
+                {
+                    "text": "goodbye",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(
+            case,
+            backend="mock",
+            live_client=_JudgeClient(passed=True, score=1.0),
+        )
+        assert result.passed is False
+        assert result.score == 0.5
+
+    async def test_both_mode_without_live_client_cannot_pass(self) -> None:
+        case = EvalCase(
+            id="both_no_judge",
+            name="Both No Judge",
+            description="desc",
+            user_message="hello",
+            grading_mode="both",
+            criteria=(
+                GradingCriteria(name="hello", type="output_contains", value="hello"),
+            ),
+            mock_responses=(
+                {
+                    "text": "hello there",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(case, backend="mock", live_client=None)
+        assert result.passed is False
+        assert result.score == 0.5
+        assert result.criterion_results[-1].criterion_name == "llm_judge"
+        assert result.criterion_results[-1].passed is False
+
+    async def test_mock_activate_skill_emits_skill_activation(self) -> None:
+        case = EvalCase(
+            id="skill_activation",
+            name="Skill Activation",
+            description="desc",
+            user_message="activate a skill",
+            grading_mode="programmatic",
+            criteria=(
+                GradingCriteria(
+                    name="skill_active",
+                    type="skill_activated",
+                    value="data_science",
+                ),
+            ),
+            mock_responses=(
+                {
+                    "text": "Activating skill.",
+                    "tool_calls": [
+                        {
+                            "id": "tc_skill",
+                            "name": "activate_skill",
+                            "input": {"name": "data_science"},
+                        }
+                    ],
+                    "stop_reason": "tool_use",
+                },
+                {
+                    "text": "Done",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(case, backend="mock")
+        assert result.passed is True
+        assert result.metrics.skill_activations[0].name == "data_science"
+
+    async def test_mock_agent_spawn_emits_agent_spawn(self) -> None:
+        case = EvalCase(
+            id="agent_spawn",
+            name="Agent Spawn",
+            description="desc",
+            user_message="spawn agent",
+            grading_mode="programmatic",
+            criteria=(GradingCriteria(name="spawned", type="agent_spawned", value=1),),
+            mock_responses=(
+                {
+                    "text": "Spawning agent.",
+                    "tool_calls": [
+                        {
+                            "id": "tc_spawn",
+                            "name": "agent_spawn",
+                            "input": {"task_description": "Research AI trends"},
+                        }
+                    ],
+                    "stop_reason": "tool_use",
+                },
+                {
+                    "text": "Done",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(case, backend="mock")
+        assert result.passed is True
+        assert result.metrics.agent_spawns[0].task == "Research AI trends"
+
+    async def test_mock_agent_handoff_emits_agent_handoff(self) -> None:
+        case = EvalCase(
+            id="agent_handoff_event",
+            name="Agent Handoff Event",
+            description="desc",
+            user_message="handoff agent",
+            grading_mode="programmatic",
+            criteria=(
+                GradingCriteria(
+                    name="handoff",
+                    type="agent_handoff",
+                    value="security_reviewer",
+                ),
+            ),
+            mock_responses=(
+                {
+                    "text": "Handing off.",
+                    "tool_calls": [
+                        {
+                            "id": "tc_handoff",
+                            "name": "agent_handoff",
+                            "input": {
+                                "target_role": "security_reviewer",
+                                "context": "needs security review",
+                            },
+                        }
+                    ],
+                    "stop_reason": "tool_use",
+                },
+                {
+                    "text": "Done",
+                    "tool_calls": [],
+                    "stop_reason": "end_turn",
+                },
+            ),
+        )
+        result = await run_case(case, backend="mock")
+        assert result.passed is True
+        assert result.metrics.agent_handoffs[0].target_role == "security_reviewer"
 
 
 class TestRunAll:

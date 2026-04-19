@@ -80,6 +80,111 @@ class TestLoadCase:
         assert len(case.mock_responses) == 1
         assert case.mock_responses[0]["text"] == "Done"
 
+    def test_invalid_mock_responses_not_list(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "bad_mock_type.yaml",
+            """\
+            id: mocked
+            name: Mocked Test
+            description: Test with invalid mock responses
+            user_message: Do something
+            grading_mode: programmatic
+            criteria:
+              - name: check
+                type: no_errors
+            mock_responses:
+              text: "Done"
+            """,
+        )
+        with pytest.raises(LoadError, match="'mock_responses' must be a list"):
+            load_case(path)
+
+    def test_invalid_mock_response_entry(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "bad_mock_entry.yaml",
+            """\
+            id: mocked
+            name: Mocked Test
+            description: Test with invalid mock response entry
+            user_message: Do something
+            grading_mode: programmatic
+            criteria:
+              - name: check
+                type: no_errors
+            mock_responses:
+              - "Done"
+            """,
+        )
+        with pytest.raises(LoadError, match="mock_responses\\[0\\].*mapping"):
+            load_case(path)
+
+    def test_invalid_mock_tool_call_missing_name(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "bad_tool_name.yaml",
+            """\
+            id: mocked
+            name: Mocked Test
+            description: Test with invalid tool call
+            user_message: Do something
+            grading_mode: programmatic
+            criteria:
+              - name: check
+                type: no_errors
+            mock_responses:
+              - tool_calls:
+                  - input:
+                      query: "hello"
+            """,
+        )
+        with pytest.raises(LoadError, match="tool_calls\\[0\\]\\.name"):
+            load_case(path)
+
+    def test_invalid_mock_tool_input_shape(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "bad_tool_input.yaml",
+            """\
+            id: mocked
+            name: Mocked Test
+            description: Test with invalid tool input
+            user_message: Do something
+            grading_mode: programmatic
+            criteria:
+              - name: check
+                type: no_errors
+            mock_responses:
+              - tool_calls:
+                  - name: web_search
+                    input: "query=test"
+            """,
+        )
+        with pytest.raises(LoadError, match="tool_calls\\[0\\]\\.input"):
+            load_case(path)
+
+    def test_invalid_mock_usage_token_type(self, tmp_cases_dir: Path) -> None:
+        path = _write_yaml(
+            tmp_cases_dir,
+            "bad_usage.yaml",
+            """\
+            id: mocked
+            name: Mocked Test
+            description: Test with invalid usage
+            user_message: Do something
+            grading_mode: programmatic
+            criteria:
+              - name: check
+                type: no_errors
+            mock_responses:
+              - usage:
+                  input_tokens: "100"
+            """,
+        )
+        with pytest.raises(LoadError, match="usage\\.input_tokens"):
+            load_case(path)
+
     def test_missing_required_field(self, tmp_cases_dir: Path) -> None:
         path = _write_yaml(
             tmp_cases_dir,

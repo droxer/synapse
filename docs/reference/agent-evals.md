@@ -14,5 +14,6 @@ Combine flags as needed inside `EVAL_ARGS`.
 
 ## Related
 
+- [Detailed eval guide](../evals.md)
 - [Backend layout](backend-layout.md) (`evals/` package)
 - [Architecture overview](architecture-overview.md)

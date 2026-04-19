@@ -7,6 +7,7 @@ from typing import Any
 
 from agent.llm.client import LLMResponse, TokenUsage, ToolCall
 from agent.tools.base import ToolResult
+from api.events import EventEmitter, EventType
 
 
 def _build_llm_response(raw: dict[str, Any]) -> LLMResponse:
@@ -105,12 +106,59 @@ class MockToolExecutor:
     Used in mock mode where we don't need real sandbox execution.
     """
 
+    def __init__(self, emitter: EventEmitter | None = None) -> None:
+        self._emitter = emitter
+        self._spawn_count = 0
+        self._handoff_count = 0
+
     async def execute(
         self,
         tool_name: str,
         tool_input: dict[str, Any],
     ) -> ToolResult:
         """Return a generic success result."""
+        if self._emitter is not None:
+            if tool_name == "activate_skill":
+                skill_name = tool_input.get("name")
+                if isinstance(skill_name, str) and skill_name:
+                    await self._emitter.emit(
+                        EventType.SKILL_ACTIVATED,
+                        {"name": skill_name, "source": "explicit"},
+                    )
+            elif tool_name == "agent_spawn":
+                self._spawn_count += 1
+                task = tool_input.get("task_description")
+                task_text = task if isinstance(task, str) else ""
+                agent_id = f"mock-agent-{self._spawn_count}"
+                await self._emitter.emit(
+                    EventType.AGENT_SPAWN,
+                    {
+                        "agent_id": agent_id,
+                        "task": task_text,
+                        "description": task_text,
+                    },
+                )
+                return ToolResult.ok(
+                    f"[mock] {tool_name} executed successfully",
+                    metadata={"agent_id": agent_id},
+                )
+            elif tool_name == "agent_handoff":
+                self._handoff_count += 1
+                target_role = tool_input.get("target_role")
+                if not isinstance(target_role, str):
+                    target_role = ""
+                reason = tool_input.get("context")
+                if not isinstance(reason, str):
+                    reason = str(tool_input.get("task_description", ""))
+                await self._emitter.emit(
+                    EventType.AGENT_HANDOFF,
+                    {
+                        "source_agent_id": f"mock-agent-handoff-{self._handoff_count}",
+                        "target_role": target_role,
+                        "reason": reason,
+                        "handoff_depth": 1,
+                    },
+                )
         return ToolResult.ok(f"[mock] {tool_name} executed successfully")
 
     def reset_sandbox_template(self) -> None:

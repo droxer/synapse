@@ -63,3 +63,6 @@ backend/artifacts/
 docs/superpowers
 .superpowers/
 .worktrees/
+.cladue/
+.opencode/
+.agents/

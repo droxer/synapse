@@ -27,6 +27,7 @@ Concise guides for agents and developers. Root navigation: **`AGENTS.md`** and *
 | Doc | Topic |
 | --- | --- |
 | [agent-memory-management.md](agent-memory-management.md) | Context compaction, KV memory, facts, `context_summary` |
+| [evals.md](evals.md) | Detailed eval harness guide |
 | [development.md](development.md) | Full development guide |
 | [setup.md](setup.md) | Environment setup |
 | [desktop-app.md](desktop-app.md) | Desktop packaging and architecture |

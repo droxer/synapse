@@ -8,7 +8,7 @@ from loguru import logger
 
 from agent.llm.client import AnthropicClient
 
-from evals.models import CriterionResult, EvalCase, EvalMetrics
+from evals.models import CriterionResult, EvalCase, EvalMetrics, JudgeOutcome
 
 _DEFAULT_JUDGE_MODEL = "claude-haiku-4-5-20251001"
 
@@ -69,10 +69,10 @@ async def judge_with_llm(
     metrics: EvalMetrics,
     client: AnthropicClient,
     model: str = _DEFAULT_JUDGE_MODEL,
-) -> CriterionResult:
+) -> JudgeOutcome:
     """Use an LLM to judge the quality of an eval run.
 
-    Returns a CriterionResult with name "llm_judge".
+    Returns a structured outcome with the criterion result and numeric score.
     """
     user_message = _build_judge_prompt(case, metrics)
 
@@ -89,22 +89,31 @@ async def judge_with_llm(
         score = float(parsed.get("score", 0.0))
         reasoning = str(parsed.get("reasoning", ""))
 
-        return CriterionResult(
-            criterion_name="llm_judge",
-            passed=passed,
-            detail=f"Score: {score:.2f} — {reasoning}",
+        return JudgeOutcome(
+            result=CriterionResult(
+                criterion_name="llm_judge",
+                passed=passed,
+                detail=f"Score: {score:.2f} — {reasoning}",
+            ),
+            score=score,
         )
     except (json.JSONDecodeError, KeyError, TypeError) as exc:
         logger.warning("LLM judge response parse failed model={}: {}", model, exc)
-        return CriterionResult(
-            criterion_name="llm_judge",
-            passed=False,
-            detail=f"Failed to parse LLM judge response: {exc}",
+        return JudgeOutcome(
+            result=CriterionResult(
+                criterion_name="llm_judge",
+                passed=False,
+                detail=f"Failed to parse LLM judge response: {exc}",
+            ),
+            score=0.0,
         )
     except Exception as exc:
         logger.error("LLM judge call failed model={}: {}", model, exc)
-        return CriterionResult(
-            criterion_name="llm_judge",
-            passed=False,
-            detail=f"LLM judge error: {exc}",
+        return JudgeOutcome(
+            result=CriterionResult(
+                criterion_name="llm_judge",
+                passed=False,
+                detail=f"LLM judge error: {exc}",
+            ),
+            score=0.0,
         )

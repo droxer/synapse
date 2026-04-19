@@ -101,6 +101,14 @@ class CriterionResult:
 
 
 @dataclass(frozen=True)
+class JudgeOutcome:
+    """Structured result returned by the LLM-as-judge helper."""
+
+    result: CriterionResult
+    score: float
+
+
+@dataclass(frozen=True)
 class EvalResult:
     """Full result of running and grading a single eval case."""
 
