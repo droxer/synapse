@@ -15,6 +15,7 @@ from agent.llm.client import (
     AnthropicClient,
     SystemPrompt,
     format_llm_failure,
+    render_system_prompt,
 )
 from agent.runtime.helpers import (
     apply_response_to_state,
@@ -23,12 +24,16 @@ from agent.runtime.helpers import (
 )
 from agent.context.compaction import Observer, compaction_summary_for_persistence
 from agent.runtime.orchestrator import AgentState
+from agent.runtime.system_prompt_sections import (
+    build_memory_aware_system_prompt_sections,
+)
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_setup import (
     build_skill_prompt_content,
     emit_redundant_skill_activation,
     prepare_skill_for_turn,
+    tool_use_had_error_result,
 )
 from agent.runtime.prompting import PromptAssembly
 from agent.runtime.skill_selector import select_skill_for_message
@@ -127,6 +132,7 @@ class AgentResult:
     metrics: AgentRunMetrics | None = None
     skip_execution: bool = False
     replan_required: bool = False
+    completed_via_task_complete: bool = False
 
 
 @dataclass(frozen=True)
@@ -167,9 +173,19 @@ def _build_system_prompt(
     config: TaskAgentConfig,
     *,
     prompt_template: TaskAgentPromptTemplate = TASK_AGENT_PROMPT_TEMPLATE,
+    memory_entries: list[dict[str, str]] | None = None,
+    skill_registry: SkillRegistry | None = None,
+    settings: Any | None = None,
 ) -> str:
     """Build the system prompt from a TaskAgentConfig."""
-    return prompt_template.render(config)
+    return render_system_prompt(
+        build_memory_aware_system_prompt_sections(
+            prompt_template.render(config),
+            memory_entries,
+            skill_registry,
+            settings=settings,
+        )
+    )
 
 
 class TaskAgentRunner:
@@ -188,6 +204,7 @@ class TaskAgentRunner:
         compaction_profile: CompactionProfile | None = None,
         skill_registry: SkillRegistry | None = None,
         prompt_template: TaskAgentPromptTemplate = TASK_AGENT_PROMPT_TEMPLATE,
+        memory_entries: list[dict[str, str]] | None = None,
         shared_tools: list[dict[str, Any]] | None = None,
         shared_tools_fingerprint: str | None = None,
     ) -> None:
@@ -222,6 +239,11 @@ class TaskAgentRunner:
         self._system_prompt = _build_system_prompt(
             config,
             prompt_template=prompt_template,
+            memory_entries=memory_entries,
+            skill_registry=(
+                skill_registry if getattr(settings, "SKILLS_ENABLED", True) else None
+            ),
+            settings=settings,
         )
         self._turn_prompt_assembly = PromptAssembly.from_system(self._system_prompt)
         self._auto_injected_skill: str | None = None
@@ -235,10 +257,17 @@ class TaskAgentRunner:
         self._output_tokens = 0
         self._shared_tools = shared_tools
         self._shared_tools_fingerprint = shared_tools_fingerprint
+        self._turn_unfiltered_registry = tool_registry
+        self._pending_mid_turn_update: (
+            tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None
+        ) = None
+        self._processed_skill_activation_tool_ids: set[str] = set()
+        self._completed_via_task_complete = False
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
         self._task_complete_summary = summary
+        self._completed_via_task_complete = True
 
     async def on_handoff(self, request: HandoffRequest) -> None:
         """Callback for the agent_handoff tool."""
@@ -308,6 +337,7 @@ class TaskAgentRunner:
             artifacts=tuple(self._artifact_ids),
             handoff=self._handoff_request,
             metrics=metrics,
+            completed_via_task_complete=self._completed_via_task_complete,
         )
 
     def _reset_run_state(self) -> None:
@@ -318,6 +348,11 @@ class TaskAgentRunner:
         self._context_compaction_count = 0
         self._input_tokens = 0
         self._output_tokens = 0
+        self._task_complete_summary = None
+        self._handoff_request = None
+        self._pending_mid_turn_update = None
+        self._processed_skill_activation_tool_ids = set()
+        self._completed_via_task_complete = False
 
     def _build_metrics(self, started_at: float) -> AgentRunMetrics:
         """Build a metrics snapshot for the current run."""
@@ -330,6 +365,104 @@ class TaskAgentRunner:
             output_tokens=self._output_tokens,
         )
 
+    def _requested_skill_name_from_tool_call(
+        self,
+        tool_call_name: str,
+        tool_input: dict[str, Any],
+    ) -> str | None:
+        if self._skill_registry is None:
+            return None
+        if tool_call_name == "activate_skill":
+            name = tool_input.get("name")
+            return name if isinstance(name, str) and name else None
+        if self._skill_registry.find_by_name(tool_call_name) is not None:
+            return tool_call_name
+        return None
+
+    async def _apply_mid_turn_skill_activation(
+        self,
+        skill_name: str,
+        *,
+        tool_id: str | None,
+        messages: list[dict[str, Any]],
+    ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
+        if self._skill_registry is None:
+            return None
+
+        if tool_id is not None and tool_id in self._processed_skill_activation_tool_ids:
+            return None
+
+        if skill_name == self._auto_injected_skill:
+            await emit_redundant_skill_activation(
+                self._emitter,
+                skill_name=skill_name,
+                tool_id=tool_id,
+                messages=messages,
+            )
+            if tool_id is not None:
+                self._processed_skill_activation_tool_ids.add(tool_id)
+            return None
+
+        skill = self._skill_registry.find_by_name(skill_name)
+        if skill is None:
+            return None
+
+        self._auto_injected_skill = skill.metadata.name
+        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
+            build_skill_prompt_content(skill),
+        )
+
+        from agent.tools.local.activate_skill import ActivateSkill
+
+        updated_registry = self._turn_unfiltered_registry.replace_tool(
+            ActivateSkill(
+                skill_registry=self._skill_registry,
+                active_skill_name=skill.metadata.name,
+            )
+        )
+
+        reset_allowed_tools = getattr(self._executor, "reset_allowed_tools", None)
+        if callable(reset_allowed_tools):
+            reset_allowed_tools()
+
+        await prepare_skill_for_turn(
+            executor=self._executor,
+            skill=skill,
+            emitter=self._emitter,
+            source="mid_turn",
+            install_dependencies=lambda: install_skill_dependencies_for_turn(
+                self._executor,
+                skill.metadata.dependencies,
+                self._emitter,
+                context="task_runner_mid_turn",
+                skill_name=skill.metadata.name,
+                source="mid_turn",
+                raise_on_error=True,
+            ),
+        )
+
+        if skill.metadata.allowed_tools:
+            allowed_names, allowed_tags = split_allowed_tools(
+                skill.metadata.allowed_tools
+            )
+            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+            if callable(set_allowed_tools):
+                set_allowed_tools(allowed_names, allowed_tags)
+            updated_registry = updated_registry.filter_by_names_or_tags(
+                allowed_names, allowed_tags
+            )
+
+        if tool_id is not None:
+            self._processed_skill_activation_tool_ids.add(tool_id)
+        logger.info("task_runner_mid_turn_skill_activated name={}", skill.metadata.name)
+        return (
+            prompt_assembly,
+            updated_registry,
+            updated_registry.to_anthropic_tools(
+                cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+            ),
+        )
+
     async def _execute_loop(self) -> str:
         """Run the ReAct loop until completion or error."""
         settings = get_settings()
@@ -339,6 +472,7 @@ class TaskAgentRunner:
         cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
         prompt_assembly = PromptAssembly.from_system(self._system_prompt)
         effective_registry = self._registry
+        self._turn_unfiltered_registry = effective_registry
         self._auto_injected_skill = None
 
         matched = await select_skill_for_message(
@@ -360,6 +494,7 @@ class TaskAgentRunner:
                     active_skill_name=matched.metadata.name,
                 )
             )
+            self._turn_unfiltered_registry = effective_registry
             await prepare_skill_for_turn(
                 executor=self._executor,
                 skill=matched,
@@ -389,6 +524,8 @@ class TaskAgentRunner:
                 effective_registry = effective_registry.filter_by_names_or_tags(
                     allowed_names, allowed_tags
                 )
+        else:
+            self._turn_unfiltered_registry = effective_registry
 
         registry_fingerprint = effective_registry.anthropic_tools_fingerprint()
         if (
@@ -410,10 +547,13 @@ class TaskAgentRunner:
                 prompt_assembly.rendered,
             )
 
-            updated = await self._check_mid_turn_skill_activation(
-                state,
-                effective_registry,
-            )
+            if self._pending_mid_turn_update is not None:
+                prompt_assembly, effective_registry, tools = (
+                    self._pending_mid_turn_update
+                )
+                self._pending_mid_turn_update = None
+
+            updated = await self._check_mid_turn_skill_activation(state)
             if updated is not None:
                 prompt_assembly, effective_registry, tools = updated
 
@@ -481,7 +621,8 @@ class TaskAgentRunner:
             async def _on_text_delta(delta: str) -> None:
                 await self._emitter.emit(
                     EventType.TEXT_DELTA,
-                    {"delta": delta},
+                    {"delta": delta, "agent_id": self._agent_id},
+                    iteration=state.iteration,
                 )
 
             response = await self._client.create_message_stream(
@@ -514,19 +655,35 @@ class TaskAgentRunner:
         self._output_tokens += response.usage.output_tokens
 
         if not response.tool_calls:
-            return state.mark_completed(response.text)
+            return state.mark_completed()
 
-        tool_result = await process_tool_calls(
-            state=state,
-            tool_calls=response.tool_calls,
-            executor=self._executor,
-            emitter=self._emitter,
-            agent_id=self._agent_id,
-            stop_check=lambda: (
-                self._task_complete_summary is not None
-                or self._handoff_request is not None
-            ),
-        )
+        async def _post_tool_callback(tc: Any, result: Any) -> None:
+            skill_name = self._requested_skill_name_from_tool_call(tc.name, tc.input)
+            if skill_name is None or not result.success:
+                return
+            updated = await self._apply_mid_turn_skill_activation(
+                skill_name,
+                tool_id=tc.id,
+                messages=list(state.messages),
+            )
+            if updated is not None:
+                self._pending_mid_turn_update = updated
+
+        try:
+            tool_result = await process_tool_calls(
+                state=state,
+                tool_calls=response.tool_calls,
+                executor=self._executor,
+                emitter=self._emitter,
+                agent_id=self._agent_id,
+                stop_check=lambda: (
+                    self._task_complete_summary is not None
+                    or self._handoff_request is not None
+                ),
+                post_tool_callback=_post_tool_callback,
+            )
+        except Exception as exc:
+            return state.mark_error(str(exc))
         state = tool_result.state
         self._tool_call_count += tool_result.processed_count
         for artifact_id in tool_result.artifact_ids:
@@ -552,7 +709,6 @@ class TaskAgentRunner:
     async def _check_mid_turn_skill_activation(
         self,
         state: AgentState,
-        current_registry: ToolRegistry,
     ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
         """Detect successful mid-turn skill activation and apply constraints."""
         if self._skill_registry is None:
@@ -593,81 +749,14 @@ class TaskAgentRunner:
         if not activated_name:
             return None
 
-        if activated_name == self._auto_injected_skill:
-            await emit_redundant_skill_activation(
-                self._emitter,
-                skill_name=activated_name,
-                tool_id=tool_id,
-                messages=list(state.messages),
-            )
+        if tool_id is not None and tool_use_had_error_result(
+            list(state.messages),
+            tool_id,
+        ):
             return None
 
-        if tool_id is not None:
-            for msg in state.messages:
-                if msg.get("role") != "user":
-                    continue
-                msg_content = msg.get("content")
-                if not isinstance(msg_content, list):
-                    continue
-                for block in msg_content:
-                    if (
-                        isinstance(block, dict)
-                        and block.get("type") == "tool_result"
-                        and block.get("tool_use_id") == tool_id
-                        and block.get("is_error") is True
-                    ):
-                        return None
-
-        skill = self._skill_registry.find_by_name(activated_name)
-        if skill is None:
-            return None
-
-        self._auto_injected_skill = skill.metadata.name
-        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
-            build_skill_prompt_content(skill),
-        )
-
-        from agent.tools.local.activate_skill import ActivateSkill
-
-        updated_registry = current_registry.replace_tool(
-            ActivateSkill(
-                skill_registry=self._skill_registry,
-                active_skill_name=skill.metadata.name,
-            )
-        )
-
-        await prepare_skill_for_turn(
-            executor=self._executor,
-            skill=skill,
-            emitter=self._emitter,
-            source="mid_turn",
-            install_dependencies=lambda: install_skill_dependencies_for_turn(
-                self._executor,
-                skill.metadata.dependencies,
-                self._emitter,
-                context="task_runner_mid_turn",
-                skill_name=skill.metadata.name,
-                source="mid_turn",
-                raise_on_error=True,
-            ),
-        )
-
-        if skill.metadata.allowed_tools:
-            allowed_names, allowed_tags = split_allowed_tools(
-                skill.metadata.allowed_tools
-            )
-            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
-            if callable(set_allowed_tools):
-                set_allowed_tools(allowed_names, allowed_tags)
-            updated_registry = updated_registry.filter_by_names_or_tags(
-                allowed_names, allowed_tags
-            )
-
-        logger.info("task_runner_mid_turn_skill_activated name={}", skill.metadata.name)
-        return (
-            prompt_assembly,
-            updated_registry,
-            updated_registry.to_anthropic_tools(
-                cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
-            ),
+        return await self._apply_mid_turn_skill_activation(
+            activated_name,
+            tool_id=tool_id,
+            messages=list(state.messages),
         )

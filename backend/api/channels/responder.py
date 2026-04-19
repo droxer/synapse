@@ -84,6 +84,8 @@ class ChannelResponder:
         data = event.data
 
         if etype == EventType.TEXT_DELTA:
+            if data.get("agent_id"):
+                return
             self._append_delta(str(data.get("delta", data.get("text", ""))))
 
         elif etype in (EventType.TURN_COMPLETE, EventType.TASK_COMPLETE):

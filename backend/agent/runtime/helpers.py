@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Awaitable, Callable
 
 from loguru import logger
 
@@ -95,6 +95,66 @@ def extract_final_text(state: AgentState) -> str:
             if texts:
                 return "".join(texts)
     return ""
+
+
+def extract_final_text_from_messages(messages: tuple[dict[str, Any], ...]) -> str:
+    """Extract the final assistant text from a raw message tuple."""
+    for msg in reversed(messages):
+        if msg.get("role") != "assistant":
+            continue
+        content = msg.get("content", "")
+        if isinstance(content, str):
+            return content
+        if isinstance(content, list):
+            texts = [b["text"] for b in content if b.get("type") == "text"]
+            if texts:
+                return "".join(texts)
+    return ""
+
+
+def extract_user_message_text(message: dict[str, Any]) -> str | None:
+    """Return conversational user text, skipping synthetic tool-result messages."""
+    if message.get("role") != "user":
+        return None
+
+    content = message.get("content")
+    if isinstance(content, str):
+        text = content.strip()
+        return text or None
+
+    if not isinstance(content, list):
+        return None
+
+    if any(
+        isinstance(block, dict) and block.get("type") == "tool_result"
+        for block in content
+    ):
+        return None
+
+    texts = [
+        block.get("text", "")
+        for block in content
+        if isinstance(block, dict) and block.get("type") == "text"
+    ]
+    combined = "".join(texts).strip()
+    return combined or None
+
+
+def get_last_user_message_text(messages: tuple[dict[str, Any], ...]) -> str | None:
+    """Return the most recent conversational user message text."""
+    for message in reversed(messages):
+        text = extract_user_message_text(message)
+        if text is not None:
+            return text
+    return None
+
+
+def find_last_user_message_index(messages: tuple[dict[str, Any], ...]) -> int | None:
+    """Return the index of the most recent conversational user message."""
+    for index in range(len(messages) - 1, -1, -1):
+        if extract_user_message_text(messages[index]) is not None:
+            return index
+    return None
 
 
 # Local tools that are safe to run concurrently (no shared sandbox mutation).
@@ -210,6 +270,7 @@ async def process_tool_calls(
     agent_id: str | None = None,
     stop_check: Callable[[], bool] | None = None,
     cancel_check: Callable[[], bool] | None = None,
+    post_tool_callback: Callable[[ToolCall, ToolResult], Awaitable[None]] | None = None,
 ) -> ToolCallProcessingResult:
     """Execute each tool call and add results to state.
 
@@ -309,6 +370,8 @@ async def process_tool_calls(
                     tc.id, output, result.success, screenshot_base64=screenshot_base64
                 ),
             )
+            if post_tool_callback is not None:
+                await post_tool_callback(tc, result)
 
         return ToolCallProcessingResult(
             state=state.add_message({"role": "user", "content": tool_results}),
@@ -338,6 +401,8 @@ async def process_tool_calls(
                 tc.id, output, result.success, screenshot_base64=screenshot_base64
             ),
         )
+        if post_tool_callback is not None:
+            await post_tool_callback(tc, result)
 
         # Break early when task_complete (or any other stop condition) fires
         if stop_check is not None and stop_check():

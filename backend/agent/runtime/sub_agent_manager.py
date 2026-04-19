@@ -9,6 +9,7 @@ from dataclasses import asdict, dataclass, replace
 from typing import Callable
 
 from agent.llm.client import AnthropicClient
+from agent.memory.store import PersistentMemoryStore
 from agent.runtime.task_runner import (
     AgentResult,
     AgentRunMetrics,
@@ -20,6 +21,9 @@ from agent.runtime.task_runner import (
 )
 from agent.skills.loader import SkillRegistry
 from agent.tools.executor import ToolExecutor
+from agent.tools.local.memory_list import MemoryList
+from agent.tools.local.memory_recall import MemoryRecall
+from agent.tools.local.memory_store import MemoryStore
 from agent.tools.local.task_complete import TaskComplete
 from agent.tools.meta.handoff import AgentHandoff
 from agent.tools.meta.send_message import (
@@ -50,6 +54,10 @@ class TaskAgentSharedBundle:
     prompt_template: TaskAgentPromptTemplate
     tools: list[dict[str, object]]
     tools_fingerprint: str
+
+
+class AgentWaitCancelled(RuntimeError):
+    """Raised when a wait-for-agents call is interrupted by cancellation."""
 
 
 def _normalize_task_signature(value: str) -> str:
@@ -121,6 +129,8 @@ class SubAgentManager:
         max_total: int = 20,
         max_iterations: int = 50,
         skill_registry: SkillRegistry | None = None,
+        persistent_store: PersistentMemoryStore | None = None,
+        memory_entries: list[dict[str, str]] | None = None,
     ) -> None:
         if max_concurrent < 1:
             raise ValueError("max_concurrent must be at least 1")
@@ -137,18 +147,53 @@ class SubAgentManager:
         self._max_total = max_total
         self._max_iterations = max_iterations
         self._skill_registry = skill_registry
+        self._persistent_store = persistent_store
+        self._memory_entries = list(memory_entries or [])
 
         self._message_bus = AgentMessageBus()
         self._agents: dict[str, asyncio.Task[AgentResult]] = {}
         self._results: dict[str, AgentResult] = {}
         self._configs: dict[str, TaskAgentConfig] = {}
         self._executors: dict[str, list[ToolExecutor]] = {}
+        self._agent_memory_stores: dict[str, dict[str, str]] = {}
+        self._terminal_events_emitted: set[str] = set()
         self._semaphore = asyncio.Semaphore(max_concurrent)
         self._shared_bundle = self._build_shared_bundle()
 
+    def _attach_memory_tools(
+        self,
+        registry: ToolRegistry,
+        *,
+        agent_id: str,
+    ) -> ToolRegistry:
+        """Attach memory tools backed by shared per-agent fallback storage."""
+        fallback_store = self._agent_memory_stores.setdefault(agent_id, {})
+        registry = registry.replace_tool(
+            MemoryStore(
+                store=fallback_store,
+                persistent_store=self._persistent_store,
+            )
+        )
+        registry = registry.replace_tool(
+            MemoryRecall(
+                store=fallback_store,
+                persistent_store=self._persistent_store,
+            )
+        )
+        registry = registry.replace_tool(
+            MemoryList(
+                store=fallback_store,
+                persistent_store=self._persistent_store,
+            )
+        )
+        return registry
+
     def _build_shared_bundle(self) -> TaskAgentSharedBundle:
         """Precompute shared task-agent prompt/tool payloads once per manager."""
-        registry = self._registry_factory()
+        registry = self._attach_memory_tools(
+            self._registry_factory(),
+            agent_id="template",
+        )
 
         async def _noop_complete(summary: str) -> None:
             del summary
@@ -250,6 +295,7 @@ class SubAgentManager:
     async def wait(
         self,
         agent_ids: list[str] | None = None,
+        cancel_check: Callable[[], bool] | None = None,
     ) -> dict[str, AgentResult]:
         """Wait for specified agents (or all) and return their results.
 
@@ -267,11 +313,21 @@ class SubAgentManager:
 
         tasks_to_await = _collect_tasks(ids_to_wait, self._agents, self._results)
 
-        if tasks_to_await:
-            await asyncio.gather(
-                *tasks_to_await.values(),
-                return_exceptions=True,
+        pending = dict(tasks_to_await)
+        while pending:
+            if cancel_check is not None and cancel_check():
+                raise AgentWaitCancelled("agent_wait cancelled")
+
+            done, _ = await asyncio.wait(
+                pending.values(),
+                timeout=0.05,
+                return_when=asyncio.FIRST_COMPLETED,
             )
+
+            for agent_id, task in list(pending.items()):
+                if task in done or task.done():
+                    self._synthesize_result_for_finished_task(agent_id)
+                    pending.pop(agent_id, None)
 
         return _gather_results(ids_to_wait, self._results)
 
@@ -288,6 +344,14 @@ class SubAgentManager:
                 *self._agents.values(),
                 return_exceptions=True,
             )
+
+        for agent_id, config in list(self._configs.items()):
+            result = self._synthesize_result_for_finished_task(
+                agent_id,
+                default_error="Task agent was cancelled.",
+            )
+            if result is not None:
+                await self._emit_terminal_events(agent_id, config, result)
 
         # Clean up executor sandbox sessions
         for agent_id, executors in self._executors.items():
@@ -307,6 +371,8 @@ class SubAgentManager:
         self._results.clear()
         self._configs.clear()
         self._executors.clear()
+        self._agent_memory_stores.clear()
+        self._terminal_events_emitted.clear()
         self._message_bus.clear()
 
     def _is_agent_active(self, agent_id: str) -> bool:
@@ -319,6 +385,10 @@ class SubAgentManager:
         config: TaskAgentConfig,
         result: AgentResult,
     ) -> None:
+        if agent_id in self._terminal_events_emitted:
+            return
+        self._terminal_events_emitted.add(agent_id)
+
         terminal_state = (
             "replan_required"
             if result.replan_required
@@ -347,9 +417,46 @@ class SubAgentManager:
                 "success": result.success,
                 "timed_out": bool(result.error and "timed out" in result.error.lower()),
                 "timeout_seconds": config.timeout_seconds,
-                "completed_via_task_complete": bool(result.summary),
+                "completed_via_task_complete": result.completed_via_task_complete,
             },
         )
+
+    def _synthesize_result_for_finished_task(
+        self,
+        agent_id: str,
+        *,
+        default_error: str = "Task agent terminated unexpectedly.",
+    ) -> AgentResult | None:
+        existing = self._results.get(agent_id)
+        if existing is not None:
+            return existing
+
+        task = self._agents.get(agent_id)
+        if task is None or not task.done():
+            return None
+
+        if task.cancelled():
+            result = AgentResult(
+                agent_id=agent_id,
+                success=False,
+                summary="",
+                error=default_error,
+            )
+        else:
+            try:
+                task_result = task.result()
+            except Exception as exc:
+                result = AgentResult(
+                    agent_id=agent_id,
+                    success=False,
+                    summary="",
+                    error=str(exc) or default_error,
+                )
+            else:
+                result = task_result
+
+        self._results[agent_id] = result
+        return result
 
     async def _run_agent(
         self,
@@ -374,6 +481,7 @@ class SubAgentManager:
         current_config = dep_outcome
         handoff_depth = 0
         stage_metrics: list[AgentRunMetrics] = []
+        stage_artifacts: list[str] = []
 
         await self._emitter.emit(
             EventType.AGENT_START,
@@ -390,10 +498,14 @@ class SubAgentManager:
                 result = await self._execute_agent(agent_id, current_config)
             if result.metrics is not None:
                 stage_metrics.append(result.metrics)
+            for artifact_id in result.artifacts:
+                if artifact_id not in stage_artifacts:
+                    stage_artifacts.append(artifact_id)
 
             if result.handoff is None:
                 final_result = replace(
                     result,
+                    artifacts=tuple(stage_artifacts),
                     metrics=_aggregate_metrics(stage_metrics),
                 )
                 self._results[agent_id] = final_result
@@ -428,17 +540,20 @@ class SubAgentManager:
                 },
             )
 
-            context = _format_handoff_context(
+            handoff_context = _format_handoff_context(
                 handoff.source_messages,
                 handoff.context,
                 current_config.role,
                 max_message_chars=get_settings().HANDOFF_MESSAGE_SNIPPET_CHARS,
             )
+            merged_context = "\n\n".join(
+                part for part in (current_config.context, handoff_context) if part
+            )
 
             current_config = TaskAgentConfig(
                 task_description=handoff.task_description,
                 name=current_config.name,
-                context=context,
+                context=merged_context,
                 sandbox_template=current_config.sandbox_template,
                 priority=current_config.priority,
                 depends_on=(),
@@ -490,13 +605,12 @@ class SubAgentManager:
                     "synthesizing failure",
                     dep_id[:8],
                 )
-                self._results[dep_id] = AgentResult(
-                    agent_id=dep_id,
-                    success=False,
-                    summary="",
-                    error="dependency terminated unexpectedly",
-                    failure_mode="cancel_downstream",
+                synthesized = self._synthesize_result_for_finished_task(
+                    dep_id,
+                    default_error="dependency terminated unexpectedly",
                 )
+                if synthesized is not None:
+                    self._results[dep_id] = synthesized
 
         # Check for dependency failures and apply failure mode policy
         failed_deps: list[tuple[str, AgentResult]] = []
@@ -595,7 +709,10 @@ class SubAgentManager:
         """Create and run a TaskAgentRunner, handling errors."""
         executor: ToolExecutor | None = None
         try:
-            registry = self._registry_factory()
+            registry = self._attach_memory_tools(
+                self._registry_factory(),
+                agent_id=agent_id,
+            )
 
             # Inject messaging tools for inter-agent communication
             registry = registry.register(
@@ -646,6 +763,7 @@ class SubAgentManager:
                 max_iterations=self._max_iterations,
                 skill_registry=self._skill_registry,
                 prompt_template=self._shared_bundle.prompt_template,
+                memory_entries=self._memory_entries,
                 shared_tools=self._shared_bundle.tools,
                 shared_tools_fingerprint=self._shared_bundle.tools_fingerprint,
             )

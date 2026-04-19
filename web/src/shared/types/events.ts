@@ -62,6 +62,7 @@ export interface ThinkingEventData extends GenericEventData {
 
 export interface TextDeltaEventData extends GenericEventData {
   readonly delta?: string;
+  readonly agent_id?: string;
 }
 
 export interface LLMResponseEventData extends GenericEventData {

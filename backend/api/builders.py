@@ -17,13 +17,15 @@ from agent.context.profiles import (
 from agent.llm.client import (
     AnthropicClient,
     PromptTextBlock,
-    build_system_prompt_blocks,
     render_system_prompt,
 )
 from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from agent.llm.image import MiniMaxImageClient
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.runtime.planner import PlannerOrchestrator
+from agent.runtime.system_prompt_sections import (
+    build_memory_aware_system_prompt_sections,
+)
 from agent.runtime.sub_agent_manager import SubAgentManager
 from agent.memory.store import PersistentMemoryStore
 from agent.sandbox.base import SandboxProvider
@@ -340,6 +342,7 @@ def _build_sub_agent_registry_factory(
     event_emitter: EventEmitter,
     sandbox_provider: SandboxProvider,
     mcp_state: MCPState,
+    persistent_store: PersistentMemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
 ) -> Callable[[], ToolRegistry]:
     """Factory that produces fully-populated registries for sub-agents (C1 fix)."""
@@ -360,8 +363,15 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(TaskWatch(background_tasks))
         registry = registry.register(TaskResume(background_tasks))
         registry = registry.register(TaskCancel(background_tasks))
-        registry = registry.register(MemoryStore(store=memory))
-        registry = registry.register(MemoryRecall(store=memory))
+        registry = registry.register(
+            MemoryStore(store=memory, persistent_store=persistent_store)
+        )
+        registry = registry.register(
+            MemoryRecall(store=memory, persistent_store=persistent_store)
+        )
+        registry = registry.register(
+            MemoryList(store=memory, persistent_store=persistent_store)
+        )
         # Sandbox tools
         registry = registry.register(CodeRun())
         registry = registry.register(ShellExec())
@@ -445,66 +455,9 @@ def _format_memory_prompt_section(
     memory_entries: list[dict[str, str]],
 ) -> str:
     """Format memory entries as a system prompt section."""
-    if not memory_entries:
-        return ""
-    settings = get_settings()
-    entry_cap = getattr(settings, "MEMORY_PROMPT_ENTRY_MAX_CHARS", 300)
-    section_cap = getattr(settings, "MEMORY_PROMPT_MAX_CHARS", 4000)
-    lines = [
-        "<personal_memory>",
-        "The following are things you have previously remembered about this user. "
-        "Use this context to personalise your responses. "
-        "You can update or add new memories with the memory_store tool.",
-    ]
-    closing_tag = "</personal_memory>"
-    truncated_marker = "...[truncated]"
-    section_truncated_marker = "...[memory entries truncated]"
+    from agent.runtime.system_prompt_sections import format_memory_prompt_section
 
-    if section_cap <= 0:
-        return ""
-
-    base_section = "\n".join([*lines, closing_tag])
-    if len(base_section) > section_cap:
-        return ""
-
-    def _truncate_value(value: str) -> str:
-        if entry_cap <= 0 or len(value) <= entry_cap:
-            return value
-        head_len = max(0, entry_cap - len(truncated_marker))
-        return f"{value[:head_len]}{truncated_marker}"
-
-    section_truncated = False
-    for entry in memory_entries:
-        ns = entry.get("namespace", "default")
-        key = entry["key"]
-        value = _truncate_value(entry["value"])
-        if ns != "default":
-            line = f"- [{ns}] {key}: {value}"
-        else:
-            line = f"- {key}: {value}"
-
-        candidate_lines = [*lines, line, closing_tag]
-        if len("\n".join(candidate_lines)) > section_cap:
-            section_truncated = True
-            break
-        lines.append(line)
-
-    if section_truncated:
-        candidate_lines = [*lines, section_truncated_marker, closing_tag]
-        if len("\n".join(candidate_lines)) <= section_cap:
-            lines.append(section_truncated_marker)
-        else:
-            while lines:
-                candidate_lines = [*lines, section_truncated_marker, closing_tag]
-                if len("\n".join(candidate_lines)) <= section_cap:
-                    lines.append(section_truncated_marker)
-                    break
-                lines.pop()
-            else:
-                return ""
-
-    lines.append(closing_tag)
-    return "\n" + "\n".join(lines)
+    return format_memory_prompt_section(memory_entries, settings=get_settings())
 
 
 def build_agent_system_prompt(
@@ -523,16 +476,12 @@ def build_agent_system_prompt_sections(
     skill_registry: SkillRegistry | None,
 ) -> tuple[PromptTextBlock, ...]:
     """Assemble system-prompt sections without flattening them."""
-    settings = get_settings()
-    sections: list[str | PromptTextBlock] = [base_prompt]
-    if skill_registry is not None and settings.SKILLS_ENABLED:
-        catalog_section = skill_registry.catalog_prompt_section()
-        if catalog_section:
-            sections.append(catalog_section)
-    memory_section = _format_memory_prompt_section(memory_entries or [])
-    if memory_section:
-        sections.append(memory_section)
-    return build_system_prompt_blocks(*sections)
+    return build_memory_aware_system_prompt_sections(
+        base_prompt,
+        memory_entries,
+        skill_registry,
+        settings=get_settings(),
+    )
 
 
 def build_default_agent_system_prompt_sections(
@@ -684,6 +633,7 @@ def _build_planner_orchestrator(
             event_emitter,
             sandbox_provider,
             resolved_mcp_state,
+            persistent_store,
             skill_registry if settings.SKILLS_ENABLED else None,
         ),
         tool_executor_factory=lambda reg: ToolExecutor(
@@ -698,6 +648,8 @@ def _build_planner_orchestrator(
         max_total=settings.MAX_TOTAL_AGENTS,
         max_iterations=settings.MAX_AGENT_ITERATIONS,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
+        persistent_store=persistent_store,
+        memory_entries=memory_entries,
     )
 
     planner_registry = _build_planner_registry(

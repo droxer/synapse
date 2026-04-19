@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict
-from typing import Any
+from typing import Any, Callable
 
 from loguru import logger
 
@@ -19,10 +19,15 @@ from agent.tools.base import (
 class WaitForAgents(LocalTool):
     """Wait for one or more task agents to complete and return their results."""
 
-    def __init__(self, sub_agent_manager: Any) -> None:
+    def __init__(
+        self,
+        sub_agent_manager: Any,
+        cancel_check: Callable[[], bool] | None = None,
+    ) -> None:
         if sub_agent_manager is None:
             raise ValueError("SubAgentManager must not be None")
         self._manager = sub_agent_manager
+        self._cancel_check = cancel_check
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -50,9 +55,16 @@ class WaitForAgents(LocalTool):
         agent_ids: list[str] = kwargs.get("agent_ids", [])
 
         try:
-            results = await self._manager.wait(
-                agent_ids if agent_ids else None,
-            )
+            if self._cancel_check is None:
+                results = await self._manager.wait(agent_ids if agent_ids else None)
+            else:
+                try:
+                    results = await self._manager.wait(
+                        agent_ids if agent_ids else None,
+                        cancel_check=self._cancel_check,
+                    )
+                except TypeError:
+                    results = await self._manager.wait(agent_ids if agent_ids else None)
         except Exception as exc:
             logger.warning("wait_for_agents_failed error={}", exc)
             return ToolResult.fail(f"Failed waiting for agents: {exc}")

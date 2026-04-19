@@ -2,7 +2,7 @@
 
 Synapse uses a **token-driven design system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and restrained AI signaling.
 
-Canonical human-facing frontend guide is `design.md`.
+Canonical human-facing frontend guide is `docs/design.md`.
 Canonical source of truth for live token values is `web/src/app/globals.css`, with this reference doc as the normative token mapping.
 If any value conflicts with `docs/DESIGN_STYLE_GUIDE.md`, follow `web/src/app/globals.css` + this file.
 
@@ -193,7 +193,7 @@ Guardrail command:
 
 ## Related files
 
-- `design.md`
+- `docs/design.md`
 - `web/src/app/globals.css`
 - `web/src/app/fonts.ts`
 - `web/src/app/layout.tsx`

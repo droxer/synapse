@@ -104,6 +104,8 @@ class _TaskRunnerExecutor:
         self.current_template: str | None = None
         self.template_requests: list[str] = []
         self.staged_skills_by_template: dict[str, set[str]] = {}
+        self._allowed_tool_names: set[str] | None = None
+        self._allowed_tool_tags: set[str] | None = None
 
     def set_sandbox_template(self, template: str) -> None:
         self.current_template = template
@@ -127,6 +129,14 @@ class _TaskRunnerExecutor:
     def mark_skill_staged(self, template: str, skill_name: str) -> None:
         self.staged_skills_by_template.setdefault(template, set()).add(skill_name)
 
+    def set_allowed_tools(self, names: set[str], tags: set[str]) -> None:
+        self._allowed_tool_names = set(names)
+        self._allowed_tool_tags = set(tags)
+
+    def reset_allowed_tools(self) -> None:
+        self._allowed_tool_names = None
+        self._allowed_tool_tags = None
+
     @property
     def sandbox_config(self):
         return None
@@ -140,6 +150,19 @@ class _TaskRunnerExecutor:
         tool = self._registry.get(name)
         if tool is None:
             return ToolResult.fail(f"Unknown tool: {name}")
+        if self._allowed_tool_names is not None or self._allowed_tool_tags is not None:
+            tool_tags = set(tool.definition().tags)
+            if (
+                self._allowed_tool_names is not None
+                and name not in self._allowed_tool_names
+                and not (
+                    self._allowed_tool_tags is not None
+                    and tool_tags & self._allowed_tool_tags
+                )
+            ):
+                return ToolResult.fail(
+                    f"Tool '{name}' is not allowed in the current skill/runtime context."
+                )
         if isinstance(tool, SandboxTool):
             session = await self.get_sandbox_session(tool.definition().tags)
             return await tool.execute(session=session, **tool_input)
@@ -381,6 +404,84 @@ async def test_run_returns_metrics_for_successful_execution(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_run_emits_text_delta_with_agent_id_and_iteration(monkeypatch):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: _task_settings(timeout_seconds=5.0),
+    )
+
+    events = []
+    emitter = EventEmitter()
+
+    async def _capture(event) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+
+    class _StreamingClient:
+        async def create_message(self, **kwargs) -> LLMResponse:
+            raise RuntimeError("selector unavailable")
+
+        async def create_message_stream(self, **kwargs) -> LLMResponse:
+            on_text_delta = kwargs["on_text_delta"]
+            await on_text_delta("hello ")
+            await on_text_delta("world")
+            return LLMResponse(
+                text="hello world",
+                tool_calls=(),
+                stop_reason="end_turn",
+                usage=TokenUsage(input_tokens=2, output_tokens=2),
+            )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-stream",
+        config=TaskAgentConfig(task_description="stream a result"),
+        claude_client=_StreamingClient(),
+        tool_registry=ToolRegistry(),
+        tool_executor=_SequenceExecutor(),
+        event_emitter=emitter,
+        observer=_NoopObserver(),
+    )
+
+    result = await runner.run()
+
+    assert result.success is True
+    text_delta_events = [
+        event for event in events if event.type == EventType.TEXT_DELTA
+    ]
+    assert len(text_delta_events) == 2
+    assert [event.data["delta"] for event in text_delta_events] == ["hello ", "world"]
+    assert all(event.data["agent_id"] == "agent-stream" for event in text_delta_events)
+    assert all(event.iteration == 1 for event in text_delta_events)
+
+
+def test_task_runner_system_prompt_includes_personal_memory(monkeypatch):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: SimpleNamespace(
+            **_task_settings().__dict__,
+            SKILLS_ENABLED=True,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=4000,
+        ),
+    )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-memory",
+        config=TaskAgentConfig(task_description="respect user prefs"),
+        claude_client=MagicMock(),
+        tool_registry=ToolRegistry(),
+        tool_executor=MagicMock(),
+        event_emitter=EventEmitter(),
+        observer=_NoopObserver(),
+        memory_entries=[{"namespace": "default", "key": "timezone", "value": "UTC"}],
+    )
+
+    assert "<personal_memory>" in runner._system_prompt
+    assert "timezone: UTC" in runner._system_prompt
+
+
+@pytest.mark.asyncio
 async def test_run_uses_config_timeout_seconds_override(monkeypatch):
     monkeypatch.setattr(
         "agent.runtime.task_runner.get_settings",
@@ -512,6 +613,72 @@ async def test_task_runner_mid_turn_skill_activation_restricts_tools(monkeypatch
         "web_search",
     }
     assert client.tool_batches[1] == {"activate_skill", "web_search"}
+
+
+@pytest.mark.asyncio
+async def test_task_runner_blocks_same_batch_tool_after_skill_activation(monkeypatch):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: _task_settings(timeout_seconds=5.0),
+    )
+
+    events = []
+    emitter = EventEmitter()
+
+    async def _capture(event) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(ActivateSkill(skill_registry=_skill_registry()))
+    )
+    session = _FakeSkillSession()
+    client = _SkillAwareClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+                ToolCall(id="tool-2", name="demo_server__lookup_docs", input={}),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-skill-same-batch",
+        config=TaskAgentConfig(task_description="help me"),
+        claude_client=client,
+        tool_registry=registry,
+        tool_executor=_TaskRunnerExecutor(registry, session),  # type: ignore[arg-type]
+        event_emitter=emitter,
+        observer=_NoopObserver(),
+        skill_registry=_skill_registry(),
+    )
+
+    result = await runner.run()
+
+    assert result.success is True
+    blocked_result = next(
+        event
+        for event in events
+        if event.type == EventType.TOOL_RESULT and event.data.get("tool_id") == "tool-2"
+    )
+    assert blocked_result.data["success"] is False
+    assert "not allowed" in str(blocked_result.data["output"]).lower()
 
 
 @pytest.mark.asyncio

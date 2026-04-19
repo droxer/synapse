@@ -1,12 +1,18 @@
 """Tests for agent handoff functionality."""
 
 import asyncio
+import uuid
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 import pytest
 
-from agent.runtime.sub_agent_manager import SubAgentManager, _format_handoff_context
+from agent.memory.store import PersistentMemoryStore
+from agent.runtime.sub_agent_manager import (
+    AgentWaitCancelled,
+    SubAgentManager,
+    _format_handoff_context,
+)
 from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from agent.runtime.task_runner import (
     AgentResult,
@@ -374,6 +380,100 @@ class TestSubAgentManagerHandoff:
         assert result.metrics.output_tokens == 9
 
     @pytest.mark.asyncio
+    async def test_run_agent_preserves_existing_context_across_handoffs(self):
+        captured_configs: list[TaskAgentConfig] = []
+
+        async def mock_execute(agent_id, config):
+            captured_configs.append(config)
+            if len(captured_configs) == 1:
+                return AgentResult(
+                    agent_id=agent_id,
+                    success=True,
+                    summary="handoff",
+                    handoff=HandoffRequest(
+                        target_role="reviewer",
+                        task_description="review",
+                        context="focus on auth edge cases",
+                        source_messages=(
+                            {"role": "user", "content": "build login flow"},
+                            {"role": "assistant", "content": "implemented draft"},
+                        ),
+                        remaining_handoffs=1,
+                    ),
+                )
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+        manager._execute_agent = mock_execute
+
+        await manager._run_agent(
+            "context-agent",
+            TaskAgentConfig(
+                task_description="build",
+                role="coder",
+                max_handoffs=2,
+                context="Dependency summary: keep OAuth state intact.",
+            ),
+        )
+
+        assert len(captured_configs) == 2
+        assert (
+            "Dependency summary: keep OAuth state intact."
+            in captured_configs[1].context
+        )
+        assert "build login flow" in captured_configs[1].context
+        assert "implemented draft" in captured_configs[1].context
+        assert "focus on auth edge cases" in captured_configs[1].context
+
+    @pytest.mark.asyncio
+    async def test_run_agent_aggregates_artifacts_across_handoffs(self):
+        call_count = 0
+
+        async def mock_execute(agent_id, config):
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                return AgentResult(
+                    agent_id=agent_id,
+                    success=True,
+                    summary="handoff",
+                    artifacts=("artifact-1", "artifact-2"),
+                    handoff=HandoffRequest(
+                        target_role="reviewer",
+                        task_description="review",
+                        context="",
+                        source_messages=(),
+                        remaining_handoffs=1,
+                    ),
+                )
+            return AgentResult(
+                agent_id=agent_id,
+                success=True,
+                summary="done",
+                artifacts=("artifact-2", "artifact-3"),
+            )
+
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+        manager._execute_agent = mock_execute
+
+        result = await manager._run_agent(
+            "artifact-agent",
+            TaskAgentConfig(task_description="build", role="coder", max_handoffs=2),
+        )
+
+        assert result.artifacts == ("artifact-1", "artifact-2", "artifact-3")
+
+    @pytest.mark.asyncio
     async def test_multi_step_handoff_chain(self):
         """Test a chain of 3 handoffs (coder → reviewer → deployer → done)."""
         call_count = 0
@@ -591,6 +691,63 @@ class TestSubAgentSpawnLimits:
         assert PLANNER_SYSTEM_PROMPT in system_prompt
         assert "timezone: UTC" in system_prompt
 
+    def test_planner_builder_passes_worker_memory_context(self, monkeypatch) -> None:
+        captured_manager_kwargs: dict[str, object] = {}
+        persistent_store = MagicMock()
+
+        monkeypatch.setattr(
+            "api.builders.get_settings",
+            lambda: SimpleNamespace(
+                TAVILY_API_KEY="test-key",
+                MAX_CONCURRENT_AGENTS=7,
+                MAX_TOTAL_AGENTS=30,
+                MAX_AGENT_ITERATIONS=60,
+                MAX_ITERATIONS=50,
+                SKILLS_ENABLED=False,
+            ),
+        )
+        monkeypatch.setattr(
+            "api.builders._build_sub_agent_registry_factory",
+            lambda *args: "registry-factory",
+        )
+        monkeypatch.setattr(
+            "api.builders._build_base_registry",
+            lambda *args, **kwargs: ToolRegistry(),
+        )
+        monkeypatch.setattr(
+            "api.builders._build_planner_registry",
+            lambda *args, **kwargs: ToolRegistry(),
+        )
+        monkeypatch.setattr(
+            "api.builders.ArtifactManager",
+            lambda storage_backend=None: MagicMock(),
+        )
+
+        class FakeSubAgentManager:
+            def __init__(self, **kwargs):
+                captured_manager_kwargs.update(kwargs)
+
+        class FakePlannerOrchestrator:
+            def __init__(self, **kwargs):
+                self.on_task_complete = lambda summary: None
+                self._executor = kwargs["tool_executor"]
+
+        monkeypatch.setattr("api.builders.SubAgentManager", FakeSubAgentManager)
+        monkeypatch.setattr("api.builders.PlannerOrchestrator", FakePlannerOrchestrator)
+
+        _build_planner_orchestrator(
+            claude_client=MagicMock(),
+            event_emitter=EventEmitter(),
+            sandbox_provider=MagicMock(),
+            persistent_store=persistent_store,
+            memory_entries=[{"key": "timezone", "value": "UTC"}],
+        )
+
+        assert captured_manager_kwargs["persistent_store"] is persistent_store
+        assert captured_manager_kwargs["memory_entries"] == [
+            {"key": "timezone", "value": "UTC"}
+        ]
+
     @pytest.mark.asyncio
     async def test_manager_passes_max_iterations_to_task_runner(
         self, monkeypatch
@@ -635,6 +792,160 @@ class TestSubAgentSpawnLimits:
             captured_runner_kwargs["shared_tools_fingerprint"]
             == manager._shared_bundle.tools_fingerprint
         )
+
+    @pytest.mark.asyncio
+    async def test_manager_passes_memory_entries_to_task_runner(
+        self, monkeypatch
+    ) -> None:
+        captured_runner_kwargs: dict[str, object] = {}
+
+        class FakeTaskAgentRunner:
+            def __init__(self, **kwargs):
+                captured_runner_kwargs.update(kwargs)
+
+            async def run(self) -> AgentResult:
+                return AgentResult(agent_id="agent-1", success=True, summary="done")
+
+            async def on_task_complete(self, summary: str) -> None:
+                return None
+
+            async def on_handoff(self, request: HandoffRequest) -> None:
+                return None
+
+        monkeypatch.setattr(
+            "agent.runtime.sub_agent_manager.TaskAgentRunner",
+            FakeTaskAgentRunner,
+        )
+
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+            memory_entries=[{"key": "timezone", "value": "UTC"}],
+        )
+
+        result = await manager._execute_agent(
+            "agent-1", TaskAgentConfig(task_description="build")
+        )
+
+        assert result.summary == "done"
+        assert captured_runner_kwargs["memory_entries"] == [
+            {"key": "timezone", "value": "UTC"}
+        ]
+
+    @pytest.mark.asyncio
+    async def test_manager_reuses_worker_local_memory_across_handoffs(
+        self, monkeypatch
+    ) -> None:
+        class FakeTaskAgentRunner:
+            call_count = 0
+
+            def __init__(self, **kwargs):
+                self._registry = kwargs["tool_registry"]
+
+            async def run(self) -> AgentResult:
+                type(self).call_count += 1
+                if type(self).call_count == 1:
+                    store_tool = self._registry.get("memory_store")
+                    assert store_tool is not None
+                    result = await store_tool.execute(key="phase", value="alpha")
+                    assert result.success
+                    return AgentResult(
+                        agent_id="agent-1",
+                        success=True,
+                        summary="handoff",
+                        handoff=HandoffRequest(
+                            target_role="reviewer",
+                            task_description="review",
+                            context="ready",
+                            source_messages=(),
+                            remaining_handoffs=1,
+                        ),
+                    )
+
+                recall_tool = self._registry.get("memory_search")
+                list_tool = self._registry.get("memory_list")
+                assert recall_tool is not None
+                assert list_tool is not None
+                recall_result = await recall_tool.execute(query="phase")
+                list_result = await list_tool.execute()
+                assert "alpha" in recall_result.output
+                assert "alpha" in list_result.output
+                return AgentResult(agent_id="agent-1", success=True, summary="done")
+
+            async def on_task_complete(self, summary: str) -> None:
+                return None
+
+            async def on_handoff(self, request: HandoffRequest) -> None:
+                return None
+
+        monkeypatch.setattr(
+            "agent.runtime.sub_agent_manager.TaskAgentRunner",
+            FakeTaskAgentRunner,
+        )
+
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        result = await manager._run_agent(
+            "agent-1",
+            TaskAgentConfig(task_description="build", role="coder", max_handoffs=2),
+        )
+
+        assert result.success is True
+        assert result.summary == "done"
+        assert manager._agent_memory_stores["agent-1"] == {"default:phase": "alpha"}
+
+    @pytest.mark.asyncio
+    async def test_manager_attaches_persistent_memory_tools(self, monkeypatch) -> None:
+        captured_registry: ToolRegistry | None = None
+        persistent_store = PersistentMemoryStore(
+            session_factory=MagicMock(),
+            user_id=uuid.uuid4(),
+        )
+
+        class FakeTaskAgentRunner:
+            def __init__(self, **kwargs):
+                nonlocal captured_registry
+                captured_registry = kwargs["tool_registry"]
+
+            async def run(self) -> AgentResult:
+                return AgentResult(agent_id="agent-1", success=True, summary="done")
+
+            async def on_task_complete(self, summary: str) -> None:
+                return None
+
+            async def on_handoff(self, request: HandoffRequest) -> None:
+                return None
+
+        monkeypatch.setattr(
+            "agent.runtime.sub_agent_manager.TaskAgentRunner",
+            FakeTaskAgentRunner,
+        )
+
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+            persistent_store=persistent_store,
+        )
+
+        result = await manager._execute_agent(
+            "agent-1", TaskAgentConfig(task_description="build")
+        )
+
+        assert result.success is True
+        assert captured_registry is not None
+        for tool_name in ("memory_store", "memory_search", "memory_list"):
+            tool = captured_registry.get(tool_name)
+            assert tool is not None
+            assert getattr(tool, "_persistent") is persistent_store
 
     @pytest.mark.asyncio
     async def test_max_total_is_enforced_during_concurrent_spawn_attempts(self):
@@ -1189,8 +1500,8 @@ class TestDependencyFailurePolicy:
 
 
 @pytest.mark.asyncio
-async def test_dependency_without_result_is_synthesized_as_failure():
-    """A completed dependency without stored result is treated as failure."""
+async def test_dependency_without_result_uses_finished_task_result():
+    """A completed dependency without stored result should reuse the task result."""
     manager = SubAgentManager(
         claude_client=MagicMock(),
         tool_registry_factory=lambda: ToolRegistry(),
@@ -1218,16 +1529,37 @@ async def test_dependency_without_result_is_synthesized_as_failure():
         TaskAgentConfig(task_description="child", depends_on=(dep_id,)),
     )
 
-    assert isinstance(outcome, AgentResult)
-    assert outcome.success is False
-    assert outcome.skip_execution is True
-    assert outcome.failure_mode == "cancel_downstream"
-    assert "dependency terminated unexpectedly" in (outcome.error or "")
+    assert isinstance(outcome, TaskAgentConfig)
+    assert "done" in outcome.context
 
     synthesized_dep_result = manager._results[dep_id]
-    assert synthesized_dep_result.success is False
-    assert synthesized_dep_result.error == "dependency terminated unexpectedly"
-    assert synthesized_dep_result.failure_mode == "cancel_downstream"
+    assert synthesized_dep_result.success is True
+    assert synthesized_dep_result.summary == "done"
+
+
+@pytest.mark.asyncio
+async def test_wait_can_be_cancelled_while_agents_are_pending():
+    manager = SubAgentManager(
+        claude_client=MagicMock(),
+        tool_registry_factory=lambda: ToolRegistry(),
+        tool_executor_factory=lambda reg: MagicMock(),
+        event_emitter=EventEmitter(),
+    )
+
+    blocker = asyncio.Event()
+
+    async def _blocked() -> AgentResult:
+        await blocker.wait()
+        return AgentResult(agent_id="pending-agent", success=True, summary="done")
+
+    task = asyncio.create_task(_blocked(), name="pending-agent")
+    manager._agents["pending-agent"] = task
+
+    with pytest.raises(AgentWaitCancelled):
+        await manager.wait(cancel_check=lambda: True)
+
+    task.cancel()
+    await asyncio.gather(task, return_exceptions=True)
 
 
 class TestSpawnTaskAgentDependencyFailureMode:
@@ -1244,8 +1576,16 @@ class TestSpawnTaskAgentDependencyFailureMode:
                 return "fake-agent-id"
 
         from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
+        from agent.tools.meta.planner_state import PlannerState
 
-        tool = SpawnTaskAgent(sub_agent_manager=FakeManager())
+        planner_state = PlannerState()
+        planner_state.register_steps(
+            [{"name": "test task", "execution_type": "parallel_worker"}]
+        )
+        tool = SpawnTaskAgent(
+            sub_agent_manager=FakeManager(),
+            planner_state=planner_state,
+        )
         result = await tool.execute(
             task_description="my task",
             name="test task",
@@ -1266,8 +1606,16 @@ class TestSpawnTaskAgentDependencyFailureMode:
                 return "fake-agent-id"
 
         from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
+        from agent.tools.meta.planner_state import PlannerState
 
-        tool = SpawnTaskAgent(sub_agent_manager=FakeManager())
+        planner_state = PlannerState()
+        planner_state.register_steps(
+            [{"name": "test task", "execution_type": "parallel_worker"}]
+        )
+        tool = SpawnTaskAgent(
+            sub_agent_manager=FakeManager(),
+            planner_state=planner_state,
+        )
         result = await tool.execute(
             task_description="my task",
             name="test task",
@@ -1287,8 +1635,16 @@ class TestSpawnTaskAgentDependencyFailureMode:
                 return "fake-agent-id"
 
         from agent.tools.meta.spawn_task_agent import SpawnTaskAgent
+        from agent.tools.meta.planner_state import PlannerState
 
-        tool = SpawnTaskAgent(sub_agent_manager=FakeManager())
+        planner_state = PlannerState()
+        planner_state.register_steps(
+            [{"name": "test task", "execution_type": "parallel_worker"}]
+        )
+        tool = SpawnTaskAgent(
+            sub_agent_manager=FakeManager(),
+            planner_state=planner_state,
+        )
         result = await tool.execute(
             task_description="my task",
             name="test task",
@@ -1301,6 +1657,30 @@ class TestSpawnTaskAgentDependencyFailureMode:
 
 class TestWaitForAgentsOutputEnhanced:
     """Tests for enhanced output in WaitForAgents (failure_mode, metrics)."""
+
+    @pytest.mark.asyncio
+    async def test_manager_wait_raises_when_cancel_check_trips(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        release = asyncio.Event()
+
+        async def _blocked() -> AgentResult:
+            await release.wait()
+            return AgentResult(agent_id="agent-1", success=True, summary="done")
+
+        manager._agents["agent-1"] = asyncio.create_task(_blocked())
+
+        try:
+            with pytest.raises(AgentWaitCancelled, match="agent_wait cancelled"):
+                await manager.wait(["agent-1"], cancel_check=lambda: True)
+        finally:
+            release.set()
+            await asyncio.gather(*manager._agents.values(), return_exceptions=True)
 
     @pytest.mark.asyncio
     async def test_wait_output_includes_failure_mode(self):
@@ -1385,6 +1765,35 @@ class TestWaitForAgentsOutputEnhanced:
 
         data = json.loads(result.output)
         assert data["agent-1"]["metrics"] is None
+
+    @pytest.mark.asyncio
+    async def test_wait_for_agents_forwards_cancel_check(self):
+        """WaitForAgents should forward planner cancellation into manager.wait."""
+        from agent.tools.meta.wait_for_agents import WaitForAgents
+
+        captured_cancel_check = None
+
+        class FakeManager:
+            async def wait(self, agent_ids=None, cancel_check=None):
+                nonlocal captured_cancel_check
+                captured_cancel_check = cancel_check
+                return {
+                    "agent-1": AgentResult(
+                        agent_id="agent-1",
+                        success=True,
+                        summary="done",
+                    ),
+                }
+
+        tool = WaitForAgents(
+            sub_agent_manager=FakeManager(),
+            cancel_check=lambda: True,
+        )
+        result = await tool.execute(agent_ids=["agent-1"])
+
+        assert result.success
+        assert callable(captured_cancel_check)
+        assert captured_cancel_check() is True
 
     @pytest.mark.asyncio
     async def test_wait_output_includes_skip_execution_and_replan_required(self):

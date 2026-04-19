@@ -147,6 +147,23 @@ describe("parseSSEEvent", () => {
     );
     expect(res?.data.tool_id).toBe("9001");
   });
+
+  it("preserves worker attribution on text_delta events", () => {
+    const parsed = parseSSEEvent(
+      JSON.stringify({
+        event_type: "text_delta",
+        data: { delta: "draft", agent_id: "agent-7" },
+        timestamp: 3,
+        iteration: 2,
+      }),
+      "text_delta",
+    );
+
+    expect(parsed).not.toBeNull();
+    expect(parsed?.type).toBe("text_delta");
+    expect(parsed?.data.delta).toBe("draft");
+    expect(parsed?.data.agent_id).toBe("agent-7");
+  });
 });
 
 describe("shouldFlushEventImmediately", () => {

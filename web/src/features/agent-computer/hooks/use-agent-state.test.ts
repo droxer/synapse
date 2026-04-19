@@ -129,6 +129,28 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.timestamp).toBe(10);
   });
 
+  it("ignores worker text_delta events when building the main assistant stream", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "worker draft", agent_id: "agent-1" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "Main answer" },
+        timestamp: 20,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Main answer");
+    expect(state.messages[0]?.timestamp).toBe(20);
+  });
+
   it("does not duplicate final assistant message when turn_complete differs only by trailing whitespace", () => {
     const events: AgentEvent[] = [
       {

@@ -96,6 +96,7 @@ function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): Ag
     return {
       ...data,
       delta: typeof data.delta === "string" ? data.delta : undefined,
+      agent_id: typeof data.agent_id === "string" ? data.agent_id : undefined,
     } as AgentEventDataByType[K];
   }
 

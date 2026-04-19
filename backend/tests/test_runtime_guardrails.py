@@ -29,7 +29,7 @@ from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.registry import ToolRegistry
 from api.builders import _build_planner_registry
 from api.events import EventEmitter, EventType
-from api.models import FileAttachment
+from api.models import FileAttachment, MCPState
 
 
 class _SequenceExecutor:
@@ -214,6 +214,16 @@ class _SequenceClient:
         return self._responses.pop(0)
 
 
+class _RecordingSequenceClient(_SequenceClient):
+    def __init__(self, *responses: LLMResponse) -> None:
+        super().__init__(*responses)
+        self.message_history: list[list[dict[str, Any]]] = []
+
+    async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
+        self.message_history.append(list(kwargs.get("messages", [])))
+        return await super().create_message_stream(**kwargs)
+
+
 class _FakeSession:
     def __init__(self) -> None:
         self.files: set[str] = set()
@@ -352,6 +362,7 @@ def test_planner_registry_excludes_sandbox_tools(monkeypatch) -> None:
     registry = _build_planner_registry(
         event_emitter=EventEmitter(),
         on_complete=AsyncMock(),
+        mcp_state=MCPState(clients={}),
         skill_registry=_build_skill_registry(),
     )
 
@@ -452,6 +463,101 @@ async def test_planner_cancel_emits_turn_cancelled_and_cleans_up_workers() -> No
 
 
 @pytest.mark.asyncio
+async def test_planner_cancel_interrupts_agent_wait() -> None:
+    started = asyncio.Event()
+    cleanup = AsyncMock()
+
+    class _WaitingManager:
+        async def wait(self, agent_ids=None, cancel_check=None):
+            del agent_ids
+            started.set()
+            while cancel_check is not None and not cancel_check():
+                await asyncio.sleep(0)
+            raise RuntimeError("agent_wait cancelled")
+
+        async def cleanup(self):
+            await cleanup()
+
+    planner = PlannerOrchestrator(
+        claude_client=_SequenceClient(
+            LLMResponse(
+                text="",
+                tool_calls=(ToolCall(id="tool-1", name="agent_wait", input={}),),
+                stop_reason="tool_use",
+                usage=TokenUsage(input_tokens=1, output_tokens=1),
+            )
+        ),  # type: ignore[arg-type]
+        tool_registry=ToolRegistry(),
+        tool_executor=ToolExecutor(registry=ToolRegistry()),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=_WaitingManager(),
+        system_prompt="test",
+    )
+
+    run_task = asyncio.create_task(planner.run("cancel wait"))
+    await started.wait()
+    planner.cancel()
+
+    result = await run_task
+
+    assert result == ""
+    cleanup.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_cancel_does_not_return_stale_text_or_keep_cancelled_turn() -> (
+    None
+):
+    started = asyncio.Event()
+    release = asyncio.Event()
+    client = _RecordingSequenceClient(
+        LLMResponse(
+            text="first answer",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="",
+            tool_calls=(ToolCall(id="tool-1", name="blocker", input={}),),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="third answer",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = ToolRegistry().register(_BlockingPlannerTool(started, release))
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        system_prompt="test",
+    )
+
+    first = await orchestrator.run("first turn")
+    run_task = asyncio.create_task(orchestrator.run("cancel me"))
+    await started.wait()
+    orchestrator.cancel()
+    release.set()
+    cancelled = await run_task
+    third = await orchestrator.run("third turn")
+
+    assert first == "first answer"
+    assert cancelled == ""
+    assert third == "third answer"
+    assert orchestrator.get_last_user_message() == "third turn"
+    third_call_text = str(client.message_history[-1])
+    assert "cancel me" not in third_call_text
+    assert "first turn" in third_call_text
+    assert "third turn" in third_call_text
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_skill_alias_triggers_mid_turn_skill_enforcement() -> None:
     client = _SequenceClient(
         LLMResponse(
@@ -490,6 +596,63 @@ async def test_orchestrator_skill_alias_triggers_mid_turn_skill_enforcement() ->
         "web_search",
     }
     assert client.tool_batches[1] == {"activate_skill", "web_search"}
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_blocks_same_batch_tool_after_skill_activation() -> None:
+    events = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+                ToolCall(id="tool-2", name="demo_server__lookup_docs", input={}),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=emitter,
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    result = await orchestrator.run("help me")
+
+    assert result == "done"
+    blocked_result = next(
+        event
+        for event in events
+        if event.type == EventType.TOOL_RESULT and event.data.get("tool_id") == "tool-2"
+    )
+    assert blocked_result.data["success"] is False
+    assert "not allowed" in str(blocked_result.data["output"]).lower()
 
 
 @pytest.mark.asyncio
@@ -697,6 +860,64 @@ async def test_planner_applies_mid_turn_skill_activation_constraints() -> None:
 
 
 @pytest.mark.asyncio
+async def test_planner_blocks_same_batch_tool_after_skill_activation() -> None:
+    events = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+                ToolCall(id="tool-2", name="demo_server__lookup_docs", input={}),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=emitter,
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    result = await planner.run("help me plan")
+
+    assert result == "done"
+    blocked_result = next(
+        event
+        for event in events
+        if event.type == EventType.TOOL_RESULT and event.data.get("tool_id") == "tool-2"
+    )
+    assert blocked_result.data["success"] is False
+    assert "not allowed" in str(blocked_result.data["output"]).lower()
+
+
+@pytest.mark.asyncio
 async def test_planner_builder_registry_keeps_skill_filtering_without_sandbox_tools(
     monkeypatch,
 ) -> None:
@@ -743,6 +964,7 @@ async def test_planner_builder_registry_keeps_skill_filtering_without_sandbox_to
     registry = _build_planner_registry(
         event_emitter=EventEmitter(),
         on_complete=AsyncMock(),
+        mcp_state=MCPState(clients={}),
         skill_registry=_build_skill_registry(),
     )
     planner = PlannerOrchestrator(

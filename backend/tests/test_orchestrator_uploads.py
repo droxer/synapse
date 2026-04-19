@@ -8,7 +8,12 @@ from typing import Any
 
 import pytest
 
-from agent.llm.client import LLMContentPolicyError, LLMResponse, TokenUsage
+from agent.llm.client import (
+    LLMContentPolicyError,
+    LLMResponse,
+    TokenUsage,
+    render_system_prompt,
+)
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.sandbox.base import ExecResult
 from agent.skills.loader import SkillRegistry
@@ -281,7 +286,7 @@ async def test_auto_selected_skill_stages_files_and_uses_sandbox_path(
     )
     assert client.last_system is not None
     assert client.calls == 1
-    assert "/home/user/skills/data-analysis" in client.last_system
+    assert "/home/user/skills/data-analysis" in render_system_prompt(client.last_system)
 
 
 @pytest.mark.asyncio

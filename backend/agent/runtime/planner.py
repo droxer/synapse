@@ -20,6 +20,9 @@ from agent.llm.client import (
 from agent.runtime.helpers import (
     apply_response_to_state,
     extract_final_text,
+    extract_final_text_from_messages,
+    find_last_user_message_index,
+    get_last_user_message_text,
     process_tool_calls,
 )
 from agent.context.compaction import Observer, compaction_summary_for_persistence
@@ -30,6 +33,7 @@ from agent.runtime.skill_setup import (
     build_skill_prompt_content,
     emit_redundant_skill_activation,
     prepare_skill_for_turn,
+    tool_use_had_error_result,
 )
 from agent.runtime.prompting import PromptAssembly
 from agent.runtime.skill_selector import select_skill_for_message
@@ -156,7 +160,10 @@ class PlannerOrchestrator:
             ),
         )
         registry_with_meta = registry_with_meta.register(
-            WaitForAgents(sub_agent_manager=sub_agent_manager),
+            WaitForAgents(
+                sub_agent_manager=sub_agent_manager,
+                cancel_check=lambda: self._cancel_event.is_set(),
+            ),
         )
 
         self._registry = registry_with_meta
@@ -166,6 +173,12 @@ class PlannerOrchestrator:
         self._state = AgentState(messages=initial_messages)
         self._run_lock = asyncio.Lock()
         self._turn_artifact_ids: list[str] = []
+        self._turn_unfiltered_registry = registry_with_meta
+        self._pending_mid_turn_update: (
+            tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None
+        ) = None
+        self._processed_skill_activation_tool_ids: set[str] = set()
+        self._current_turn_start_index = len(initial_messages)
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -181,30 +194,111 @@ class PlannerOrchestrator:
 
     def get_last_user_message(self) -> str | None:
         """Return the content of the most recent user message, or None."""
-        for msg in reversed(self._state.messages):
-            if msg.get("role") != "user":
-                continue
-            content = msg.get("content")
-            if isinstance(content, str):
-                return content
-            if isinstance(content, list):
-                for block in content:
-                    if isinstance(block, dict) and block.get("type") == "text":
-                        return block.get("text", "")
-        return None
+        return get_last_user_message_text(self._state.messages)
 
     def rollback_to_before_last_user_message(self) -> None:
         """Remove the last user message and everything after it."""
-        messages = list(self._state.messages)
-        for i in range(len(messages) - 1, -1, -1):
-            if messages[i].get("role") == "user":
-                self._state = replace(
-                    self._state,
-                    messages=tuple(messages[:i]),
-                    completed=False,
-                    error=None,
-                )
-                return
+        index = find_last_user_message_index(self._state.messages)
+        if index is None:
+            return
+        self._state = replace(
+            self._state,
+            messages=self._state.messages[:index],
+            completed=False,
+            error=None,
+        )
+
+    def _requested_skill_name_from_tool_call(
+        self, tool_call_name: str, tool_input: dict[str, Any]
+    ) -> str | None:
+        if self._skill_registry is None:
+            return None
+        if tool_call_name == "activate_skill":
+            name = tool_input.get("name")
+            return name if isinstance(name, str) and name else None
+        if self._skill_registry.find_by_name(tool_call_name) is not None:
+            return tool_call_name
+        return None
+
+    async def _apply_mid_turn_skill_activation(
+        self,
+        skill_name: str,
+        *,
+        tool_id: str | None,
+    ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
+        if self._skill_registry is None:
+            return None
+
+        if tool_id is not None and tool_id in self._processed_skill_activation_tool_ids:
+            return None
+
+        if skill_name == self._auto_injected_skill:
+            await emit_redundant_skill_activation(
+                self._emitter,
+                skill_name=skill_name,
+                tool_id=tool_id,
+                messages=list(self._state.messages),
+            )
+            if tool_id is not None:
+                self._processed_skill_activation_tool_ids.add(tool_id)
+            return None
+
+        skill = self._skill_registry.find_by_name(skill_name)
+        if skill is None:
+            return None
+
+        self._auto_injected_skill = skill.metadata.name
+        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
+            build_skill_prompt_content(skill),
+        )
+
+        from agent.tools.local.activate_skill import ActivateSkill
+
+        updated_registry = self._turn_unfiltered_registry.replace_tool(
+            ActivateSkill(
+                skill_registry=self._skill_registry,
+                active_skill_name=skill.metadata.name,
+            )
+        )
+
+        reset_allowed_tools = getattr(self._executor, "reset_allowed_tools", None)
+        if callable(reset_allowed_tools):
+            reset_allowed_tools()
+
+        await prepare_skill_for_turn(
+            executor=self._executor,
+            skill=skill,
+            emitter=self._emitter,
+            source="mid_turn",
+            install_dependencies=lambda: install_skill_dependencies_for_turn(
+                self._executor,
+                skill.metadata.dependencies,
+                self._emitter,
+                context="planner_mid_turn",
+                skill_name=skill.metadata.name,
+                source="mid_turn",
+                raise_on_error=True,
+            ),
+        )
+
+        if skill.metadata.allowed_tools:
+            allowed_names, allowed_tags = split_allowed_tools(
+                skill.metadata.allowed_tools
+            )
+            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
+            if callable(set_allowed_tools):
+                set_allowed_tools(allowed_names, allowed_tags)
+            updated_registry = updated_registry.filter_by_names_or_tags(
+                allowed_names, allowed_tags
+            )
+
+        tools = updated_registry.to_anthropic_tools(
+            cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
+        )
+        if tool_id is not None:
+            self._processed_skill_activation_tool_ids.add(tool_id)
+        logger.info("planner_mid_turn_skill_activated name={}", skill.metadata.name)
+        return prompt_assembly, updated_registry, tools
 
     async def run(
         self,
@@ -263,6 +357,9 @@ class PlannerOrchestrator:
             reset_active_skill_directory()
         self._task_complete_summary = None
         self._auto_injected_skill = None
+        self._pending_mid_turn_update = None
+        self._processed_skill_activation_tool_ids = set()
+        self._current_turn_start_index = len(self._state.messages)
 
         cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
         prompt_assembly = PromptAssembly.from_system(self._system_prompt)
@@ -305,6 +402,7 @@ class PlannerOrchestrator:
                     active_skill_name=matched.metadata.name,
                 )
             )
+            self._turn_unfiltered_registry = effective_registry
             try:
                 await prepare_skill_for_turn(
                     executor=self._executor,
@@ -346,6 +444,8 @@ class PlannerOrchestrator:
                 effective_registry = effective_registry.filter_by_names_or_tags(
                     allowed_names, allowed_tags
                 )
+        else:
+            self._turn_unfiltered_registry = effective_registry
 
         uploaded_paths: tuple[str, ...] = ()
         if attachments:
@@ -391,9 +491,13 @@ class PlannerOrchestrator:
                     prompt_assembly.rendered,
                 )
 
-                updated = await self._check_mid_turn_skill_activation(
-                    effective_registry
-                )
+                if self._pending_mid_turn_update is not None:
+                    prompt_assembly, effective_registry, tools = (
+                        self._pending_mid_turn_update
+                    )
+                    self._pending_mid_turn_update = None
+
+                updated = await self._check_mid_turn_skill_activation()
                 if updated is not None:
                     prompt_assembly, effective_registry, tools = updated
         finally:
@@ -451,16 +555,31 @@ class PlannerOrchestrator:
         state = apply_response_to_state(state, response)
 
         if not response.tool_calls:
-            return state.mark_completed(response.text)
+            return state.mark_completed()
 
-        tool_result = await process_tool_calls(
-            state=state,
-            tool_calls=response.tool_calls,
-            executor=self._executor,
-            emitter=self._emitter,
-            stop_check=lambda: self._task_complete_summary is not None,
-            cancel_check=lambda: self._cancel_event.is_set(),
-        )
+        async def _post_tool_callback(tc: Any, result: Any) -> None:
+            skill_name = self._requested_skill_name_from_tool_call(tc.name, tc.input)
+            if skill_name is None or not result.success:
+                return
+            updated = await self._apply_mid_turn_skill_activation(
+                skill_name,
+                tool_id=tc.id,
+            )
+            if updated is not None:
+                self._pending_mid_turn_update = updated
+
+        try:
+            tool_result = await process_tool_calls(
+                state=state,
+                tool_calls=response.tool_calls,
+                executor=self._executor,
+                emitter=self._emitter,
+                stop_check=lambda: self._task_complete_summary is not None,
+                cancel_check=lambda: self._cancel_event.is_set(),
+                post_tool_callback=_post_tool_callback,
+            )
+        except Exception as exc:
+            return state.mark_error(str(exc))
         state = tool_result.state
         self._turn_artifact_ids.extend(tool_result.artifact_ids)
 
@@ -471,7 +590,6 @@ class PlannerOrchestrator:
 
     async def _check_mid_turn_skill_activation(
         self,
-        current_registry: ToolRegistry,
     ) -> tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None:
         """Detect a successful mid-turn skill activation and enforce constraints."""
         if self._skill_registry is None:
@@ -512,6 +630,12 @@ class PlannerOrchestrator:
         if not activated_name:
             return None
 
+        if tool_id is not None and tool_use_had_error_result(
+            list(self._state.messages),
+            tool_id,
+        ):
+            return None
+
         if activated_name == self._auto_injected_skill:
             await emit_redundant_skill_activation(
                 self._emitter,
@@ -521,72 +645,10 @@ class PlannerOrchestrator:
             )
             return None
 
-        if tool_id is not None:
-            for msg in self._state.messages:
-                if msg.get("role") != "user":
-                    continue
-                msg_content = msg.get("content")
-                if not isinstance(msg_content, list):
-                    continue
-                for block in msg_content:
-                    if (
-                        isinstance(block, dict)
-                        and block.get("type") == "tool_result"
-                        and block.get("tool_use_id") == tool_id
-                        and block.get("is_error") is True
-                    ):
-                        return None
-
-        skill = self._skill_registry.find_by_name(activated_name)
-        if skill is None:
-            return None
-
-        self._auto_injected_skill = skill.metadata.name
-        prompt_assembly = self._turn_prompt_assembly.with_volatile_sections(
-            build_skill_prompt_content(skill),
+        return await self._apply_mid_turn_skill_activation(
+            activated_name,
+            tool_id=tool_id,
         )
-
-        from agent.tools.local.activate_skill import ActivateSkill
-
-        updated_registry = current_registry.replace_tool(
-            ActivateSkill(
-                skill_registry=self._skill_registry,
-                active_skill_name=skill.metadata.name,
-            )
-        )
-
-        await prepare_skill_for_turn(
-            executor=self._executor,
-            skill=skill,
-            emitter=self._emitter,
-            source="mid_turn",
-            install_dependencies=lambda: install_skill_dependencies_for_turn(
-                self._executor,
-                skill.metadata.dependencies,
-                self._emitter,
-                context="planner_mid_turn",
-                skill_name=skill.metadata.name,
-                source="mid_turn",
-                raise_on_error=True,
-            ),
-        )
-
-        if skill.metadata.allowed_tools:
-            allowed_names, allowed_tags = split_allowed_tools(
-                skill.metadata.allowed_tools
-            )
-            set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
-            if callable(set_allowed_tools):
-                set_allowed_tools(allowed_names, allowed_tags)
-            updated_registry = updated_registry.filter_by_names_or_tags(
-                allowed_names, allowed_tags
-            )
-
-        tools = updated_registry.to_anthropic_tools(
-            cache_breakpoint=getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
-        )
-        logger.info("planner_mid_turn_skill_activated name={}", skill.metadata.name)
-        return prompt_assembly, updated_registry, tools
 
     async def _call_llm(
         self,
@@ -639,12 +701,18 @@ class PlannerOrchestrator:
         """Emit final event and return the result text."""
         if self._cancel_event.is_set():
             self._cancel_event.clear()
-            final_text = extract_final_text(state)
+            current_turn_messages = state.messages[self._current_turn_start_index :]
+            final_text = extract_final_text_from_messages(current_turn_messages)
             await self._emitter.emit(
                 EventType.TURN_CANCELLED,
                 {"result": final_text},
             )
-            self._state = replace(self._state, completed=False, error=None)
+            self._state = replace(
+                self._state,
+                messages=self._state.messages[: self._current_turn_start_index],
+                completed=False,
+                error=None,
+            )
             return final_text
 
         if state.error:

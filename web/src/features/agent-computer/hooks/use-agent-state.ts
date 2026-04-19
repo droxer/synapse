@@ -492,6 +492,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         pendingToolCallThinking = thinkingEntry.content;
       }
     } else if (event.type === "text_delta") {
+      if (typeof event.data.agent_id === "string" && event.data.agent_id.length > 0) {
+        continue;
+      }
       assistantPhase = { phase: "writing" };
       isStreaming = true;
       streamingText += String(event.data.delta ?? "");
@@ -1066,9 +1069,8 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     const isDuplicateOfLastAssistant =
       lastAssistant !== undefined
       && normalizeComparableMessageContent(lastAssistant.content) === normalizedStream;
-    // Task agents emit `text_delta` but not `llm_response`, so `streamingText` is never
-    // cleared mid-turn. The same body is often materialized again via `message_user` or
-    // `turn_complete`; skip a second bubble with identical normalized content.
+    // Main-assistant streaming can be finalized by `message_user` or `turn_complete`
+    // without a matching `llm_response`; skip a second bubble with identical content.
     if (!isDuplicateOfLastAssistant && streamContent) {
       const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
       let message = buildStreamingAssistantMessage(streamContent, streamingTimestamp, {

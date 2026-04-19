@@ -278,6 +278,7 @@ class TestChannelSession:
                 conversation_id=convo.id,
                 role="assistant",
                 content={"text": "older reply"},
+                created_at=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
             )
         )
         session.add(
@@ -286,6 +287,7 @@ class TestChannelSession:
                 conversation_id=convo.id,
                 role="assistant",
                 content={"text": "latest reply"},
+                created_at=datetime(2024, 1, 1, 12, 1, tzinfo=timezone.utc),
             )
         )
         await session.commit()
@@ -1298,6 +1300,63 @@ class TestChannelResponder:
         )
 
         provider.send_text.assert_awaited_once_with("chat_1", "Hello world")
+
+    @pytest.mark.asyncio
+    async def test_text_delta_ignores_worker_stream_chunks(self) -> None:
+        provider = AsyncMock()
+        repo = AsyncMock()
+        emitter = EventEmitter()
+
+        responder = ChannelResponder(
+            provider=provider,
+            chat_id="chat_worker",
+            channel_repo=repo,
+            session_factory=MagicMock(),
+            channel_session_id=uuid.uuid4(),
+            conversation_id=uuid.uuid4(),
+            emitter=emitter,
+        )
+
+        await responder(
+            AgentEvent(
+                type=EventType.TEXT_DELTA,
+                data={"delta": "worker text", "agent_id": "agent-1"},
+            )
+        )
+        await responder(AgentEvent(type=EventType.TURN_COMPLETE, data={"result": ""}))
+
+        provider.send_text.assert_not_awaited()
+
+    @pytest.mark.asyncio
+    async def test_worker_text_delta_does_not_override_terminal_result(self) -> None:
+        provider = AsyncMock()
+        repo = AsyncMock()
+        emitter = EventEmitter()
+
+        responder = ChannelResponder(
+            provider=provider,
+            chat_id="chat_worker_result",
+            channel_repo=repo,
+            session_factory=MagicMock(),
+            channel_session_id=uuid.uuid4(),
+            conversation_id=uuid.uuid4(),
+            emitter=emitter,
+        )
+
+        await responder(
+            AgentEvent(
+                type=EventType.TEXT_DELTA,
+                data={"delta": "worker scratchpad", "agent_id": "worker-1"},
+            )
+        )
+        await responder(
+            AgentEvent(type=EventType.TURN_COMPLETE, data={"result": "final answer"})
+        )
+
+        provider.send_text.assert_awaited_once_with(
+            "chat_worker_result",
+            "final answer",
+        )
 
     @pytest.mark.asyncio
     async def test_task_complete_uses_summary_when_no_buffer_exists(self) -> None:
