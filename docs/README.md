@@ -1,5 +1,17 @@
 # Synapse documentation
 
+## Agent runtime
+
+| Doc | Topic |
+| --- | --- |
+| [reference/architecture-overview.md](reference/architecture-overview.md) | End-to-end agent architecture and execution modes |
+| [reference/backend-layout.md](reference/backend-layout.md) | Backend runtime, tools, skills, memory, sandbox, and API wiring |
+| [reference/frontend-layout.md](reference/frontend-layout.md) | Conversation UI, agent-computer surfaces, and skills UI |
+| [reference/data-flow-chat.md](reference/data-flow-chat.md) | Turn creation, routing, SSE, and reconnect behavior |
+| [reference/patterns.md](reference/patterns.md) | Runtime patterns: immutable state, routing, tool execution, skills, memory |
+| [agent-memory-management.md](agent-memory-management.md) | Prompt memory, compaction, facts, and persistence |
+| [agent-implementation-review-2026-04-19.md](agent-implementation-review-2026-04-19.md) | Current review findings and doc drift audit |
+
 ## Reference shards (`reference/`)
 
 Concise guides for agents and developers. Root navigation: **`AGENTS.md`** and **`CLAUDE.md`** in the repository root.

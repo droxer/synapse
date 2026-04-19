@@ -2,17 +2,28 @@
 
 ## Stack
 
-**Next.js 15** (App Router), **React 19**, **Tailwind CSS 4**, **Turbopack**.
+**Next.js 16** (App Router), **React 19**, **Tailwind CSS 4**, **Turbopack**.
 
 ## App and features
 
 | Path | Role |
 | --- | --- |
-| `src/app/` | Routes: conversation, skills, MCP, library, channels, login |
-| `src/features/conversation/` | Chat UI, API hooks, reconnecting SSE |
-| `src/features/agent-computer/` | Tool output, timelines, sub-agent status |
+| `src/app/` | App Router routes: conversation, skills, MCP, library, channels, login |
+| `src/features/conversation/` | Chat composer, SSE wiring, message rendering, upload flow, reconnect handling |
+| `src/features/agent-computer/` | Derived agent state, progress cards, tool output renderers, artifact panels, browser/computer-use output |
+| `src/features/skills/` | Installed/bundled skills UI, search/filtering, install/upload/toggle/detail pages, file browser |
 | `src/features/channels/` | Channel UI and API |
 | `src/shared/stores/app-store.ts` | Zustand persistent store |
+
+## Agent-computer surface (detail)
+
+| Path | Role |
+| --- | --- |
+| `features/agent-computer/hooks/use-agent-state.ts` | Derives messages, tool calls, plan steps, thinking blocks, task state, and artifacts from raw SSE events |
+| `features/agent-computer/components/AgentProgressCard.tsx` | Timeline/progress UI for task state, skills, tools, and spawned agents |
+| `features/agent-computer/components/ToolOutputRenderer.tsx` | Tool-result rendering, including rich output for browser/computer-use tools |
+| `features/agent-computer/components/ArtifactFilesPanel.tsx` | Artifact browsing and preview orchestration |
+| `features/agent-computer/lib/optimistic-skill-tool-calls.ts` | Optimistic UI for skill-activation tool calls before final events arrive |
 
 ## Channels feature (detail)
 

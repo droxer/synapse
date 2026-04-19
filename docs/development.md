@@ -530,7 +530,7 @@ Synapse works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `DATABASE_URL` | — | PostgreSQL connection string (`postgresql+asyncpg://...`) |
 | `REDIS_URL` | — | Redis URL for caching |
 | `AGENT_TIMEOUT_SECONDS` | `300` | Per-agent execution timeout in seconds |
-| `SANDBOX_PROVIDER` | `boxlite` | Sandbox backend: `boxlite` (prebuilt images on GHCR), `e2b`, or `local` |
+| `SANDBOX_PROVIDER` | `boxlite` | Sandbox backend used by the runtime builder: `boxlite` (prebuilt images on GHCR) or `e2b` |
 | `E2B_API_KEY` | — | E2B API key (if using E2B provider) |
 | `MINIMAX_API_KEY` | — | MiniMax API key (for image generation) |
 | `STORAGE_PROVIDER` | `local` | Artifact storage: `local` or `r2` |

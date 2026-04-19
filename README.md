@@ -10,19 +10,21 @@ An open-source AI agent platform that does the work for you. Describe any task i
 
 ## What It Does
 
-**Chat-driven task execution** — Users describe tasks in plain language. Synapse's ReAct engine breaks them down, selects the right tools, and executes step-by-step while streaming progress in real time.
+**Chat-driven task execution** — Users describe tasks in plain language. Synapse routes each turn into either a single-agent ReAct loop or planner-managed orchestration, then streams progress in real time.
 
-**Sandboxed code execution** — Every task runs in an isolated micro-VM (Boxlite). Agents can write and run code, install packages, query databases, automate browsers, and generate files — without touching your host machine.
+**Sandboxed tool execution** — Agents can write and run code, install packages, query databases, automate browsers, manipulate files, and generate artifacts inside sandbox sessions created on demand by the configured provider.
 
-**Multi-agent planning** — Complex tasks are automatically decomposed into sub-tasks with explicit plan declaration. A planner agent coordinates multiple worker agents that run concurrently, each with their own sandbox. Plan steps are tracked and displayed in real-time.
+**Planner-managed multi-agent work** — Planner mode can be forced per turn or auto-selected by the execution router. The planner declares a plan, spawns worker agents when decomposition is warranted, waits on results, and streams step and agent status live.
 
-**Extensible skill system** — Skills are portable YAML definitions that teach agents new methodologies. Skills define instructions, allowed tools, and sandbox requirements. Import from GitHub coming soon.
+**Extensible skill system** — Skills are `SKILL.md` packages with frontmatter for description, allowed tools, dependencies, and sandbox hints. Synapse supports bundled skills plus install flows from git URLs, direct URLs, uploads, and a remote registry.
 
 **MCP integration** — Connect external tools via the Model Context Protocol. Add MCP servers to extend agent capabilities with third-party APIs and services.
 
+**Persistent memory and compaction** — Synapse injects user-scoped memory into prompts, compacts long-running conversations with runtime-specific policies, and supports verified fact retrieval for channel-style flows.
+
 **Channel integrations** — Connect messaging platforms like Telegram to chat with Synapse directly from your favorite apps. Supports bot configuration, account linking, and seamless conversation sync.
 
-**Real-time streaming** — The frontend renders every step as it happens: LLM reasoning, tool execution, code output, generated artifacts, and sub-agent progress — all via Server-Sent Events.
+**Real-time streaming UI** — The frontend renders plans, tool calls, thinking, artifacts, browser/computer-use output, and sub-agent progress from the SSE event stream as they happen.
 
 ## Screenshots
 
@@ -47,10 +49,11 @@ An open-source AI agent platform that does the work for you. Describe any task i
 - **Google OAuth authentication** with per-user skills and MCP server configurations
 - **Conversational interface** with file upload, skill selection, and follow-up messages
 - **20+ built-in tools** — web search, code execution, browser automation (with step tracking), computer use (with action metadata), file operations, database queries, image generation, document generation
-- **Plan mode** — Explicit task decomposition with step names, descriptions, and progress tracking via checklist panel
+- **Execution routing** — `use_planner` can force planner mode, otherwise the backend classifies each turn into single-agent or planner-managed execution shapes
+- **Plan mode** — Explicit task decomposition with step names, execution types, and live checklist/progress tracking
 - **Artifact management** — Files generated in the sandbox are extracted and available for download/preview, with a dedicated library page for browsing all artifacts
 - **Extended thinking** — Configurable thinking budget for deeper reasoning on complex tasks
-- **Persistent memory** — Agents remember context across conversation turns
+- **Persistent memory** — User-scoped key-value memory, channel facts, and runtime context compaction for long conversations
 - **Conversation history** — Full persistence with PostgreSQL
 - **Agent evaluation system** — YAML-defined eval cases with programmatic and LLM-as-judge grading, covering tool use, skill invocation, sub-agent spawning, and agent handoff
 - **Channel integrations** — Connect messaging platforms (Telegram) to chat with Synapse from your favorite apps
@@ -101,9 +104,9 @@ See [Desktop App Guide](docs/desktop-app.md) for configuration and troubleshooti
 | Layer | Technology |
 |-------|-----------|
 | Backend | Python 3.12+, FastAPI, Anthropic SDK, SQLAlchemy (async), Alembic |
-| Frontend | Next.js 15, React 19, Tailwind CSS 4, Zustand, Framer Motion, Radix UI |
+| Frontend | Next.js 16, React 19, Tailwind CSS 4, Zustand, Framer Motion, Radix UI |
 | Desktop | Tauri v2, Rust, WKWebView (macOS) / WebView2 (Windows) |
-| Sandbox | Boxlite micro-VMs, E2B (cloud), Docker |
+| Sandbox | Boxlite micro-VMs, E2B cloud sandboxes, provider-specific browser templates |
 | Database | PostgreSQL, Redis (optional) |
 | Package Manager | uv (backend), npm (frontend) |
 
@@ -111,7 +114,10 @@ See [Desktop App Guide](docs/desktop-app.md) for configuration and troubleshooti
 
 - [Local Setup Guide](docs/setup.md) — Step-by-step instructions to get Synapse running on your machine
 - [Development Guide](docs/development.md) — Commands, architecture, API reference, environment variables, and contribution workflow
+- [Documentation Index](docs/README.md) — Reference shards and deeper docs, including agent runtime, memory, and evals
 - [Desktop App Guide](docs/desktop-app.md) — Tauri desktop app setup, configuration, OAuth flow, and troubleshooting
+- [Agent Memory Guide](docs/agent-memory-management.md) — Working context, compaction, persistent memory, and verified facts
+- [Agent Implementation Review](docs/agent-implementation-review-2026-04-19.md) — Current audit findings and confirmed documentation drift
 - [Design Style Guide](docs/DESIGN_STYLE_GUIDE.md) — UI component patterns, color system, typography, and accessibility
 - [Brand Guidelines](docs/brand-guidelines.md) — Brand identity, color palette, and visual design language
 

@@ -76,7 +76,7 @@ TAVILY_API_KEY=tvly-...
 
 # Optional — sandbox provider (default: boxlite, pulls prebuilt images automatically)
 # SANDBOX_PROVIDER=boxlite      # Recommended — requires Docker
-# SANDBOX_PROVIDER=local        # Use if you don't have Docker
+# SANDBOX_PROVIDER=e2b          # Cloud sandbox
 
 # Optional — database (remove or leave empty to skip persistence)
 DATABASE_URL=postgresql+asyncpg://user:pass@localhost:5432/synapse
@@ -134,13 +134,11 @@ The webhook URL will be: `{CHANNELS_WEBHOOK_BASE_URL}/api/channels/telegram/webh
 
 | Provider | When to use | Requires |
 |----------|------------|----------|
-| `local` | Development — runs code as local subprocesses (no isolation) | Nothing |
 | `boxlite` | Recommended — isolated micro-VMs with prebuilt images | Docker |
 | `e2b` | Cloud sandboxes | `E2B_API_KEY` |
 
 For the best experience, use `SANDBOX_PROVIDER=boxlite` (the default). Prebuilt images are available on GHCR — Docker will pull them automatically on first run, no manual build needed.
-
-If you don't have Docker installed, set `SANDBOX_PROVIDER=local` to run code as local subprocesses (no isolation).
+If you do not want to run Boxlite locally, switch to `SANDBOX_PROVIDER=e2b` and provide `E2B_API_KEY`.
 
 ---
 
@@ -309,7 +307,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 - Make sure Docker is running: `docker info`
 - Build images first: `make build-sandbox`
-- Or switch to `SANDBOX_PROVIDER=local` for development
+- Or switch to `SANDBOX_PROVIDER=e2b` if you have an E2B API key
 
 ### Frontend can't reach backend
 
