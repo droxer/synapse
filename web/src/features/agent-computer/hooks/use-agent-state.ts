@@ -139,6 +139,28 @@ function normalizeComparableMessageContent(content: string): string {
   return content.trim();
 }
 
+function collapseThinkingWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function isThinkingContentRedundantWithEntries(
+  thinkingContent: string | undefined,
+  entries: readonly ThinkingEntry[] | undefined,
+): boolean {
+  const trimmedThinkingContent = thinkingContent?.trim();
+  if (!trimmedThinkingContent || !entries?.length) return false;
+
+  const combinedEntries = entries
+    .map((entry) => entry.content.trim())
+    .filter(Boolean)
+    .join("\n\n")
+    .trim();
+  if (!combinedEntries) return false;
+  if (trimmedThinkingContent === combinedEntries) return true;
+
+  return collapseThinkingWhitespace(trimmedThinkingContent) === collapseThinkingWhitespace(combinedEntries);
+}
+
 function normalizeAgentStepMatchName(value: string): string {
   return value
     .trim()
@@ -401,14 +423,103 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     return undefined;
   };
 
-  const attachPendingThinking = (message: ChatMessage): ChatMessage => {
-    if (pendingThinkingEntries.length === 0) return message;
-    const withThinking: ChatMessage = {
+  const applyPendingThinkingToMessage = (
+    message: ChatMessage,
+    thinking: {
+      readonly thinkingEntries?: readonly ThinkingEntry[];
+      readonly thinkingContent?: string;
+    },
+  ): ChatMessage => ({
+    ...message,
+    ...(thinking.thinkingEntries?.length ? { thinkingEntries: thinking.thinkingEntries } : {}),
+    ...(thinking.thinkingContent ? { thinkingContent: thinking.thinkingContent } : {}),
+  });
+
+  const mergeThinkingContent = (
+    existingContent: string | undefined,
+    incomingContent: string | undefined,
+    entries: readonly ThinkingEntry[] | undefined,
+  ): string | undefined => {
+    const trimmedExisting = existingContent?.trim();
+    const trimmedIncoming = incomingContent?.trim();
+    if (!trimmedIncoming) return trimmedExisting;
+    if (!trimmedExisting) {
+      return isThinkingContentRedundantWithEntries(trimmedIncoming, entries)
+        ? undefined
+        : trimmedIncoming;
+    }
+    if (collapseThinkingWhitespace(trimmedExisting) === collapseThinkingWhitespace(trimmedIncoming)) {
+      return trimmedExisting;
+    }
+    const combined = `${trimmedExisting}\n\n${trimmedIncoming}`.trim();
+    return isThinkingContentRedundantWithEntries(combined, entries) ? undefined : combined;
+  };
+
+  const mergePendingThinkingIntoMessage = (
+    message: ChatMessage,
+    thinking: {
+      readonly thinkingEntries?: readonly ThinkingEntry[];
+      readonly thinkingContent?: string;
+    },
+  ): ChatMessage => {
+    const mergedEntries = thinking.thinkingEntries?.length
+      ? appendUnique(message.thinkingEntries, thinking.thinkingEntries)
+      : message.thinkingEntries;
+    const mergedThinkingContent = mergeThinkingContent(
+      message.thinkingContent,
+      thinking.thinkingContent,
+      mergedEntries,
+    );
+
+    return {
       ...message,
-      thinkingEntries: pendingThinkingEntries,
+      ...(mergedEntries?.length ? { thinkingEntries: mergedEntries } : {}),
+      ...(mergedThinkingContent ? { thinkingContent: mergedThinkingContent } : {}),
     };
+  };
+
+  const consumePendingThinking = ({
+    inlineThinking,
+    clearCurrentThinking = false,
+  }: {
+    inlineThinking?: string;
+    clearCurrentThinking?: boolean;
+  } = {}): {
+    readonly thinkingEntries?: readonly ThinkingEntry[];
+    readonly thinkingContent?: string;
+  } => {
+    const thinkingEntries = pendingThinkingEntries.length > 0 ? pendingThinkingEntries : undefined;
+    const trimmedInlineThinking = inlineThinking?.trim();
+    const fallbackThinkingContent = pendingThinkingParts
+      .map((part) => part.trim())
+      .filter(Boolean)
+      .join("\n\n")
+      .trim();
+
+    let thinkingContent: string | undefined;
+    if (thinkingEntries?.length) {
+      if (
+        trimmedInlineThinking
+        && !isThinkingContentRedundantWithEntries(trimmedInlineThinking, thinkingEntries)
+      ) {
+        thinkingContent = trimmedInlineThinking;
+      }
+    } else if (trimmedInlineThinking) {
+      thinkingContent = trimmedInlineThinking;
+    } else if (fallbackThinkingContent) {
+      thinkingContent = fallbackThinkingContent;
+    }
+
     pendingThinkingEntries = [];
-    return withThinking;
+    pendingThinkingParts = [];
+    if (clearCurrentThinking) {
+      currentThinkingEntries = [];
+    }
+
+    return {
+      ...(thinkingEntries?.length ? { thinkingEntries } : {}),
+      ...(thinkingContent ? { thinkingContent } : {}),
+    };
   };
 
   const attachPendingArtifactsToLastAssistant = () => {
@@ -428,10 +539,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     const lastAssistantIdx = messages.findLastIndex((msg) => msg.role === "assistant");
     if (lastAssistantIdx === -1) return;
     const existing = messages[lastAssistantIdx]!;
-    messages[lastAssistantIdx] = {
-      ...existing,
-      thinkingEntries: appendUnique(existing.thinkingEntries, pendingThinkingEntries),
-    };
+    messages[lastAssistantIdx] = mergePendingThinkingIntoMessage(existing, {
+      thinkingEntries: pendingThinkingEntries,
+    });
     pendingThinkingEntries = [];
   };
 
@@ -558,24 +668,21 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         : consumeDeepResearchFallbackContent(responseText);
       if (rawText && !isTerminalEndTurn) {
         const { thinking: inlineThinking, content } = splitThinkTag(rawText);
-        const shouldAttachThinking = !isDeepResearchTurn;
-        const allThinking = shouldAttachThinking
-          ? [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])]
-          : [];
-        const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
+        const pendingThinking = consumePendingThinking({
+          inlineThinking,
+          clearCurrentThinking: true,
+        });
         let message = finalizeAssistantMessage({
           role: "assistant",
           content,
           // Use response completion time so ordering matches emit order when
           // streaming started long before the final llm_response event.
           timestamp: event.timestamp,
-          ...(thinkingContent ? { thinkingContent } : {}),
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
         });
-        message = attachPendingThinking(message);
+        message = applyPendingThinkingToMessage(message, pendingThinking);
         messages.push(message);
         pendingImageArtifactIds = [];
-        pendingThinkingParts = [];
       }
       streamingText = "";
       streamingTimestamp = 0;
@@ -785,21 +892,23 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         }
       }
     } else if (event.type === "message_user") {
-      const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
-      const messageContent = consumeDeepResearchFallbackContent(
+      const rawMessageContent = consumeDeepResearchFallbackContent(
         String(event.data.message ?? event.data.content ?? ""),
       );
+      const { thinking: inlineThinking, content: messageContent } = splitThinkTag(rawMessageContent);
+      const pendingThinking = consumePendingThinking({
+        inlineThinking,
+        clearCurrentThinking: true,
+      });
       let message = finalizeAssistantMessage({
         role: "assistant",
         content: messageContent,
         timestamp: event.timestamp,
-        ...(thinkingContent ? { thinkingContent } : {}),
         ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
       });
-      message = attachPendingThinking(message);
+      message = applyPendingThinkingToMessage(message, pendingThinking);
       messages.push(message);
       pendingImageArtifactIds = [];
-      pendingThinkingParts = [];
     } else if (event.type === "turn_start") {
       const userText = String(event.data.message ?? "");
       const attachments = Array.isArray(event.data.attachments)
@@ -831,19 +940,17 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       isStreaming = false;
       consumeDeepResearchFallbackContent(streamingText);
       if (streamingText) {
-        const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
+        const pendingThinking = consumePendingThinking();
         let message = finalizeAssistantMessage(buildStreamingAssistantMessage(
           streamingText,
           streamingTimestamp,
           {
-            ...(thinkingContent ? { thinkingContent } : {}),
             ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
           },
         ));
-        message = attachPendingThinking(message);
+        message = applyPendingThinkingToMessage(message, pendingThinking);
         messages.push(message);
         pendingImageArtifactIds = [];
-        pendingThinkingParts = [];
         streamingText = "";
         streamingTimestamp = 0;
       }
@@ -871,59 +978,32 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         const normalizedResult = consumeDeepResearchFallbackContent(rawResult);
         const { thinking: inlineThinking, content } = splitThinkTag(normalizedResult);
         const normalizedContent = normalizeComparableMessageContent(content);
-        const alreadyShown = messages.some(
+        const existingIdx = messages.findLastIndex(
           (message) =>
             message.role === "assistant"
             && normalizeComparableMessageContent(message.content) === normalizedContent,
         );
-        if (!alreadyShown) {
-          const shouldAttachThinking = !isDeepResearchTurn;
-          const allThinking = shouldAttachThinking
-            ? [...pendingThinkingParts, ...(inlineThinking ? [inlineThinking] : [])]
-            : [];
-          const thinkingContent = allThinking.length > 0 ? allThinking.join("\n\n") : undefined;
+        const pendingThinking = consumePendingThinking({ inlineThinking });
+        if (existingIdx === -1) {
           let message = finalizeAssistantMessage({
             role: "assistant",
             content,
             timestamp: event.timestamp,
-            ...(thinkingContent ? { thinkingContent } : {}),
             ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
           });
-          message = attachPendingThinking(message);
+          message = applyPendingThinkingToMessage(message, pendingThinking);
           messages.push(message);
           pendingImageArtifactIds = [];
-          pendingThinkingParts = [];
         } else {
+          let existing = messages[existingIdx]!;
           if (pendingImageArtifactIds.length > 0) {
-            const existingIdx = messages.findLastIndex(
-              (message) =>
-                message.role === "assistant"
-                && normalizeComparableMessageContent(message.content) === normalizedContent,
-            );
-            if (existingIdx !== -1) {
-              const existing = messages[existingIdx]!;
-              messages[existingIdx] = {
-                ...existing,
-                imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
-              };
-            }
-            pendingImageArtifactIds = [];
+            existing = {
+              ...existing,
+              imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+            };
           }
-          if (pendingThinkingEntries.length > 0) {
-            const existingIdx = messages.findLastIndex(
-              (message) =>
-                message.role === "assistant"
-                && normalizeComparableMessageContent(message.content) === normalizedContent,
-            );
-            if (existingIdx !== -1) {
-              const existing = messages[existingIdx]!;
-              messages[existingIdx] = {
-                ...existing,
-                thinkingEntries: appendUnique(existing.thinkingEntries, pendingThinkingEntries),
-              };
-              pendingThinkingEntries = [];
-            }
-          }
+          messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
+          pendingImageArtifactIds = [];
         }
       } else {
         const fallbackOnly = consumeDeepResearchFallbackContent("");
@@ -934,7 +1014,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
             timestamp: event.timestamp,
             ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
           });
-          message = attachPendingThinking(message);
+          message = applyPendingThinkingToMessage(message, consumePendingThinking());
           messages.push(message);
           pendingImageArtifactIds = [];
         }
@@ -953,32 +1033,30 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       }
       consumeDeepResearchFallbackContent(streamingText);
       if (streamingText) {
-        const thinkingContent = pendingThinkingParts.length > 0 ? pendingThinkingParts.join("\n\n") : undefined;
+        const pendingThinking = consumePendingThinking();
         let message = finalizeAssistantMessage(buildStreamingAssistantMessage(
           streamingText,
           streamingTimestamp,
           {
-            ...(thinkingContent ? { thinkingContent } : {}),
             ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
           },
         ));
-        message = attachPendingThinking(message);
+        message = applyPendingThinkingToMessage(message, pendingThinking);
         messages.push(message);
         pendingImageArtifactIds = [];
-        pendingThinkingParts = [];
         streamingText = "";
         streamingTimestamp = 0;
       }
       const error = String(event.data.error ?? "An error occurred");
       messages.push(
-        attachPendingThinking({
+        applyPendingThinkingToMessage({
           role: "assistant",
           content: `Error: ${error}`,
           timestamp: event.timestamp,
           messageId: nextAssistantMessageId(),
           source: "event",
           turnId: currentTurnId,
-        }),
+        }, consumePendingThinking()),
       );
       assistantMessageSequence += 1;
       pendingImageArtifactIds = [];
@@ -1129,16 +1207,20 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         ...(thinkingContent ? { thinkingContent } : {}),
         ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
       });
-      message = attachPendingThinking(message);
+      message = applyPendingThinkingToMessage(message, {
+        ...(pendingThinkingEntries.length > 0 ? { thinkingEntries: pendingThinkingEntries } : {}),
+      });
       messages.push(message);
       pendingImageArtifactIds = [];
     }
   }
 
   attachPendingArtifactsToLastAssistant();
-  attachPendingThinkingToLastAssistant();
+  if (currentThinkingEntries.length === 0) {
+    attachPendingThinkingToLastAssistant();
+  }
 
-  if (pendingThinkingParts.length > 0) {
+  if (currentThinkingEntries.length === 0 && pendingThinkingParts.length > 0) {
     const lastAssistantIdx = messages.findLastIndex((message) => message.role === "assistant");
     if (lastAssistantIdx !== -1 && !messages[lastAssistantIdx]?.thinkingContent) {
       const existing = messages[lastAssistantIdx]!;

@@ -28,9 +28,13 @@ export const EVENT_TYPES = [
   "code_result",
   "artifact_created",
   "conversation_title",
+  "preview_available",
+  "preview_stopped",
   "skill_activated",
+  "skill_dependency_failed",
   "skill_setup_failed",
   "plan_created",
+  "context_compacted",
   "loop_guard_nudge",
   "planner_auto_selected",
 ] as const;
@@ -139,6 +143,28 @@ export interface SkillActivatedEventData extends GenericEventData {
   readonly source?: "explicit" | "auto" | "mid_turn" | "already_active";
 }
 
+export interface PreviewAvailableEventData extends GenericEventData {
+  readonly port?: number;
+  readonly directory?: string;
+  readonly url?: string | null;
+}
+
+export interface PreviewStoppedEventData extends GenericEventData {
+  readonly port?: number;
+}
+
+export interface SkillDependencyFailedEventData extends GenericEventData {
+  readonly name?: string | null;
+  readonly manager?: string;
+  readonly packages?: string;
+  readonly error?: string;
+  readonly context?: string;
+  readonly source?: string | null;
+  readonly error_code?: string;
+  readonly retry_attempted?: boolean;
+  readonly diagnostics?: string | null;
+}
+
 export interface SkillSetupFailedEventData extends GenericEventData {
   readonly name?: string;
   readonly phase?: "resources" | "dependencies";
@@ -154,6 +180,15 @@ export interface SkillSetupFailedEventData extends GenericEventData {
 export interface LoopGuardNudgeEventData extends GenericEventData {
   readonly iteration?: number;
   readonly repeated_signature?: string;
+}
+
+export interface ContextCompactedEventData extends GenericEventData {
+  readonly original_messages?: number;
+  readonly compacted_messages?: number;
+  readonly summary_text?: string;
+  readonly summary_scope?: string;
+  readonly compaction_profile?: string;
+  readonly agent_id?: string;
 }
 
 export interface TurnCompleteEventData extends GenericEventData {
@@ -197,9 +232,13 @@ export type AgentEventDataByType = {
   code_result: GenericEventData;
   artifact_created: ArtifactCreatedEventData;
   conversation_title: GenericEventData;
+  preview_available: PreviewAvailableEventData;
+  preview_stopped: PreviewStoppedEventData;
   skill_activated: SkillActivatedEventData;
+  skill_dependency_failed: SkillDependencyFailedEventData;
   skill_setup_failed: SkillSetupFailedEventData;
   plan_created: PlanCreatedEventData;
+  context_compacted: ContextCompactedEventData;
   loop_guard_nudge: LoopGuardNudgeEventData;
   planner_auto_selected: GenericEventData;
 };

@@ -41,7 +41,7 @@ describe("ThinkingBlock", () => {
 
     expect(html).toContain("data-thinking-panel");
     expect(html).toContain("thinking.thinking");
-    expect(html).toContain('data-thinking-mode="note"');
+    expect(html).toContain("Working through the prompt.");
   });
 
   it("auto-collapses once the streaming turn settles", () => {
@@ -60,7 +60,7 @@ describe("ThinkingBlock", () => {
       />,
     );
 
-    expect(html).toContain('data-thinking-mode="note"');
+    expect(html).toContain("A compact reasoning note.");
     expect(html).not.toContain("<ol");
     expect(html).not.toContain("data-thinking-step=");
   });
@@ -69,8 +69,8 @@ describe("ThinkingBlock", () => {
     const html = renderToStaticMarkup(
       <ThinkingBlock
         content={"## Inspect\n\nCheck constraints.\n\n## Decide\n\nChoose the safest path."}
-        isThinking={false}
-        isTurnStreaming={false}
+        isThinking
+        isTurnStreaming
         durationMs={3200}
       />,
     );
@@ -95,5 +95,19 @@ describe("ThinkingBlock", () => {
 
     expect(html).toContain("Reasoning");
     expect(html).not.toContain("Thought for 5s");
+  });
+
+  it("uses the generic reasoning label when no duration was provided", () => {
+    const html = renderToStaticMarkup(
+      <ThinkingBlock
+        content="Reasoning without duration metadata."
+        isThinking={false}
+        isTurnStreaming={false}
+        durationMs={0}
+      />,
+    );
+
+    expect(html).toContain("thinking.reasoning");
+    expect(html).not.toContain("Thought for 1s");
   });
 });

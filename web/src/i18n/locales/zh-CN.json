@@ -1,5 +1,6 @@
 {
   "welcome.heading": "我能为你构建什么？",
+  "welcome.subtitle": "描述你的任务，让智能体来完成",
 
   "chat.placeholderWorking": "智能体工作中...",
   "chat.placeholder": "我能帮你构建什么？",

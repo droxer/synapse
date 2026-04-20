@@ -104,8 +104,8 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
       aria-live="polite"
       aria-label={t("assistant.ariaLoading", { label })}
     >
-      {/* Phase indicator — flat inline label, no card */}
-      <div className="mb-2.5 flex items-center gap-1.5 text-caption text-muted-foreground">
+      {/* Phase indicator — flat inline label */}
+      <div className="mb-3 flex items-center gap-2 text-caption text-muted-foreground">
         {activePhase === "thinking" || activePhase === "using_tool" ? (
           <motion.span
             animate={shouldReduceMotion ? {} : { opacity: [0.5, 1, 0.5] }}
@@ -135,7 +135,7 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
       </div>
 
       {/* Skeleton paragraph lines */}
-      <div className="flex flex-col gap-2.5 pl-1">
+      <div className="flex flex-col gap-2 pl-1">
         {lines.map((widthClass, i) => (
           <motion.div key={`line-${i}`} variants={lineVariants}>
             <Skeleton className={cn("h-3 rounded-md opacity-50", widthClass)} />

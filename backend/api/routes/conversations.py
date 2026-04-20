@@ -1217,6 +1217,9 @@ async def create_conversation(
         )
         emitter.subscribe(db_sub)
 
+        if auto_detected:
+            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
+
         # Start first turn
         _start_turn_task(
             entry,
@@ -1236,8 +1239,6 @@ async def create_conversation(
             ),
             idempotency_key=idem_key,
         )
-        if auto_detected:
-            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
 
         # Generate a concise title in the background
         asyncio.create_task(
@@ -1485,6 +1486,8 @@ async def send_message(
 
                     entry.last_attachments = attachments
                     entry.last_selected_skills = selected_skills
+                    if auto_detected:
+                        await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
                     _start_turn_task(
                         entry,
                         _run_turn(
@@ -1504,9 +1507,6 @@ async def send_message(
 
             if wait_task is not None:
                 await wait_task
-
-        if auto_detected:
-            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
 
         # Touch updated_at timestamp
         try:

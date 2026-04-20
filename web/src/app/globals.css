@@ -115,8 +115,11 @@
   --glass-backdrop: blur(16px) saturate(1.8);
 
   /* Focus & glow effects */
-  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 80%);
+  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 82%), 0 0 12px color-mix(in srgb, var(--color-focus), transparent 92%);
   --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 60%);
+  --shadow-message: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-primary), transparent 80%), 0 0 16px color-mix(in srgb, var(--color-primary), transparent 90%), 0 0 32px color-mix(in srgb, var(--color-primary), transparent 95%);
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary), var(--color-accent-indigo) 30%) 100%);
 
   /* Gradient accent for display headings */
   --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
@@ -182,6 +185,25 @@
   }
 
   --animate-modal-in: modalIn 0.15s ease-out;
+
+  @keyframes contentReveal {
+    0% { opacity: 0; transform: translateY(6px); filter: blur(2px); }
+    100% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  }
+
+  --animate-content-reveal: contentReveal 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes slideInFromRight {
+    0% { opacity: 0; transform: translateX(8px); }
+    100% { opacity: 1; transform: translateX(0); }
+  }
+
+  --animate-slide-in-from-right: slideInFromRight 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes subtleFloat {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-4px); }
+  }
 
 }
 
@@ -249,9 +271,12 @@
   --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 8px 20px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.12);
   --glass-bg: rgba(255, 255, 255, 0.72);
   --glass-backdrop: blur(16px) saturate(1.8);
-  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 80%);
+  --shadow-message: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
+  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-primary), transparent 80%), 0 0 16px color-mix(in srgb, var(--color-primary), transparent 90%), 0 0 32px color-mix(in srgb, var(--color-primary), transparent 95%);
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary), var(--color-accent-indigo) 30%) 100%);
+  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 82%), 0 0 12px color-mix(in srgb, var(--color-focus), transparent 92%);
   --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 60%);
-  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
+  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 30%, var(--color-primary) 100%);
 }
 
 /* ─── Dark mode ───
@@ -259,68 +284,71 @@
 
 .dark {
 
-  --color-background: #101114;
-  --color-foreground: #FFFFFF;
-  --color-primary: #5B8CFF;
+  --color-background: #0B0D12;
+  --color-foreground: #F0F2F5;
+  --color-primary: #6B9BFF;
   --color-primary-foreground: #081120;
-  --color-secondary: #172033;
+  --color-secondary: #1A2035;
   --color-secondary-foreground: #E6EEFF;
-  --color-muted: #1A1F2B;
-  --color-muted-foreground: #B1B9C7;
-  --color-destructive: #DE5B5D;
-  --color-border: #2A2D33;
-  --color-input: #2A2D33;
+  --color-muted: #151921;
+  --color-muted-foreground: #B8C0CE;
+  --color-destructive: #F06468;
+  --color-border: #1E2230;
+  --color-input: #1E2230;
   --color-ring: var(--color-focus);
-  --color-card: #181A1E;
-  --color-card-foreground: #FFFFFF;
-  --color-popover: #181A1E;
-  --color-popover-foreground: #FFFFFF;
-  --color-border-strong: #3A404B;
+  --color-card: #13161D;
+  --color-card-foreground: #F0F2F5;
+  --color-popover: #13161D;
+  --color-popover-foreground: #F0F2F5;
+  --color-border-strong: #2C3344;
   --color-border-active: #6F7A8D;
-  --color-placeholder: #95A0B2;
-  --color-muted-foreground-dim: #64748B;
-  --color-accent-emerald: #5C9D70;
-  --color-accent-amber: #AE8523;
-  --color-accent-rose: #DE5B5D;
-  --color-focus: #7AA2FF;
+  --color-placeholder: #6B7588;
+  --color-muted-foreground-dim: #505B6E;
+  --color-accent-emerald: #5FBE7A;
+  --color-accent-amber: #D4A72C;
+  --color-accent-rose: #F06468;
+  --color-focus: #6B9BFF;
   --color-accent-indigo: #818CF8;
-  --color-accent-purple: #8B8FFF;
-  --color-accent-blue: #7AA2FF;
-  --color-ai-glow: #8B8FFF;
-  --color-accent: #1D2432;
+  --color-accent-purple: #9B9EFF;
+  --color-accent-blue: #6B9BFF;
+  --color-ai-glow: #9B9EFF;
+  --color-accent: #1A2035;
   --color-accent-foreground: var(--color-foreground);
-  --color-user-accent: #DEDEDE;
-  --color-user-accent-dim: rgba(255, 255, 255, 0.08);
-  --color-ai-surface: rgba(255, 255, 255, 0.06);
-  --color-ai-border: rgba(255, 255, 255, 0.1);
-  --color-input-glow: rgba(255, 255, 255, 0.08);
-  --color-sidebar-bg: #12151B;
-  --color-sidebar-active: #1D2840;
-  --color-sidebar-hover: #162033;
-  --color-sidebar-foreground-muted: #B1B9C7;
-  --color-profile-ring: rgba(222, 222, 222, 0.24);
-  --color-profile-ring-hover: rgba(222, 222, 222, 0.36);
-  --color-terminal-bg: #111318;
-  --color-terminal-surface: #171A20;
-  --color-terminal-border: #2A2D33;
+  --color-user-accent: #E0E4EA;
+  --color-user-accent-dim: rgba(255, 255, 255, 0.06);
+  --color-ai-surface: rgba(139, 143, 255, 0.06);
+  --color-ai-border: rgba(139, 143, 255, 0.12);
+  --color-input-glow: rgba(107, 155, 255, 0.1);
+  --color-sidebar-bg: #0E1018;
+  --color-sidebar-active: #182040;
+  --color-sidebar-hover: #141A2A;
+  --color-sidebar-foreground-muted: #7E8899;
+  --color-profile-ring: rgba(222, 222, 222, 0.18);
+  --color-profile-ring-hover: rgba(222, 222, 222, 0.30);
+  --color-terminal-bg: #0C0E14;
+  --color-terminal-surface: #12151C;
+  --color-terminal-border: #1E2230;
   --color-terminal-text: #E3E8F1;
-  --color-terminal-dim: #8D96A5;
+  --color-terminal-dim: #6B7588;
   --logo-black: #0A0A0A;
   --logo-white: #FFFFFF;
   --logo-neutral-700: #2B2B2B;
   --logo-neutral-300: #D9D9D9;
   --logo-bg: var(--logo-white);
   --logo-glyph: var(--logo-black);
-  --color-overlay: rgba(0, 0, 0, 0.5);
-  --topbar-bg: rgba(16, 17, 20, 0.8);
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 22%), 0 1px 3px rgba(0, 0, 0, 0.12), 0 4px 12px rgba(0, 0, 0, 0.08);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 14%), 0 2px 8px rgba(0, 0, 0, 0.18), 0 12px 24px rgba(0, 0, 0, 0.16);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 8%), 0 8px 20px rgba(0, 0, 0, 0.24), 0 24px 48px rgba(0, 0, 0, 0.32);
-  --glass-bg: rgba(24, 26, 30, 0.78);
-  --glass-backdrop: blur(16px) saturate(1.8);
-  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 75%);
-  --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 55%);
-  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
+  --color-overlay: rgba(0, 0, 0, 0.6);
+  --topbar-bg: rgba(11, 13, 18, 0.82);
+  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 30%), 0 2px 4px rgba(0, 0, 0, 0.20), 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%), 0 4px 12px rgba(0, 0, 0, 0.24), 0 12px 32px rgba(0, 0, 0, 0.18);
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 12%), 0 8px 24px rgba(0, 0, 0, 0.32), 0 24px 56px rgba(0, 0, 0, 0.40);
+  --shadow-message: 0 1px 3px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.10);
+  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-primary), transparent 72%), 0 0 20px color-mix(in srgb, var(--color-primary), transparent 85%), 0 0 40px color-mix(in srgb, var(--color-primary), transparent 92%);
+  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary), var(--color-accent-indigo) 40%) 100%);
+  --glass-bg: rgba(19, 22, 29, 0.82);
+  --glass-backdrop: blur(20px) saturate(1.6);
+  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 78%), 0 0 16px color-mix(in srgb, var(--color-focus), transparent 90%);
+  --shadow-primary-glow: 0 0 16px color-mix(in srgb, var(--color-primary), transparent 50%), 0 0 32px color-mix(in srgb, var(--color-primary), transparent 78%);
+  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 30%, var(--color-primary) 100%);
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -494,7 +522,7 @@
 
 .dark .brand-wordmark {
   color: var(--color-foreground);
-  text-shadow: none;
+  text-shadow: 0 0 20px color-mix(in srgb, var(--color-primary), transparent 85%);
 }
 
 @utility pb-safe {
@@ -699,6 +727,30 @@ pre, code {
 @utility dot-grid-bg {
   background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
   background-size: 20px 20px;
+}
+
+@utility surface-message-user {
+  border-radius: var(--radius-xl);
+  background-color: var(--color-secondary);
+  box-shadow: var(--shadow-message);
+}
+
+@utility surface-input-composer {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-card);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out;
+}
+
+@utility surface-input-composer-focus {
+  border-color: var(--color-border-active);
+  box-shadow: var(--shadow-glow-subtle);
+}
+
+@utility gradient-subtle {
+  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-primary), transparent 92%) 0%, transparent 70%),
+              radial-gradient(ellipse at 80% 80%, color-mix(in srgb, var(--color-accent-purple), transparent 96%) 0%, transparent 50%);
 }
 
 /* ─── Touch targets (WCAG 2.5.8 — 44px minimum on coarse pointers) ─── */

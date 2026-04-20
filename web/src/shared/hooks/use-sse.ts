@@ -251,6 +251,7 @@ const FLUSH_IMMEDIATELY = new Set<string>([
   "turn_cancelled",
   "message_user",
   "skill_activated",
+  "skill_dependency_failed",
   "skill_setup_failed",
 ]);
 

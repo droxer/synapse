@@ -93,16 +93,23 @@ export function getLatestTurnMode(events: readonly AgentEvent[]): "agent" | "pla
 /**
  * Returns true if the current turn's planner mode was chosen automatically
  * by the complexity classifier (not manually toggled by the user).
- * Looks for a `planner_auto_selected` event just before the latest `turn_start`.
+ * The backend emits `planner_auto_selected` immediately before the current
+ * `turn_start`, with small metadata events like `conversation_title`
+ * occasionally interleaved.
  */
 export function getIsCurrentTurnAutoDetected(events: readonly AgentEvent[]): boolean {
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];
     if (event?.type !== "turn_start") continue;
-    // Scan up to 5 events before this turn_start (conversation_title may appear in between)
+
+    // Keep the scan bounded to the current turn and tolerate metadata noise.
     for (let j = i - 1; j >= 0 && j >= i - 5; j--) {
-      if (events[j]?.type === "planner_auto_selected") return true;
-      if (events[j]?.type === "turn_start") break;
+      const prior = events[j];
+      if (!prior) continue;
+      if (prior.type === "planner_auto_selected") return true;
+      if (prior.type === "conversation_title") continue;
+      if (prior.type === "turn_start") break;
+      break;
     }
     return false;
   }

@@ -627,6 +627,87 @@ class TestCreateConversationBootstrap:
             if callable(close):
                 close()
 
+    @pytest.mark.asyncio
+    async def test_create_conversation_emits_planner_auto_selected_before_starting_turn(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        started_with_event_types: list[str] = []
+
+        @asynccontextmanager
+        async def _session_factory():
+            yield object()
+
+        state = SimpleNamespace(
+            db_session_factory=_session_factory,
+            db_repo=SimpleNamespace(
+                create_conversation=AsyncMock(),
+            ),
+            db_pending_writes=object(),
+            skill_repo=None,
+            usage_repo=None,
+            conversations={},
+            claude_client=object(),
+            sandbox_provider=object(),
+            storage_backend=object(),
+            mcp_state=None,
+        )
+
+        monkeypatch.setattr(
+            conversation_routes,
+            "_resolve_execution_route",
+            AsyncMock(
+                return_value=(
+                    EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+                    "open ended decomposition",
+                    ORCHESTRATOR_PLANNER,
+                    True,
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "create_db_subscriber",
+            lambda *args, **kwargs: AsyncMock(),
+        )
+
+        def _fake_start_turn_task(
+            entry: ConversationEntry,
+            coro: object,
+            *,
+            idempotency_key: str | None = None,
+        ) -> None:
+            del idempotency_key
+            try:
+                first_event = entry.event_queue.get_nowait()
+                started_with_event_types.append(first_event.type.value)
+            except asyncio.QueueEmpty:
+                started_with_event_types.append("missing")
+            close = getattr(coro, "close", None)
+            if callable(close):
+                close()
+
+        monkeypatch.setattr(
+            conversation_routes, "_start_turn_task", _fake_start_turn_task
+        )
+
+        def _fake_create_task(coro: object) -> SimpleNamespace:
+            close = getattr(coro, "close", None)
+            if callable(close):
+                close()
+            return SimpleNamespace(done=lambda: False, cancel=lambda: None)
+
+        monkeypatch.setattr(
+            conversation_routes.asyncio,
+            "create_task",
+            _fake_create_task,
+        )
+
+        await create_conversation(
+            _DummyRequest({"message": "hello"}), state=state, auth_user=None
+        )
+
+        assert started_with_event_types == ["planner_auto_selected"]
+
 
 class TestResolveTurnLocale:
     @pytest.mark.asyncio
@@ -812,3 +893,59 @@ async def test_send_message_serializes_distinct_concurrent_turns(
 
     assert orchestrator.calls == 2
     assert orchestrator.max_active == 1
+
+
+@pytest.mark.asyncio
+async def test_send_message_emits_planner_auto_selected_before_starting_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conversation_id = str(uuid.uuid4())
+    started_with_event_types: list[str] = []
+    entry = _build_conversation_entry(AsyncMock())
+    entry.orchestrator_mode = ORCHESTRATOR_PLANNER
+    entry.subscriber = conversation_routes._create_queue_subscriber(  # noqa: SLF001
+        entry.event_queue,
+        entry.pending_callbacks,
+    )
+    entry.emitter.subscribe(entry.subscriber)
+    state = _build_state_with_entry(conversation_id, entry)
+
+    monkeypatch.setattr(
+        conversation_routes,
+        "_resolve_execution_route",
+        AsyncMock(
+            return_value=(
+                EXECUTION_SHAPE_PARALLEL,
+                "independent tasks",
+                ORCHESTRATOR_PLANNER,
+                True,
+            )
+        ),
+    )
+
+    def _fake_start_turn_task(
+        current_entry: ConversationEntry,
+        coro: object,
+        *,
+        idempotency_key: str | None = None,
+    ) -> None:
+        del idempotency_key
+        try:
+            first_event = current_entry.event_queue.get_nowait()
+            started_with_event_types.append(first_event.type.value)
+        except asyncio.QueueEmpty:
+            started_with_event_types.append("missing")
+        close = getattr(coro, "close", None)
+        if callable(close):
+            close()
+
+    monkeypatch.setattr(conversation_routes, "_start_turn_task", _fake_start_turn_task)
+
+    await send_message(
+        _DummyRequest({"message": "hello", "skills": []}),
+        conversation_id=conversation_id,
+        state=state,
+        auth_user=None,
+    )
+
+    assert started_with_event_types == ["planner_auto_selected"]

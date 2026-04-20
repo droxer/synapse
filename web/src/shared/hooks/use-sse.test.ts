@@ -164,6 +164,54 @@ describe("parseSSEEvent", () => {
     expect(parsed?.data.delta).toBe("draft");
     expect(parsed?.data.agent_id).toBe("agent-7");
   });
+
+  it("accepts preview and context compaction events from the backend stream", () => {
+    const preview = parseSSEEvent(
+      JSON.stringify({
+        event_type: "preview_available",
+        data: { port: 3001, url: "/api/conversations/c1/preview/" },
+        timestamp: 4,
+        iteration: 2,
+      }),
+      "preview_available",
+    );
+    expect(preview?.type).toBe("preview_available");
+    expect(preview?.data.url).toBe("/api/conversations/c1/preview/");
+
+    const compacted = parseSSEEvent(
+      JSON.stringify({
+        event_type: "context_compacted",
+        data: { original_messages: 12, compacted_messages: 4, summary_scope: "conversation" },
+        timestamp: 5,
+        iteration: 2,
+      }),
+      "context_compacted",
+    );
+    expect(compacted?.type).toBe("context_compacted");
+    expect(compacted?.data.original_messages).toBe(12);
+    expect(compacted?.data.compacted_messages).toBe(4);
+  });
+
+  it("accepts skill_dependency_failed events", () => {
+    const parsed = parseSSEEvent(
+      JSON.stringify({
+        event_type: "skill_dependency_failed",
+        data: {
+          name: "frontend-design",
+          manager: "npm",
+          packages: "framer-motion",
+          error: "install failed",
+        },
+        timestamp: 6,
+        iteration: 2,
+      }),
+      "skill_dependency_failed",
+    );
+
+    expect(parsed?.type).toBe("skill_dependency_failed");
+    expect(parsed?.data.manager).toBe("npm");
+    expect(parsed?.data.packages).toBe("framer-motion");
+  });
 });
 
 describe("shouldFlushEventImmediately", () => {
@@ -171,6 +219,7 @@ describe("shouldFlushEventImmediately", () => {
     expect(shouldFlushEventImmediately("turn_complete")).toBe(true);
     expect(shouldFlushEventImmediately("ask_user")).toBe(true);
     expect(shouldFlushEventImmediately("skill_activated")).toBe(true);
+    expect(shouldFlushEventImmediately("skill_dependency_failed")).toBe(true);
     expect(shouldFlushEventImmediately("skill_setup_failed")).toBe(true);
   });
 

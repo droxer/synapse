@@ -21,7 +21,7 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.thinkingContent).toBe("plan A");
   });
 
-  it("strips legacy think blocks and merges with prior thinking events", () => {
+  it("keeps SSE reasoning entries separate from inline think-tag fallback", () => {
     const events: AgentEvent[] = [
       {
         type: "thinking",
@@ -39,8 +39,10 @@ describe("deriveAgentState", () => {
 
     const state = deriveAgentState(events);
     expect(state.messages[0]?.content).toBe("Done.");
-    expect(state.messages[0]?.thinkingContent).toContain("from event");
-    expect(state.messages[0]?.thinkingContent).toContain("inline");
+    expect(state.messages[0]?.thinkingEntries).toEqual([
+      { content: "from event", durationMs: 0, timestamp: 1 },
+    ]);
+    expect(state.messages[0]?.thinkingContent).toBe("inline");
   });
 
   it("uses llm_response.content when text is missing", () => {
@@ -349,8 +351,111 @@ describe("deriveAgentState", () => {
     const assistantMessages = state.messages.filter((message) => message.role === "assistant");
     expect(assistantMessages).toHaveLength(1);
     expect(assistantMessages[0]?.content).toBe("Final answer");
-    expect(assistantMessages[0]?.thinkingContent).toContain("Reasoning trace");
+    expect(assistantMessages[0]?.thinkingContent).toBeUndefined();
     expect(assistantMessages[0]?.thinkingEntries?.[0]?.content).toBe("Reasoning trace");
+  });
+
+  it("keeps only the latest live reasoning chunk after a partial assistant segment is committed", () => {
+    const partialState = deriveAgentState([
+      {
+        type: "thinking",
+        data: { thinking: "first reasoning chunk" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "First partial answer." },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "thinking",
+        data: { thinking: "second reasoning chunk" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ]);
+
+    expect(partialState.messages).toHaveLength(1);
+    expect(partialState.messages[0]?.thinkingEntries).toEqual([
+      { content: "first reasoning chunk", durationMs: 0, timestamp: 1 },
+    ]);
+    expect(partialState.currentThinkingEntries).toEqual([
+      { content: "second reasoning chunk", durationMs: 0, timestamp: 3 },
+    ]);
+
+    const settledState = deriveAgentState([
+      {
+        type: "thinking",
+        data: { thinking: "first reasoning chunk" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "First partial answer." },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "thinking",
+        data: { thinking: "second reasoning chunk" },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "Second partial answer." },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ]);
+
+    expect(settledState.currentThinkingEntries).toEqual([]);
+    expect(settledState.messages[1]?.thinkingEntries).toEqual([
+      { content: "second reasoning chunk", durationMs: 0, timestamp: 3 },
+    ]);
+  });
+
+  it("merges pending reasoning onto an already shown terminal assistant segment exactly once", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "thinking",
+        data: { thinking: "first reasoning chunk" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Stable answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "thinking",
+        data: { thinking: "final reasoning chunk" },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Stable answer" },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Stable answer");
+    expect(state.messages[0]?.thinkingEntries).toEqual([
+      { content: "first reasoning chunk", durationMs: 0, timestamp: 1 },
+      { content: "final reasoning chunk", durationMs: 0, timestamp: 3 },
+    ]);
+    expect(state.messages[0]?.thinkingContent).toBeUndefined();
+    expect(state.currentThinkingEntries).toEqual([]);
   });
 
   it("keeps partial streamed assistant text visible when a turn ends with task_error", () => {

@@ -210,6 +210,54 @@ describe("buildSteps runtime phrase mapping", () => {
     expect(steps[0]?.title).toBe("Loaded Deep Research");
   });
 
+  it("surfaces preview, compaction, and dependency-failure events in the timeline", () => {
+    const events = [
+      {
+        type: "preview_available",
+        timestamp: 1,
+        iteration: 0,
+        data: { port: 3001, url: "/api/conversations/c1/preview/" },
+      },
+      {
+        type: "context_compacted",
+        timestamp: 2,
+        iteration: 0,
+        data: { original_messages: 12, compacted_messages: 4 },
+      },
+      {
+        type: "skill_dependency_failed",
+        timestamp: 3,
+        iteration: 0,
+        data: {
+          name: "frontend-design",
+          manager: "npm",
+          packages: "framer-motion",
+          error: "install failed",
+        },
+      },
+      {
+        type: "preview_stopped",
+        timestamp: 4,
+        iteration: 0,
+        data: { port: 3001 },
+      },
+    ] as unknown as AgentEvent[];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
+    expect(steps.map((step) => step.title)).toEqual([
+      "Preview available at /api/conversations/c1/preview/",
+      "Context compacted (12 -> 4)",
+      "Failed installing npm dependencies for Frontend Design: framer-motion",
+      "Preview stopped",
+    ]);
+    expect(steps.map((step) => step.status)).toEqual([
+      "complete",
+      "complete",
+      "error",
+      "complete",
+    ]);
+  });
+
   it("renders an optimistic selected skill before backend confirmation", () => {
     const toolCalls: ToolCallInfo[] = [
       {

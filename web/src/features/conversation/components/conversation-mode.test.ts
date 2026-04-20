@@ -2,6 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
   getPlanMessageIndex,
   getCurrentTurnEventSlice,
+  getIsCurrentTurnAutoDetected,
   hasPlannerSignalsSinceLastTurnComplete,
   shouldShowPlannerModeBadge,
 } from "./conversation-mode";
@@ -116,5 +117,38 @@ describe("shouldShowPlannerModeBadge", () => {
         plannerBadgeLive: false,
       }),
     ).toBe(false);
+  });
+});
+
+describe("getIsCurrentTurnAutoDetected", () => {
+  it("matches planner_auto_selected immediately before the latest turn_start", () => {
+    const events: AgentEvent[] = [
+      { type: "planner_auto_selected", data: {}, timestamp: 1, iteration: null },
+      { type: "turn_start", data: { message: "hello", orchestrator_mode: "planner" }, timestamp: 2, iteration: null },
+    ];
+
+    expect(getIsCurrentTurnAutoDetected(events)).toBe(true);
+  });
+
+  it("tolerates conversation_title between planner_auto_selected and turn_start", () => {
+    const events: AgentEvent[] = [
+      { type: "planner_auto_selected", data: {}, timestamp: 1, iteration: null },
+      { type: "conversation_title", data: { title: "hello" }, timestamp: 2, iteration: null },
+      { type: "turn_start", data: { message: "hello", orchestrator_mode: "planner" }, timestamp: 3, iteration: null },
+    ];
+
+    expect(getIsCurrentTurnAutoDetected(events)).toBe(true);
+  });
+
+  it("stays current-turn scoped and ignores older planner_auto_selected events", () => {
+    const events: AgentEvent[] = [
+      { type: "planner_auto_selected", data: {}, timestamp: 1, iteration: null },
+      { type: "turn_start", data: { message: "first", orchestrator_mode: "planner" }, timestamp: 2, iteration: null },
+      { type: "turn_complete", data: {}, timestamp: 3, iteration: null },
+      { type: "tool_call", data: {}, timestamp: 4, iteration: null },
+      { type: "turn_start", data: { message: "second", orchestrator_mode: "planner" }, timestamp: 5, iteration: null },
+    ];
+
+    expect(getIsCurrentTurnAutoDetected(events)).toBe(false);
   });
 });

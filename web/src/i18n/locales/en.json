@@ -1,5 +1,6 @@
 {
   "welcome.heading": "What can I build for you?",
+  "welcome.subtitle": "Describe your task and let the agent handle the rest",
 
   "chat.placeholderWorking": "Agent is working...",
   "chat.placeholder": "What can I help you build?",

@@ -2,6 +2,7 @@ import { describe, expect, it } from "@jest/globals";
 import {
   isConversationHistoryLoading,
   isConversationNotFoundError,
+  normalizeHistoryEvent,
   normalizeHistoryMessage,
   normalizeHistoryArtifact,
   resolveConversationHistoryResults,
@@ -62,6 +63,22 @@ describe("isConversationHistoryLoading", () => {
       content: "inspect this",
       attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
     });
+  });
+
+  it("keeps newly supported SSE events during history normalization", () => {
+    expect(normalizeHistoryEvent({
+      type: "preview_available",
+      data: { port: 3001, url: "/api/conversations/c1/preview/" },
+      timestamp: "2026-04-18T07:14:52.297999Z",
+      iteration: null,
+    })).toEqual([
+      {
+        type: "preview_available",
+        data: { port: 3001, url: "/api/conversations/c1/preview/" },
+        timestamp: new Date("2026-04-18T07:14:52.297999Z").getTime(),
+        iteration: null,
+      },
+    ]);
   });
 
   it("keeps messages and events when artifacts loading fails", () => {

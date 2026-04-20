@@ -157,26 +157,26 @@ export const MessageRow = memo(function MessageRow({
   });
 
   return (
-    <div data-role={msg.role} className={cn(index > 0 && "mt-4")}>
+    <div data-role={msg.role} className={cn(index > 0 && "mt-5")}>
       {msg.role === "user" ? (
-        /* ─── User message ─── right-aligned, flat (Cursor-style) */
+        /* ─── User message ─── right-aligned, refined bubble */
         <motion.div
-          initial={{ opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+          initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
           className="flex justify-end"
         >
           <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
-            <div className="rounded-lg bg-secondary/60 px-4 py-2.5">
+            <div className="surface-message-user px-4 py-3">
               <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                 {msg.content}
               </p>
               {msg.attachments && msg.attachments.length > 0 && (
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {msg.attachments.map((att, idx) => (
                     <span
                       key={idx}
-                      className="inline-flex items-center gap-1 rounded-md bg-muted px-2 py-0.5 text-micro font-mono text-muted-foreground"
+                      className="inline-flex items-center gap-1 rounded-md bg-background/50 px-2 py-0.5 text-micro font-mono text-muted-foreground"
                     >
                       <Paperclip className="h-3 w-3" />
                       {att.name}
@@ -188,13 +188,13 @@ export const MessageRow = memo(function MessageRow({
           </div>
         </motion.div>
       ) : (
-        /* ─── Assistant message ─── left-aligned, borderless (Cursor-style) */
+        /* ─── Assistant message ─── left-aligned, clean with subtle accent */
         <motion.div
-          initial={isStreamingThis ? false : { opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 4 }}
+          initial={isStreamingThis ? false : { opacity: shouldReduceMotion ? 1 : 0, y: shouldReduceMotion ? 0 : 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: shouldReduceMotion ? 0 : 0.2, ease: [0.22, 1, 0.36, 1] }}
+          transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            "group relative max-w-full min-w-0",
+            "group relative max-w-full min-w-0 pl-3 border-l border-primary/10",
             messageWidthClass,
           )}
         >
@@ -257,7 +257,7 @@ export const MessageRow = memo(function MessageRow({
 
             {/* Message action bar — inline, no timestamp */}
             {isLastAssistant && !isStreamingThis && (taskState === "idle" || taskState === "complete") && (
-              <div className="mt-1.5 flex items-center gap-0.5 opacity-0 transition-opacity duration-150 ease-out group-hover:opacity-100 group-focus-within:opacity-100">
+              <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-within:opacity-100">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -265,7 +265,7 @@ export const MessageRow = memo(function MessageRow({
                       variant="ghost"
                       size="icon-xs"
                       onClick={() => handleCopy(copyAssistantText.trim() || msg.content)}
-                      className="text-muted-foreground-dim hover:text-foreground hover:bg-muted"
+                      className="rounded-lg text-muted-foreground-dim hover:text-foreground hover:bg-muted/80"
                     >
                       {copied
                         ? <Check className="h-3.5 w-3.5 text-accent-emerald" />
@@ -285,7 +285,7 @@ export const MessageRow = memo(function MessageRow({
                         variant="ghost"
                         size="icon-xs"
                         onClick={onRetry}
-                        className="text-muted-foreground-dim hover:text-foreground hover:bg-muted"
+                        className="rounded-lg text-muted-foreground-dim hover:text-foreground hover:bg-muted/80"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                       </Button>
@@ -449,8 +449,8 @@ export function ConversationWorkspace({
     ? { phase: "thinking" }
     : assistantPhase;
 
-  const contentWidthClass = panelOpen ? "max-w-[44rem]" : "max-w-[52rem]";
-  const messageWidthClass = panelOpen ? "sm:max-w-[88%]" : "sm:max-w-[82%]";
+  const contentWidthClass = panelOpen ? "max-w-[46rem]" : "max-w-[56rem]";
+  const messageWidthClass = panelOpen ? "sm:max-w-[90%]" : "sm:max-w-[85%]";
 
   return (
     <MotionConfig reducedMotion="user">
@@ -593,7 +593,7 @@ export function ConversationWorkspace({
           {panelOpen && (
             <motion.div
               key="agent-computer-panel"
-              className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border bg-card/95 backdrop-blur-sm md:w-[var(--agent-panel-width)]"
+              className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border/40 bg-card/90 backdrop-blur-md md:w-[var(--agent-panel-width)]"
               initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}

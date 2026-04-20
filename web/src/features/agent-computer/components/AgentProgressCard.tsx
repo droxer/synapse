@@ -199,6 +199,47 @@ function buildOptimisticSkillStep(toolCall: ToolCallInfo, t: TFn): TimelineStep 
   };
 }
 
+function buildPreviewAvailableTitle(
+  event: Extract<AgentEvent, { type: "preview_available" }>,
+): string {
+  const url = typeof event.data.url === "string" ? event.data.url : undefined;
+  const port = typeof event.data.port === "number" ? event.data.port : undefined;
+  if (url) return `Preview available at ${url}`;
+  if (port != null) return `Preview available on port ${port}`;
+  return "Preview available";
+}
+
+function buildSkillDependencyFailedTitle(
+  event: Extract<AgentEvent, { type: "skill_dependency_failed" }>,
+): string {
+  const skillName =
+    typeof event.data.name === "string" && event.data.name.trim()
+      ? normalizeSkillName(event.data.name)
+      : undefined;
+  const manager =
+    typeof event.data.manager === "string" && event.data.manager.trim()
+      ? event.data.manager.trim()
+      : undefined;
+  const packages =
+    typeof event.data.packages === "string" && event.data.packages.trim()
+      ? event.data.packages.trim()
+      : undefined;
+
+  if (skillName && manager && packages) {
+    return `Failed installing ${manager} dependencies for ${skillName}: ${packages}`;
+  }
+  if (skillName && manager) {
+    return `Failed installing ${manager} dependencies for ${skillName}`;
+  }
+  if (skillName) {
+    return `Failed installing dependencies for ${skillName}`;
+  }
+  if (manager && packages) {
+    return `Failed installing ${manager} dependencies: ${packages}`;
+  }
+  return "Skill dependency installation failed";
+}
+
 export function buildSteps(
   events: readonly AgentEvent[],
   indexes: ToolCallIndexes,
@@ -396,12 +437,61 @@ export function buildSteps(
         break;
       }
 
+      case "preview_available":
+        steps = [...steps, {
+          id: `preview-available-${event.timestamp}`,
+          kind: "start",
+          title: buildPreviewAvailableTitle(event),
+          status: "complete",
+        }];
+        break;
+
+      case "preview_stopped":
+        steps = [...steps, {
+          id: `preview-stopped-${event.timestamp}`,
+          kind: "complete",
+          title: "Preview stopped",
+          status: "complete",
+        }];
+        break;
+
+      case "skill_dependency_failed":
+        steps = [...steps, {
+          id: `skill-dependency-failed-${event.timestamp}`,
+          kind: "error",
+          title: buildSkillDependencyFailedTitle(event),
+          status: "error",
+        }];
+        break;
+
       case "plan_created": {
         const planSteps = Array.isArray(event.data.steps) ? event.data.steps as unknown[] : [];
         steps = [...steps, {
           id: `plan-${event.timestamp}`,
           kind: "start",
           title: t("progress.planCreated", { count: planSteps.length }),
+          status: "complete",
+        }];
+        break;
+      }
+
+      case "context_compacted": {
+        const originalCount =
+          typeof event.data.original_messages === "number"
+            ? event.data.original_messages
+            : undefined;
+        const compactedCount =
+          typeof event.data.compacted_messages === "number"
+            ? event.data.compacted_messages
+            : undefined;
+        const detail =
+          originalCount != null && compactedCount != null
+            ? ` (${originalCount} -> ${compactedCount})`
+            : "";
+        steps = [...steps, {
+          id: `context-compacted-${event.timestamp}`,
+          kind: "start",
+          title: `Context compacted${detail}`,
           status: "complete",
         }];
         break;

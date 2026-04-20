@@ -20,7 +20,16 @@ _NON_LOSSY_SSE_EVENTS = {
     EventType.TURN_CANCELLED,
     EventType.TASK_COMPLETE,
     EventType.TASK_ERROR,
+    EventType.TOOL_CALL,
+    EventType.TOOL_RESULT,
+    EventType.AGENT_SPAWN,
     EventType.AGENT_COMPLETE,
+    EventType.AGENT_HANDOFF,
+    EventType.AGENT_STAGE_TRANSITION,
+    EventType.AGENT_SKIPPED,
+    EventType.AGENT_REPLAN_REQUIRED,
+    EventType.PLAN_CREATED,
+    EventType.PLANNER_AUTO_SELECTED,
 }
 
 

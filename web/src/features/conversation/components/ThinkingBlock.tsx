@@ -81,7 +81,11 @@ export function ThinkingBlock({
   const durationSeconds = Math.max(Math.round(durationMs / 1000), 1);
   const label = isThinking
     ? t("thinking.thinking")
-    : (summaryLabel ?? t("thinking.thoughtFor", { seconds: durationSeconds }));
+    : summaryLabel
+      ? summaryLabel
+      : durationMs > 0
+        ? t("thinking.thoughtFor", { seconds: durationSeconds })
+        : t("thinking.reasoning");
   const steps = parseThinkingTimeline(content);
   const isMultiStep = steps.length > 1 || steps.some((step) => step.title);
 
@@ -92,15 +96,15 @@ export function ThinkingBlock({
 
   return (
     <div data-thinking-block="" className="group/thinking">
-      {/* Toggle header — inline text, no card wrapper */}
+      {/* Toggle header — inline text with subtle hover */}
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
         aria-expanded={expanded}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded-md py-1 text-left text-caption text-muted-foreground transition-colors",
-          "hover:text-foreground",
+          "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 -ml-2 text-left text-caption text-muted-foreground transition-all duration-150",
+          "hover:text-foreground hover:bg-muted/60",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
         )}
       >
@@ -153,7 +157,7 @@ export function ThinkingBlock({
               ref={scrollRef}
               data-thinking-panel=""
               className={cn(
-                "mt-1 max-h-80 overflow-y-auto rounded-lg border border-border bg-muted/50 px-3 py-2.5",
+                "mt-1.5 max-h-80 overflow-y-auto rounded-xl border border-border/50 bg-muted/40 px-3.5 py-3",
                 showBottomFade && "thinking-scroll-mask",
               )}
             >
@@ -169,7 +173,7 @@ export function ThinkingBlock({
                     >
                       <div className="flex items-start gap-2.5">
                         <span
-                          className="inline-flex h-4.5 min-w-4.5 shrink-0 items-center justify-center rounded-full bg-muted text-[10px] font-medium text-muted-foreground"
+                          className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/70"
                           aria-hidden="true"
                         >
                           {idx + 1}

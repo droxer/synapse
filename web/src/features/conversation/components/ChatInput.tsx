@@ -162,8 +162,8 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
 
         <div
           className={cn(
-            "surface-panel relative transition-[border-color,box-shadow,background-color] duration-200 ease-out focus-within:border-border-active focus-within:shadow-[var(--shadow-input-focus)]",
-            isDragOver && "border-dashed border-border-active bg-secondary",
+            "surface-input-composer relative focus-within:surface-input-composer-focus",
+            isDragOver && "border-dashed !border-border-active bg-secondary",
           )}
         >
           {/* File & skill attachment shelf */}
@@ -230,8 +230,8 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 title={t("chat.attachFile")}
                 onClick={() => fileInputRef.current?.click()}
                 className={cn(
-                  "gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground hover:text-foreground",
-                  isWelcome ? "h-8 px-3 border border-border bg-muted hover:bg-secondary" : "h-7 border border-border bg-muted hover:bg-secondary",
+                  "gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-all duration-150 hover:text-foreground",
+                  isWelcome ? "h-8 px-3 border border-border/60 bg-muted/60 hover:border-border hover:bg-muted" : "h-7 border border-border/60 bg-muted/60 hover:border-border hover:bg-muted",
                 )}
               >
                 <Plus className="h-3.5 w-3.5" />
@@ -312,8 +312,8 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     aria-label={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                     title={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                     className={cn(
-                      "h-9 w-9",
-                      hasContent && "shadow-[var(--shadow-primary-glow)]",
+                      "h-9 w-9 rounded-lg transition-all duration-200",
+                      hasContent && "bg-[var(--gradient-primary)] shadow-[var(--shadow-primary-glow)] hover:brightness-110",
                       !hasContent && "bg-muted text-placeholder hover:bg-muted",
                     )}
                   >

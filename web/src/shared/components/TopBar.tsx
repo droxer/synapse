@@ -41,7 +41,7 @@ export function TopBar({
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border bg-[var(--topbar-bg)] backdrop-blur-md px-4">
+    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border/40 bg-[var(--topbar-bg)] backdrop-blur-xl px-4">
       {/* Left: Breadcrumb */}
       <div className="min-w-0 flex items-center gap-1.5">
         <Button
@@ -62,7 +62,7 @@ export function TopBar({
             {convUsage && (convUsage.input_tokens > 0 || convUsage.output_tokens > 0) && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="ml-2 inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border-strong bg-muted px-2 py-0.5 font-mono text-micro font-medium tabular-nums text-muted-foreground shadow-[var(--shadow-card)] transition-colors hover:border-border-active hover:text-foreground">
+                  <span className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 bg-muted/60 px-1.5 py-0.5 font-mono text-micro font-medium tabular-nums text-muted-foreground transition-colors hover:border-border hover:text-foreground">
                     <Zap className="h-3 w-3" />
                     {formatTokenCount(convUsage.input_tokens + convUsage.output_tokens)}
                   </span>
@@ -123,13 +123,13 @@ export function TopBar({
       <Button
         type="button"
         onClick={handleOpenCommandPalette}
-        variant="secondary"
+        variant="ghost"
         size="sm"
-        className="shrink-0 gap-2 border border-border bg-card text-muted-foreground shadow-[var(--shadow-card)] hover:border-border-strong hover:bg-muted hover:text-foreground"
+        className="shrink-0 gap-2 rounded-lg border border-border/50 bg-card/50 text-muted-foreground backdrop-blur-sm transition-all duration-150 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm"
       >
-        <Search className="h-4 w-4" />
-        <span className="hidden sm:inline">{t("topbar.search")}</span>
-        <kbd className="hidden rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border sm:inline">⌘K</kbd>
+        <Search className="h-3.5 w-3.5" />
+        <span className="hidden sm:inline text-xs">{t("topbar.search")}</span>
+        <kbd className="hidden rounded-md bg-muted/80 px-1.5 py-0.5 font-mono text-micro text-muted-foreground-dim sm:inline">⌘K</kbd>
       </Button>
     </header>
   );

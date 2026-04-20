@@ -297,6 +297,45 @@ describe("areMessageRowsEqual", () => {
 });
 
 describe("ConversationWorkspace activity wiring", () => {
+  it("renders event reasoning and inline fallback exactly once without standalone live replay", () => {
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [],
+      messages: [
+        { role: "user", content: "Explain it", timestamp: 100 },
+        {
+          messageId: "event-turn:1:assistant:0",
+          role: "assistant",
+          content: "Final answer body.",
+          timestamp: 101,
+          source: "event",
+          turnId: "event-turn:1",
+          thinkingEntries: [{ content: "## Inspect\n\nCheck constraints.", durationMs: 0, timestamp: 100 }],
+          thinkingContent: "Extra inline rationale.",
+        },
+      ],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "idle",
+      currentThinkingEntries: [],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: false,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect((html.match(/data-thinking-block=/g) ?? [])).toHaveLength(2);
+    expect(html).toContain("Check constraints.");
+    expect(html).toContain("Extra inline rationale.");
+    expect(html).toContain("Final answer body.");
+  });
+
   it("shows planner badge and checklist while explicit planner is pending before events arrive", () => {
     lastTopBarProps = null;
     lastAgentProgressCardProps = null;
