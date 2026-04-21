@@ -494,9 +494,12 @@ export function ConversationWorkspace({
                         currentThinkingEntries.length > 0;
                       const embeddedPlanSteps =
                         i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
-                      // Use a stable key that doesn't change during streaming.
-                      // For messages with IDs, use the ID. For others, use role + timestamp + content hash.
-                      const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${msg.content.slice(0, 20)}`;
+                      // Stable React keys: never key assistant rows on `content` while
+                      // they stream (keys would churn every token → remount + flash).
+                      const messageKey =
+                        msg.role === "assistant" && isStreamingThis && msg.turnId
+                          ? `${msg.turnId}:assistant-stream`
+                          : msg.messageId ?? `${msg.role}-${msg.timestamp}-${msg.content.slice(0, 20)}`;
 
                       return (
                         <MessageRow
