@@ -36,10 +36,10 @@ const QUICK_ACTION_KEYS = [
 ] as const;
 
 const ITEM_CLASS =
-  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground transition-colors data-[selected=true]:bg-muted data-[selected=true]:text-foreground";
+  "flex cursor-pointer items-center gap-3 rounded-md border border-transparent px-3 py-2.5 text-sm text-foreground transition-colors data-[selected=true]:border-border data-[selected=true]:bg-secondary data-[selected=true]:text-foreground";
 
 const GROUP_HEADING_CLASS =
-  "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground";
+  "[&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:label-mono [&_[cmdk-group-heading]]:text-muted-foreground";
 
 function ShortcutHint({ keys }: { readonly keys: string }) {
   return (
@@ -132,7 +132,7 @@ export function CommandPalette({
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-50 bg-overlay/90 backdrop-blur-sm"
+            className="fixed inset-0 z-50 bg-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -153,7 +153,7 @@ export function CommandPalette({
             transition={{ duration: 0.12, ease: "easeOut" }}
           >
             <Command
-              className="w-[calc(100%-2rem)] max-w-[560px] overflow-hidden rounded-xl border border-border bg-card shadow-elevated"
+              className="surface-overlay w-[calc(100%-1.5rem)] max-w-[40rem] overflow-hidden p-0"
               loop
             >
               {/* Search input */}
@@ -254,7 +254,7 @@ export function CommandPalette({
               </Command.List>
 
               {/* Footer hint */}
-              <div className="flex items-center justify-between border-t border-border px-4 py-2">
+              <div className="flex items-center justify-between bg-muted/30 px-4 py-2">
                 <span className="text-xs text-muted-foreground">
                   {t("command.navigateHint")} <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">↑↓</kbd> · {t("command.selectHint")} <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">↵</kbd>
                 </span>

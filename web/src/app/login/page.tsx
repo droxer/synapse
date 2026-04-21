@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { Logo } from "@/shared/components/Logo";
+import { Button } from "@/shared/components/ui/button";
 import { isTauri, openInSystemBrowser, getFrontendUrl } from "@/lib/tauri";
 
 function LoginForm() {
@@ -127,29 +128,32 @@ function LoginForm() {
   };
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center px-4">
-      <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/55" aria-hidden="true" />
-      <div
-        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_20%,color-mix(in_srgb,var(--color-primary),transparent_92%)_0%,transparent_55%)]"
-        aria-hidden="true"
-      />
-      <div className="relative z-10 w-full max-w-sm">
-        {/* Card */}
-        <div className="relative overflow-hidden rounded-[1.25rem] border border-border-strong glass-surface p-8 shadow-[var(--shadow-elevated)] sm:p-10">
-          <div className="flex flex-col items-center gap-6">
-            <div className="rounded-xl">
-              <Logo size={64} tone="auto" className="rounded-xl" />
+    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+      <div className="w-full max-w-md">
+        <div className="overflow-hidden rounded-2xl bg-card">
+          <div className="px-8 py-6 sm:px-9">
+            <div className="flex items-center gap-3">
+              <Logo size={56} tone="auto" className="rounded-lg" />
+              <div>
+                <p className="brand-wordmark">{`Synapse`}</p>
+                <p className="mt-1 text-caption text-muted-foreground">
+                  Workspace sign-in
+                </p>
+              </div>
             </div>
+          </div>
+          <div className="px-8 pb-8 sm:px-9 sm:pb-9">
+            <div className="flex flex-col gap-6">
 
-            {/* Title block */}
-            <div className="text-center">
-              <h1 className="text-3xl font-semibold tracking-tight gradient-heading sm:text-[2rem]">
-                Welcome to Synapse
-              </h1>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Sign in to continue
-              </p>
-            </div>
+              <div className="space-y-2">
+                <p className="label-mono text-muted-foreground-dim">Account Access</p>
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
+                  Welcome to Synapse
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  Sign in to continue
+                </p>
+              </div>
 
             {/* Error message */}
             {error && (
@@ -167,14 +171,16 @@ function LoginForm() {
             )}
 
             {/* Google sign in button */}
-            {!waitingForBrowser && (
-              <div className="w-full">
-                <button
-                  type="button"
-                  onClick={handleSignIn}
-                  disabled={isLoading}
-                  className="flex w-full items-center justify-center gap-3 rounded-lg border border-border-strong bg-card px-4 py-3 text-sm font-medium text-foreground shadow-[var(--shadow-card)] transition-[color,background-color,border-color,transform,box-shadow] duration-200 ease-out hover:border-border-active hover:bg-secondary hover:shadow-[var(--shadow-card-hover)] active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-                >
+              {!waitingForBrowser && (
+                <div className="w-full">
+                  <Button
+                    type="button"
+                    onClick={handleSignIn}
+                    disabled={isLoading}
+                    variant="outline"
+                    size="lg"
+                    className="w-full justify-center gap-3 border-border-strong bg-background hover:border-border-active hover:bg-secondary"
+                  >
                   {isLoading ? (
                     <span role="status">
                       <div className="h-5 w-5 rounded skeleton-shimmer bg-primary-foreground/20" />
@@ -206,47 +212,40 @@ function LoginForm() {
                     </svg>
                   )}
                   {isLoading ? "Signing in…" : "Sign in with Google"}
-                </button>
-              </div>
-            )}
+                  </Button>
+                </div>
+              )}
 
             {/* Desktop: waiting for browser auth */}
-            {waitingForBrowser && (
-              <div className="flex w-full flex-col items-center gap-3 text-center">
-                <span role="status">
-                  <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
-                  <span className="sr-only">Waiting for browser authentication...</span>
-                </span>
-                <p className="text-sm text-muted-foreground">
-                  Complete sign-in in your browser, then return here.
-                </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (pollingRef.current) {
-                      clearInterval(pollingRef.current);
-                      pollingRef.current = null;
-                    }
-                    setWaitingForBrowser(false);
-                  }}
-                  className="text-xs text-muted-foreground-dim underline underline-offset-2 hover:text-foreground"
-                >
-                  Cancel
-                </button>
-              </div>
-            )}
+              {waitingForBrowser && (
+                <div className="flex w-full flex-col items-center gap-3 rounded-lg bg-muted/50 px-4 py-4 text-center">
+                  <span role="status">
+                    <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
+                    <span className="sr-only">Waiting for browser authentication...</span>
+                  </span>
+                  <p className="text-sm text-muted-foreground">
+                    Complete sign-in in your browser, then return here.
+                  </p>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      if (pollingRef.current) {
+                        clearInterval(pollingRef.current);
+                        pollingRef.current = null;
+                      }
+                      setWaitingForBrowser(false);
+                    }}
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-muted-foreground-dim hover:text-foreground"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
-
-        {/* Footer flourish */}
-        <div className="mx-auto mt-6 mb-3 h-px w-24 bg-gradient-to-r from-transparent via-border to-transparent" aria-hidden="true" />
-        <p className="text-center text-xs tracking-[0.02em] text-muted-foreground-dim">
-          <span>Secure</span>
-          <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
-          <span>Private</span>
-          <span className="mx-2 inline-block h-1 w-1 rounded-full bg-muted-foreground/30 align-middle" aria-hidden="true" />
-          <span>Powerful</span>
-        </p>
       </div>
     </div>
   );
@@ -256,9 +255,8 @@ export default function LoginPage() {
   return (
     <Suspense
       fallback={
-        <div className="relative flex min-h-screen items-center justify-center" role="status">
-          <div className="pointer-events-none absolute inset-0 bg-sidebar-bg/40" aria-hidden="true" />
-          <div className="relative z-10 h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
+        <div className="flex min-h-screen items-center justify-center bg-background" role="status">
+          <div className="h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
           <span className="sr-only">Loading...</span>
         </div>
       }

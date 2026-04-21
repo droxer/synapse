@@ -27,9 +27,9 @@
   --color-popover-foreground: #000000;
   --radius-sm: 0.25rem;
   --radius-md: 0.375rem;
-  --radius-lg: 0.625rem;
-  --radius-xl: 1rem;
-  --radius-2xl: 1.25rem;
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
 
   --color-border-strong: #C7CEDA;
   --color-border-active: #7F8A9B;
@@ -50,14 +50,14 @@
 
   --color-user-accent: #000000;
   --color-user-accent-dim: rgba(0, 0, 0, 0.04);
-  --color-ai-surface: rgba(15, 23, 42, 0.03);
+  --color-ai-surface: rgba(99, 102, 241, 0.04);
   --color-ai-border: rgba(15, 23, 42, 0.1);
   --color-input-glow: rgba(15, 23, 42, 0.08);
   --color-overlay: rgba(0, 0, 0, 0.5);
 
-  --color-sidebar-bg: #F8FAFD;
-  --color-sidebar-active: #E6EEFF;
-  --color-sidebar-hover: #F1F5FF;
+  --color-sidebar-bg: #FAFBFC;
+  --color-sidebar-active: #F0F2F5;
+  --color-sidebar-hover: #F5F6F8;
   --color-sidebar-foreground-muted: #5B6573;
 
   --color-profile-ring: rgba(0, 0, 0, 0.18);
@@ -106,23 +106,16 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 40%), 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%), 0 2px 8px rgba(15, 23, 42, 0.06), 0 12px 24px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 8px 20px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.12);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: none;
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 10px 20px rgba(15, 23, 42, 0.08);
 
-  /* Glass / frost surface for elevated elements */
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-backdrop: blur(16px) saturate(1.8);
-
-  /* Focus & glow effects */
-  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 82%), 0 0 12px color-mix(in srgb, var(--color-focus), transparent 92%);
-  --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 60%);
-  --shadow-message: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
-  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-primary), transparent 80%), 0 0 16px color-mix(in srgb, var(--color-primary), transparent 90%), 0 0 32px color-mix(in srgb, var(--color-primary), transparent 95%);
-  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary), var(--color-accent-indigo) 30%) 100%);
-
-  /* Gradient accent for display headings */
-  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 40%, var(--color-primary) 100%);
+  --shadow-input-focus: none;
+  --shadow-primary-glow: none;
+  --shadow-message: none;
+  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-focus), transparent 30%);
+  --gradient-primary: var(--color-primary);
+  --gradient-text-accent: none;
 
   /* Agent computer panel width */
   --agent-panel-width: 44%;
@@ -164,13 +157,7 @@
     50% { opacity: 0.4; }
   }
 
-  @keyframes pulsingDotRing {
-    0% { transform: scale(1); opacity: 0.6; }
-    100% { transform: scale(1.8); opacity: 0; }
-  }
-
   --animate-pulsing-dot-fade: pulsingDotFade 2s ease-in-out infinite;
-  --animate-pulsing-dot-ring: pulsingDotRing 2s ease-out infinite;
 
   @keyframes scaleIn {
     0% { opacity: 0; transform: scale(0.95); }
@@ -244,12 +231,12 @@
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #000000;
   --color-user-accent-dim: rgba(0, 0, 0, 0.04);
-  --color-ai-surface: rgba(15, 23, 42, 0.03);
+  --color-ai-surface: rgba(99, 102, 241, 0.04);
   --color-ai-border: rgba(15, 23, 42, 0.1);
   --color-input-glow: rgba(15, 23, 42, 0.08);
-  --color-sidebar-bg: #F8FAFD;
-  --color-sidebar-active: #E6EEFF;
-  --color-sidebar-hover: #F1F5FF;
+  --color-sidebar-bg: #FAFBFC;
+  --color-sidebar-active: #F0F2F5;
+  --color-sidebar-hover: #F5F6F8;
   --color-sidebar-foreground-muted: #5B6573;
   --color-profile-ring: rgba(0, 0, 0, 0.18);
   --color-profile-ring-hover: rgba(0, 0, 0, 0.28);
@@ -265,18 +252,16 @@
   --logo-bg: var(--logo-black);
   --logo-glyph: var(--logo-white);
   --color-overlay: rgba(0, 0, 0, 0.5);
-  --topbar-bg: rgba(255, 255, 255, 0.8);
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 40%), 0 1px 3px rgba(15, 23, 42, 0.04), 0 4px 12px rgba(15, 23, 42, 0.03);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%), 0 2px 8px rgba(15, 23, 42, 0.06), 0 12px 24px rgba(15, 23, 42, 0.06);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 8px 20px rgba(15, 23, 42, 0.08), 0 24px 48px rgba(15, 23, 42, 0.12);
-  --glass-bg: rgba(255, 255, 255, 0.72);
-  --glass-backdrop: blur(16px) saturate(1.8);
-  --shadow-message: 0 1px 2px rgba(15, 23, 42, 0.06), 0 2px 6px rgba(15, 23, 42, 0.04);
-  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-primary), transparent 80%), 0 0 16px color-mix(in srgb, var(--color-primary), transparent 90%), 0 0 32px color-mix(in srgb, var(--color-primary), transparent 95%);
-  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary), var(--color-accent-indigo) 30%) 100%);
-  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 82%), 0 0 12px color-mix(in srgb, var(--color-focus), transparent 92%);
-  --shadow-primary-glow: 0 0 12px color-mix(in srgb, var(--color-primary), transparent 60%);
-  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 30%, var(--color-primary) 100%);
+  --topbar-bg: #FFFFFF;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: none;
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 16%), 0 10px 20px rgba(15, 23, 42, 0.08);
+  --shadow-message: none;
+  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-focus), transparent 30%);
+  --gradient-primary: var(--color-primary);
+  --shadow-input-focus: none;
+  --shadow-primary-glow: none;
+  --gradient-text-accent: none;
 }
 
 /* ─── Dark mode ───
@@ -316,12 +301,12 @@
   --color-accent-foreground: var(--color-foreground);
   --color-user-accent: #E0E4EA;
   --color-user-accent-dim: rgba(255, 255, 255, 0.06);
-  --color-ai-surface: rgba(139, 143, 255, 0.06);
+  --color-ai-surface: rgba(139, 143, 255, 0.07);
   --color-ai-border: rgba(139, 143, 255, 0.12);
   --color-input-glow: rgba(107, 155, 255, 0.1);
-  --color-sidebar-bg: #0E1018;
-  --color-sidebar-active: #182040;
-  --color-sidebar-hover: #141A2A;
+  --color-sidebar-bg: #0D0F14;
+  --color-sidebar-active: #181B22;
+  --color-sidebar-hover: #14171E;
   --color-sidebar-foreground-muted: #7E8899;
   --color-profile-ring: rgba(222, 222, 222, 0.18);
   --color-profile-ring-hover: rgba(222, 222, 222, 0.30);
@@ -337,18 +322,16 @@
   --logo-bg: var(--logo-white);
   --logo-glyph: var(--logo-black);
   --color-overlay: rgba(0, 0, 0, 0.6);
-  --topbar-bg: rgba(11, 13, 18, 0.82);
-  --shadow-card: 0 0 0 1px color-mix(in srgb, var(--color-border), transparent 30%), 0 2px 4px rgba(0, 0, 0, 0.20), 0 4px 16px rgba(0, 0, 0, 0.12);
-  --shadow-card-hover: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 20%), 0 4px 12px rgba(0, 0, 0, 0.24), 0 12px 32px rgba(0, 0, 0, 0.18);
-  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 12%), 0 8px 24px rgba(0, 0, 0, 0.32), 0 24px 56px rgba(0, 0, 0, 0.40);
-  --shadow-message: 0 1px 3px rgba(0, 0, 0, 0.18), 0 2px 8px rgba(0, 0, 0, 0.10);
-  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-primary), transparent 72%), 0 0 20px color-mix(in srgb, var(--color-primary), transparent 85%), 0 0 40px color-mix(in srgb, var(--color-primary), transparent 92%);
-  --gradient-primary: linear-gradient(135deg, var(--color-primary) 0%, color-mix(in srgb, var(--color-primary), var(--color-accent-indigo) 40%) 100%);
-  --glass-bg: rgba(19, 22, 29, 0.82);
-  --glass-backdrop: blur(20px) saturate(1.6);
-  --shadow-input-focus: 0 0 0 3px color-mix(in srgb, var(--color-focus), transparent 78%), 0 0 16px color-mix(in srgb, var(--color-focus), transparent 90%);
-  --shadow-primary-glow: 0 0 16px color-mix(in srgb, var(--color-primary), transparent 50%), 0 0 32px color-mix(in srgb, var(--color-primary), transparent 78%);
-  --gradient-text-accent: linear-gradient(135deg, var(--color-foreground) 30%, var(--color-primary) 100%);
+  --topbar-bg: #0B0D12;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2);
+  --shadow-card-hover: none;
+  --shadow-elevated: 0 0 0 1px color-mix(in srgb, var(--color-border-strong), transparent 12%), 0 12px 28px rgba(0, 0, 0, 0.34);
+  --shadow-message: none;
+  --shadow-glow-subtle: 0 0 0 1px color-mix(in srgb, var(--color-focus), transparent 34%);
+  --gradient-primary: var(--color-primary);
+  --shadow-input-focus: none;
+  --shadow-primary-glow: none;
+  --gradient-text-accent: none;
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -367,7 +350,7 @@
   );
   background-size: 200% 100%;
   animation: shimmer 2s linear infinite;
-  border-radius: 0.25rem;
+  border-radius: var(--radius-md);
 }
 
 @utility text-caption {
@@ -379,29 +362,13 @@
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background-color: var(--color-card);
-  box-shadow: var(--shadow-card);
 }
 
 @utility surface-overlay {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-backdrop);
-  -webkit-backdrop-filter: var(--glass-backdrop);
+  background-color: var(--color-popover);
   box-shadow: var(--shadow-elevated);
-}
-
-@utility glass-surface {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-backdrop);
-  -webkit-backdrop-filter: var(--glass-backdrop);
-}
-
-@utility gradient-heading {
-  background: var(--gradient-text-accent);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
 }
 
 @utility focus-glow {
@@ -730,27 +697,21 @@ pre, code {
 }
 
 @utility surface-message-user {
+  border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background-color: var(--color-secondary);
-  box-shadow: var(--shadow-message);
 }
 
 @utility surface-input-composer {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-xl);
   background-color: var(--color-card);
-  box-shadow: var(--shadow-card);
   transition: border-color 0.2s ease-out, box-shadow 0.2s ease-out, background-color 0.2s ease-out;
 }
 
 @utility surface-input-composer-focus {
   border-color: var(--color-border-active);
   box-shadow: var(--shadow-glow-subtle);
-}
-
-@utility gradient-subtle {
-  background: radial-gradient(ellipse at 50% 0%, color-mix(in srgb, var(--color-primary), transparent 92%) 0%, transparent 70%),
-              radial-gradient(ellipse at 80% 80%, color-mix(in srgb, var(--color-accent-purple), transparent 96%) 0%, transparent 50%);
 }
 
 /* ─── Touch targets (WCAG 2.5.8 — 44px minimum on coarse pointers) ─── */

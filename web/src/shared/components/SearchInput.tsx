@@ -16,8 +16,8 @@ export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear 
   return (
     <div
       className={cn(
-        "flex items-center gap-2 rounded-lg border border-input bg-card px-2.5 py-1.5 transition-[border-color,box-shadow]",
-        "focus-within:border-border-active focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2 focus-within:ring-offset-background focus-within:shadow-[var(--shadow-input-focus)]",
+        "flex items-center gap-2 rounded-md border border-input bg-background px-2.5 py-1.5 transition-[border-color,box-shadow]",
+        "focus-within:border-border-active focus-within:ring-1 focus-within:ring-ring focus-within:ring-offset-1 focus-within:ring-offset-background",
         className,
       )}
     >
@@ -35,7 +35,7 @@ export function SearchInput({ value, onChange, placeholder, clearLabel = "Clear 
           type="button"
           aria-label={clearLabel}
           onClick={() => onChange("")}
-          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
         >
           <X className="h-3 w-3" />
         </button>

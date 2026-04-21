@@ -57,6 +57,37 @@ check \
   --glob "!**/shared/components/file-type-icons/**" \
   --glob "!**/app/login/page.tsx"
 
+# 6) Flat-system guardrails: no blur/glass/atmosphere utilities in product UI.
+check \
+  "No blur utilities in product UI." \
+  "backdrop-blur(-[a-z0-9]+)?"
+
+check \
+  "No deprecated glass utility usage." \
+  "glass-surface"
+
+check \
+  "No atmospheric workspace utility usage." \
+  "workspace-atmosphere"
+
+check \
+  "No gradient heading utility usage." \
+  "gradient-heading"
+
+# 7) No diffuse non-overlay shadows in product UI.
+check \
+  "No custom card-lift shadow token usage in product UI." \
+  "shadow-\\[var\\(--shadow-(card|card-hover|primary-glow)"
+
+check \
+  "No raw elevated shadow utility usage in product UI." \
+  "\\bshadow-elevated\\b" \
+  --glob "!**/app/globals.css"
+
+check \
+  "No diffuse Tailwind shadow utilities in product UI." \
+  "\\bshadow-(sm|md|lg|xl|2xl)\\b"
+
 if [[ "$has_errors" -eq 1 ]]; then
   echo "Design-token guardrail failed."
   exit 1

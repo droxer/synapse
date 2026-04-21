@@ -157,7 +157,7 @@ export const MessageRow = memo(function MessageRow({
   });
 
   return (
-    <div data-role={msg.role} className={cn(index > 0 && "mt-5")}>
+    <div data-role={msg.role} className={cn(index > 0 && "mt-6")}>
       {msg.role === "user" ? (
         /* ─── User message ─── right-aligned, refined bubble */
         <motion.div
@@ -194,7 +194,7 @@ export const MessageRow = memo(function MessageRow({
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: shouldReduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
           className={cn(
-            "group relative max-w-full min-w-0 pl-3 border-l border-primary/10",
+            "group relative max-w-full min-w-0",
             messageWidthClass,
           )}
         >
@@ -455,7 +455,7 @@ export function ConversationWorkspace({
   return (
     <MotionConfig reducedMotion="user">
       <div
-        className="flex h-full flex-col"
+        className="flex h-full flex-col overflow-hidden"
         role="region"
         aria-label="Conversation"
         aria-busy={effectiveTaskState === "executing" || effectiveTaskState === "planning"}
@@ -471,155 +471,160 @@ export function ConversationWorkspace({
             isPlannerAutoDetected={isCurrentTurnAutoDetected}
           />
         )}
-        <div className="flex flex-1 flex-col overflow-hidden lg:flex-row">
-        {/* Left pane: Conversation */}
-        <div className={cn("flex flex-col", panelOpen ? "w-full lg:w-[56%]" : "w-full")}>
-          <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-6">
-            {showEmptyState && (
-              <div className="flex h-full items-center justify-center">
-                <EmptyState
-                  icon={MessageSquare}
-                  title={t("conversation.waiting")}
-                  description={t("conversation.emptyAssistantBody")}
-                  dashed
-                  className="w-full max-w-md"
-                />
-              </div>
-            )}
+        <div className="flex flex-1 overflow-hidden">
+          <div className="relative flex min-h-0 flex-1 overflow-hidden bg-background">
+            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+              {/* Left pane: Conversation */}
+              <div className={cn("relative flex min-h-0 flex-col", panelOpen ? "w-full lg:w-[58%]" : "w-full")}>
+                <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
+                  {showEmptyState && (
+                    <div className="flex h-full items-center justify-center">
+                      <EmptyState
+                        icon={MessageSquare}
+                        title={t("conversation.waiting")}
+                        description={t("conversation.emptyAssistantBody")}
+                        dashed
+                        className="w-full max-w-md"
+                      />
+                    </div>
+                  )}
 
-            <div className={cn("mx-auto w-full", contentWidthClass)}>
-              {messages.map((msg, i) => {
-                const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
-                const isStreamingThis = isStreaming && isLastAssistant;
-                const isThinkingThis =
-                  msg.role === "assistant" &&
-                  isLastAssistant &&
-                  assistantPhase.phase === "thinking";
-                const embeddedPlanSteps =
-                  i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
-                const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
+                  <div className={cn("mx-auto w-full", contentWidthClass)}>
+                    {messages.map((msg, i) => {
+                      const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
+                      const isStreamingThis = isStreaming && isLastAssistant;
+                      const isThinkingThis =
+                        msg.role === "assistant" &&
+                        isLastAssistant &&
+                        assistantPhase.phase === "thinking";
+                      const embeddedPlanSteps =
+                        i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
+                      const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
 
-                return (
-                  <MessageRow
-                    key={messageKey}
-                    msg={msg}
-                    isLastAssistant={isLastAssistant}
-                    isStreamingThis={isStreamingThis}
-                    isThinkingThis={isThinkingThis}
-                    messageWidthClass={messageWidthClass}
-                    embeddedPlanSteps={embeddedPlanSteps}
-                    index={i}
-                    conversationId={conversationId}
-                    taskState={effectiveTaskState}
-                    locale={locale}
-                    onRetry={onRetry}
-                    t={t}
-                  />
-                );
-              })}
+                      return (
+                        <MessageRow
+                          key={messageKey}
+                          msg={msg}
+                          isLastAssistant={isLastAssistant}
+                          isStreamingThis={isStreamingThis}
+                          isThinkingThis={isThinkingThis}
+                          messageWidthClass={messageWidthClass}
+                          embeddedPlanSteps={embeddedPlanSteps}
+                          index={i}
+                          conversationId={conversationId}
+                          taskState={effectiveTaskState}
+                          locale={locale}
+                          onRetry={onRetry}
+                          t={t}
+                        />
+                      );
+                    })}
 
-              {showPlannerChecklist && (
-                <div className={cn("mt-4", messageWidthClass)}>
-                  <PlanChecklistPanel planSteps={effectivePlanSteps} />
-                </div>
-              )}
-
-              {/* Standalone thinking + loading skeleton — fade out together */}
-              <AnimatePresence>
-                {showLoadingSkeleton && (
-                  <motion.div
-                    key="pre-response-chrome"
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    transition={{ duration: 0.12 }}
-                  >
-                    {currentThinkingEntries.length > 0 && (
-                      <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
-                        {currentThinkingEntries.map((entry, idx) => (
-                          <ThinkingBlock
-                            key={`current-thinking-${entry.timestamp}-${idx}`}
-                            content={entry.content}
-                            isThinking={effectivePhase.phase === "thinking"}
-                            isTurnStreaming={isStreaming}
-                            durationMs={entry.durationMs}
-                          />
-                        ))}
+                    {showPlannerChecklist && (
+                      <div className={cn("mt-4", messageWidthClass)}>
+                        <PlanChecklistPanel planSteps={effectivePlanSteps} />
                       </div>
                     )}
-                    <div className="mt-3" role="status" aria-live="polite" aria-atomic="true">
-                      <AssistantLoadingSkeleton phase={effectivePhase} />
+
+                    {/* Standalone thinking + loading skeleton — fade out together */}
+                    <AnimatePresence>
+                      {showLoadingSkeleton && (
+                        <motion.div
+                          key="pre-response-chrome"
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          exit={{ opacity: 0 }}
+                          transition={{ duration: 0.12 }}
+                        >
+                          {currentThinkingEntries.length > 0 && (
+                            <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
+                              {currentThinkingEntries.map((entry, idx) => (
+                                <ThinkingBlock
+                                  key={`current-thinking-${entry.timestamp}-${idx}`}
+                                  content={entry.content}
+                                  isThinking={effectivePhase.phase === "thinking"}
+                                  isTurnStreaming={isStreaming}
+                                  durationMs={entry.durationMs}
+                                />
+                              ))}
+                            </div>
+                          )}
+                          <div className="mt-3" role="status" aria-live="polite" aria-atomic="true">
+                            <AssistantLoadingSkeleton phase={effectivePhase} />
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </div>
+
+                <div className="shrink-0 bg-background">
+                  {(events.length > 0 || isWaitingForAgent || effectiveTaskState === "planning" || effectiveTaskState === "executing") && (
+                    <div
+                      className={cn(
+                        "px-4 py-3 sm:px-6",
+                        "mx-auto w-full",
+                        contentWidthClass,
+                      )}
+                    >
+                      <AgentProgressCard
+                        events={events}
+                        toolCalls={toolCalls}
+                        agentStatuses={agentStatuses}
+                        taskState={effectiveTaskState}
+                        isWaitingForAgent={isWaitingForAgent}
+                        onClick={handleProgressCardClick}
+                        onStepClick={handleStepClick}
+                        panelOpen={panelOpen}
+                      />
+                    </div>
+                  )}
+
+                  <div className={cn("mx-auto w-full", contentWidthClass)}>
+                    <ChatInput
+                      onSendMessage={onSendMessage}
+                      disabled={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
+                      onCancel={onCancel}
+                      isAgentRunning={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Right pane: Synapse's Computer */}
+              <AnimatePresence initial={false}>
+                {panelOpen && (
+                  <motion.div
+                    key="agent-computer-panel"
+                    className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border bg-background md:w-[var(--agent-panel-width)]"
+                    initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
+                    transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
+                  >
+                    {isConnected && threadTasks.length > 0 && (
+                      <ThreadTasksPanel
+                        tasks={threadTasks}
+                        locale={locale}
+                        t={t}
+                      />
+                    )}
+                    <div className="min-h-0 flex-1">
+                      <AgentComputerPanel
+                        conversationId={conversationId}
+                        toolCalls={toolCalls}
+                        agentStatuses={agentStatuses}
+                        artifacts={artifacts}
+                        taskState={effectiveTaskState}
+                        highlightedStepId={highlightedStepId}
+                        onClose={() => setPanelOpen(false)}
+                      />
                     </div>
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-
           </div>
-
-          {(events.length > 0 || isWaitingForAgent || effectiveTaskState === "planning" || effectiveTaskState === "executing") && (
-            <div
-              className={cn(
-                "px-4 py-3 sm:px-6",
-                "mx-auto w-full",
-                contentWidthClass,
-              )}
-            >
-              <AgentProgressCard
-                events={events}
-                toolCalls={toolCalls}
-                agentStatuses={agentStatuses}
-                taskState={effectiveTaskState}
-                isWaitingForAgent={isWaitingForAgent}
-                onClick={handleProgressCardClick}
-                onStepClick={handleStepClick}
-                panelOpen={panelOpen}
-              />
-            </div>
-          )}
-
-          <div className={cn("mx-auto w-full", contentWidthClass)}>
-            <ChatInput
-              onSendMessage={onSendMessage}
-              disabled={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
-              onCancel={onCancel}
-              isAgentRunning={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
-            />
-          </div>
-        </div>
-
-        {/* Right pane: Synapse's Computer */}
-        <AnimatePresence initial={false}>
-          {panelOpen && (
-            <motion.div
-              key="agent-computer-panel"
-              className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border/40 bg-card/90 backdrop-blur-md md:w-[var(--agent-panel-width)]"
-              initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
-              transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
-            >
-              {isConnected && threadTasks.length > 0 && (
-                <ThreadTasksPanel
-                  tasks={threadTasks}
-                  locale={locale}
-                  t={t}
-                />
-              )}
-              <div className="min-h-0 flex-1">
-                <AgentComputerPanel
-                  conversationId={conversationId}
-                  toolCalls={toolCalls}
-                  agentStatuses={agentStatuses}
-                  artifacts={artifacts}
-                  taskState={effectiveTaskState}
-                  highlightedStepId={highlightedStepId}
-                  onClose={() => setPanelOpen(false)}
-                />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
         </div>
       </div>
     </MotionConfig>

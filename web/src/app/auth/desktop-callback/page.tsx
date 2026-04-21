@@ -59,28 +59,32 @@ function CallbackContent() {
   }, [session, status, nonce]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-background">
-      <Logo size={48} tone="auto" className="rounded-lg" />
-      {status === "loading" && (
-        <>
-          <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
-          <p className="text-sm text-muted-foreground">Verifying session...</p>
-        </>
-      )}
-      {error && <p className="text-sm text-destructive">{error}</p>}
-      {!nonce && status !== "loading" && (
-        <p className="text-sm text-destructive">Missing nonce parameter</p>
-      )}
-      {done && (
-        <>
-          <p className="text-sm text-muted-foreground">
-            Sign in successful! Return to the Synapse desktop app.
-          </p>
-          <p className="text-xs text-muted-foreground-dim">
-            You can close this browser tab.
-          </p>
-        </>
-      )}
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="surface-panel w-full max-w-md px-6 py-8 text-center">
+        <div className="flex flex-col items-center gap-4">
+          <Logo size={48} tone="auto" className="rounded-lg" />
+          {status === "loading" && (
+            <>
+              <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
+              <p className="text-sm text-muted-foreground">Verifying session...</p>
+            </>
+          )}
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          {!nonce && status !== "loading" && (
+            <p className="text-sm text-destructive">Missing nonce parameter</p>
+          )}
+          {done && (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Sign in successful! Return to the Synapse desktop app.
+              </p>
+              <p className="text-xs text-muted-foreground-dim">
+                You can close this browser tab.
+              </p>
+            </>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

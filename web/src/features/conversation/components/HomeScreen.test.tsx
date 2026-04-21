@@ -44,7 +44,7 @@ describe("HomeScreen", () => {
 
     expect(html).toContain("What can I build for you?");
     expect(html).toContain("heading-display");
-    expect(html).toContain("gradient-heading");
+    expect(html).toContain("surface-panel");
     expect(html).toContain("text-center");
     expect(html).not.toContain("whitespace-nowrap");
   });

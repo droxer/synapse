@@ -138,7 +138,7 @@ export function AssistantLoadingSkeleton({ phase }: AssistantLoadingSkeletonProp
       <div className="flex flex-col gap-2 pl-1">
         {lines.map((widthClass, i) => (
           <motion.div key={`line-${i}`} variants={lineVariants}>
-            <Skeleton className={cn("h-3 rounded-md opacity-50", widthClass)} />
+            <Skeleton className={cn("h-2.5 rounded-md opacity-40", widthClass)} />
           </motion.div>
         ))}
       </div>

@@ -103,9 +103,9 @@ export function ThinkingBlock({
         aria-expanded={expanded}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded-lg px-2 py-1 -ml-2 text-left text-caption text-muted-foreground transition-all duration-150",
-          "hover:text-foreground hover:bg-muted/60",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+          "flex w-full items-center gap-1.5 rounded-md px-2 py-1 -ml-2 text-left text-caption text-muted-foreground transition-colors duration-150",
+          "hover:bg-muted hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
         )}
       >
         <motion.span
@@ -157,7 +157,7 @@ export function ThinkingBlock({
               ref={scrollRef}
               data-thinking-panel=""
               className={cn(
-                "mt-1.5 max-h-80 overflow-y-auto rounded-xl border border-border/50 bg-muted/40 px-3.5 py-3",
+                "mt-1.5 max-h-80 overflow-y-auto rounded-lg bg-muted/50 px-3.5 py-3",
                 showBottomFade && "thinking-scroll-mask",
               )}
             >
@@ -168,19 +168,19 @@ export function ThinkingBlock({
                       key={step.id}
                       data-thinking-step={idx + 1}
                       className={cn(
-                        idx > 0 && "border-t border-border pt-2.5",
+                        idx > 0 && "pt-2.5",
                       )}
                     >
                       <div className="flex items-start gap-2.5">
                         <span
-                          className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary/70"
+                          className="chip-muted inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-md font-mono text-micro font-semibold"
                           aria-hidden="true"
                         >
                           {idx + 1}
                         </span>
                         <div className="min-w-0 flex-1">
                           {step.title ? (
-                            <h3 className="text-sm font-medium text-foreground/90">
+                            <h3 className="text-sm font-medium text-foreground">
                               {step.title}
                             </h3>
                           ) : null}

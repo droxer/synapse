@@ -20,17 +20,14 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
   }, []);
 
   return (
-    <header className="flex h-14 shrink-0 items-center justify-between border-b border-border bg-background px-4">
+    <header className="flex h-12 shrink-0 items-center justify-between bg-background px-4">
       {/* Left: title + live badge */}
       <div className="flex items-center gap-2">
         <Radio className="h-4 w-4 text-muted-foreground" />
         <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t("channels.title")}</h1>
         {telegramConfigured && (
-          <span className="status-pill status-ok rounded-full">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
-            </span>
+          <span className="status-pill status-ok">
+            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
             {t("channels.header.live")}
           </span>
         )}

@@ -27,9 +27,8 @@ function StepIndicator({ status }: { readonly status: PlanStep["status"] }) {
   }
   if (status === "running") {
     return (
-      <span className="relative flex h-4 w-4 items-center justify-center flex-shrink-0">
-        <span className="absolute h-2 w-2 rounded-full bg-focus opacity-30 animate-pulsing-dot-ring" />
-        <span className="h-1.5 w-1.5 rounded-full bg-focus" />
+      <span className="flex h-4 w-4 items-center justify-center flex-shrink-0">
+        <span className="h-1.5 w-1.5 rounded-full bg-focus animate-pulsing-dot-fade" />
       </span>
     );
   }
@@ -120,9 +119,9 @@ export function PlanChecklistPanel({ planSteps }: PlanChecklistPanelProps) {
   const hasError = errorCount > 0;
 
   return (
-    <div className="surface-panel overflow-hidden">
+    <div className="overflow-hidden rounded-xl bg-muted/30">
       {/* Header */}
-      <div className="flex items-center gap-3 border-b border-border px-3 py-2">
+      <div className="flex items-center gap-3 px-3 py-2">
         <span className="label-mono text-muted-foreground flex-1">
           {t("plan.title")}
         </span>

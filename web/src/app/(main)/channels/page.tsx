@@ -18,7 +18,7 @@ function PageSkeleton() {
   return (
     <div className="flex h-full items-center justify-center bg-background">
       <div className="flex flex-col items-center gap-5">
-        <div className="h-14 w-14 rounded-2xl skeleton-shimmer" />
+        <div className="h-14 w-14 rounded-lg skeleton-shimmer" />
         <div className="space-y-2 text-center">
           <div className="mx-auto h-3 w-32 skeleton-shimmer" />
           <div className="mx-auto h-2.5 w-48 skeleton-shimmer" />
@@ -143,8 +143,8 @@ export default function ChannelsPage() {
 
     return (
       <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="flex w-full shrink-0 flex-col border-b border-border bg-sidebar/40 md:w-[320px] md:border-b-0 md:border-r">
-          <div className="border-b border-border px-4 py-3">
+        <aside className="flex w-full shrink-0 flex-col bg-sidebar/40 md:w-[320px] md:border-r md:border-border">
+          <div className="px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Telegram Threads
             </p>

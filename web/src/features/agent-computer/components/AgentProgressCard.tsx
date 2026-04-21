@@ -663,40 +663,40 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
     case "error":
       return {
         text: "text-destructive",
-        rowBase: "surface-panel border-destructive bg-card",
-        rowHover: "hover:border-destructive hover:bg-muted",
+        rowBase: "rounded-lg bg-destructive/5",
+        rowHover: "hover:bg-destructive/8",
         iconSurface: "bg-muted",
         iconColor: "text-destructive",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
-        rowBase: "surface-panel border-accent-amber bg-card",
-        rowHover: "hover:border-accent-amber hover:bg-muted",
+        rowBase: "rounded-lg bg-accent-amber/5",
+        rowHover: "hover:bg-accent-amber/8",
         iconSurface: "bg-muted",
         iconColor: "text-accent-amber",
       };
     case "skipped":
       return {
         text: "text-muted-foreground",
-        rowBase: "surface-panel border-dashed bg-card",
-        rowHover: "hover:border-border-strong hover:bg-muted",
+        rowBase: "rounded-lg opacity-60",
+        rowHover: "hover:bg-muted hover:opacity-100",
         iconSurface: "bg-muted",
         iconColor: "text-muted-foreground-dim",
       };
     case "running":
       return {
         text: "text-foreground",
-        rowBase: "surface-panel border-border-strong bg-card",
-        rowHover: "hover:border-border-strong hover:bg-accent",
-        iconSurface: "bg-muted",
+        rowBase: "rounded-lg bg-muted/60",
+        rowHover: "hover:bg-muted",
+        iconSurface: "bg-background",
         iconColor: "text-focus",
       };
     default:
       return {
         text: "text-foreground",
-        rowBase: "surface-panel bg-card",
-        rowHover: "hover:border-border-strong hover:bg-accent",
+        rowBase: "rounded-lg",
+        rowHover: "hover:bg-muted/60",
         iconSurface: "bg-muted",
         iconColor: "text-foreground",
       };
@@ -877,13 +877,13 @@ export function AgentProgressCard({
       </div>
 
       {/* Header */}
-      <div className="border-b border-border bg-card px-3 py-2.5">
+      <div className="bg-card px-3 py-2.5">
         <div className="flex items-center gap-2.5">
           <button
             type="button"
             aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
             onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             <Monitor className="h-3.5 w-3.5" />
           </button>
@@ -932,7 +932,7 @@ export function AgentProgressCard({
       <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-2 rounded-full bg-muted"
+          className="h-1.5 rounded-full bg-muted"
           indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
@@ -960,7 +960,7 @@ export function AgentProgressCard({
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
                       isClickable &&
-                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     );
                     const rowContent = (
                       <>

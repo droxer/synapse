@@ -102,7 +102,7 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
       <DropdownMenuContent
         side={collapsed ? "right" : "top"}
         align="start"
-        className="min-w-[7rem] rounded-lg border-border bg-popover shadow-elevated"
+        className="min-w-[7rem] p-1"
       >
         <DropdownMenuRadioGroup value={current} onValueChange={setTheme}>
           {THEME_OPTIONS.map(({ value, icon: ItemIcon, labelKey }) => (

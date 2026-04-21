@@ -77,7 +77,7 @@ export function InputPrompt({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div className="absolute inset-0 bg-overlay backdrop-blur-sm" aria-hidden="true" />
+      <div className="absolute inset-0 bg-overlay" aria-hidden="true" />
 
       {/* Modal */}
       <div
@@ -87,7 +87,7 @@ export function InputPrompt({
         aria-labelledby="input-prompt-title"
         className="relative z-10 mx-4 w-full max-w-xl animate-modal-in"
       >
-        <div className="surface-overlay p-5 sm:p-6">
+          <div className="surface-overlay p-5 sm:p-6">
           {/* Header */}
           <div className="mb-4 flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">

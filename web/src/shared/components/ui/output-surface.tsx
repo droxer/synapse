@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 
 export const OUTPUT_SURFACE_FOCUS_CLASSES =
-  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background";
+  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
 export const OUTPUT_SURFACE_ROOT_CLASSES =
   "surface-panel mt-2 overflow-hidden rounded-xl px-0 py-0";

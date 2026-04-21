@@ -433,7 +433,7 @@ export function FilePreview({
           {content.manifest.slides.map((slide) => (
             <figure
               key={slide.index}
-              className="overflow-hidden rounded-lg border border-border bg-card shadow-sm"
+              className="overflow-hidden rounded-lg border border-border bg-card"
             >
               <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
                 {`Slide ${slide.index}`}

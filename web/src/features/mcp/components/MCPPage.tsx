@@ -1,14 +1,15 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Blocks,
+  Globe,
   Plus,
+  SquareTerminal,
   Unplug,
   Search,
 } from "lucide-react";
-import { useState } from "react";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
@@ -93,6 +94,14 @@ export function MCPPage() {
   const connectedCount = servers.filter(
     (s) => s.status === "connected",
   ).length;
+  const remoteCount = useMemo(
+    () => servers.filter((s) => Boolean(s.url)).length,
+    [servers],
+  );
+  const localCount = useMemo(
+    () => servers.filter((s) => Boolean(s.command)).length,
+    [servers],
+  );
 
   const displayServers = filter
     ? servers.filter(
@@ -107,73 +116,110 @@ export function MCPPage() {
     <div className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
       <motion.div
-        className="shrink-0 border-b border-border px-6 py-5"
+        className="shrink-0 px-6 py-6"
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center">
-              <Blocks className="h-4 w-4 text-muted-foreground" />
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="chip-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-lg">
+                <Blocks className="h-5 w-5 text-muted-foreground" />
+              </div>
+              <div>
+                <p className="label-mono text-muted-foreground-dim">
+                  {t("mcp.mcpServers")}
+                </p>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
+                  {t("mcp.title")}
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  {t("mcp.subtitle")}
+                </p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                {t("mcp.title")}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {t("mcp.subtitle")}
-              </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[24rem]">
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <span
+                    className={cn(
+                      "h-2 w-2 rounded-full",
+                      connectedCount > 0 ? "bg-accent-emerald" : "bg-border-strong",
+                    )}
+                  />
+                  <span className="label-mono text-muted-foreground-dim">
+                    {t("topbar.connected")}
+                  </span>
+                </div>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {connectedCount}
+                  <span className="ml-1 text-sm text-muted-foreground">/ {servers.length}</span>
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="label-mono text-muted-foreground-dim">URL</span>
+                </div>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {remoteCount}
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <SquareTerminal className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="label-mono text-muted-foreground-dim">CMD</span>
+                </div>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {localCount}
+                </p>
+              </div>
             </div>
           </div>
-          {servers.length > 0 && (
-            <div className="status-pill status-neutral chip-md">
-              <span
-                className={cn(
-                  "h-1.5 w-1.5 rounded-full",
-                  connectedCount > 0
-                    ? "bg-accent-emerald"
-                    : "bg-border-strong",
-                )}
-              />
-              <span className="text-xs font-medium text-muted-foreground">
-                {connectedCount}/{servers.length}
-              </span>
-            </div>
-          )}
         </div>
       </motion.div>
 
       {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-        <div className="mx-auto max-w-5xl space-y-5">
+        <div className="mx-auto max-w-6xl space-y-5">
           {/* Error banner */}
           {error && (
             <ErrorBanner message={error} onDismiss={() => setError(null)} />
           )}
 
           {/* Section header with search + add */}
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-medium text-foreground">
-              {t("mcp.mcpServers")}
-            </h2>
-            <div className="flex-1" />
-            {servers.length > 3 && (
-              <SearchInput
-                value={filter}
-                onChange={setFilter}
-                placeholder={t("mcp.filterPlaceholder")}
-                clearLabel={t("mcp.clearFilter")}
-              />
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowForm(true)}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("mcp.addServer")}
-            </Button>
+          <div className="rounded-lg bg-muted/30 px-4 py-4">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="label-mono text-muted-foreground-dim">
+                  {t("mcp.mcpServers")}
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {servers.length > 0
+                    ? `${connectedCount}/${servers.length} ${t("topbar.connected")}`
+                    : t("mcp.subtitle")}
+                </p>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                {servers.length > 3 && (
+                  <SearchInput
+                    value={filter}
+                    onChange={setFilter}
+                    placeholder={t("mcp.filterPlaceholder")}
+                    clearLabel={t("mcp.clearFilter")}
+                  />
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowForm(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  {t("mcp.addServer")}
+                </Button>
+              </div>
+            </div>
           </div>
 
           {/* ── Server grid ── */}

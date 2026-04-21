@@ -20,7 +20,7 @@ If guidance conflicts, follow this order.
 - Content-first: keep chrome restrained so conversation and artifacts stay primary.
 - Token-first: use semantic tokens/utilities; avoid hardcoded product colors.
 - Accessibility-first: keyboard-visible focus, semantic controls, reduced-motion support.
-- Professional developer-tool aesthetic: cool neutrals, low visual noise, subtle depth.
+- Professional developer-tool aesthetic: cool neutrals, low visual noise, flat separation.
 - Consistency over novelty: prefer shared primitives and repeated layout patterns.
 
 ## 3) Foundations
@@ -39,16 +39,16 @@ Keep semantic token parity across all three sections for every token change.
 - Semantic UI: `background`, `foreground`, `primary`, `secondary`, `muted`, `border`, `input`, `ring`, `destructive`, `accent`
 - Product-specific: `ai-*`, `sidebar-*`, `terminal-*`, `profile-ring*`
 - Typography and rhythm: `--font-*`, `--text-*`, `--lh-*`
-- Depth/motion: `--shadow-*`, `--animate-*`
+- Separation/motion: `--shadow-*`, `--animate-*`
 
 ### 3.3 Radius contract
 
 Canonical radius scale (from implementation):
-- `--radius-sm` (4px): tiny indicators
-- `--radius-md` (6px): compact controls/chips/buttons
-- `--radius-lg` (8px): inputs and standard controls
-- `--radius-xl` (12px): panels/surfaces/overlays
-- `--radius-2xl` (16px): large modal-only use
+- `--radius-sm` (2px): tiny indicators
+- `--radius-md` (4px): compact controls/chips/buttons
+- `--radius-lg` (6px): inputs and standard controls
+- `--radius-xl` (8px): panels/surfaces/overlays
+- `--radius-2xl` (10px): exceptional large surfaces only
 
 ### 3.4 Focus contract
 
@@ -81,7 +81,7 @@ Use ring-2 only when stronger emphasis is intentionally required by a component 
 - Don't use hardcoded product hex values for generic surfaces/states.
 - Don't use opacity-modified border tokens as a default strategy.
 - Don't introduce bespoke focus styles when canonical focus utilities apply.
-- Don't add decorative glow/glass effects to standard surfaces.
+- Don't add decorative glow, blur, glass, gradients, or atmosphere layers to standard surfaces.
 
 ## 5) Surfaces and Overlay Conventions
 
@@ -89,9 +89,13 @@ Use ring-2 only when stronger emphasis is intentionally required by a component 
 - Standard panels/cards: `surface-panel`
 - Floating overlays (dialogs, menus, popovers): `surface-overlay` or equivalent token-consistent classes
 
+### Flat surface contract
+- Standard surfaces are opaque and border-led.
+- Standard surfaces should not add diffuse card shadows.
+- Overlays may use a single crisp separation shadow from `surface-overlay`.
+
 ### Current implementation note
-- `DropdownMenu` and `Select` already consume `surface-overlay`.
-- `Popover` and `HoverCard` are token-consistent but use manual overlay classes instead of `surface-overlay`.
+- `DropdownMenu`, `Select`, `Dialog`, `Popover`, and `HoverCard` should all consume `surface-overlay` or an equivalent token-consistent overlay contract.
 
 Guideline: new overlay components should default to `surface-overlay` unless a deliberate exception is documented.
 
@@ -116,6 +120,7 @@ Core primitives (authoritative style behavior):
   - `web/src/shared/components/Sidebar.tsx`
   - `web/src/shared/components/TopBar.tsx`
 - Keep shell surfaces solid and token-driven (`bg-background`, `bg-sidebar-bg`, `border-border`).
+- Prefer hard dividers and active-state bars/fills over floating-card treatment.
 
 ### 6.3 Repeated page-shell pattern
 
@@ -169,6 +174,7 @@ The following areas are known drift points and should be normalized in future UI
 2. Focus consistency: keep ring-1 baseline consistent across custom controls and wrappers.
 3. Radius consistency: avoid ad-hoc radius escalation in standard controls unless component intent requires it.
 4. Utility reuse: convert repeated ad-hoc status/chip patterns to `status-pill`/`chip-*`.
+5. Flat-system enforcement: do not reintroduce `backdrop-blur`, `glass-surface`, `workspace-atmosphere`, or `gradient-heading`.
 
 ## 11) Governance and Update Workflow
 

@@ -56,7 +56,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
                   <div
                     className={
                       isActive
-                        ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-focus text-xs font-semibold text-primary-foreground ring-1 ring-focus/30 shadow-sm shadow-focus/20"
+                        ? "flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-focus bg-focus text-xs font-semibold text-primary-foreground"
                         : "flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-secondary text-xs font-semibold text-muted-foreground-dim ring-1 ring-border"
                     }
                   >
@@ -66,7 +66,7 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
                     <div
                       className={`mt-1 w-px flex-1 min-h-[20px] ${
                         isActive
-                          ? "bg-gradient-to-b from-focus/40 to-transparent"
+                          ? "bg-focus/30"
                           : "bg-border"
                       }`}
                     />
@@ -88,11 +88,10 @@ export function ChannelsOnboarding({ onConfigureBot }: ChannelsOnboardingProps) 
           data-slot="button"
           type="button"
           onClick={onConfigureBot}
-          className="group relative flex w-full items-center justify-center gap-2 overflow-hidden rounded-md bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background active:scale-[0.98]"
+          className="flex w-full items-center justify-center gap-2 rounded-md border border-primary bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background active:scale-[0.98]"
         >
-          <span className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/10 to-transparent transition-transform duration-200 group-hover:translate-x-full" />
           <ChannelProviderIcon provider="telegram" size="sm" />
-          <span className="relative">{t("channels.onboarding.cta")}</span>
+          <span>{t("channels.onboarding.cta")}</span>
         </button>
       </motion.div>
     </div>

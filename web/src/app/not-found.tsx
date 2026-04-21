@@ -8,7 +8,7 @@ export default function NotFound() {
   const { t } = useTranslation();
   return (
     <div className="flex h-screen w-screen items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4 text-center">
+      <div className="surface-panel flex w-full max-w-md flex-col items-center gap-4 px-6 py-8 text-center">
         <h1 className="text-xl font-semibold text-foreground">
           {t("notFound.title")}
         </h1>

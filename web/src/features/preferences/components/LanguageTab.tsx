@@ -42,7 +42,7 @@ export function LanguageTab() {
               onClick={() => handleSelect(loc)}
               className={cn(
                 "flex w-full items-center gap-3 rounded-lg border px-4 py-3 text-left transition-[color,background-color,border-color] duration-150 ease-out",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                 "hover:border-border-strong",
                 isActive
                   ? "border-border-strong bg-muted"

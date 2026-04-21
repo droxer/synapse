@@ -164,7 +164,7 @@ function ThinkingPreview({ text }: { readonly text: string }) {
           onClick={() => setExpanded((e) => !e)}
           aria-controls={contentId}
           aria-expanded={expanded}
-          className="ml-1 rounded text-sm text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="ml-1 rounded text-sm text-muted-foreground hover:underline focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
         >
           {expanded ? t("computer.thinkingCollapse") : t("computer.thinkingReadMore")}
         </button>
@@ -353,7 +353,7 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   return (
     <span className={cn("relative mt-0.5", TOOL_ICON_FRAME_CLASS, "bg-secondary")} aria-label={t("a11y.toolRunning")} role="img">
       <ToolGlyph className={cn(TOOL_ICON_GLYPH_CLASS, "text-focus")} strokeWidth={2.25} />
-      <span className="absolute inset-0 rounded-md bg-focus/20 animate-pulsing-dot-fade" />
+      <span className="absolute bottom-0.5 right-0.5 h-1.5 w-1.5 rounded-full bg-focus" />
     </span>
   );
 }
@@ -515,7 +515,7 @@ export function AgentComputerPanel({
   return (
     <div lang="en" className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
-      <div className="shrink-0 border-b border-border bg-card">
+      <div className="shrink-0 bg-background">
         {/* Title bar */}
         <div className="flex items-center gap-2 px-3 py-2">
           <span className="label-mono flex-1 truncate text-muted-foreground">
@@ -570,7 +570,7 @@ export function AgentComputerPanel({
             onClick={() => setActiveTab("activity")}
             className={cn(
               "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               activeTab === "activity"
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -578,7 +578,7 @@ export function AgentComputerPanel({
           >
             <Activity className="h-4 w-4" aria-hidden="true" />
             {t("computer.activity")}
-            {activeTab === "activity" && <span className="absolute inset-x-0 -bottom-px h-[3px] bg-focus" />}
+            {activeTab === "activity" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
           </button>
           <button
             type="button"
@@ -590,7 +590,7 @@ export function AgentComputerPanel({
             onClick={() => setActiveTab("files")}
             className={cn(
               "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               activeTab === "files"
                 ? "text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -608,7 +608,7 @@ export function AgentComputerPanel({
                 {artifacts.length}
               </span>
             )}
-            {activeTab === "files" && <span className="absolute inset-x-0 -bottom-px h-[3px] bg-focus" />}
+            {activeTab === "files" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
           </button>
         </div>
       </div>
@@ -712,7 +712,7 @@ export function AgentComputerPanel({
           </div>
 
           {/* ── Consolidated status bar ── */}
-          <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 border-t border-border bg-card px-3 py-2.5">
+          <div className="flex min-w-0 shrink-0 flex-wrap items-center gap-2 bg-background px-3 py-2.5">
             <Progress
               value={progressValue}
               className="h-2 min-w-[6rem] flex-1 rounded-full bg-muted"

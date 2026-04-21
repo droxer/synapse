@@ -7,38 +7,20 @@ import { useTranslation } from "@/i18n";
 export function ChannelsListening() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-full items-center justify-center bg-background px-8 welcome-radial-bg">
+    <div className="flex h-full items-center justify-center bg-background px-8">
       <motion.div
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
-        className="flex w-full max-w-xs flex-col items-center gap-5 text-center"
+        className="surface-panel flex w-full max-w-xs flex-col items-center gap-5 p-6 text-center"
       >
-        {/* Sonar radar animation */}
-        <div className="relative flex h-24 w-24 items-center justify-center">
-          <span
-            className="absolute h-24 w-24 rounded-full border border-focus"
-            style={{ animation: "pulsingDotRing 2.5s ease-out infinite 0s" }}
-          />
-          <span
-            className="absolute h-20 w-20 rounded-full border border-focus"
-            style={{ animation: "pulsingDotRing 2.5s ease-out infinite 0.6s" }}
-          />
-          <span
-            className="absolute h-14 w-14 rounded-full border border-focus"
-            style={{ animation: "pulsingDotRing 2.5s ease-out infinite 1.2s" }}
-          />
-          <div className="relative flex h-14 w-14 items-center justify-center rounded-xl border border-border bg-secondary shadow-card">
+        <div className="flex h-14 w-14 items-center justify-center rounded-lg border border-border bg-secondary">
             <ChannelProviderIcon provider="telegram" size="lg" />
-          </div>
         </div>
 
         <div className="space-y-1.5">
           <div className="flex items-center justify-center gap-2">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-accent-emerald opacity-60" />
-              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
-            </span>
+            <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
             <h3 className="text-sm font-semibold text-foreground">{t("channels.listening.activeTitle")}</h3>
           </div>
           <p className="text-xs leading-relaxed text-muted-foreground max-w-[22ch] mx-auto">
@@ -46,7 +28,7 @@ export function ChannelsListening() {
           </p>
         </div>
 
-        <div className="surface-panel w-full p-3.5">
+        <div className="w-full rounded-lg border border-border bg-card p-3.5">
           <div className="flex items-start gap-2.5">
             <div className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-focus/10">
               <svg className="h-3 w-3 text-focus" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">

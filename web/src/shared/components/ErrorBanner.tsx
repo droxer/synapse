@@ -33,7 +33,7 @@ export function ErrorBanner({ message, onDismiss, variant = "default", dismissLa
         type="button"
         onClick={onDismiss}
         aria-label={dismissLabel}
-        className="rounded-sm p-0.5 text-destructive/60 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="rounded-sm p-0.5 text-destructive/60 transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
       >
         <X className="h-3.5 w-3.5" />
       </button>

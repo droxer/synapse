@@ -26,14 +26,14 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
 
   return (
     <div className={cn(
-      "surface-panel group flex h-full flex-col p-4 transition-[border-color,background-color,box-shadow] duration-200 ease-out",
+      "surface-panel group flex h-full flex-col p-4 transition-[border-color,background-color] duration-200 ease-out",
       isDisabled
         ? "opacity-90"
-        : "hover:border-border-strong hover:bg-muted hover:shadow-[var(--shadow-card-hover)]",
+        : "hover:border-border-active hover:bg-secondary",
     )}>
       {/* Top row: icon + transport badge + delete */}
       <div className="flex items-start justify-between gap-2">
-        <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center transition-colors duration-200">
+        <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors duration-200">
           <Blocks className={cn(
             "h-4 w-4 transition-colors duration-200",
             isDisabled ? "text-muted-foreground-dim" : "text-muted-foreground",
@@ -116,11 +116,11 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
             aria-checked={!isDisabled}
             aria-label={isDisabled ? t("mcp.enable") : t("mcp.disable")}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-micro font-medium transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isDisabled
-                ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
-                : "border border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "border-border bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
             onClick={() => onToggle(server.name, isDisabled)}
           >

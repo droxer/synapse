@@ -242,72 +242,118 @@ export function SkillsPage() {
     : null;
 
   const displaySkills = filtered ?? skills;
+  const skillSummary = [t("skills.builtIn", { count: bundledSkills.length })];
+  if (installedSkills.length > 0) {
+    skillSummary.push(t("skills.installed", { count: installedSkills.length }));
+  }
 
   return (
     <div className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
       <motion.div
-        className="shrink-0 border-b border-border px-6 py-5"
+        className="shrink-0 px-6 py-6"
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto flex max-w-5xl flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-          <div className="flex items-center gap-3">
-            <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center">
-              <Lightbulb aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
-            </div>
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
-                {t("skills.title")}
-              </h1>
-              <p className="text-xs text-muted-foreground">
-                {t("skills.subtitle")}
-              </p>
+        <div className="mx-auto max-w-6xl">
+          <div className="px-1">
+            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
+              <div className="space-y-4">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary">
+                    <Lightbulb aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="label-mono text-muted-foreground-dim">
+                      {t("skills.agentSkills")}
+                    </p>
+                    <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
+                      {t("skills.title")}
+                    </h1>
+                    <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                      {t("skills.subtitle")}
+                    </p>
+                  </div>
+                </div>
+                {skills.length > 0 && (
+                  <div className="flex flex-wrap gap-2">
+                    <span className="status-pill status-ai">
+                      <Package aria-hidden="true" className="h-3 w-3" />
+                      {t("skills.builtIn", { count: bundledSkills.length })}
+                    </span>
+                    <span className="status-pill status-neutral">
+                      <Globe aria-hidden="true" className="h-3 w-3" />
+                      {t("skills.installed", { count: installedSkills.length })}
+                    </span>
+                  </div>
+                )}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
+                <div className="rounded-lg bg-muted/50 px-4 py-3">
+                  <p className="label-mono text-muted-foreground-dim">
+                    {t("skills.sectionBuiltIn")}
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                    {bundledSkills.length}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("skills.sectionBuiltInDesc")}
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted/50 px-4 py-3">
+                  <p className="label-mono text-muted-foreground-dim">
+                    {t("skills.sectionInstalled")}
+                  </p>
+                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                    {installedSkills.length}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {t("skills.sectionInstalledDesc")}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-          {skills.length > 0 && (
-            <div className="status-pill status-neutral chip-md">
-              <Package aria-hidden="true" className="h-3 w-3 text-muted-foreground" />
-              <span className="text-xs font-medium text-muted-foreground">
-                {t("skills.builtIn", { count: bundledSkills.length })}
-                {installedSkills.length > 0 && t("skills.installed", { count: installedSkills.length })}
-              </span>
-            </div>
-          )}
         </div>
       </motion.div>
 
       {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
-        <div className="mx-auto max-w-5xl space-y-5">
+        <div className="mx-auto max-w-6xl space-y-5">
           {/* Error banner */}
           {error && (
             <ErrorBanner message={error} onDismiss={() => setError(null)} />
           )}
 
           {/* Section header with search + install */}
-          <div className="flex items-center gap-3">
-            <h2 className="text-lg font-medium text-foreground">
-              {t("skills.agentSkills")}
-            </h2>
-            <div className="flex-1" />
-            {skills.length > 3 && (
-              <SearchInput
-                value={filter}
-                onChange={setFilter}
-                placeholder={t("skills.filterPlaceholder")}
-                clearLabel={t("skills.clearFilter")}
-              />
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowForm(true)}
-            >
-              <Plus className="mr-1.5 h-3.5 w-3.5" />
-              {t("skills.installSkill")}
-            </Button>
+          <div className="flex flex-col gap-3 rounded-lg bg-muted/30 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+            <div className="min-w-0 flex-1">
+              <p className="label-mono text-muted-foreground-dim">
+                {t("skills.agentSkills")}
+              </p>
+              <p className="mt-1 text-sm text-muted-foreground">
+                {skillSummary.join(" · ")}
+              </p>
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+              {skills.length > 3 && (
+                <SearchInput
+                  value={filter}
+                  onChange={setFilter}
+                  placeholder={t("skills.filterPlaceholder")}
+                  clearLabel={t("skills.clearFilter")}
+                />
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowForm(true)}
+              >
+                <Plus className="mr-1.5 h-3.5 w-3.5" />
+                {t("skills.installSkill")}
+              </Button>
+            </div>
           </div>
 
           {/* ── Skill grid ── */}
@@ -461,7 +507,7 @@ export function SkillsPage() {
                     aria-disabled={src === "git"}
                     className={cn(
                       "flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors duration-150",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                      "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                       src === "git"
                         ? "cursor-not-allowed text-muted-foreground-dim opacity-60"
                         : installSource === src
@@ -520,7 +566,7 @@ export function SkillsPage() {
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
                       {t("chat.attachFile")}
                     </button>
@@ -579,7 +625,7 @@ export function SkillsPage() {
                           setIsFolderUpload(false);
                           setFolderName("");
                         }}
-                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                        className="rounded-sm p-0.5 text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       >
                         <X className="h-3 w-3" />
                       </button>

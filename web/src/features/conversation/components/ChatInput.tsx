@@ -219,7 +219,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
           />
 
           {/* Toolbar divider + action bar */}
-          <div className="px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
             {/* Left: tools + hints */}
             <div className="flex items-center gap-1.5">
               <Button
@@ -229,10 +229,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                 aria-label={t("chat.attachFile")}
                 title={t("chat.attachFile")}
                 onClick={() => fileInputRef.current?.click()}
-                className={cn(
-                  "gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-all duration-150 hover:text-foreground",
-                  isWelcome ? "h-8 px-3 border border-border/60 bg-muted/60 hover:border-border hover:bg-muted" : "h-7 border border-border/60 bg-muted/60 hover:border-border hover:bg-muted",
-                )}
+                className="h-7 gap-1.5 rounded-lg px-2 text-xs font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
               >
                 <Plus className="h-3.5 w-3.5" />
               </Button>
@@ -252,20 +249,15 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   aria-pressed={usePlanner}
                   onClick={() => setUsePlanner((v) => !v)}
                   className={cn(
-                    "h-8 gap-1.5 rounded-md px-3 text-xs font-medium transition-colors duration-150",
+                    "h-7 gap-1.5 rounded-lg px-2 text-xs font-medium transition-colors duration-150",
                     usePlanner
-                      ? "border border-border-strong bg-secondary text-foreground"
-                      : "border border-border bg-muted text-muted-foreground hover:bg-secondary hover:text-foreground",
+                      ? "bg-secondary text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                   title={usePlanner ? t("chat.plannerActive") : t("chat.plannerHint")}
                 >
                   <GitFork className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">{t("chat.planLabel")}</span>
-                  {usePlanner && (
-                    <span className="relative flex h-1.5 w-1.5 shrink-0" aria-hidden>
-                      <span className="absolute inset-0 rounded-full bg-foreground" />
-                    </span>
-                  )}
                 </Button>
               )}
 
@@ -288,7 +280,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     onClick={onCancel}
                     aria-label={t("chat.cancelExecution")}
                     title={t("chat.cancelExecution")}
-                    className="group h-9 w-9 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:bg-destructive/15"
+                    className="group h-8 w-8 text-muted-foreground hover:bg-destructive/10 hover:text-destructive active:bg-destructive/15"
                   >
                     <Square
                       className="h-3.5 w-3.5 transition-transform duration-200 group-hover:scale-110"
@@ -312,9 +304,9 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                     aria-label={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                     title={hasContent ? t("chat.sendMessage") : t("chat.typeToSend")}
                     className={cn(
-                      "h-9 w-9 rounded-lg transition-all duration-200",
-                      hasContent && "bg-[var(--gradient-primary)] shadow-[var(--shadow-primary-glow)] hover:brightness-110",
-                      !hasContent && "bg-muted text-placeholder hover:bg-muted",
+                      "h-8 w-8 rounded-lg transition-colors duration-200",
+                      hasContent && "bg-primary text-primary-foreground hover:bg-primary/90",
+                      !hasContent && "bg-transparent text-muted-foreground",
                     )}
                   >
                     <ArrowUp className="h-4 w-4" strokeWidth={2.5} />

@@ -71,7 +71,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 z-40 bg-overlay backdrop-blur-sm"
+            className="fixed inset-0 z-40 bg-overlay"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -86,7 +86,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
             role="dialog"
             aria-modal="true"
             aria-label="Navigation"
-            className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] touch-manipulation overscroll-contain overflow-y-auto bg-sidebar-bg"
+            className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] touch-manipulation overscroll-contain overflow-y-auto border-r border-border bg-sidebar-bg"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}
             exit={{ x: "-100%" }}

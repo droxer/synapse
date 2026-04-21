@@ -1,6 +1,6 @@
 # Design system
 
-Synapse uses a **token-driven design system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and restrained AI signaling.
+Synapse uses a **token-driven design system** for developer-tool surfaces: neutral workspace chrome, chromatic CTAs, and a flat, sharp separation model.
 
 Canonical human-facing frontend guide is `docs/design.md`.
 Canonical source of truth for live token values is `web/src/app/globals.css`, with this reference doc as the normative token mapping.
@@ -17,7 +17,7 @@ Token source is `web/src/app/globals.css`:
 
 - Use semantic tokens (`background`, `foreground`, `border`, `focus`) instead of hardcoded colors.
 - Keep light/dark parity by changing variables, not component class structure.
-- Preserve Synapse's dense product UI with restrained shadows and small radii.
+- Preserve Synapse's dense product UI with border-led separation and small radii.
 - Use chroma intentionally: `primary` for actions, `secondary` for cool support surfaces, `accent` for hover/highlight.
 - Keep font licensing clean: use `Geist` + system/CJK fallbacks, not proprietary fonts.
 
@@ -27,11 +27,11 @@ Token source is `web/src/app/globals.css`:
 
 | Token | Value | Tailwind class | Use |
 |-------|-------|----------------|-----|
-| `--radius-sm` | 0.25rem (4px) | `rounded-sm` | Tiny indicators |
-| `--radius-md` | 0.375rem (6px) | `rounded-md` | Buttons, chips, badges |
-| `--radius-lg` | 0.5rem (8px) | `rounded-lg` | Inputs, form controls |
-| `--radius-xl` | 0.75rem (12px) | `rounded-xl` | Cards, panels, popovers |
-| `--radius-2xl` | 1rem (16px) | `rounded-2xl` | Large modals only |
+| `--radius-sm` | 0.125rem (2px) | `rounded-sm` | Tiny indicators |
+| `--radius-md` | 0.25rem (4px) | `rounded-md` | Buttons, chips, badges |
+| `--radius-lg` | 0.375rem (6px) | `rounded-lg` | Inputs, form controls |
+| `--radius-xl` | 0.5rem (8px) | `rounded-xl` | Cards, panels, popovers |
+| `--radius-2xl` | 0.625rem (10px) | `rounded-2xl` | Exceptional large surfaces |
 
 ---
 
@@ -154,7 +154,7 @@ Use these instead of rebuilding styles ad hoc:
 
 Standard focus ring:
 
-`focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background`
+`focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background`
 
 `--color-ring` intentionally aliases `--color-focus` so all focus states use the action-blue focus token in both themes.
 
@@ -162,13 +162,13 @@ Standard focus ring:
 
 ## Shadows
 
-Shadows stay subtle and neutral, with borders doing most of the separation work:
+Shadows are intentionally minimal:
 
-- `--shadow-card` is mostly border-led and nearly flat.
-- `--shadow-card-hover` adds minimal lift on interaction.
-- `--shadow-elevated` is reserved for overlays/dialogs and premium entry surfaces.
+- `--shadow-card` and `--shadow-card-hover` are effectively disabled for standard surfaces.
+- `--shadow-elevated` is reserved for overlays/dialogs only.
+- Standard product UI should not use diffuse Tailwind shadows or custom card-lift effects.
 
-This keeps the UI closer to professional IDE products (Cursor/Manus style) where contrast and rhythm come from structure, not decorative depth.
+This keeps the UI flat and sharp, with hierarchy coming from structure, borders, spacing, and active-state geometry.
 
 ---
 
@@ -188,6 +188,7 @@ Token maintenance checklist:
 Guardrail command:
 
 - Run `npm run audit:design-tokens` in `web/` to detect banned token patterns and hardcoded color literals (with approved exception allowlist).
+- The audit also blocks `backdrop-blur`, `glass-surface`, `workspace-atmosphere`, `gradient-heading`, and non-overlay shadow patterns in product UI.
 
 ---
 

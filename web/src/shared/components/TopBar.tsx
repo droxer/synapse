@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { LayoutGrid, Search, Zap, Sparkles, GitFork } from "lucide-react";
+import { LayoutGrid, Search, Zap } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Tooltip,
@@ -24,7 +24,7 @@ interface TopBarProps {
 
 export function TopBar({
   taskState,
-  isConnected,
+  isConnected: _isConnected,
   onNavigateHome,
   conversationTitle,
   conversationId,
@@ -41,7 +41,7 @@ export function TopBar({
   const isActive = taskState !== "idle";
 
   return (
-    <header className="flex h-11 shrink-0 items-center justify-between border-b border-border/40 bg-[var(--topbar-bg)] backdrop-blur-xl px-4">
+    <header className="flex h-10 shrink-0 items-center justify-between bg-background px-4">
       {/* Left: Breadcrumb */}
       <div className="min-w-0 flex items-center gap-1.5">
         <Button
@@ -62,7 +62,7 @@ export function TopBar({
             {convUsage && (convUsage.input_tokens > 0 || convUsage.output_tokens > 0) && (
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <span className="ml-2 inline-flex shrink-0 items-center gap-1 rounded-md border border-border/50 bg-muted/60 px-1.5 py-0.5 font-mono text-micro font-medium tabular-nums text-muted-foreground transition-colors hover:border-border hover:text-foreground">
+                  <span className="chip-muted chip-sm ml-2 inline-flex shrink-0 items-center gap-1 font-mono font-medium tabular-nums transition-colors hover:text-foreground">
                     <Zap className="h-3 w-3" />
                     {formatTokenCount(convUsage.input_tokens + convUsage.output_tokens)}
                   </span>
@@ -81,35 +81,16 @@ export function TopBar({
             )}
           </>
         )}
-        {isConnected && (
-          <span
-            role="status"
-            aria-live="polite"
-            className="status-pill status-info ml-1.5 shrink-0"
-          >
-            <span className="relative flex h-2 w-2 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-[pulsingDotRing_2s_ease-out_infinite] rounded-full bg-focus opacity-60" aria-hidden="true" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-focus" aria-hidden="true" />
-            </span>
-            <span className="hidden sm:inline">{t("topbar.connected")}</span>
-          </span>
-        )}
         {orchestratorMode === "planner" && (
           <Tooltip>
             <TooltipTrigger asChild>
               <span
                 role="status"
                 aria-live="polite"
-                className={isPlannerAutoDetected
-                  ? "status-pill status-ai ml-1.5 shrink-0"
-                  : "status-pill status-neutral ml-1.5 shrink-0"}
+                className="status-pill status-neutral ml-1.5 shrink-0"
               >
-                {isPlannerAutoDetected ? (
-                  <Sparkles className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                ) : (
-                  <GitFork className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
-                )}
-                <span>{isPlannerAutoDetected ? t("topbar.planAuto") : t("topbar.plan")}</span>
+                <span className="inline-flex h-1.5 w-1.5 shrink-0 rounded-full bg-focus" aria-hidden="true" />
+                <span>{t("topbar.plan")}</span>
               </span>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="text-xs">
@@ -125,11 +106,11 @@ export function TopBar({
         onClick={handleOpenCommandPalette}
         variant="ghost"
         size="sm"
-        className="shrink-0 gap-2 rounded-lg border border-border/50 bg-card/50 text-muted-foreground backdrop-blur-sm transition-all duration-150 hover:border-border hover:bg-card hover:text-foreground hover:shadow-sm"
+        className="shrink-0 gap-2 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline text-xs">{t("topbar.search")}</span>
-        <kbd className="hidden rounded-md bg-muted/80 px-1.5 py-0.5 font-mono text-micro text-muted-foreground-dim sm:inline">⌘K</kbd>
+        <kbd className="hidden rounded-md bg-muted px-1.5 py-0.5 font-mono text-micro text-muted-foreground-dim sm:inline">⌘K</kbd>
       </Button>
     </header>
   );

@@ -28,16 +28,16 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
   return (
     <article
       className={cn(
-        "group relative flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color,box-shadow,transform] duration-200 ease-out",
+        "group relative flex h-full cursor-pointer flex-col surface-panel p-4 transition-[border-color,background-color] duration-200 ease-out",
         isDisabled
           ? "border-border hover:border-border"
-          : "border-border hover:border-border-strong hover:bg-muted hover:shadow-[var(--shadow-card-hover)] hover:-translate-y-0.5",
+          : "border-border hover:border-border-active hover:bg-secondary",
       )}
     >
       {/* Top row: icon + badge + optional delete */}
       <div className="flex items-start justify-between gap-2">
         <div className={cn(
-          "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200",
+          "flex h-9 w-9 shrink-0 items-center justify-center rounded-md transition-colors duration-200",
           isDisabled ? "bg-secondary" : "bg-secondary group-hover:bg-muted",
         )}>
           <Lightbulb aria-hidden="true" className={cn(
@@ -113,11 +113,11 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
             aria-checked={!isDisabled}
             aria-label={isDisabled ? t("skills.enable") : t("skills.disable")}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-micro font-medium transition-colors duration-150",
+              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
               isDisabled
-                ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
-                : "border border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? "border-border bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
+                : "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
             onClick={(e) => {
               e.preventDefault();
@@ -136,7 +136,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
       <Link
         href={skillHref}
         aria-label={normalizeSkillName(skill.name)}
-        className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
       >
         <span className="sr-only">{normalizeSkillName(skill.name)}</span>
       </Link>

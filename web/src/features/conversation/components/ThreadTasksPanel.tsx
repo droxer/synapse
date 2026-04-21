@@ -45,12 +45,12 @@ export function ThreadTasksPanel({
   return (
     <section
       aria-label={t("threadTasks.title")}
-      className="shrink-0 border-b border-border bg-[linear-gradient(180deg,rgba(148,163,184,0.05),rgba(148,163,184,0.015)_100%)]"
+      className="shrink-0 bg-background"
     >
       <div className="px-3 py-3">
-        <div className="rounded-xl border border-border bg-card/95 px-3 py-3 shadow-card">
+        <div className="pb-3">
           <div className="flex items-start gap-3">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
               <Radar className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
@@ -58,7 +58,7 @@ export function ThreadTasksPanel({
                 <h2 className="text-sm font-medium text-foreground">
                   {t("threadTasks.title")}
                 </h2>
-                <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
+                <span className="rounded-md bg-muted px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
                   {tasks.length}
                 </span>
               </div>
@@ -67,51 +67,51 @@ export function ThreadTasksPanel({
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="mt-3 space-y-2">
-            {tasks.map((task) => (
-              <article
-                key={task.taskId}
-                className="rounded-xl border border-border bg-background/80 px-3 py-3"
-              >
-                <div className="flex items-start gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("shrink-0", getStatusBadgeClass(task.status))}>
-                        {getStatusLabel(task.status, t)}
-                      </span>
-                      <span className="text-micro uppercase tracking-[0.14em] text-muted-foreground-dim">
-                        {t("threadTasks.scope")}
-                      </span>
-                    </div>
-                    <h3 className="mt-2 truncate text-sm font-medium text-foreground">
-                      {task.title}
-                    </h3>
-                    <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-                      {task.message || t("threadTasks.fallbackMessage")}
-                    </p>
-                  </div>
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">
-                    {task.status === "running" ? (
-                      <BellRing className="h-4 w-4" />
-                    ) : (
-                      <Clock3 className="h-4 w-4" />
-                    )}
-                  </div>
-                </div>
-
-                {task.scheduledFor && (
-                  <div className="mt-3 border-t border-border/70 pt-2 text-right">
-                    <span className="font-mono text-micro text-muted-foreground">
-                      {t("threadTasks.dueAt", {
-                        time: formatClockTime(task.scheduledFor, locale),
-                      })}
+        <div className="mt-3 space-y-2">
+          {tasks.map((task) => (
+            <article
+              key={task.taskId}
+              className="rounded-lg bg-muted/40 px-3 py-3"
+            >
+              <div className="flex items-start gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className={cn("shrink-0", getStatusBadgeClass(task.status))}>
+                      {getStatusLabel(task.status, t)}
+                    </span>
+                    <span className="label-mono text-muted-foreground-dim">
+                      {t("threadTasks.scope")}
                     </span>
                   </div>
-                )}
-              </article>
-            ))}
-          </div>
+                  <h3 className="mt-2 truncate text-sm font-medium text-foreground">
+                    {task.title}
+                  </h3>
+                  <p className="mt-1 line-clamp-2 text-sm leading-relaxed text-muted-foreground">
+                    {task.message || t("threadTasks.fallbackMessage")}
+                  </p>
+                </div>
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+                  {task.status === "running" ? (
+                    <BellRing className="h-4 w-4" />
+                  ) : (
+                    <Clock3 className="h-4 w-4" />
+                  )}
+                </div>
+              </div>
+
+              {task.scheduledFor && (
+                <div className="mt-3 pt-2 text-right">
+                  <span className="font-mono text-micro text-muted-foreground">
+                    {t("threadTasks.dueAt", {
+                      time: formatClockTime(task.scheduledFor, locale),
+                    })}
+                  </span>
+                </div>
+              )}
+            </article>
+          ))}
         </div>
       </div>
     </section>

@@ -78,7 +78,7 @@ export function AgentStatusRow({
   const rowClassName = cn(
     EVENT_ROW_BASE_CLASSES,
     "flex w-full items-center gap-2 text-left text-sm transition-colors",
-    hasTools && "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    hasTools && "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
   );
 
   const rowContent = (
