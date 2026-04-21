@@ -62,10 +62,26 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain('data-testid="parsed-markdown"');
   });
 
-  it("renders stable markdown blocks while keeping the trailing paragraph lightweight during streaming", () => {
+  it("defaults isStreaming to lightweight rendering (no ReactMarkdown thrash)", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"# Title\n\n- one\n- two\n\nTrailing paragraph"}
+        isStreaming
+      />,
+    );
+
+    expect(html).not.toContain('data-testid="parsed-markdown"');
+    expect(html).toContain("markdown-streaming-tail");
+    expect(html).toContain(">Title</span>");
+    expect(html).toContain(">•</span>");
+    expect(html).toContain("Trailing paragraph");
+  });
+
+  it("renders stable markdown blocks while keeping the trailing paragraph lightweight in hybrid mode", () => {
+    const html = renderToStaticMarkup(
+      <MarkdownRenderer
+        content={"# Title\n\n- one\n- two\n\nTrailing paragraph"}
+        mode="streaming-hybrid"
         isStreaming
       />,
     );
@@ -77,10 +93,11 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain("Trailing paragraph");
   });
 
-  it("keeps an unmatched fenced code block entirely in the lightweight tail", () => {
+  it("keeps an unmatched fenced code block entirely in the lightweight tail (hybrid split)", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"Intro\n\n```ts\nconst x = 1;"}
+        mode="streaming-hybrid"
         isStreaming
       />,
     );
@@ -92,10 +109,11 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain("const x = 1;");
   });
 
-  it("keeps a trailing list block lightweight until the stream finishes the block", () => {
+  it("keeps a trailing list block lightweight until the stream finishes the block (hybrid)", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"Intro\n\n- one\n- two"}
+        mode="streaming-hybrid"
         isStreaming
       />,
     );
@@ -123,10 +141,11 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain("markdown-streaming-tail");
   });
 
-  it("keeps an unfinished chunk-split link as raw lightweight tail text until it closes", () => {
+  it("keeps an unfinished chunk-split link as raw lightweight tail text until it closes (hybrid)", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"Visit [docs](https://example"}
+        mode="streaming-hybrid"
         isStreaming
       />,
     );
@@ -138,10 +157,11 @@ describe("MarkdownRenderer", () => {
     expect(html).not.toContain(">docs</a>");
   });
 
-  it("promotes the paragraph into parsed markdown once the block is closed", () => {
+  it("promotes the paragraph into parsed markdown once the block is closed (hybrid)", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"Visit [docs](https://example.com) and **pay attention**.\n\n"}
+        mode="streaming-hybrid"
         isStreaming
       />,
     );
@@ -212,10 +232,11 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain("你好，世界");
   });
 
-  it("promotes a closed CJK paragraph into parsed markdown", () => {
+  it("promotes a closed CJK paragraph into parsed markdown (hybrid)", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"你好，世界\n\n"}
+        mode="streaming-hybrid"
         isStreaming
       />,
     );

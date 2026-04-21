@@ -2,8 +2,8 @@ import { describe, expect, it } from "@jest/globals";
 import { getMarkdownRenderStrategy, splitStreamingMarkdown } from "./markdown-render-strategy";
 
 describe("markdown render strategy", () => {
-  it("uses the hybrid streaming strategy for in-flight content", () => {
-    expect(getMarkdownRenderStrategy(true)).toBe("streaming-hybrid");
+  it("uses the lightweight streaming strategy for in-flight content", () => {
+    expect(getMarkdownRenderStrategy(true)).toBe("streaming-light");
   });
 
   it("uses the settled strategy after streaming ends", () => {
