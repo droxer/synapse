@@ -11,6 +11,7 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 
 | Area | Examples |
 | --- | --- |
+| Search | `EXA_API_KEY` — enables the Exa AI-powered `exa_search` tool alongside Tavily |
 | Database | `DATABASE_URL` (SQLite default; PostgreSQL in production) |
 | Sandbox | `SANDBOX_PROVIDER` — `boxlite` or `e2b` in the current backend builder |
 | Cache | `REDIS_URL` |
