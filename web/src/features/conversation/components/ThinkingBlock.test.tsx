@@ -44,6 +44,20 @@ describe("ThinkingBlock", () => {
     expect(html).toContain("Working through the prompt.");
   });
 
+  it("renders expanded by default when mounted mid-stream", () => {
+    const html = renderToStaticMarkup(
+      <ThinkingBlock
+        content="Streaming reasoning that should stay open."
+        isThinking={false}
+        isTurnStreaming
+        durationMs={1800}
+      />,
+    );
+
+    expect(html).toContain("data-thinking-panel");
+    expect(html).toContain("Streaming reasoning that should stay open.");
+  });
+
   it("auto-collapses once the streaming turn settles", () => {
     expect(getNextThinkingBlockExpanded(true, true, false)).toBe(false);
     expect(getNextThinkingBlockExpanded(true, true, true)).toBe(true);

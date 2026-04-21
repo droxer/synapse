@@ -224,9 +224,14 @@ export function useConversation(
         const data = await createConversation(message, files, skills, usePlanner);
         setPendingConversationRoute(data.conversation_id);
         startConversation(data.conversation_id, message);
-        startTransition(() => {
-          router.push(getConversationPath(data.conversation_id));
-        });
+        // Update URL without triggering a Next.js navigation to avoid
+        // re-mounting the ConversationProvider tree that is already
+        // showing the workspace via isOptimisticallyStarting.
+        window.history.replaceState(
+          window.history.state,
+          "",
+          getConversationPath(data.conversation_id),
+        );
       } catch (err) {
         console.error("Failed to create conversation:", err);
         clearPendingConversationRoute();
@@ -248,7 +253,6 @@ export function useConversation(
     [
       buildOptimisticUserMessage,
       clearPendingConversationRoute,
-      router,
       setPendingConversationRoute,
       startConversation,
     ],

@@ -100,6 +100,7 @@ export const MessageRow = memo(function MessageRow({
   isLastAssistant,
   isStreamingThis,
   isThinkingThis,
+  suppressEmbeddedThinking = false,
   messageWidthClass,
   embeddedPlanSteps,
   index,
@@ -135,8 +136,8 @@ export const MessageRow = memo(function MessageRow({
   const imageUrls = getImageUrlsForMessage(msg);
   const hasPlanHere = embeddedPlanSteps.length > 0;
   const thinkingDisplay = selectThinkingDisplay(locale, msg.thinkingEntries, msg.thinkingContent);
-  const visibleThinkingEntries = thinkingDisplay.entries;
-  const visibleThinkingContent = thinkingDisplay.thinkingContent;
+  const visibleThinkingEntries = suppressEmbeddedThinking ? [] : thinkingDisplay.entries;
+  const visibleThinkingContent = suppressEmbeddedThinking ? null : thinkingDisplay.thinkingContent;
   const showOrphanThinkingContent = Boolean(visibleThinkingContent);
   const hasThinking =
     visibleThinkingEntries.length > 0 || showOrphanThinkingContent;
@@ -204,7 +205,7 @@ export const MessageRow = memo(function MessageRow({
               <div className="mb-2 space-y-1.5">
                 {visibleThinkingEntries.map((entry, entryIdx) => (
                   <ThinkingBlock
-                    key={`${msg.messageId ?? msg.timestamp}-thinking-${entry.timestamp ?? entryIdx}`}
+                    key={entry.timestamp ? `current-thinking-${entry.timestamp}` : `${msg.messageId ?? msg.timestamp}-thinking-${entryIdx}`}
                     content={entry.content}
                     isThinking={isThinkingThis && entryIdx === thinkingEntryCount - 1}
                     isTurnStreaming={isStreamingThis || isThinkingThis}
@@ -484,6 +485,10 @@ export function ConversationWorkspace({
                         msg.role === "assistant" &&
                         isLastAssistant &&
                         assistantPhase.phase === "thinking";
+                      const suppressEmbeddedThinking =
+                        msg.role === "assistant" &&
+                        isStreamingThis &&
+                        currentThinkingEntries.length > 0;
                       const embeddedPlanSteps =
                         i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
                       const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
@@ -495,6 +500,7 @@ export function ConversationWorkspace({
                           isLastAssistant={isLastAssistant}
                           isStreamingThis={isStreamingThis}
                           isThinkingThis={isThinkingThis}
+                          suppressEmbeddedThinking={suppressEmbeddedThinking}
                           messageWidthClass={messageWidthClass}
                           embeddedPlanSteps={embeddedPlanSteps}
                           index={i}
@@ -513,7 +519,21 @@ export function ConversationWorkspace({
                       </div>
                     )}
 
-                    {/* Standalone thinking + loading skeleton — fade out together */}
+                    {currentThinkingEntries.length > 0 && (
+                      <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
+                        {currentThinkingEntries.map((entry) => (
+                          <ThinkingBlock
+                            key={`current-thinking-${entry.timestamp}`}
+                            content={entry.content}
+                            isThinking={effectivePhase.phase === "thinking"}
+                            isTurnStreaming={isStreaming}
+                            durationMs={entry.durationMs}
+                          />
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Loading skeleton — independent from standalone thinking */}
                     <AnimatePresence>
                       {showLoadingSkeleton && (
                         <motion.div
@@ -523,19 +543,6 @@ export function ConversationWorkspace({
                           exit={{ opacity: 0 }}
                           transition={{ duration: 0.12 }}
                         >
-                          {currentThinkingEntries.length > 0 && (
-                            <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
-                              {currentThinkingEntries.map((entry) => (
-                                <ThinkingBlock
-                                  key={`current-thinking-${entry.timestamp}`}
-                                  content={entry.content}
-                                  isThinking={effectivePhase.phase === "thinking"}
-                                  isTurnStreaming={isStreaming}
-                                  durationMs={entry.durationMs}
-                                />
-                              ))}
-                            </div>
-                          )}
                           <div className="mt-3" role="status" aria-live="polite" aria-atomic="true">
                             <AssistantLoadingSkeleton phase={effectivePhase} />
                           </div>

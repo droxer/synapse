@@ -12,6 +12,7 @@ export interface MessageRowMemoProps {
   readonly conversationId: string | null;
   readonly taskState: TaskState;
   readonly locale: Locale;
+  readonly suppressEmbeddedThinking?: boolean;
   readonly onRetry?: () => void;
 }
 
@@ -66,6 +67,7 @@ export function areMessageRowsEqual(
     prev.isLastAssistant === next.isLastAssistant &&
     prev.isStreamingThis === next.isStreamingThis &&
     prev.isThinkingThis === next.isThinkingThis &&
+    prev.suppressEmbeddedThinking === next.suppressEmbeddedThinking &&
     prev.messageWidthClass === next.messageWidthClass &&
     arePlanStepsEqual(prev.embeddedPlanSteps, next.embeddedPlanSteps) &&
     prev.index === next.index &&

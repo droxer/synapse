@@ -34,7 +34,7 @@ export function ThinkingBlock({
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
   // Collapsed by default; auto-expand only while actively thinking.
-  const [expanded, setExpanded] = useState(isThinking);
+  const [expanded, setExpanded] = useState(isThinking || isTurnStreaming);
   const [showBottomFade, setShowBottomFade] = useState(false);
   const wasTurnStreamingRef = useRef(isTurnStreaming);
   const scrollRef = useRef<HTMLDivElement>(null);

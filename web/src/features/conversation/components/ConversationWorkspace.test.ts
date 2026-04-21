@@ -217,6 +217,39 @@ describe("areMessageRowsEqual", () => {
     ).toBe(false);
   });
 
+  it("invalidates the row when embedded thinking suppression changes", () => {
+    expect(
+      areMessageRowsEqual(
+        {
+          msg: baseMessage,
+          isLastAssistant: true,
+          isStreamingThis: true,
+          isThinkingThis: false,
+          suppressEmbeddedThinking: false,
+          messageWidthClass: "sm:max-w-[82%]",
+          embeddedPlanSteps: planSteps,
+          index: 1,
+          conversationId: "c1",
+          taskState: "executing",
+          locale: "en",
+        },
+        {
+          msg: { ...baseMessage },
+          isLastAssistant: true,
+          isStreamingThis: true,
+          isThinkingThis: false,
+          suppressEmbeddedThinking: true,
+          messageWidthClass: "sm:max-w-[82%]",
+          embeddedPlanSteps: planSteps,
+          index: 1,
+          conversationId: "c1",
+          taskState: "executing",
+          locale: "en",
+        },
+      ),
+    ).toBe(false);
+  });
+
   it("renders reasoning separately before the assistant response body", () => {
     const assistantMessage: ChatMessage = {
       ...baseMessage,
@@ -334,6 +367,43 @@ describe("ConversationWorkspace activity wiring", () => {
     expect(html).toContain("Check constraints.");
     expect(html).toContain("Extra inline rationale.");
     expect(html).toContain("Final answer body.");
+  });
+
+  it("keeps standalone reasoning visible during streaming without duplicating embedded reasoning", () => {
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [],
+      messages: [
+        { role: "user", content: "Explain it", timestamp: 100 },
+        {
+          messageId: "event-turn:1:assistant:0",
+          role: "assistant",
+          content: "Streaming answer body.",
+          timestamp: 101,
+          source: "event",
+          turnId: "event-turn:1",
+          thinkingEntries: [{ content: "## Inspect\n\nCheck constraints.", durationMs: 0, timestamp: 100 }],
+        },
+      ],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "executing",
+      currentThinkingEntries: [{ content: "## Inspect\n\nCheck constraints.", durationMs: 0, timestamp: 100 }],
+      isStreaming: true,
+      assistantPhase: { phase: "writing" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: false,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect((html.match(/data-thinking-block=/g) ?? [])).toHaveLength(1);
+    expect(html).toContain("Check constraints.");
+    expect(html).toContain("Streaming answer body.");
   });
 
   it("shows planner badge and checklist while explicit planner is pending before events arrive", () => {
