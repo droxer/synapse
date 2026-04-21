@@ -10,7 +10,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import column, func, select, table
+from sqlalchemy import column, func, select, table, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from agent.state.models import (
@@ -165,6 +165,17 @@ def _to_artifact(model: ArtifactModel) -> ArtifactRecord:
 class ConversationRepository:
     """Async repository for conversation persistence backed by PostgreSQL."""
 
+    async def _touch_conversation(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+    ) -> None:
+        await session.execute(
+            update(ConversationModel)
+            .where(ConversationModel.id == conversation_id)
+            .values(updated_at=datetime.now(timezone.utc))
+        )
+
     async def create_conversation(
         self,
         session: AsyncSession,
@@ -314,6 +325,7 @@ class ConversationRepository:
             iteration=iteration,
         )
         session.add(model)
+        await self._touch_conversation(session, conversation_id)
         await session.flush()
         await session.refresh(model)  # need generated timestamps before returning
         await session.commit()
@@ -367,6 +379,7 @@ class ConversationRepository:
             iteration=iteration,
         )
         session.add(model)
+        await self._touch_conversation(session, conversation_id)
         await session.commit()
 
     async def get_events(
@@ -414,6 +427,7 @@ class ConversationRepository:
             file_path=file_path,
         )
         session.add(model)
+        await self._touch_conversation(session, conversation_id)
         await session.flush()
         await session.refresh(model)  # need generated timestamps before returning
         await session.commit()

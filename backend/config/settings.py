@@ -151,6 +151,7 @@ class Settings(BaseSettings):
     MAX_SHELL_TOOLS_PER_TURN: int = 100
     AGENT_GLOBAL_TOKEN_BUDGET: int = 0  # 0 = disabled (sum of sub-agent metrics)
     PARALLEL_SAFE_TOOLS_ENABLED: bool = True
+    AGENT_DEBUG_LOGGING: bool = False
 
     # Auth (user identity comes from NextAuth via proxy headers)
     AUTH_REQUIRED: bool = False  # When False, unauthenticated requests are allowed

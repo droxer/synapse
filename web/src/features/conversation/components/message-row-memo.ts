@@ -56,6 +56,17 @@ export function areMessageRowsEqual(
     (prevMsg.imageArtifactIds?.length ?? 0) === (nextMsg.imageArtifactIds?.length ?? 0) &&
     (prevMsg.imageArtifactIds ?? []).every((artifactId, index) => artifactId === nextMsg.imageArtifactIds?.[index]);
 
+  const sameAttachments =
+    (prevMsg.attachments?.length ?? 0) === (nextMsg.attachments?.length ?? 0) &&
+    (prevMsg.attachments ?? []).every((att, index) => {
+      const nextAtt = nextMsg.attachments?.[index];
+      return (
+        att.name === nextAtt?.name &&
+        att.size === nextAtt?.size &&
+        att.type === nextAtt?.type
+      );
+    });
+
   return (
     prevMsg.messageId === nextMsg.messageId &&
     prevMsg.role === nextMsg.role &&
@@ -64,6 +75,7 @@ export function areMessageRowsEqual(
     prevMsg.thinkingContent === nextMsg.thinkingContent &&
     sameThinkingEntries &&
     sameImageIds &&
+    sameAttachments &&
     prev.isLastAssistant === next.isLastAssistant &&
     prev.isStreamingThis === next.isStreamingThis &&
     prev.isThinkingThis === next.isThinkingThis &&
@@ -74,6 +86,6 @@ export function areMessageRowsEqual(
     prev.conversationId === next.conversationId &&
     prev.taskState === next.taskState &&
     prev.locale === next.locale &&
-    Boolean(prev.onRetry) === Boolean(next.onRetry)
+    prev.onRetry === next.onRetry
   );
 }

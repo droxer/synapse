@@ -63,6 +63,14 @@ EXECUTION_SHAPE_PARALLEL = "parallel"
 EXECUTION_SHAPE_ORCHESTRATOR_WORKERS = "orchestrator_workers"
 _LOCALE_COOKIE_NAME = "synapse-locale"
 _SUPPORTED_UI_LOCALES = frozenset({"en", "zh-CN", "zh-TW"})
+_FOLLOW_UP_ROUTER_CUE_RE = re.compile(
+    r"\b("
+    r"planner|plan(?:\s+first)?|parallel|sub-?agents?|workers?|delegate|"
+    r"decompose|break\s+(?:it|this)\s+down|split\s+(?:it|this)\s+up|"
+    r"coordinate|specialist(?:s)?"
+    r")\b",
+    re.IGNORECASE,
+)
 
 
 class _BootstrapPendingOrchestrator:
@@ -288,7 +296,10 @@ async def _prepare_conversation_runtime(
 
     effective_memory_limit = memory_limit or settings.INITIAL_CONVERSATION_MEMORY_LIMIT
     memory_task = asyncio.create_task(
-        persistent_store.load_all(limit=effective_memory_limit)
+        _load_runtime_memory_entries(
+            persistent_store,
+            memory_limit=effective_memory_limit,
+        )
     )
     skill_task = asyncio.create_task(_build_user_skill_registry(state, user_id))
     mcp_enabled = user_id is not None and state.mcp_state is not None
@@ -357,6 +368,16 @@ async def _prepare_conversation_runtime(
     return orchestrator_executor
 
 
+async def _load_runtime_memory_entries(
+    persistent_store: PersistentMemoryStore,
+    *,
+    memory_limit: int | None = None,
+) -> list[dict[str, str]]:
+    settings = get_settings()
+    effective_limit = memory_limit or settings.INITIAL_CONVERSATION_MEMORY_LIMIT
+    return await persistent_store.load_all(limit=effective_limit)
+
+
 async def _bootstrap_and_run_initial_turn(
     state: AppState,
     *,
@@ -364,10 +385,7 @@ async def _bootstrap_and_run_initial_turn(
     message: str,
     attachments: tuple[FileAttachment, ...],
     selected_skills: tuple[str, ...],
-    initial_mode: str,
-    execution_shape: str,
-    execution_rationale: str,
-    explicit_planner: bool,
+    explicit_planner: bool | None,
     idempotency_key: str | None,
     user_id: uuid.UUID | None = None,
     turn_locale: str | None = None,
@@ -377,6 +395,19 @@ async def _bootstrap_and_run_initial_turn(
     entry = state.conversations[conversation_id]
 
     try:
+        # Resolve execution route here (in the background task) so the
+        # HTTP response is not blocked by the LLM classification call.
+        (
+            execution_shape,
+            execution_rationale,
+            initial_mode,
+            auto_detected,
+        ) = await _resolve_execution_route(
+            state.claude_client,
+            message,
+            explicit_planner,
+        )
+
         logger.info(
             "conversation_bootstrap_route_ready id={} mode={} shape={} duration_ms={}",
             conversation_id,
@@ -384,6 +415,10 @@ async def _bootstrap_and_run_initial_turn(
             execution_shape,
             _elapsed_ms(bootstrap_started_at),
         )
+
+        if auto_detected:
+            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
+
         effective_user_id = user_id
 
         orchestrator, executor = await _prepare_conversation_runtime(
@@ -414,12 +449,12 @@ async def _bootstrap_and_run_initial_turn(
         runtime_prompt_sections = _build_execution_shape_prompt_sections(
             execution_shape,
             execution_rationale,
-            explicit_planner=explicit_planner,
+            explicit_planner=explicit_planner is True,
         )
         turn_metadata = {
             "execution_shape": execution_shape,
             "execution_rationale": execution_rationale,
-            "explicit_planner": explicit_planner,
+            "explicit_planner": explicit_planner is True,
             **({"locale": turn_locale} if turn_locale else {}),
         }
 
@@ -546,6 +581,12 @@ def _planner_flag_to_mode(use_planner: bool | None) -> str | None:
     return ORCHESTRATOR_PLANNER if use_planner else ORCHESTRATOR_AGENT
 
 
+def _default_execution_shape_for_mode(mode: str) -> str:
+    if mode == ORCHESTRATOR_PLANNER:
+        return EXECUTION_SHAPE_ORCHESTRATOR_WORKERS
+    return EXECUTION_SHAPE_SINGLE_AGENT
+
+
 def _route_shape_to_mode(shape: str) -> str:
     if shape in (
         EXECUTION_SHAPE_PARALLEL,
@@ -553,6 +594,51 @@ def _route_shape_to_mode(shape: str) -> str:
     ):
         return ORCHESTRATOR_PLANNER
     return ORCHESTRATOR_AGENT
+
+
+def _reuse_follow_up_execution_route(
+    mode: str,
+) -> tuple[str, str, str, bool]:
+    shape = _default_execution_shape_for_mode(mode)
+    if mode == ORCHESTRATOR_PLANNER:
+        rationale = "reused existing planner mode for follow-up turn"
+    else:
+        rationale = "reused existing single-agent mode for follow-up turn"
+    return shape, rationale, mode, False
+
+
+async def _resolve_follow_up_execution_route(
+    claude_client: AnthropicClient,
+    entry: ConversationEntry,
+    message: str,
+    explicit_planner: bool | None,
+) -> tuple[str, str, str, bool]:
+    forced_mode = _planner_flag_to_mode(explicit_planner)
+    if forced_mode is not None:
+        rationale = (
+            "planner forced by user"
+            if forced_mode == ORCHESTRATOR_PLANNER
+            else "planner disabled by user"
+        )
+        return (
+            _default_execution_shape_for_mode(forced_mode),
+            rationale,
+            forced_mode,
+            False,
+        )
+
+    if _entry_runtime_ready(entry):
+        current_mode = entry.orchestrator_mode
+        if current_mode == ORCHESTRATOR_PLANNER:
+            return _reuse_follow_up_execution_route(current_mode)
+        if not _FOLLOW_UP_ROUTER_CUE_RE.search(message):
+            return _reuse_follow_up_execution_route(current_mode)
+
+    return await _resolve_execution_route(
+        claude_client,
+        message,
+        explicit_planner,
+    )
 
 
 async def _resolve_execution_route(
@@ -743,7 +829,7 @@ async def _reconstruct_conversation(
     )
 
     # Load user memories for system prompt injection
-    memory_entries = await persistent_store.load_all()
+    memory_entries = await _load_runtime_memory_entries(persistent_store)
 
     # Build a user-scoped skill registry for this conversation's owner
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
@@ -1144,16 +1230,9 @@ async def create_conversation(
             conversation_id=conversation_id,
             response_coordinator=getattr(state, "response_coordinator", None),
         )
-        (
-            execution_shape,
-            execution_rationale,
-            initial_mode,
-            auto_detected,
-        ) = await _resolve_execution_route(
-            state.claude_client,
-            message,
-            explicit_planner,
-        )
+        # Use a default mode for the initial entry; the background turn
+        # task will resolve the real execution route before running.
+        initial_mode = _planner_flag_to_mode(explicit_planner) or ORCHESTRATOR_AGENT
 
         event_queue: asyncio.Queue[AgentEvent | None] = asyncio.Queue(
             maxsize=_EVENT_QUEUE_MAXSIZE,
@@ -1217,10 +1296,8 @@ async def create_conversation(
         )
         emitter.subscribe(db_sub)
 
-        if auto_detected:
-            await entry.emitter.emit(EventType.PLANNER_AUTO_SELECTED, {})
-
-        # Start first turn
+        # Start first turn — execution route is resolved inside the
+        # background task so the HTTP response returns immediately.
         _start_turn_task(
             entry,
             _bootstrap_and_run_initial_turn(
@@ -1229,10 +1306,7 @@ async def create_conversation(
                 message=message,
                 attachments=attachments,
                 selected_skills=selected_skills,
-                initial_mode=initial_mode,
-                execution_shape=execution_shape,
-                execution_rationale=execution_rationale,
-                explicit_planner=explicit_planner is True,
+                explicit_planner=explicit_planner,
                 idempotency_key=idem_key,
                 user_id=user_id,
                 turn_locale=turn_locale,
@@ -1384,8 +1458,9 @@ async def send_message(
                         execution_rationale,
                         target_mode,
                         auto_detected,
-                    ) = await _resolve_execution_route(
+                    ) = await _resolve_follow_up_execution_route(
                         state.claude_client,
+                        entry,
                         message,
                         explicit_planner,
                     )
@@ -1419,7 +1494,9 @@ async def send_message(
                             user_id=convo.user_id,
                             conversation_id=conv_uuid,
                         )
-                        memory_entries = await persistent_store.load_all()
+                        memory_entries = await _load_runtime_memory_entries(
+                            persistent_store
+                        )
                         user_skill_registry = await _build_user_skill_registry(
                             state, convo.user_id
                         )
@@ -1507,19 +1584,6 @@ async def send_message(
 
             if wait_task is not None:
                 await wait_task
-
-        # Touch updated_at timestamp
-        try:
-            async with state.db_session_factory() as session:
-                await state.db_repo.update_conversation(
-                    session, uuid.UUID(conversation_id)
-                )
-        except Exception as exc:
-            logger.warning(
-                "failed_to_update_conversation_timestamp id={} error={}",
-                conversation_id,
-                exc,
-            )
 
         logger.info("message_sent conversation_id={}", conversation_id)
     return ConversationResponse(conversation_id=conversation_id)

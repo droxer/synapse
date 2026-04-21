@@ -22,6 +22,14 @@ _ANALYSIS_INTENT_RE = re.compile(
     r")\b",
     re.IGNORECASE,
 )
+_SKILL_MODEL_PROBE_RE = re.compile(
+    r"\b("
+    r"analy[sz]e|research|chart|plot|visuali[sz]e|review|audit|refactor|"
+    r"simplif(?:y|ication)|optimi[sz]e|improv(?:e|ement)|debug|fix|"
+    r"build|design|create|generate|install"
+    r")\b",
+    re.IGNORECASE,
+)
 _DATA_FILE_SUFFIXES = (
     ".csv",
     ".tsv",
@@ -157,6 +165,18 @@ def _select_data_analysis_from_attachments(
     return skill_registry.find_by_name("data-analysis")
 
 
+def _should_probe_model_selector(
+    user_message: str,
+    attachment_descriptors: tuple[AttachmentDescriptor, ...],
+    fallback: SkillContent | None,
+) -> bool:
+    if fallback is not None:
+        return True
+    if attachment_descriptors and _has_analysis_intent(user_message):
+        return True
+    return _SKILL_MODEL_PROBE_RE.search(user_message) is not None
+
+
 async def select_skill_for_message(
     *,
     user_message: str,
@@ -214,6 +234,14 @@ async def select_skill_for_message(
         if attachment_context
         else user_message
     )
+    fallback = skill_registry.match_description(selector_input)
+    if not _should_probe_model_selector(
+        user_message,
+        normalized_attachments,
+        fallback,
+    ):
+        logger.info("skill_selector_no_match")
+        return None
 
     # ---- tier 2: model-driven selection ------------------------------------
     catalog = skill_registry.catalog()
@@ -257,7 +285,5 @@ async def select_skill_for_message(
         )
 
     # ---- tier 3: keyword fallback ------------------------------------------
-    fallback = skill_registry.match_description(selector_input)
-    if fallback is not None:
-        logger.info("skill_selector_keyword_fallback name={}", fallback.metadata.name)
+    logger.info("skill_selector_keyword_fallback name={}", fallback.metadata.name)
     return fallback

@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useRef, useEffect, useState, useCallback, useMemo } from "react";
+import { memo, useRef, useEffect, useState, useCallback, useMemo, useDeferredValue } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip, MessageSquare } from "lucide-react";
 import { useStickyBottom } from "@/shared/hooks";
@@ -419,12 +419,15 @@ export function ConversationWorkspace({
     }
     return false;
   }, [messages]);
-  const showLoadingSkeleton =
+  const showLoadingSkeletonRaw =
     !userCancelled &&
     (isWaitingForAgent
       ? !currentTurnHasAssistantResponse
       : (assistantPhase.phase !== "idle" && !isStreaming)) &&
     messages.length > 0;
+  // Debounce the loading skeleton to prevent rapid show/hide oscillation
+  // during state transitions. This reduces visual flashing.
+  const showLoadingSkeleton = useDeferredValue(showLoadingSkeletonRaw);
   const showPlannerChecklist = planMessageIndex === null && effectivePlanSteps.length > 0;
   const showEmptyState = messages.length === 0 && !showPlannerChecklist;
 
@@ -491,7 +494,9 @@ export function ConversationWorkspace({
                         currentThinkingEntries.length > 0;
                       const embeddedPlanSteps =
                         i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
-                      const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${i}`;
+                      // Use a stable key that doesn't change during streaming.
+                      // For messages with IDs, use the ID. For others, use role + timestamp + content hash.
+                      const messageKey = msg.messageId ?? `${msg.role}-${msg.timestamp}-${msg.content.slice(0, 20)}`;
 
                       return (
                         <MessageRow

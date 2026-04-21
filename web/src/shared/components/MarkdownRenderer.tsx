@@ -412,6 +412,28 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
     ? ({ "--md-code-font-size": "var(--text-xs)" } as CSSProperties)
     : undefined;
 
+  // Memoize tail rendering to avoid re-computing on every character
+  const lightweightTail = useMemo(() => {
+    if (renderMode === "streaming-light") {
+      return renderLightweightTail(content);
+    }
+    return null;
+  }, [content, renderMode]);
+
+  const { stableContent, tailContent } = useMemo(() =>
+    renderMode === "streaming-hybrid"
+      ? splitStreamingMarkdown(content)
+      : { stableContent: content, tailContent: "" },
+    [content, renderMode]
+  );
+
+  const hybridTail = useMemo(() => {
+    if (renderMode === "streaming-hybrid" && tailContent) {
+      return renderLightweightTail(tailContent, stableContent ? "mt-[0.8rem]" : undefined);
+    }
+    return null;
+  }, [tailContent, stableContent, renderMode]);
+
   if (renderMode === "streaming-light") {
     return (
       <div
@@ -422,14 +444,12 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
           className,
         )}
       >
-        {renderLightweightTail(content)}
+        {lightweightTail}
       </div>
     );
   }
 
-  const { stableContent, tailContent } = renderMode === "streaming-hybrid"
-    ? splitStreamingMarkdown(content)
-    : { stableContent: content, tailContent: "" };
+
 
   return (
     <div
@@ -450,9 +470,7 @@ export const MarkdownRenderer = memo(function MarkdownRenderer({
           {stableContent}
         </ReactMarkdown>
       ) : null}
-      {renderMode === "streaming-hybrid"
-        ? renderLightweightTail(tailContent, stableContent ? "mt-[0.8rem]" : undefined)
-        : null}
+      {hybridTail}
     </div>
   );
 });

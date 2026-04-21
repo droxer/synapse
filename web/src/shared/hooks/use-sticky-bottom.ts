@@ -43,19 +43,22 @@ export function useStickyBottom(
       el.scrollTo({ top: el.scrollHeight, behavior });
     };
 
+    // Only observe the container element to avoid forced reflows
+    // from observing every child element during streaming.
     const ro = new ResizeObserver(() => {
       scrollToBottom();
     });
     ro.observe(el);
-    for (const child of Array.from(el.children)) {
-      ro.observe(child);
-    }
 
+    // Use a MutationObserver to detect content changes, but throttle
+    // the scroll-to-bottom to avoid layout thrashing.
+    let scrollRafId: number | null = null;
     const mo = new MutationObserver(() => {
-      for (const child of Array.from(el.children)) {
-        ro.observe(child);
-      }
-      scrollToBottom();
+      if (scrollRafId !== null) return;
+      scrollRafId = requestAnimationFrame(() => {
+        scrollRafId = null;
+        scrollToBottom();
+      });
     });
     mo.observe(el, { childList: true, subtree: true });
 
@@ -65,6 +68,9 @@ export function useStickyBottom(
       el.removeEventListener("scroll", onScroll);
       ro.disconnect();
       mo.disconnect();
+      if (scrollRafId !== null) {
+        cancelAnimationFrame(scrollRafId);
+      }
     };
   }, [ref, enabled, thresholdPx, behavior, distanceFromBottom]);
 }

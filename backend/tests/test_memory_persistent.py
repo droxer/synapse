@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import uuid
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.ext.asyncio import async_sessionmaker
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.memory.facts import FactCandidate, validate_fact_candidate
-from agent.memory.models import MemoryEntry, MemoryFactEntry
+from agent.memory.models import MemoryEntry, MemoryFactEntry, MemoryFactIngestion
 from agent.memory.store import PersistentMemoryStore
-from agent.state.models import UserModel
+from agent.state.models import Base, UserModel
 from agent.tools.local.memory_store import MemoryStore
 from agent.tools.local.memory_recall import MemoryRecall
 from agent.tools.local.memory_list import MemoryList
@@ -308,6 +309,163 @@ async def test_upsert_fact_same_value_is_idempotent(session) -> None:
     assert active[0].value == "English"
     assert active[0].confidence == 0.95
     assert stale == []
+
+
+@pytest.mark.asyncio
+async def test_mark_fact_ingestion_seen_is_idempotent_under_concurrency(
+    tmp_path,
+) -> None:
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'memory_concurrency_ingestion.db'}"
+    engine = create_async_engine(db_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(
+        bind=engine,
+        expire_on_commit=False,
+        class_=AsyncSession,
+    )
+
+    async with session_factory() as session:
+        user = UserModel(
+            id=uuid.uuid4(),
+            google_id=f"google_{uuid.uuid4().hex[:8]}",
+            email=f"{uuid.uuid4().hex[:8]}@example.com",
+            name="Fact Ingestion Concurrency User",
+        )
+        session.add(user)
+        await session.commit()
+        user_id = user.id
+
+    conversation_id = uuid.uuid4()
+
+    async def _mark_seen() -> bool:
+        store = PersistentMemoryStore(session_factory=session_factory, user_id=user_id)
+        return await store.mark_fact_ingestion_seen(
+            conversation_id=conversation_id,
+            turn_id="turn-1",
+        )
+
+    results = await asyncio.gather(*[_mark_seen() for _ in range(8)])
+
+    assert results.count(True) == 1
+    assert results.count(False) == 7
+
+    async with session_factory() as session:
+        ingestions = (
+            (await session.execute(select(MemoryFactIngestion))).scalars().all()
+        )
+        assert len(ingestions) == 1
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_upsert_fact_different_values_keeps_one_active_under_concurrency(
+    tmp_path,
+) -> None:
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'memory_concurrency_values.db'}"
+    engine = create_async_engine(db_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(
+        bind=engine,
+        expire_on_commit=False,
+        class_=AsyncSession,
+    )
+
+    async with session_factory() as session:
+        user = UserModel(
+            id=uuid.uuid4(),
+            google_id=f"google_{uuid.uuid4().hex[:8]}",
+            email=f"{uuid.uuid4().hex[:8]}@example.com",
+            name="Fact Value Concurrency User",
+        )
+        session.add(user)
+        await session.commit()
+        user_id = user.id
+
+    async def _write(value: str) -> None:
+        store = PersistentMemoryStore(session_factory=session_factory, user_id=user_id)
+        await store.upsert_fact(
+            namespace="profile",
+            key="timezone",
+            value=value,
+            confidence=0.90,
+        )
+
+    await asyncio.gather(_write("UTC+8"), _write("UTC+9"))
+
+    async with session_factory() as session:
+        rows = (
+            (
+                await session.execute(
+                    select(MemoryFactEntry).order_by(MemoryFactEntry.value.asc())
+                )
+            )
+            .scalars()
+            .all()
+        )
+
+    active = [row for row in rows if row.status == "active"]
+    stale = [row for row in rows if row.status == "stale"]
+
+    assert len(active) == 1
+    assert len(stale) == 1
+    assert {row.value for row in rows} == {"UTC+8", "UTC+9"}
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_upsert_fact_same_value_deduplicates_under_concurrency(
+    tmp_path,
+) -> None:
+    db_url = f"sqlite+aiosqlite:///{tmp_path / 'memory_concurrency_same_value.db'}"
+    engine = create_async_engine(db_url)
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(
+        bind=engine,
+        expire_on_commit=False,
+        class_=AsyncSession,
+    )
+
+    async with session_factory() as session:
+        user = UserModel(
+            id=uuid.uuid4(),
+            google_id=f"google_{uuid.uuid4().hex[:8]}",
+            email=f"{uuid.uuid4().hex[:8]}@example.com",
+            name="Fact Same Value Concurrency User",
+        )
+        session.add(user)
+        await session.commit()
+        user_id = user.id
+
+    async def _write() -> None:
+        store = PersistentMemoryStore(session_factory=session_factory, user_id=user_id)
+        await store.upsert_fact(
+            namespace="preferences",
+            key="language",
+            value="English",
+            confidence=0.95,
+        )
+
+    await asyncio.gather(*[_write() for _ in range(8)])
+
+    async with session_factory() as session:
+        rows = (await session.execute(select(MemoryFactEntry))).scalars().all()
+
+    active = [row for row in rows if row.status == "active"]
+    stale = [row for row in rows if row.status == "stale"]
+
+    assert len(active) == 1
+    assert active[0].value == "English"
+    assert stale == []
+
+    await engine.dispose()
 
 
 @pytest.mark.asyncio

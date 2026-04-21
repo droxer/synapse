@@ -5,7 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, String, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 
 from agent.state.models import Base
@@ -83,6 +83,15 @@ class MemoryFactEntry(Base):
         Index("ix_memory_facts_updated", "updated_at"),
         Index("ix_memory_facts_last_seen", "last_seen_at"),
         Index("ix_memory_facts_lookup", "user_id", "namespace", "key", "status"),
+        Index(
+            "ux_memory_facts_active_key",
+            "user_id",
+            "namespace",
+            "key",
+            unique=True,
+            postgresql_where=text("status = 'active'"),
+            sqlite_where=text("status = 'active'"),
+        ),
     )
 
 

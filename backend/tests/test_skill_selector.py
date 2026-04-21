@@ -131,6 +131,25 @@ class TestModelDrivenSelection:
     """When no explicit skill is selected, the LLM chooses."""
 
     @pytest.mark.asyncio
+    async def test_no_keyword_match_skips_model_call(self) -> None:
+        from agent.runtime.skill_selector import select_skill_for_message
+
+        registry = SkillRegistry((_make_skill("web-research", "Deep web research"),))
+        client = _mock_client(json.dumps({"skill": "web-research"}))
+
+        result = await select_skill_for_message(
+            user_message="what is 2+2",
+            selected_skills=(),
+            attachment_descriptors=(),
+            skill_registry=registry,
+            client=client,
+            model="claude-haiku-4-5-20251001",
+        )
+
+        assert result is None
+        client.create_message.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_model_picks_valid_skill(self) -> None:
         from agent.runtime.skill_selector import select_skill_for_message
 

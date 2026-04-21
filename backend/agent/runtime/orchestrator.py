@@ -3,12 +3,8 @@
 from __future__ import annotations
 
 import asyncio
-import json
-import time
 from dataclasses import dataclass, replace
-from pathlib import Path
 from typing import Any
-from uuid import uuid4
 
 from loguru import logger
 
@@ -56,35 +52,6 @@ from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
 from api.models import serialize_attachment_metadata
 from config.settings import get_settings
-
-_DEBUG_LOG_PATH = Path("/Users/feihe/Workspace/Synapse/.cursor/debug-caca61.log")
-_DEBUG_SESSION_ID = "caca61"
-
-
-def _emit_debug_log(
-    *,
-    run_id: str,
-    hypothesis_id: str,
-    location: str,
-    message: str,
-    data: dict[str, Any],
-) -> None:
-    payload = {
-        "sessionId": _DEBUG_SESSION_ID,
-        "id": f"log_{uuid4().hex}",
-        "timestamp": int(time.time() * 1000),
-        "runId": run_id,
-        "hypothesisId": hypothesis_id,
-        "location": location,
-        "message": message,
-        "data": data,
-    }
-    try:
-        _DEBUG_LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with _DEBUG_LOG_PATH.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(payload, ensure_ascii=True) + "\n")
-    except Exception:
-        return
 
 
 @dataclass(frozen=True)
@@ -714,25 +681,7 @@ class AgentOrchestrator:
             )
 
         llm_model = getattr(self._client, "default_model", "<unknown>")
-        message_chars = sum(
-            len(json.dumps(message, ensure_ascii=True)) for message in state.messages
-        )
-        # region agent log
-        _emit_debug_log(
-            run_id="initial",
-            hypothesis_id="H3",
-            location="backend/agent/runtime/orchestrator.py:_run_iteration:pre_call",
-            message="Orchestrator pre-LLM payload stats",
-            data={
-                "model": llm_model,
-                "iteration": state.iteration,
-                "messageCount": len(state.messages),
-                "messageChars": message_chars,
-                "toolCount": len(tools),
-                "systemPromptChars": len(effective_prompt),
-            },
-        )
-        # endregion
+        debug_logging_enabled = get_settings().AGENT_DEBUG_LOGGING
         try:
             thinking_emitted_during_stream = False
 
@@ -761,6 +710,15 @@ class AgentOrchestrator:
                 on_text_delta=_on_text_delta,
                 thinking_budget=self._thinking_budget,
             )
+            if debug_logging_enabled:
+                logger.debug(
+                    "orchestrator_llm_call model={} iteration={} messages={} tools={} thinking_budget={}",
+                    llm_model,
+                    state.iteration,
+                    len(state.messages),
+                    len(tools),
+                    self._thinking_budget,
+                )
             try:
                 response = await self._client.create_message_stream(
                     **stream_kwargs,
@@ -771,20 +729,13 @@ class AgentOrchestrator:
                     raise
                 response = await self._client.create_message_stream(**stream_kwargs)
         except Exception as exc:
-            # region agent log
-            _emit_debug_log(
-                run_id="initial",
-                hypothesis_id="H5",
-                location="backend/agent/runtime/orchestrator.py:_run_iteration:exception",
-                message="Orchestrator captured LLM exception",
-                data={
-                    "model": llm_model,
-                    "iteration": state.iteration,
-                    "errorType": type(exc).__name__,
-                    "errorText": str(exc)[:500],
-                },
-            )
-            # endregion
+            if debug_logging_enabled:
+                logger.debug(
+                    "orchestrator_llm_exception model={} iteration={} error_type={}",
+                    llm_model,
+                    state.iteration,
+                    type(exc).__name__,
+                )
             logger.error("llm_call_failed model={} error={}", llm_model, exc)
             return state.mark_error(format_llm_failure(exc))
 

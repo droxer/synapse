@@ -560,9 +560,11 @@ def _build_conversation_entry(orchestrator: object) -> ConversationEntry:
 
 class TestCreateConversationBootstrap:
     @pytest.mark.asyncio
-    async def test_create_conversation_classifies_initial_turn_before_background_bootstrap(
+    async def test_create_conversation_defers_classification_to_background_task(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
+        """Execution route classification is deferred to the background turn
+        task so the HTTP response returns immediately."""
         scheduled: list[object] = []
 
         def _fake_create_task(coro: object) -> SimpleNamespace:
@@ -615,11 +617,13 @@ class TestCreateConversationBootstrap:
         assert response.conversation_id
         assert response.conversation_id in state.conversations
         assert state.db_repo.create_conversation.await_count == 1
+        # Classification is deferred — entry starts with default mode
         assert (
             state.conversations[response.conversation_id].orchestrator_mode
-            == ORCHESTRATOR_PLANNER
+            == ORCHESTRATOR_AGENT
         )
-        assert resolve_route.await_count == 1
+        # _resolve_execution_route is NOT called during the request handler
+        assert resolve_route.await_count == 0
         assert len(scheduled) == 2
 
         for coro in scheduled:
@@ -628,10 +632,13 @@ class TestCreateConversationBootstrap:
                 close()
 
     @pytest.mark.asyncio
-    async def test_create_conversation_emits_planner_auto_selected_before_starting_turn(
+    async def test_create_conversation_defers_planner_auto_selected_to_background(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        started_with_event_types: list[str] = []
+        """The planner_auto_selected event is emitted by the background
+        bootstrap task (not the request handler) since execution route
+        classification is now deferred."""
+        scheduled_coros: list[object] = []
 
         @asynccontextmanager
         async def _session_factory():
@@ -677,14 +684,7 @@ class TestCreateConversationBootstrap:
             idempotency_key: str | None = None,
         ) -> None:
             del idempotency_key
-            try:
-                first_event = entry.event_queue.get_nowait()
-                started_with_event_types.append(first_event.type.value)
-            except asyncio.QueueEmpty:
-                started_with_event_types.append("missing")
-            close = getattr(coro, "close", None)
-            if callable(close):
-                close()
+            scheduled_coros.append(coro)
 
         monkeypatch.setattr(
             conversation_routes, "_start_turn_task", _fake_start_turn_task
@@ -702,11 +702,207 @@ class TestCreateConversationBootstrap:
             _fake_create_task,
         )
 
-        await create_conversation(
+        response = await create_conversation(
             _DummyRequest({"message": "hello"}), state=state, auth_user=None
         )
 
-        assert started_with_event_types == ["planner_auto_selected"]
+        # The event queue should be empty at request time — the
+        # planner_auto_selected event is emitted later in the bootstrap.
+        entry = state.conversations[response.conversation_id]
+        assert entry.event_queue.empty()
+
+        for coro in scheduled_coros:
+            close = getattr(coro, "close", None)
+            if callable(close):
+                close()
+
+
+class TestConversationMemoryLoading:
+    @pytest.mark.asyncio
+    async def test_reconstruct_conversation_uses_initial_memory_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        conversation_id = str(uuid.uuid4())
+        conv_uuid = uuid.UUID(conversation_id)
+        user_id = uuid.uuid4()
+        load_limits: list[int] = []
+
+        class _FakePersistentStore:
+            def __init__(self, *args, **kwargs) -> None:
+                del args, kwargs
+
+            async def load_all(self, limit: int = 100) -> list[dict[str, str]]:
+                load_limits.append(limit)
+                return []
+
+        state = SimpleNamespace(
+            db_session_factory=_noop_session_factory,
+            db_repo=SimpleNamespace(
+                get_conversation=AsyncMock(
+                    return_value=SimpleNamespace(
+                        id=conv_uuid,
+                        user_id=user_id,
+                        orchestrator_mode=ORCHESTRATOR_AGENT,
+                        context_summary=None,
+                    )
+                ),
+            ),
+            db_pending_writes=None,
+            skill_repo=None,
+            usage_repo=None,
+            response_coordinator=None,
+            claude_client=object(),
+            sandbox_provider=object(),
+            storage_backend=object(),
+            mcp_state=None,
+            conversations={},
+        )
+
+        monkeypatch.setattr(
+            conversation_routes,
+            "PersistentMemoryStore",
+            _FakePersistentStore,
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "get_settings",
+            lambda: SimpleNamespace(INITIAL_CONVERSATION_MEMORY_LIMIT=7),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "resolve_compaction_profile",
+            lambda settings, runtime: SimpleNamespace(),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_build_user_skill_registry",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_load_initial_messages_for_conversation",
+            AsyncMock(return_value=[]),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_build_orchestrator",
+            lambda *args, **kwargs: (object(), object()),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "create_db_subscriber",
+            lambda *args, **kwargs: AsyncMock(),
+        )
+
+        await conversation_routes._reconstruct_conversation(state, conversation_id)
+
+        assert load_limits == [7]
+
+    @pytest.mark.asyncio
+    async def test_mode_switch_rebuild_uses_initial_memory_limit(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        conversation_id = str(uuid.uuid4())
+        conv_uuid = uuid.UUID(conversation_id)
+        user_id = uuid.uuid4()
+        load_limits: list[int] = []
+
+        class _FakePersistentStore:
+            def __init__(self, *args, **kwargs) -> None:
+                del args, kwargs
+
+            async def load_all(self, limit: int = 100) -> list[dict[str, str]]:
+                load_limits.append(limit)
+                return []
+
+        planner_orchestrator = AsyncMock()
+        planner_orchestrator.run.return_value = "ok"
+        entry = _build_conversation_entry(AsyncMock())
+        state = SimpleNamespace(
+            conversations={conversation_id: entry},
+            claude_client=object(),
+            db_session_factory=_noop_session_factory,
+            db_repo=SimpleNamespace(
+                get_conversation=AsyncMock(
+                    return_value=SimpleNamespace(
+                        id=conv_uuid,
+                        user_id=user_id,
+                        orchestrator_mode=ORCHESTRATOR_AGENT,
+                        context_summary=None,
+                    )
+                ),
+                update_conversation=AsyncMock(),
+            ),
+            sandbox_provider=object(),
+            storage_backend=object(),
+            mcp_state=None,
+        )
+
+        monkeypatch.setattr(
+            conversation_routes,
+            "PersistentMemoryStore",
+            _FakePersistentStore,
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "get_settings",
+            lambda: SimpleNamespace(
+                INITIAL_CONVERSATION_MEMORY_LIMIT=7,
+                EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT=4,
+            ),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_resolve_execution_route",
+            AsyncMock(
+                return_value=(
+                    EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+                    "planner requested",
+                    ORCHESTRATOR_PLANNER,
+                    False,
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_build_user_skill_registry",
+            AsyncMock(return_value=None),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "resolve_compaction_profile",
+            lambda settings, runtime: SimpleNamespace(),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_load_initial_messages_for_conversation",
+            AsyncMock(return_value=[]),
+        )
+        monkeypatch.setattr(
+            conversation_routes,
+            "_build_planner_orchestrator",
+            lambda *args, **kwargs: (planner_orchestrator, AsyncMock()),
+        )
+
+        request = _DummyRequest(
+            {
+                "message": "plan this with workers",
+                "planner": True,
+                "skills": [],
+            }
+        )
+
+        await send_message(
+            request,
+            conversation_id=conversation_id,
+            state=state,
+            auth_user=None,
+        )
+
+        if entry.turn_task is not None:
+            await entry.turn_task
+
+        assert load_limits == [7]
 
 
 class TestResolveTurnLocale:
@@ -902,13 +1098,23 @@ async def test_send_message_emits_planner_auto_selected_before_starting_turn(
     conversation_id = str(uuid.uuid4())
     started_with_event_types: list[str] = []
     entry = _build_conversation_entry(AsyncMock())
-    entry.orchestrator_mode = ORCHESTRATOR_PLANNER
     entry.subscriber = conversation_routes._create_queue_subscriber(  # noqa: SLF001
         entry.event_queue,
         entry.pending_callbacks,
     )
     entry.emitter.subscribe(entry.subscriber)
     state = _build_state_with_entry(conversation_id, entry)
+    state.db_repo.get_conversation = AsyncMock(
+        return_value=SimpleNamespace(
+            id=uuid.UUID(conversation_id),
+            user_id=None,
+            orchestrator_mode=ORCHESTRATOR_AGENT,
+            context_summary=None,
+        )
+    )
+    state.sandbox_provider = object()
+    state.storage_backend = object()
+    state.mcp_state = None
 
     monkeypatch.setattr(
         conversation_routes,
@@ -921,6 +1127,31 @@ async def test_send_message_emits_planner_auto_selected_before_starting_turn(
                 True,
             )
         ),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_build_user_skill_registry",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_load_runtime_memory_entries",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_load_initial_messages_for_conversation",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_build_planner_orchestrator",
+        lambda *args, **kwargs: (AsyncMock(), AsyncMock()),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "resolve_compaction_profile",
+        lambda settings, runtime: SimpleNamespace(),
     )
 
     def _fake_start_turn_task(
@@ -942,10 +1173,101 @@ async def test_send_message_emits_planner_auto_selected_before_starting_turn(
     monkeypatch.setattr(conversation_routes, "_start_turn_task", _fake_start_turn_task)
 
     await send_message(
-        _DummyRequest({"message": "hello", "skills": []}),
+        _DummyRequest({"message": "split this into parallel workers", "skills": []}),
         conversation_id=conversation_id,
         state=state,
         auth_user=None,
     )
 
     assert started_with_event_types == ["planner_auto_selected"]
+
+
+@pytest.mark.asyncio
+async def test_send_message_reuses_existing_mode_without_router(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conversation_id = str(uuid.uuid4())
+    orchestrator = AsyncMock()
+    orchestrator.run.return_value = "ok"
+    entry = _build_conversation_entry(orchestrator)
+    state = _build_state_with_entry(conversation_id, entry)
+    resolve_route = AsyncMock()
+
+    monkeypatch.setattr(conversation_routes, "_resolve_execution_route", resolve_route)
+
+    await send_message(
+        _DummyRequest({"message": "hello again", "skills": []}),
+        conversation_id=conversation_id,
+        state=state,
+        auth_user=None,
+    )
+
+    if entry.turn_task is not None:
+        await entry.turn_task
+
+    resolve_route.assert_not_awaited()
+    orchestrator.run.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_send_message_routes_when_follow_up_has_planner_cue(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    conversation_id = str(uuid.uuid4())
+    entry = _build_conversation_entry(AsyncMock())
+    state = _build_state_with_entry(conversation_id, entry)
+    resolve_route = AsyncMock(
+        return_value=(
+            EXECUTION_SHAPE_ORCHESTRATOR_WORKERS,
+            "planner requested",
+            ORCHESTRATOR_PLANNER,
+            False,
+        )
+    )
+
+    monkeypatch.setattr(conversation_routes, "_resolve_execution_route", resolve_route)
+    monkeypatch.setattr(
+        conversation_routes,
+        "_build_user_skill_registry",
+        AsyncMock(return_value=None),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_load_runtime_memory_entries",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_load_initial_messages_for_conversation",
+        AsyncMock(return_value=[]),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_build_planner_orchestrator",
+        lambda *args, **kwargs: (AsyncMock(), AsyncMock()),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "resolve_compaction_profile",
+        lambda settings, runtime: SimpleNamespace(),
+    )
+    state.db_repo.get_conversation = AsyncMock(
+        return_value=SimpleNamespace(
+            id=uuid.UUID(conversation_id),
+            user_id=None,
+            orchestrator_mode=ORCHESTRATOR_AGENT,
+            context_summary=None,
+        )
+    )
+    state.sandbox_provider = object()
+    state.storage_backend = object()
+    state.mcp_state = None
+
+    await send_message(
+        _DummyRequest({"message": "break this down into workers", "skills": []}),
+        conversation_id=conversation_id,
+        state=state,
+        auth_user=None,
+    )
+
+    resolve_route.assert_awaited_once()

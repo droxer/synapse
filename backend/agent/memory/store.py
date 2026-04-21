@@ -6,11 +6,20 @@ import uuid
 from datetime import datetime, timezone
 
 from sqlalchemy import and_, desc, func, or_, select, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from agent.memory.facts import normalize_fact_key
 from agent.memory.models import MemoryEntry
 from agent.memory.models import MemoryFactEntry, MemoryFactIngestion
+
+_FACT_UPSERT_RETRIES = 3
+
+
+def _is_unique_violation(error: IntegrityError) -> bool:
+    """Best-effort cross-database unique-conflict detection."""
+    message = str(getattr(error, "orig", error)).lower()
+    return "unique" in message or "duplicate" in message
 
 
 class PersistentMemoryStore:
@@ -193,15 +202,6 @@ class PersistentMemoryStore:
         """Return False when turn was already processed, True on first-seen."""
         user_id = self._require_user_id()
         async with self._session_factory() as session:
-            existing = await session.execute(
-                select(MemoryFactIngestion).where(
-                    MemoryFactIngestion.conversation_id == conversation_id,
-                    MemoryFactIngestion.turn_id == turn_id,
-                )
-            )
-            if existing.scalar_one_or_none() is not None:
-                return False
-
             session.add(
                 MemoryFactIngestion(
                     conversation_id=conversation_id,
@@ -209,8 +209,14 @@ class PersistentMemoryStore:
                     user_id=user_id,
                 )
             )
-            await session.commit()
-            return True
+            try:
+                await session.commit()
+                return True
+            except IntegrityError as exc:
+                await session.rollback()
+                if _is_unique_violation(exc):
+                    return False
+                raise
 
     async def upsert_fact(
         self,
@@ -230,68 +236,79 @@ class PersistentMemoryStore:
 
         normalized_ns = namespace.strip().lower()
         normalized_key = normalize_fact_key(normalized_ns, key)
-        now = datetime.now(timezone.utc)
+        normalized_value = value.strip()
 
-        async with self._session_factory() as session:
-            existing_stmt = select(MemoryFactEntry).where(
-                MemoryFactEntry.user_id == user_id,
-                MemoryFactEntry.namespace == normalized_ns,
-                MemoryFactEntry.key == normalized_key,
-                MemoryFactEntry.status == "active",
-            )
-            existing_result = await session.execute(existing_stmt)
-            active = existing_result.scalars().all()
-            normalized_value = value.strip()
-            matching = [row for row in active if row.value == normalized_value]
+        for attempt in range(_FACT_UPSERT_RETRIES):
+            now = datetime.now(timezone.utc)
+            async with self._session_factory() as session:
+                existing_stmt = (
+                    select(MemoryFactEntry)
+                    .where(
+                        MemoryFactEntry.user_id == user_id,
+                        MemoryFactEntry.namespace == normalized_ns,
+                        MemoryFactEntry.key == normalized_key,
+                        MemoryFactEntry.status == "active",
+                    )
+                    .order_by(
+                        MemoryFactEntry.updated_at.desc(),
+                        MemoryFactEntry.created_at.desc(),
+                        MemoryFactEntry.id.desc(),
+                    )
+                )
+                existing_result = await session.execute(existing_stmt)
+                active = existing_result.scalars().all()
+                keeper = next(
+                    (row for row in active if row.value == normalized_value),
+                    None,
+                )
 
-            if matching:
-                keeper = max(matching, key=lambda row: row.updated_at)
-                keeper.confidence = confidence
-                keeper.source = source
-                keeper.source_chat_id = source_chat_id
-                keeper.evidence_snippet = evidence_snippet
-                keeper.last_seen_at = now
-                keeper.updated_at = now
-                for row in active:
-                    if row.id != keeper.id:
+                if keeper is not None:
+                    keeper.confidence = confidence
+                    keeper.source = source
+                    keeper.source_chat_id = source_chat_id
+                    keeper.evidence_snippet = evidence_snippet
+                    keeper.last_seen_at = now
+                    keeper.updated_at = now
+                    for row in active:
+                        if row.id != keeper.id:
+                            row.status = "stale"
+                            row.updated_at = now
+                else:
+                    for row in active:
                         row.status = "stale"
                         row.updated_at = now
-                await session.commit()
-                return {
-                    "namespace": normalized_ns,
-                    "key": normalized_key,
-                    "value": normalized_value,
-                    "confidence": str(confidence),
-                    "status": "active",
-                }
 
-            for row in active:
-                row.status = "stale"
-                row.updated_at = now
+                    session.add(
+                        MemoryFactEntry(
+                            user_id=user_id,
+                            namespace=normalized_ns,
+                            key=normalized_key,
+                            value=normalized_value,
+                            confidence=confidence,
+                            status="active",
+                            source=source,
+                            source_chat_id=source_chat_id,
+                            evidence_snippet=evidence_snippet,
+                            last_seen_at=now,
+                        )
+                    )
 
-            session.add(
-                MemoryFactEntry(
-                    user_id=user_id,
-                    namespace=normalized_ns,
-                    key=normalized_key,
-                    value=normalized_value,
-                    confidence=confidence,
-                    status="active",
-                    source=source,
-                    source_chat_id=source_chat_id,
-                    evidence_snippet=evidence_snippet,
-                    last_seen_at=now,
-                )
-            )
-            await session.commit()
+                try:
+                    await session.commit()
+                    return {
+                        "namespace": normalized_ns,
+                        "key": normalized_key,
+                        "value": normalized_value,
+                        "confidence": str(confidence),
+                        "status": "active",
+                    }
+                except IntegrityError as exc:
+                    await session.rollback()
+                    if attempt < _FACT_UPSERT_RETRIES - 1 and _is_unique_violation(exc):
+                        continue
+                    raise
 
-        return {
-            "namespace": normalized_ns,
-            "key": normalized_key,
-            "value": normalized_value,
-            "confidence": str(confidence),
-            "status": "active",
-        }
+        raise RuntimeError("memory fact upsert retries exhausted")
 
     async def list_active_facts(self, limit: int = 50) -> list[dict[str, str]]:
         """Return active facts for the current user."""

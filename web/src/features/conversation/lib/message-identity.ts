@@ -168,7 +168,33 @@ export function reconcileOptimisticConversationMessages(
     return [...transcriptMessages];
   }
 
-  const mergedTranscript = [...transcriptMessages];
+  // Defensive deduplication: remove transcript messages that are exact
+  // duplicates of optimistic messages (same role, content, and near timestamp).
+  // This prevents both the optimistic and transcript versions from appearing
+  // when the reconciliation match fails due to stale counts or timing issues.
+  const dedupedTranscript: ChatMessage[] = [];
+  const seenTranscriptKeys = new Set<string>();
+  for (const tMsg of transcriptMessages) {
+    const key = `${tMsg.role}:${normalizeComparableMessageContent(tMsg.content)}:${tMsg.timestamp}`;
+    if (seenTranscriptKeys.has(key)) continue;
+
+    // Check if this transcript message is an exact duplicate of any optimistic user message
+    const isDuplicateOfOptimistic = localMessages.some((lMsg) => {
+      if (lMsg.role !== tMsg.role) return false;
+      if (lMsg.source !== "optimistic") return false;
+      if (normalizeComparableMessageContent(lMsg.content) !== normalizeComparableMessageContent(tMsg.content)) {
+        return false;
+      }
+      return Math.abs(lMsg.timestamp - tMsg.timestamp) <= DEFAULT_MATCH_WINDOW_MS;
+    });
+
+    if (!isDuplicateOfOptimistic) {
+      seenTranscriptKeys.add(key);
+      dedupedTranscript.push(tMsg);
+    }
+  }
+
+  const mergedTranscript = [...dedupedTranscript];
   const claimedTranscriptIndexes = new Set<number>();
   const matchedLocalMessageIds = new Set<string>();
 
@@ -184,7 +210,7 @@ export function reconcileOptimisticConversationMessages(
     }
 
     let transcriptUserOrdinal = 0;
-    for (let transcriptIndex = 0; transcriptIndex < transcriptMessages.length; transcriptIndex += 1) {
+    for (let transcriptIndex = 0; transcriptIndex < mergedTranscript.length; transcriptIndex += 1) {
       const transcriptMessage = transcriptMessages[transcriptIndex]!;
       if (transcriptMessage.role !== "user") {
         continue;

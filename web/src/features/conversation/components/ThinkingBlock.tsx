@@ -36,20 +36,30 @@ export function ThinkingBlock({
   // Collapsed by default; auto-expand only while actively thinking.
   const [expanded, setExpanded] = useState(isThinking || isTurnStreaming);
   const [showBottomFade, setShowBottomFade] = useState(false);
-  const wasTurnStreamingRef = useRef(isTurnStreaming);
+  const isThinkingRef = useRef(isThinking);
+  const isTurnStreamingRef = useRef(isTurnStreaming);
+  const hasBeenThinkingRef = useRef(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
 
-  // Auto-expand when thinking starts, auto-collapse when streaming turn finishes.
   useEffect(() => {
+    isThinkingRef.current = isThinking;
     if (isThinking) {
+      hasBeenThinkingRef.current = true;
       setExpanded(true);
     }
   }, [isThinking]);
 
   useEffect(() => {
-    setExpanded((prev) => getNextThinkingBlockExpanded(prev, wasTurnStreamingRef.current, isTurnStreaming));
-    wasTurnStreamingRef.current = isTurnStreaming;
+    const prevTurnStreaming = isTurnStreamingRef.current;
+    isTurnStreamingRef.current = isTurnStreaming;
+
+    // Only collapse when streaming actually finishes (true → false transition)
+    // and we had been thinking in this turn.
+    if (prevTurnStreaming && !isTurnStreaming && hasBeenThinkingRef.current) {
+      setExpanded(false);
+      hasBeenThinkingRef.current = false;
+    }
   }, [isTurnStreaming]);
 
   const checkOverflow = useCallback(() => {
