@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: str
     ANTHROPIC_BASE_URL: str = "https://api.anthropic.com"
     TAVILY_API_KEY: str
+    EXA_API_KEY: str = ""  # Optional; enables the Exa AI-powered search tool
     REDIS_URL: str = "redis://localhost:6379"
     DATABASE_URL: str = "sqlite+aiosqlite:///./synapse.db"
     PLANNING_MODEL: str = "claude-sonnet-4-20250514"
