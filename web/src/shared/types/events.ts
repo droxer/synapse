@@ -330,7 +330,13 @@ export interface PlanStep {
   readonly name: string;
   readonly description: string;
   readonly executionType: "planner_owned" | "sequential_worker" | "parallel_worker";
-  readonly status: "pending" | "running" | "complete" | "error";
+  readonly status:
+    | "pending"
+    | "running"
+    | "complete"
+    | "error"
+    | "skipped"
+    | "replan_required";
   readonly agentId?: string;
 }
 

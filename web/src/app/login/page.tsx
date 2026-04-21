@@ -256,7 +256,7 @@ export default function LoginPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-background" role="status">
-          <div className="h-8 w-full max-w-sm rounded skeleton-shimmer bg-muted" />
+          <div className="h-8 w-full max-w-md rounded skeleton-shimmer bg-muted" />
           <span className="sr-only">Loading...</span>
         </div>
       }

@@ -103,7 +103,8 @@ export function SkillsPage() {
   const { getAllSkills, refetch, isLoading } = useSkillsCache();
   const skills = getAllSkills();
 
-  const [error, setError] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
+  const [dialogError, setDialogError] = useState<string | null>(null);
   const [filter, setFilter] = useState("");
 
   const {
@@ -135,13 +136,13 @@ export function SkillsPage() {
     if (installSource === "upload") {
       if (!selectedFiles || selectedFiles.length === 0) return;
       setSubmitting(true);
-      setError(null);
+      setDialogError(null);
       try {
         await uploadSkill(selectedFiles);
         refetch();
         resetForm();
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to upload skill");
+        setDialogError(err instanceof Error ? err.message : "Failed to upload skill");
       } finally {
         setSubmitting(false);
       }
@@ -150,13 +151,13 @@ export function SkillsPage() {
 
     if (!formUrl.trim()) return;
     setSubmitting(true);
-    setError(null);
+    setDialogError(null);
     try {
       await installSkill({ url: formUrl.trim() });
       refetch();
       resetForm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to install skill");
+      setDialogError(err instanceof Error ? err.message : "Failed to install skill");
     } finally {
       setSubmitting(false);
     }
@@ -191,7 +192,7 @@ export function SkillsPage() {
         setIsFolderUpload(true);
         setFolderName(entry.name);
       } else if (files.length > 0) {
-        setError("Only .zip and .md files are supported");
+        setDialogError("Only .zip and .md files are supported");
       }
     } else if (e.dataTransfer.files.length > 0) {
       const dropped = Array.from(e.dataTransfer.files);
@@ -201,32 +202,32 @@ export function SkillsPage() {
         setIsFolderUpload(false);
         setFolderName("");
       } else {
-        setError("Only .zip and .md files are supported");
+        setDialogError("Only .zip and .md files are supported");
       }
     }
   }, [isAcceptedFile, setFolderName, setIsDragging, setIsFolderUpload, setSelectedFiles]);
 
   const handleDelete = useCallback(async () => {
     if (!skillToDelete) return;
-    setError(null);
+    setPageError(null);
     try {
       await uninstallSkill(skillToDelete);
       refetch();
       setSkillToDelete(null);
     } catch (err) {
-      setError(
+      setPageError(
         err instanceof Error ? err.message : "Failed to uninstall skill",
       );
     }
   }, [refetch, skillToDelete]);
 
   const handleToggle = useCallback(async (name: string, enabled: boolean) => {
-    setError(null);
+    setPageError(null);
     try {
       await toggleSkill(name, enabled);
       refetch();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to toggle skill");
+      setPageError(err instanceof Error ? err.message : "Failed to toggle skill");
     }
   }, [refetch]);
 
@@ -322,8 +323,8 @@ export function SkillsPage() {
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
         <div className="mx-auto max-w-6xl space-y-5">
           {/* Error banner */}
-          {error && (
-            <ErrorBanner message={error} onDismiss={() => setError(null)} />
+          {pageError && (
+            <ErrorBanner message={pageError} onDismiss={() => setPageError(null)} />
           )}
 
           {/* Section header with search + install */}
@@ -482,7 +483,7 @@ export function SkillsPage() {
       </div>
 
       {/* ── Install skill dialog ── */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
+      <Dialog open={showForm} onOpenChange={(open) => { if (!open) { resetForm(); setDialogError(null); } }}>
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
             <DialogTitle>{t("skills.installFormTitle")}</DialogTitle>
@@ -491,8 +492,8 @@ export function SkillsPage() {
 
           <div className="space-y-4">
             {/* Error inside dialog */}
-            {error && (
-              <ErrorBanner message={error} onDismiss={() => setError(null)} variant="compact" />
+            {dialogError && (
+              <ErrorBanner message={dialogError} onDismiss={() => setDialogError(null)} variant="compact" />
             )}
 
             {/* Source toggle */}

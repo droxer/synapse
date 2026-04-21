@@ -16,8 +16,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("# Title\n\n- one\n- two\n\nTrailing paragraph"),
     ).toEqual({
-      stableContent: "# Title\n\n- one\n- two\n\nTrailing paragraph",
-      tailContent: "",
+      stableContent: "# Title\n\n- one\n- two\n\n",
+      tailContent: "Trailing paragraph",
     });
   });
 
@@ -72,6 +72,78 @@ describe("splitStreamingMarkdown", () => {
     ).toEqual({
       stableContent: "Intro ",
       tailContent: "**partial",
+    });
+  });
+
+  it("keeps completed links and emphasis fully parsed while streaming", () => {
+    expect(
+      splitStreamingMarkdown("Visit [docs](https://example.com) and **pay attention**."),
+    ).toEqual({
+      stableContent: "",
+      tailContent: "Visit [docs](https://example.com) and **pay attention**.",
+    });
+  });
+
+  it("keeps completed emphasis with trailing punctuation fully parsed", () => {
+    expect(
+      splitStreamingMarkdown("Keep *moving*."),
+    ).toEqual({
+      stableContent: "",
+      tailContent: "Keep *moving*.",
+    });
+  });
+
+  it("keeps completed inline code with trailing text fully parsed", () => {
+    expect(
+      splitStreamingMarkdown("Use `npm test` before merging."),
+    ).toEqual({
+      stableContent: "",
+      tailContent: "Use `npm test` before merging.",
+    });
+  });
+
+  it("keeps a truly partial single-emphasis span in the lightweight tail", () => {
+    expect(
+      splitStreamingMarkdown("Keep *moving"),
+    ).toEqual({
+      stableContent: "Keep ",
+      tailContent: "*moving",
+    });
+  });
+
+  it("keeps a single in-progress paragraph in the lightweight tail", () => {
+    expect(
+      splitStreamingMarkdown("A plain streaming paragraph"),
+    ).toEqual({
+      stableContent: "",
+      tailContent: "A plain streaming paragraph",
+    });
+  });
+
+  it("keeps a plain CJK paragraph in the lightweight tail while it is still open", () => {
+    expect(
+      splitStreamingMarkdown("你好，世界"),
+    ).toEqual({
+      stableContent: "",
+      tailContent: "你好，世界",
+    });
+  });
+
+  it("promotes a paragraph once a blank line closes it", () => {
+    expect(
+      splitStreamingMarkdown("First paragraph\n\n"),
+    ).toEqual({
+      stableContent: "First paragraph\n\n",
+      tailContent: "",
+    });
+  });
+
+  it("promotes a CJK paragraph once a blank line closes it", () => {
+    expect(
+      splitStreamingMarkdown("你好，世界\n\n"),
+    ).toEqual({
+      stableContent: "你好，世界\n\n",
+      tailContent: "",
     });
   });
 });

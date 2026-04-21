@@ -446,6 +446,8 @@
   "plan.statusRunning": "Running",
   "plan.statusComplete": "Done",
   "plan.statusError": "Failed",
+  "plan.statusSkipped": "Skipped",
+  "plan.statusReplanRequired": "Needs replan",
 
   "tools.arg.url": "URL",
   "tools.arg.task": "Task",

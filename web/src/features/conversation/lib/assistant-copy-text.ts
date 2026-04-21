@@ -14,6 +14,8 @@ const PLAN_STATUS_I18N: Record<PlanStep["status"], string> = {
   running: "plan.statusRunning",
   complete: "plan.statusComplete",
   error: "plan.statusError",
+  skipped: "plan.statusSkipped",
+  replan_required: "plan.statusReplanRequired",
 };
 
 function getPlanStatusLabel(status: PlanStep["status"], t: (key: string) => string): string {

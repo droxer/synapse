@@ -445,6 +445,8 @@
   "plan.statusRunning": "執行中",
   "plan.statusComplete": "已完成",
   "plan.statusError": "失敗",
+  "plan.statusSkipped": "已跳過",
+  "plan.statusReplanRequired": "需要重新規劃",
 
   "tools.arg.url": "網址",
   "tools.arg.task": "任務",

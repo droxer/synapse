@@ -60,20 +60,34 @@ export function ThinkingBlock({
     setShowBottomFade(hasOverflow && !isAtBottom);
   }, []);
 
+  // Throttled version for high-frequency observers (ResizeObserver, scroll)
+  const rafRef = useRef<number | null>(null);
+  const throttledCheckOverflow = useCallback(() => {
+    if (rafRef.current !== null) return;
+    rafRef.current = requestAnimationFrame(() => {
+      rafRef.current = null;
+      checkOverflow();
+    });
+  }, [checkOverflow]);
+
   useEffect(() => {
     const el = scrollRef.current;
     if (!el || !expanded) return;
 
     checkOverflow();
-    el.addEventListener("scroll", checkOverflow, { passive: true });
-    const observer = new ResizeObserver(checkOverflow);
+    el.addEventListener("scroll", throttledCheckOverflow, { passive: true });
+    const observer = new ResizeObserver(throttledCheckOverflow);
     observer.observe(el);
 
     return () => {
-      el.removeEventListener("scroll", checkOverflow);
+      el.removeEventListener("scroll", throttledCheckOverflow);
       observer.disconnect();
+      if (rafRef.current !== null) {
+        cancelAnimationFrame(rafRef.current);
+        rafRef.current = null;
+      }
     };
-  }, [expanded, content, checkOverflow]);
+  }, [expanded, content, checkOverflow, throttledCheckOverflow]);
 
   if (!content) return null;
 

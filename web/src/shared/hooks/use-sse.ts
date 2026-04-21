@@ -11,6 +11,29 @@ import { API_BASE, MAX_RETRIES, BASE_DELAY_MS, MAX_DELAY_MS } from "@/shared/con
 
 const SSE_EVENT_NAMES: readonly string[] = [...EVENT_TYPES, "done"] as const;
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
+export const BUFFER_FLUSH_FALLBACK_MS = 50;
+
+interface BufferFlushSchedule {
+  readonly rafId: number | null;
+  readonly timeoutId: ReturnType<typeof setTimeout> | null;
+}
+
+type BufferFlushCallback = () => void;
+type BufferFlushTimeoutHandle = ReturnType<typeof setTimeout>;
+
+interface BufferFlushScheduler {
+  readonly requestAnimationFrame: (callback: BufferFlushCallback) => number;
+  readonly cancelAnimationFrame: (id: number) => void;
+  readonly setTimeout: (callback: BufferFlushCallback, delay: number) => BufferFlushTimeoutHandle;
+  readonly clearTimeout: (id: BufferFlushTimeoutHandle) => void;
+}
+
+const DEFAULT_BUFFER_FLUSH_SCHEDULER: BufferFlushScheduler = {
+  requestAnimationFrame: (callback) => requestAnimationFrame(callback),
+  cancelAnimationFrame: (id) => cancelAnimationFrame(id),
+  setTimeout: (callback, delay) => setTimeout(callback, delay),
+  clearTimeout: (id) => clearTimeout(id),
+};
 
 function normalizeTimestamp(ts: unknown): number {
   if (typeof ts === "number") {
@@ -245,6 +268,7 @@ export function parseSSEEvent(rawJson: string, fallbackEventType: EventType): Ag
 // Events that should flush the buffer immediately (user-facing or terminal).
 const FLUSH_IMMEDIATELY = new Set<string>([
   "ask_user",
+  "llm_response",
   "task_error",
   "task_complete",
   "turn_complete",
@@ -259,6 +283,35 @@ export function shouldFlushEventImmediately(eventType: string): boolean {
   return FLUSH_IMMEDIATELY.has(eventType);
 }
 
+export function clearScheduledBufferFlush(
+  schedule: BufferFlushSchedule,
+  scheduler: BufferFlushScheduler = DEFAULT_BUFFER_FLUSH_SCHEDULER,
+): BufferFlushSchedule {
+  if (schedule.rafId !== null) {
+    scheduler.cancelAnimationFrame(schedule.rafId);
+  }
+  if (schedule.timeoutId !== null) {
+    scheduler.clearTimeout(schedule.timeoutId);
+  }
+
+  return { rafId: null, timeoutId: null };
+}
+
+export function ensureBufferFlushScheduled(
+  schedule: BufferFlushSchedule,
+  flushBuffer: () => void,
+  scheduler: BufferFlushScheduler = DEFAULT_BUFFER_FLUSH_SCHEDULER,
+): BufferFlushSchedule {
+  if (schedule.rafId !== null || schedule.timeoutId !== null) {
+    return schedule;
+  }
+
+  return {
+    rafId: scheduler.requestAnimationFrame(flushBuffer),
+    timeoutId: scheduler.setTimeout(flushBuffer, BUFFER_FLUSH_FALLBACK_MS),
+  };
+}
+
 export function useSSE(conversationId: string | null, isLive = true) {
   const [events, setEvents] = useState<AgentEvent[]>([]);
   const [isConnected, setIsConnected] = useState(false);
@@ -271,26 +324,40 @@ export function useSSE(conversationId: string | null, isLive = true) {
   // --- Event batching: buffer events and flush once per animation frame ---
   const bufferRef = useRef<AgentEvent[]>([]);
   const rafIdRef = useRef<number | null>(null);
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearPendingBufferFlush = useCallback(() => {
+    const cleared = clearScheduledBufferFlush({
+      rafId: rafIdRef.current,
+      timeoutId: flushTimerRef.current,
+    });
+    rafIdRef.current = cleared.rafId;
+    flushTimerRef.current = cleared.timeoutId;
+  }, []);
 
   const flushBuffer = useCallback(() => {
-    rafIdRef.current = null;
+    clearPendingBufferFlush();
     if (bufferRef.current.length === 0) return;
     const batch = bufferRef.current;
     bufferRef.current = [];
     setEvents((prev) => [...prev, ...batch]);
-  }, []);
+  }, [clearPendingBufferFlush]);
 
   const enqueueEvent = useCallback(
     (agentEvent: AgentEvent) => {
       bufferRef.current.push(agentEvent);
       if (shouldFlushEventImmediately(agentEvent.type)) {
-        // Cancel pending RAF and flush synchronously for important events.
-        if (rafIdRef.current !== null) {
-          cancelAnimationFrame(rafIdRef.current);
-        }
         flushBuffer();
-      } else if (rafIdRef.current === null) {
-        rafIdRef.current = requestAnimationFrame(flushBuffer);
+      } else {
+        const scheduled = ensureBufferFlushScheduled(
+          {
+            rafId: rafIdRef.current,
+            timeoutId: flushTimerRef.current,
+          },
+          flushBuffer,
+        );
+        rafIdRef.current = scheduled.rafId;
+        flushTimerRef.current = scheduled.timeoutId;
       }
     },
     [flushBuffer],
@@ -298,9 +365,6 @@ export function useSSE(conversationId: string | null, isLive = true) {
 
   const cleanup = useCallback(() => {
     // Flush any remaining buffered events before tearing down.
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-    }
     flushBuffer();
 
     if (retryTimerRef.current !== null) {
@@ -423,10 +487,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
   const clearLastTurn = useCallback(() => {
     // Drain any in-flight buffered events so they don't leak into the retried turn.
     bufferRef.current = [];
-    if (rafIdRef.current !== null) {
-      cancelAnimationFrame(rafIdRef.current);
-      rafIdRef.current = null;
-    }
+    clearPendingBufferFlush();
 
     setEvents((prev) => {
       // Find the last turn_start — everything from there is the turn we're retrying
@@ -440,7 +501,7 @@ export function useSSE(conversationId: string | null, isLive = true) {
       if (lastTurnStart === -1) return [];
       return prev.slice(0, lastTurnStart);
     });
-  }, []);
+  }, [clearPendingBufferFlush]);
 
   return { events, isConnected, clearLastTurn };
 }

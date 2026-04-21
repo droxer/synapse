@@ -79,6 +79,136 @@ function stringArraysEqual(a: readonly string[] | undefined, b: readonly string[
   return true;
 }
 
+const MATCH_WINDOW_MS = 30_000;
+
+function normalizeComparableContent(content: string): string {
+  return content.trim().replace(/\s+/g, " ");
+}
+
+function getBucket(timestamp: number): number {
+  return Math.floor(timestamp / MATCH_WINDOW_MS);
+}
+
+function areNearbyBuckets(aTimestamp: number, bTimestamp: number): boolean {
+  return Math.abs(getBucket(aTimestamp) - getBucket(bTimestamp)) <= 1;
+}
+
+function getSharedPrefixLength(a: string, b: string): number {
+  const limit = Math.min(a.length, b.length);
+  let length = 0;
+  while (length < limit && a[length] === b[length]) {
+    length += 1;
+  }
+  return length;
+}
+
+interface ContentMatchMetadata {
+  readonly exactContent: boolean;
+  readonly sharedPrefixLength: number;
+}
+
+function getContentMatchMetadata(
+  historyMessage: ChatMessage,
+  eventDerivedMessage: ChatMessage,
+): ContentMatchMetadata | null {
+  const historyContent = normalizeComparableContent(historyMessage.content);
+  const eventContent = normalizeComparableContent(eventDerivedMessage.content);
+
+  if (historyContent === eventContent) {
+    return {
+      exactContent: true,
+      sharedPrefixLength: historyContent.length,
+    };
+  }
+
+  if (historyMessage.role !== "assistant" || !historyContent || !eventContent) {
+    return null;
+  }
+
+  if (historyContent.startsWith(eventContent) || eventContent.startsWith(historyContent)) {
+    return {
+      exactContent: false,
+      sharedPrefixLength: getSharedPrefixLength(historyContent, eventContent),
+    };
+  }
+
+  return null;
+}
+
+interface MatchCandidate {
+  readonly index: number;
+  readonly exactContent: boolean;
+  readonly sharedPrefixLength: number;
+  readonly timestampDelta: number;
+}
+
+function isBetterMatchCandidate(
+  candidate: MatchCandidate,
+  currentBest: MatchCandidate | null,
+): boolean {
+  if (currentBest === null) {
+    return true;
+  }
+  if (candidate.exactContent !== currentBest.exactContent) {
+    return candidate.exactContent;
+  }
+  if (candidate.sharedPrefixLength !== currentBest.sharedPrefixLength) {
+    return candidate.sharedPrefixLength > currentBest.sharedPrefixLength;
+  }
+  if (candidate.timestampDelta !== currentBest.timestampDelta) {
+    return candidate.timestampDelta < currentBest.timestampDelta;
+  }
+  return candidate.index > currentBest.index;
+}
+
+/**
+ * Reconcile a persisted history row with the matching event-derived bubble.
+ *
+ * Message IDs are authoritative when they line up. Otherwise we fall back to
+ * role + nearby timestamp bucket + content compatibility, where assistant
+ * rows can match on exact text or partial/final prefix expansion.
+ */
+function findDuplicateIndex(
+  historyMessage: ChatMessage,
+  eventDerivedMessages: readonly ChatMessage[],
+  claimedIndexes: ReadonlySet<number>,
+): number | undefined {
+  if (historyMessage.messageId) {
+    for (let i = 0; i < eventDerivedMessages.length; i += 1) {
+      if (claimedIndexes.has(i)) continue;
+      if (eventDerivedMessages[i]?.messageId === historyMessage.messageId) {
+        return i;
+      }
+    }
+  }
+
+  let bestMatch: MatchCandidate | null = null;
+
+  for (let i = 0; i < eventDerivedMessages.length; i += 1) {
+    if (claimedIndexes.has(i)) continue;
+
+    const candidate = eventDerivedMessages[i]!;
+    if (candidate.role !== historyMessage.role) continue;
+    if (!areNearbyBuckets(historyMessage.timestamp, candidate.timestamp)) continue;
+
+    const contentMatch = getContentMatchMetadata(historyMessage, candidate);
+    if (contentMatch === null) continue;
+
+    const matchCandidate: MatchCandidate = {
+      index: i,
+      exactContent: contentMatch.exactContent,
+      sharedPrefixLength: contentMatch.sharedPrefixLength,
+      timestampDelta: Math.abs(historyMessage.timestamp - candidate.timestamp),
+    };
+
+    if (isBetterMatchCandidate(matchCandidate, bestMatch)) {
+      bestMatch = matchCandidate;
+    }
+  }
+
+  return bestMatch?.index;
+}
+
 /**
  * Merges DB-persisted transcript rows with event-replayed messages.
  *
@@ -96,36 +226,26 @@ export function mergeHistoryWithEventDerivedMessages(
   }
 
   const merged: ChatMessage[] = [...eventDerivedMessages];
-  const indexByKey = new Map<string, number>();
-  for (let i = 0; i < merged.length; i++) {
-    const m = merged[i]!;
-    const bucket = Math.floor(m.timestamp / 30_000);
-    const key1 = `${m.role}|${bucket}|${m.content}`;
-    const key2 = `${m.role}|${bucket + 1}|${m.content}`;
-    const key3 = `${m.role}|${bucket - 1}|${m.content}`;
-    if (!indexByKey.has(key1)) indexByKey.set(key1, i);
-    if (!indexByKey.has(key2)) indexByKey.set(key2, i);
-    if (!indexByKey.has(key3)) indexByKey.set(key3, i);
-  }
-
+  const claimedIndexes = new Set<number>();
   const orphans: ChatMessage[] = [];
 
   for (const hm of historyMessages) {
-    const bucket = Math.floor(hm.timestamp / 30_000);
-    const lookupKey = `${hm.role}|${bucket}|${hm.content}`;
-    const duplicateIdx =
-      indexByKey.get(lookupKey)
-      ?? indexByKey.get(`${hm.role}|${bucket + 1}|${hm.content}`)
-      ?? indexByKey.get(`${hm.role}|${bucket - 1}|${hm.content}`);
+    const duplicateIdx = findDuplicateIndex(hm, merged, claimedIndexes);
 
     if (duplicateIdx !== undefined) {
+      claimedIndexes.add(duplicateIdx);
       const existing = merged[duplicateIdx]!;
       // Same bubble may appear in both tables; combine extras from either side.
+      // History often has the richer row (thinking entries, artifact IDs) while
+      // events have the streaming-derived row with partial content.
       const hasNewArtifacts = (hm.imageArtifactIds?.length ?? 0) > 0;
       const hasNewThinking = (hm.thinkingEntries?.length ?? 0) > 0;
       const hasNewThinkingContent = Boolean(hm.thinkingContent && !existing.thinkingContent);
       const hasNewAttachments = (hm.attachments?.length ?? 0) > 0;
-      if (hasNewArtifacts || hasNewThinking || hasNewThinkingContent || hasNewAttachments) {
+      // If history has longer content (final vs streaming partial), prefer it.
+      const historyHasFullerContent = hm.content.length > existing.content.length;
+
+      if (hasNewArtifacts || hasNewThinking || hasNewThinkingContent || hasNewAttachments || historyHasFullerContent) {
         const mergedArtifactIds = hasNewArtifacts
           ? appendUniqueStrings(existing.imageArtifactIds, hm.imageArtifactIds!)
           : existing.imageArtifactIds;
@@ -136,8 +256,10 @@ export function mergeHistoryWithEventDerivedMessages(
         const mergedAttachments = hasNewAttachments
           ? appendUniqueAttachments(existing.attachments, hm.attachments!)
           : existing.attachments;
+        const mergedContent = historyHasFullerContent ? hm.content : existing.content;
 
         if (
+          mergedContent === existing.content &&
           mergedThinkingContent === existing.thinkingContent &&
           mergedAttachments === existing.attachments &&
           stringArraysEqual(mergedArtifactIds, existing.imageArtifactIds) &&
@@ -148,6 +270,7 @@ export function mergeHistoryWithEventDerivedMessages(
 
         merged[duplicateIdx] = {
           ...existing,
+          content: mergedContent,
           thinkingContent: mergedThinkingContent,
           attachments: mergedAttachments,
           imageArtifactIds: mergedArtifactIds,
@@ -163,13 +286,42 @@ export function mergeHistoryWithEventDerivedMessages(
     return merged;
   }
 
+  // Insert orphans into the merged array while preserving causal order.
+  // The merged array is in event-arrival (causal) order, NOT timestamp order.
+  // We find the correct insertion point by locating the nearest event-derived
+  // message with a close timestamp and inserting after it, rather than using
+  // strict timestamp comparison which breaks when timestamps are non-monotonic.
   orphans.sort((a, b) => a.timestamp - b.timestamp);
+
+  // Build insertion plan first, then apply all at once to avoid index shifting.
+  const insertions: Array<{ afterIndex: number; message: ChatMessage }> = [];
+
   for (const o of orphans) {
-    const pos = merged.findIndex((m) => m.timestamp > o.timestamp);
-    if (pos === -1) {
-      merged.push(o);
+    // Find the last message in merged whose timestamp is <= orphan's timestamp.
+    // This preserves causal ordering: the orphan goes after the most recent
+    // event-derived message that preceded it chronologically.
+    let bestIdx = -1;
+    let bestDelta = Infinity;
+    for (let i = 0; i < merged.length; i++) {
+      const delta = o.timestamp - merged[i]!.timestamp;
+      if (delta >= 0 && delta < bestDelta) {
+        bestDelta = delta;
+        bestIdx = i;
+      }
+    }
+    insertions.push({ afterIndex: bestIdx, message: o });
+  }
+
+  // Sort insertions by target position (descending) so splicing from the end
+  // doesn't shift earlier indices.
+  insertions.sort((a, b) => b.afterIndex - a.afterIndex);
+
+  for (const { afterIndex, message } of insertions) {
+    if (afterIndex === -1) {
+      // Orphan predates all event-derived messages — prepend.
+      merged.unshift(message);
     } else {
-      merged.splice(pos, 0, o);
+      merged.splice(afterIndex + 1, 0, message);
     }
   }
 

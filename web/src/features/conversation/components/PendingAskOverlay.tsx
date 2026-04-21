@@ -1,11 +1,11 @@
 "use client";
 
 import { InputPrompt } from "./InputPrompt";
-import { useConversationContext } from "../hooks/use-conversation-context";
+import { useConversationState, useConversationActions } from "../hooks/use-conversation-context";
 
 export function PendingAskOverlay() {
-  const { pendingAsk, handlePromptSubmit, respondError } =
-    useConversationContext();
+  const { pendingAsk, respondError } = useConversationState();
+  const { handlePromptSubmit } = useConversationActions();
 
   if (!pendingAsk) return null;
 

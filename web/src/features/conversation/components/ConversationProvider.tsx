@@ -22,7 +22,7 @@ import type {
   PlanStep,
 } from "@/shared/types";
 
-export interface ConversationContextValue {
+export interface ConversationStateValue {
   readonly conversationId: string | null;
   readonly events: readonly AgentEvent[];
   readonly isConnected: boolean;
@@ -44,19 +44,32 @@ export interface ConversationContextValue {
   readonly explicitPlannerPending: boolean;
   readonly isWaitingForAgent: boolean;
   readonly userCancelled: boolean;
+  readonly createError: string | null;
+  readonly pendingAsk: ReturnType<typeof usePendingAsk>["pendingAsk"];
+  readonly respondError: string | null;
+  readonly isLoadingHistory: boolean;
+}
+
+export interface ConversationActionsValue {
   readonly handleSendMessage: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   readonly handleCreateConversation: (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => void;
   readonly handleSwitchConversation: (conversationId: string) => void;
   readonly handleNewConversation: () => void;
   readonly handleCancel: () => void;
   readonly handleRetry: () => void;
-  readonly createError: string | null;
-  readonly pendingAsk: ReturnType<typeof usePendingAsk>["pendingAsk"];
   readonly handlePromptSubmit: (response: string) => Promise<void>;
-  readonly respondError: string | null;
-  readonly isLoadingHistory: boolean;
 }
 
+/** @deprecated Use ConversationStateValue & ConversationActionsValue instead */
+export type ConversationContextValue = ConversationStateValue & ConversationActionsValue;
+
+export const ConversationStateContext =
+  createContext<ConversationStateValue | null>(null);
+
+export const ConversationActionsContext =
+  createContext<ConversationActionsValue | null>(null);
+
+/** @deprecated Kept for backward compatibility — prefer the split contexts */
 export const ConversationContext =
   createContext<ConversationContextValue | null>(null);
 
@@ -181,7 +194,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     [pendingSelectedSkills, toolCalls],
   );
 
-  const value = useMemo<ConversationContextValue>(
+  const stateValue = useMemo<ConversationStateValue>(
     () => ({
       conversationId,
       events: effectiveEvents,
@@ -204,15 +217,8 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       explicitPlannerPending,
       isWaitingForAgent: effectiveIsWaitingForAgent,
       userCancelled: effectiveUserCancelled,
-      handleSendMessage,
-      handleCreateConversation,
-      handleSwitchConversation,
-      handleNewConversation,
-      handleCancel,
-      handleRetry,
       createError,
       pendingAsk,
-      handlePromptSubmit,
       respondError,
       isLoadingHistory,
     }),
@@ -222,16 +228,39 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       currentIteration, reasoningSteps, thinkingContent, thinkingDurationMs,
       currentThinkingEntries, effectiveIsStreaming, assistantPhase, artifacts,
       allMessages, pendingSelectedSkills, effectiveIsWaitingForAgent, effectiveUserCancelled,
-      explicitPlannerPending,
-      handleSendMessage, handleCreateConversation, handleSwitchConversation,
-      handleNewConversation, handleCancel, handleRetry, createError,
-      pendingAsk, handlePromptSubmit, respondError, isLoadingHistory,
+      explicitPlannerPending, createError, pendingAsk, respondError, isLoadingHistory,
     ],
   );
 
+  const actionsValue = useMemo<ConversationActionsValue>(
+    () => ({
+      handleSendMessage,
+      handleCreateConversation,
+      handleSwitchConversation,
+      handleNewConversation,
+      handleCancel,
+      handleRetry,
+      handlePromptSubmit,
+    }),
+    [
+      handleSendMessage, handleCreateConversation, handleSwitchConversation,
+      handleNewConversation, handleCancel, handleRetry, handlePromptSubmit,
+    ],
+  );
+
+  // Combined value for backward compat
+  const combinedValue = useMemo<ConversationContextValue>(
+    () => ({ ...stateValue, ...actionsValue }),
+    [stateValue, actionsValue],
+  );
+
   return (
-    <ConversationContext.Provider value={value}>
-      {children}
+    <ConversationContext.Provider value={combinedValue}>
+      <ConversationActionsContext.Provider value={actionsValue}>
+        <ConversationStateContext.Provider value={stateValue}>
+          {children}
+        </ConversationStateContext.Provider>
+      </ConversationActionsContext.Provider>
     </ConversationContext.Provider>
   );
 }

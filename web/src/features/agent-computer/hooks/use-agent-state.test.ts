@@ -131,6 +131,52 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.timestamp).toBe(10);
   });
 
+  it.each([
+    {
+      name: "a markdown link",
+      chunks: ["Visit [docs](", "https://example.com", ") now"],
+      expected: "Visit [docs](https://example.com) now",
+    },
+    {
+      name: "bold and italic emphasis",
+      chunks: ["Keep **bo", "ld** and *ita", "lic*"],
+      expected: "Keep **bold** and *italic*",
+    },
+    {
+      name: "inline code",
+      chunks: ["Use `np", "m test` before ", "merging."],
+      expected: "Use `npm test` before merging.",
+    },
+    {
+      name: "a fenced code block",
+      chunks: ["```ts\nconst x", " = 1;\ncon", "sole.log(x);\n```"],
+      expected: "```ts\nconst x = 1;\nconsole.log(x);\n```",
+    },
+    {
+      name: "an unordered list",
+      chunks: ["- first\n", "- sec", "ond"],
+      expected: "- first\n- second",
+    },
+    {
+      name: "an ordered list",
+      chunks: ["1. first\n", "2. sec", "ond"],
+      expected: "1. first\n2. second",
+    },
+  ])("concatenates chunked $name across text_delta events into one live assistant message", ({ chunks, expected }) => {
+    const events: AgentEvent[] = chunks.map((delta, index) => ({
+      type: "text_delta",
+      data: { delta },
+      timestamp: 10 + index,
+      iteration: 1,
+    }));
+
+    const state = deriveAgentState(events);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe(expected);
+    expect(state.messages[0]?.timestamp).toBe(10);
+  });
+
   it("ignores worker text_delta events when building the main assistant stream", () => {
     const events: AgentEvent[] = [
       {
@@ -174,29 +220,29 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Deep research summary");
   });
 
-  it("does not materialize terminal llm_response when turn_complete finalizes the same turn", () => {
+  it("preserves streaming text when llm_response has end_turn stop_reason", () => {
     const events: AgentEvent[] = [
       {
         type: "text_delta",
-        data: { delta: "Deep research " },
+        data: { delta: "Hello " },
         timestamp: 10,
         iteration: 1,
       },
       {
         type: "text_delta",
-        data: { delta: "summary" },
+        data: { delta: "world" },
         timestamp: 20,
         iteration: 1,
       },
       {
         type: "llm_response",
-        data: { text: "Deep research summary", stop_reason: "end_turn" },
+        data: { text: "Hello world", stop_reason: "end_turn" },
         timestamp: 30,
         iteration: 1,
       },
       {
         type: "turn_complete",
-        data: { result: "Deep research summary" },
+        data: { result: "Hello world" },
         timestamp: 40,
         iteration: 1,
       },
@@ -204,7 +250,30 @@ describe("deriveAgentState", () => {
 
     const state = deriveAgentState(events);
     expect(state.messages).toHaveLength(1);
-    expect(state.messages[0]?.content).toBe("Deep research summary");
+    expect(state.messages[0]?.content).toBe("Hello world");
+    expect(state.isStreaming).toBe(false);
+  });
+
+  it("materializes streaming text when turn_complete has no result", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Streamed content" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: {},
+        timestamp: 40,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Streamed content");
+    expect(state.isStreaming).toBe(false);
   });
 
   it("does not duplicate when message_user matches streamed text (task agents emit no llm_response)", () => {
@@ -234,6 +303,34 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Full research report");
   });
 
+  it("does not duplicate when chunked CJK text is finalized by message_user", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "你好，" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "世界" },
+        timestamp: 20,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "你好，世界" },
+        timestamp: 30,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("你好，世界");
+  });
+
   it("does not duplicate when turn_complete matches streamed text without a terminal llm_response", () => {
     const events: AgentEvent[] = [
       {
@@ -253,6 +350,40 @@ describe("deriveAgentState", () => {
     const state = deriveAgentState(events);
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0]?.content).toBe("Same body");
+  });
+
+  it("does not duplicate when an emoji split across deltas is finalized by turn_complete", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Launch " },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "\uD83D" },
+        timestamp: 20,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "\uDE80 now" },
+        timestamp: 30,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Launch 🚀 now" },
+        timestamp: 40,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Launch 🚀 now");
   });
 
   it("materializes final assistant message from task_complete.summary", () => {
@@ -799,6 +930,50 @@ describe("deriveAgentState", () => {
     expect(state.agentStatuses[0]?.status).toBe("skipped");
   });
 
+  it("preserves skipped planner step status when a bound worker is skipped", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "plan this", orchestrator_mode: "planner" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "plan_created",
+        data: {
+          steps: [
+            {
+              name: "Research topic",
+              description: "Collect source material.",
+              execution_type: "parallel_worker",
+            },
+          ],
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "agent_spawn",
+        data: { agent_id: "agent-1", name: "Research topic agent", description: "Collect source material." },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "agent_complete",
+        data: { agent_id: "agent-1", terminal_state: "skipped" },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.planSteps[0]).toMatchObject({
+      name: "Research topic",
+      agentId: "agent-1",
+      status: "skipped",
+    });
+  });
+
   it("sets artifact createdAt from event timestamp on artifact_created", () => {
     const ts = new Date("2026-01-15T14:30:00.000Z").getTime();
     const events: AgentEvent[] = [
@@ -825,8 +1000,22 @@ describe("deriveAgentState", () => {
   it("preserves replan_required status from dedicated agent events", () => {
     const events: AgentEvent[] = [
       {
+        type: "plan_created",
+        data: {
+          steps: [
+            {
+              name: "Build feature",
+              description: "Implement the feature.",
+              execution_type: "parallel_worker",
+            },
+          ],
+        },
+        timestamp: 0,
+        iteration: 1,
+      },
+      {
         type: "agent_spawn",
-        data: { agent_id: "agent-2", name: "builder", description: "Build feature" },
+        data: { agent_id: "agent-2", name: "Build feature agent", description: "Build feature" },
         timestamp: 1,
         iteration: 1,
       },
@@ -847,6 +1036,55 @@ describe("deriveAgentState", () => {
     const state = deriveAgentState(events);
     expect(state.agentStatuses).toHaveLength(1);
     expect(state.agentStatuses[0]?.status).toBe("replan_required");
+    expect(state.planSteps[0]).toMatchObject({
+      name: "Build feature",
+      agentId: "agent-2",
+      status: "replan_required",
+    });
+  });
+
+  it("preserves replan_required planner step status from agent_complete", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "plan this", orchestrator_mode: "planner" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "plan_created",
+        data: {
+          steps: [
+            {
+              name: "Build feature",
+              description: "Implement the feature.",
+              execution_type: "parallel_worker",
+            },
+          ],
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "agent_spawn",
+        data: { agent_id: "agent-2", name: "Build feature agent", description: "Implement the feature." },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "agent_complete",
+        data: { agent_id: "agent-2", terminal_state: "replan_required" },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.planSteps[0]).toMatchObject({
+      name: "Build feature",
+      agentId: "agent-2",
+      status: "replan_required",
+    });
   });
 
   it("reuses unchanged earlier message objects when only the streaming tail grows", () => {

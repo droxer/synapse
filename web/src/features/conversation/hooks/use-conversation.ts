@@ -9,7 +9,11 @@ import {
   cancelTurn,
   retryTurn,
 } from "../api/conversation-api";
-import { createOptimisticMessageId, mergeConversationMessages } from "../lib/message-identity";
+import {
+  createOptimisticMessageId,
+  reconcileOptimisticConversationMessages,
+  type OptimisticUserMatchState,
+} from "../lib/message-identity";
 import { getConversationPath } from "../lib/routes";
 import type { AgentEvent, AssistantPhase, ChatMessage, TaskState } from "@/shared/types";
 
@@ -75,8 +79,11 @@ export function useConversation(
   const [createError, setCreateError] = useState<string | null>(null);
   const [pendingSelectedSkills, setPendingSelectedSkills] = useState<PendingSelectedSkill[]>([]);
   const [explicitPlannerPending, setExplicitPlannerPending] = useState(false);
+  const eventsLengthRef = useRef(events.length);
+  eventsLengthRef.current = events.length;
   const eventCountAtSendRef = useRef(events.length);
   const optimisticMessageSequenceRef = useRef(0);
+  const optimisticUserMatchStateRef = useRef<Map<string, OptimisticUserMatchState>>(new Map());
 
   const conversationId = useAppStore((s) => s.conversationId);
   const isLiveConversation = useAppStore((s) => s.isLiveConversation);
@@ -136,6 +143,7 @@ export function useConversation(
     prevConversationIdRef.current = conversationId;
     if (prev !== null && prev !== conversationId) {
       setUserMessages([]);
+      optimisticUserMatchStateRef.current = new Map();
       setIsWaitingForAgent(false);
       setUserCancelled(false);
       setCreateError(null);
@@ -158,9 +166,19 @@ export function useConversation(
     }
   }, [conversationId, events, updateConversationTitle]);
 
+  const transcriptUserCount = useMemo(
+    () => transcriptMessages.filter((message) => message.role === "user").length,
+    [transcriptMessages],
+  );
+  const transcriptMessageCount = transcriptMessages.length;
+
   const allMessages = useMemo(() => {
     if (userMessages.length === 0) return transcriptMessages;
-    return mergeConversationMessages(transcriptMessages, userMessages);
+    return reconcileOptimisticConversationMessages(
+      transcriptMessages,
+      userMessages,
+      optimisticUserMatchStateRef.current,
+    );
   }, [userMessages, transcriptMessages]);
 
   const buildOptimisticUserMessage = useCallback(
@@ -171,11 +189,16 @@ export function useConversation(
         type: file.type,
       }));
       optimisticMessageSequenceRef.current += 1;
+      const messageId = createOptimisticMessageId(
+        conversationId ?? "new-conversation",
+        optimisticMessageSequenceRef.current,
+      );
+      optimisticUserMatchStateRef.current.set(messageId, {
+        transcriptUserCountAtSend: transcriptUserCount,
+        transcriptMessageCountAtSend: transcriptMessageCount,
+      });
       return {
-        messageId: createOptimisticMessageId(
-          conversationId ?? "new-conversation",
-          optimisticMessageSequenceRef.current,
-        ),
+        messageId,
         role: "user",
         content: message,
         timestamp,
@@ -183,13 +206,13 @@ export function useConversation(
         ...(attachments?.length ? { attachments } : {}),
       };
     },
-    [conversationId],
+    [conversationId, transcriptMessageCount, transcriptUserCount],
   );
 
   const handleCreateConversation = useCallback(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
       const now = Date.now();
-      eventCountAtSendRef.current = events.length;
+      eventCountAtSendRef.current = eventsLengthRef.current;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setCreateError(null);
@@ -228,7 +251,6 @@ export function useConversation(
       router,
       setPendingConversationRoute,
       startConversation,
-      events.length,
     ],
   );
 
@@ -237,7 +259,7 @@ export function useConversation(
       if (!conversationId) return;
 
       const now = Date.now();
-      eventCountAtSendRef.current = events.length;
+      eventCountAtSendRef.current = eventsLengthRef.current;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
@@ -264,7 +286,7 @@ export function useConversation(
         ]);
       }
     },
-    [buildOptimisticUserMessage, conversationId, events.length],
+    [buildOptimisticUserMessage, conversationId],
   );
 
   const handleResumeConversation = useCallback(
@@ -272,7 +294,7 @@ export function useConversation(
       if (!conversationId) return;
 
       const now = Date.now();
-      eventCountAtSendRef.current = events.length;
+      eventCountAtSendRef.current = eventsLengthRef.current;
       setIsWaitingForAgent(true);
       setUserCancelled(false);
       setPendingSelectedSkills(normalizeSelectedSkills(skills, now));
@@ -300,7 +322,7 @@ export function useConversation(
         ]);
       }
     },
-    [buildOptimisticUserMessage, conversationId, resumeConversation, events.length],
+    [buildOptimisticUserMessage, conversationId, resumeConversation],
   );
 
   const handleSendMessage = useCallback(
@@ -321,6 +343,7 @@ export function useConversation(
       if (id === conversationId) return;
       switchConversation(id);
       setUserMessages([]);
+      optimisticUserMatchStateRef.current = new Map();
       setIsWaitingForAgent(false);
       setUserCancelled(false);
       setCreateError(null);
@@ -332,6 +355,7 @@ export function useConversation(
   const handleNewConversation = useCallback(() => {
     clearPendingConversationRoute();
     setUserMessages([]);
+    optimisticUserMatchStateRef.current = new Map();
     setIsWaitingForAgent(false);
     setUserCancelled(false);
     setCreateError(null);

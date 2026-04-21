@@ -1,12 +1,100 @@
-import { describe, expect, it } from "@jest/globals";
+import { afterEach, beforeEach, describe, expect, it, jest } from "@jest/globals";
 import {
+  BUFFER_FLUSH_FALLBACK_MS,
   BACKEND_DISCONNECT_ERROR,
+  clearScheduledBufferFlush,
   createTerminalDisconnectEvent,
+  ensureBufferFlushScheduled,
   parseSSEEvent,
   shouldEmitTerminalDisconnectEvent,
   shouldFlushEventImmediately,
   shouldScheduleReconnect,
 } from "./use-sse";
+
+describe("buffer flush scheduling", () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it("schedules a timeout fallback alongside requestAnimationFrame", () => {
+    const flushBuffer = jest.fn();
+    const requestAnimationFrame = jest.fn<(callback: () => void) => number>(() => 7);
+    const cancelAnimationFrame = jest.fn();
+    const setTimeoutMock = jest.fn<(callback: () => void, delay: number) => ReturnType<typeof setTimeout>>(
+      (callback) => {
+      callback();
+      return 11 as unknown as ReturnType<typeof setTimeout>;
+      },
+    );
+    const clearTimeoutMock = jest.fn();
+
+    const scheduled = ensureBufferFlushScheduled(
+      { rafId: null, timeoutId: null },
+      flushBuffer,
+      {
+        requestAnimationFrame,
+        cancelAnimationFrame,
+        setTimeout: setTimeoutMock,
+        clearTimeout: clearTimeoutMock as (id: ReturnType<typeof setTimeout>) => void,
+      },
+    );
+
+    expect(requestAnimationFrame).toHaveBeenCalledWith(flushBuffer);
+    expect(setTimeoutMock).toHaveBeenCalledWith(flushBuffer, BUFFER_FLUSH_FALLBACK_MS);
+    expect(flushBuffer).toHaveBeenCalledTimes(1);
+    expect(scheduled.rafId).toBe(7);
+    expect(scheduled.timeoutId).toBe(11);
+  });
+
+  it("does not double-schedule when a buffer flush is already pending", () => {
+    const flushBuffer = jest.fn();
+    const requestAnimationFrame = jest.fn<(callback: () => void) => number>(() => 7);
+    const setTimeoutMock = jest.fn<(callback: () => void, delay: number) => ReturnType<typeof setTimeout>>(
+      () => 11 as unknown as ReturnType<typeof setTimeout>,
+    );
+
+    const existing = {
+      rafId: 3,
+      timeoutId: 9 as unknown as ReturnType<typeof setTimeout>,
+    };
+    const scheduled = ensureBufferFlushScheduled(existing, flushBuffer, {
+      requestAnimationFrame,
+      cancelAnimationFrame: jest.fn(),
+      setTimeout: setTimeoutMock,
+      clearTimeout: jest.fn() as (id: ReturnType<typeof setTimeout>) => void,
+    });
+
+    expect(scheduled).toBe(existing);
+    expect(requestAnimationFrame).not.toHaveBeenCalled();
+    expect(setTimeoutMock).not.toHaveBeenCalled();
+  });
+
+  it("clears both animation-frame and timeout flush handles together", () => {
+    const cancelAnimationFrame = jest.fn();
+    const clearTimeoutMock = jest.fn();
+
+    const cleared = clearScheduledBufferFlush(
+      {
+        rafId: 4,
+        timeoutId: 12 as unknown as ReturnType<typeof setTimeout>,
+      },
+      {
+        requestAnimationFrame: jest.fn<(callback: () => void) => number>(() => 1),
+        cancelAnimationFrame,
+        setTimeout: jest.fn<(callback: () => void, delay: number) => ReturnType<typeof setTimeout>>(),
+        clearTimeout: clearTimeoutMock as (id: ReturnType<typeof setTimeout>) => void,
+      },
+    );
+
+    expect(cancelAnimationFrame).toHaveBeenCalledWith(4);
+    expect(clearTimeoutMock).toHaveBeenCalledWith(12);
+    expect(cleared).toEqual({ rafId: null, timeoutId: null });
+  });
+});
 
 describe("shouldScheduleReconnect", () => {
   it("returns false when stopped", () => {
@@ -218,6 +306,7 @@ describe("shouldFlushEventImmediately", () => {
   it("flushes terminal and interaction-critical events immediately", () => {
     expect(shouldFlushEventImmediately("turn_complete")).toBe(true);
     expect(shouldFlushEventImmediately("ask_user")).toBe(true);
+    expect(shouldFlushEventImmediately("llm_response")).toBe(true);
     expect(shouldFlushEventImmediately("skill_activated")).toBe(true);
     expect(shouldFlushEventImmediately("skill_dependency_failed")).toBe(true);
     expect(shouldFlushEventImmediately("skill_setup_failed")).toBe(true);
@@ -225,6 +314,5 @@ describe("shouldFlushEventImmediately", () => {
 
   it("does not flush token-level model updates immediately", () => {
     expect(shouldFlushEventImmediately("text_delta")).toBe(false);
-    expect(shouldFlushEventImmediately("llm_response")).toBe(false);
   });
 });

@@ -5,7 +5,7 @@ import {
   buildToolCallIndexes,
   isTimelineStepActionable,
 } from "./AgentProgressCard";
-import type { AgentEvent, ToolCallInfo } from "../../../shared/types";
+import type { AgentEvent, PlanStep, ToolCallInfo } from "../../../shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
 describe("buildToolCallIndexes", () => {
@@ -104,6 +104,7 @@ function createTestTranslator(): TFn {
 describe("buildSteps runtime phrase mapping", () => {
   const t = createTestTranslator();
   const agentNameMap = new Map<string, string>();
+  const noPlanSteps: PlanStep[] = [];
 
   it("maps web search into searching phrase", () => {
     const events = [
@@ -118,7 +119,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-1", toolUseId: "tool-1", name: "web_search", input: { query: "AI coding harness" }, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps[0]?.title).toBe("searching AI coding harness");
   });
 
@@ -135,7 +136,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-2", toolUseId: "tool-2", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps[0]?.title).toContain("Loading");
     expect(steps[0]?.title).toContain("Frontend Design");
     expect(steps[0]?.title).toContain("skill");
@@ -160,7 +161,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-5", toolUseId: "tool-5", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 1 },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.status).toBe("complete");
     expect(steps[0]?.title).toBe("Loaded Frontend Design");
@@ -185,7 +186,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-9", toolUseId: "tool-9", name: "activate_skill", input: { name: "frontend-design" }, timestamp: 2 },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.rawToolName).toBe("activate_skill");
@@ -203,7 +204,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.status).toBe("complete");
@@ -243,7 +244,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], noPlanSteps, t, agentNameMap);
     expect(steps.map((step) => step.title)).toEqual([
       "Preview available at /api/conversations/c1/preview/",
       "Context compacted (12 -> 4)",
@@ -269,7 +270,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ];
 
-    const steps = buildSteps([], buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps([], buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.status).toBe("running");
@@ -295,7 +296,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.status).toBe("complete");
     expect(steps[0]?.title).toBe("Loaded Frontend Design");
@@ -311,7 +312,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.kind).toBe("skill");
     expect(steps[0]?.status).toBe("error");
@@ -331,7 +332,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-3", toolUseId: "tool-3", name: "web_fetch", input: { url: "https://docs.example.com/guide" }, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps[0]?.title).toBe("parse docs.example.com content");
   });
 
@@ -348,7 +349,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-4", toolUseId: "tool-4", name: "web_search", input: {}, timestamp: 1, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps[0]?.title).toContain("searching");
   });
 
@@ -372,7 +373,7 @@ describe("buildSteps runtime phrase mapping", () => {
       { id: "tc-6", toolUseId: "tool-6", name: "web_search", input: { query: "docs" }, timestamp: 2, output: "ok" },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.rawToolName).toBe("web_search");
   });
@@ -398,7 +399,7 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ];
 
-    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, noPlanSteps, t, agentNameMap);
     expect(steps).toHaveLength(1);
     expect(steps[0]?.status).toBe("error");
   });
@@ -431,9 +432,152 @@ describe("buildSteps runtime phrase mapping", () => {
       },
     ] as unknown as AgentEvent[];
 
-    const steps = buildSteps(events, buildToolCallIndexes([]), [], t, agentNameMap);
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], noPlanSteps, t, agentNameMap);
     expect(steps.find((step) => step.id.startsWith("agent-agent-skip-"))?.status).toBe("skipped");
     expect(steps.find((step) => step.id.startsWith("agent-agent-replan-"))?.status).toBe("replan_required");
+  });
+
+  it("renders one row per current plan step after the plan marker", () => {
+    const events = [
+      {
+        type: "plan_created",
+        timestamp: 1,
+        iteration: 0,
+        data: {
+          steps: [
+            { name: "Research topic", description: "Collect sources", execution_type: "parallel_worker" },
+            { name: "Synthesize findings", description: "Combine output", execution_type: "planner_owned" },
+          ],
+        },
+      },
+    ] as unknown as AgentEvent[];
+    const planSteps: PlanStep[] = [
+      {
+        name: "Research topic",
+        description: "Collect sources",
+        executionType: "parallel_worker",
+        status: "running",
+        agentId: "agent-1",
+      },
+      {
+        name: "Synthesize findings",
+        description: "Combine output",
+        executionType: "planner_owned",
+        status: "pending",
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], planSteps, t, agentNameMap);
+    expect(steps.map((step) => step.id)).toEqual([
+      "plan-1",
+      "agent-agent-1-plan-0",
+      "plan-step-1",
+    ]);
+    expect(steps[1]?.title).toBe("Research topic");
+    expect(steps[1]?.status).toBe("running");
+    expect(steps[2]?.title).toBe("Synthesize findings");
+    expect(steps[2]?.status).toBe("pending");
+  });
+
+  it("suppresses duplicate standalone agent rows for worker-backed plan steps", () => {
+    const events = [
+      {
+        type: "plan_created",
+        timestamp: 1,
+        iteration: 0,
+        data: {
+          steps: [
+            { name: "Research topic", description: "Collect sources", execution_type: "parallel_worker" },
+          ],
+        },
+      },
+      {
+        type: "agent_spawn",
+        timestamp: 2,
+        iteration: 0,
+        data: { agent_id: "agent-1", name: "Research topic agent", description: "Collect sources" },
+      },
+    ] as unknown as AgentEvent[];
+    const planSteps: PlanStep[] = [
+      {
+        name: "Research topic",
+        description: "Collect sources",
+        executionType: "parallel_worker",
+        status: "running",
+        agentId: "agent-1",
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], planSteps, t, agentNameMap);
+    expect(steps).toHaveLength(2);
+    expect(steps.find((step) => step.id === "agent-agent-1-plan-0")).toBeDefined();
+    expect(steps.find((step) => step.id === "agent-agent-1-2")).toBeUndefined();
+  });
+
+  it("keeps unmatched spawned agents as standalone timeline rows", () => {
+    const events = [
+      {
+        type: "plan_created",
+        timestamp: 1,
+        iteration: 0,
+        data: {
+          steps: [
+            { name: "Research topic", description: "Collect sources", execution_type: "parallel_worker" },
+          ],
+        },
+      },
+      {
+        type: "agent_spawn",
+        timestamp: 2,
+        iteration: 0,
+        data: { agent_id: "agent-unmatched", name: "Verifier agent", description: "Double-check results" },
+      },
+    ] as unknown as AgentEvent[];
+    const planSteps: PlanStep[] = [
+      {
+        name: "Research topic",
+        description: "Collect sources",
+        executionType: "parallel_worker",
+        status: "pending",
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], planSteps, t, agentNameMap);
+    expect(steps.find((step) => step.id === "agent-agent-unmatched-2"))?.toMatchObject({
+      kind: "agent",
+      status: "running",
+    });
+  });
+
+  it("renders skipped and replan-required plan rows without collapsing them to errors", () => {
+    const events = [
+      {
+        type: "plan_created",
+        timestamp: 1,
+        iteration: 0,
+        data: { steps: [] },
+      },
+    ] as unknown as AgentEvent[];
+    const planSteps: PlanStep[] = [
+      {
+        name: "Skipped worker",
+        description: "Optional branch",
+        executionType: "parallel_worker",
+        status: "skipped",
+        agentId: "agent-skip",
+      },
+      {
+        name: "Replan worker",
+        description: "Blocked branch",
+        executionType: "parallel_worker",
+        status: "replan_required",
+        agentId: "agent-replan",
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes([]), [], planSteps, t, agentNameMap);
+    expect(steps.find((step) => step.id === "agent-agent-skip-plan-0")?.status).toBe("skipped");
+    expect(steps.find((step) => step.id === "agent-agent-replan-plan-1")?.status).toBe("replan_required");
   });
 });
 

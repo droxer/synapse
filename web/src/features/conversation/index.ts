@@ -11,7 +11,7 @@ export { TypingIndicator } from "./components/TypingIndicator";
 export { AssistantStateIndicator } from "./components/AssistantStateIndicator";
 export { PlanChecklistPanel } from "./components/PlanChecklistPanel";
 export { useConversation } from "./hooks/use-conversation";
-export { useConversationContext } from "./hooks/use-conversation-context";
+export { useConversationContext, useConversationState, useConversationActions } from "./hooks/use-conversation-context";
 export { usePendingAsk } from "./hooks/use-pending-ask";
 export {
   createConversation,

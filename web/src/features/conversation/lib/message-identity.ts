@@ -133,6 +133,142 @@ export function createOptimisticMessageId(
   return `optimistic:${scopeId}:${sequence}`;
 }
 
+function normalizeComparableMessageContent(content: string): string {
+  return content.trim();
+}
+
+function areAttachmentsCompatible(
+  optimistic: ChatMessage["attachments"],
+  transcript: ChatMessage["attachments"],
+): boolean {
+  if (!optimistic?.length || !transcript?.length) return true;
+  if (optimistic.length !== transcript.length) return false;
+
+  return optimistic.every((attachment) =>
+    transcript.some(
+      (candidate) =>
+        candidate.name === attachment.name &&
+        candidate.size === attachment.size &&
+        candidate.type === attachment.type,
+    ),
+  );
+}
+
+export interface OptimisticUserMatchState {
+  readonly transcriptUserCountAtSend: number;
+  readonly transcriptMessageCountAtSend: number;
+}
+
+export function reconcileOptimisticConversationMessages(
+  transcriptMessages: readonly ChatMessage[],
+  localMessages: readonly ChatMessage[],
+  optimisticUserMatchState: ReadonlyMap<string, OptimisticUserMatchState>,
+): ChatMessage[] {
+  if (localMessages.length === 0) {
+    return [...transcriptMessages];
+  }
+
+  const mergedTranscript = [...transcriptMessages];
+  const claimedTranscriptIndexes = new Set<number>();
+  const matchedLocalMessageIds = new Set<string>();
+
+  for (let localIndex = localMessages.length - 1; localIndex >= 0; localIndex -= 1) {
+    const localMessage = localMessages[localIndex]!;
+    if (localMessage.role !== "user" || localMessage.source !== "optimistic" || !localMessage.messageId) {
+      continue;
+    }
+
+    const matchState = optimisticUserMatchState.get(localMessage.messageId);
+    if (!matchState) {
+      continue;
+    }
+
+    let transcriptUserOrdinal = 0;
+    for (let transcriptIndex = 0; transcriptIndex < transcriptMessages.length; transcriptIndex += 1) {
+      const transcriptMessage = transcriptMessages[transcriptIndex]!;
+      if (transcriptMessage.role !== "user") {
+        continue;
+      }
+
+      const currentOrdinal = transcriptUserOrdinal;
+      transcriptUserOrdinal += 1;
+
+      if (currentOrdinal < matchState.transcriptUserCountAtSend) {
+        continue;
+      }
+
+      if (claimedTranscriptIndexes.has(transcriptIndex)) {
+        continue;
+      }
+
+      if (
+        normalizeComparableMessageContent(transcriptMessage.content) !==
+        normalizeComparableMessageContent(localMessage.content)
+      ) {
+        continue;
+      }
+
+      if (!areAttachmentsCompatible(localMessage.attachments, transcriptMessage.attachments)) {
+        continue;
+      }
+
+      claimedTranscriptIndexes.add(transcriptIndex);
+      matchedLocalMessageIds.add(localMessage.messageId);
+      mergedTranscript[transcriptIndex] = mergeMessages(localMessage, transcriptMessage);
+      break;
+    }
+  }
+
+  const unmatchedLocalMessages = localMessages.filter((message) => {
+    if (!message.messageId) return true;
+    return !matchedLocalMessageIds.has(message.messageId);
+  });
+  if (unmatchedLocalMessages.length === 0) {
+    return mergedTranscript;
+  }
+
+  const unmatchedOptimisticUsers = unmatchedLocalMessages
+    .map((message, localIndex) => ({ message, localIndex }))
+    .filter(({ message }) => message.role === "user" && message.source === "optimistic" && message.messageId)
+    .sort((a, b) => {
+      const aState = optimisticUserMatchState.get(a.message.messageId!);
+      const bState = optimisticUserMatchState.get(b.message.messageId!);
+      const aCount = aState?.transcriptMessageCountAtSend ?? Number.MAX_SAFE_INTEGER;
+      const bCount = bState?.transcriptMessageCountAtSend ?? Number.MAX_SAFE_INTEGER;
+      if (aCount !== bCount) return aCount - bCount;
+      return a.localIndex - b.localIndex;
+    });
+
+  const nonOptimisticRemainder = unmatchedLocalMessages.filter(
+    (message) => !(message.role === "user" && message.source === "optimistic" && message.messageId),
+  );
+
+  const orderedMessages: ChatMessage[] = [];
+  let unmatchedUserPointer = 0;
+
+  for (let transcriptIndex = 0; transcriptIndex < mergedTranscript.length; transcriptIndex += 1) {
+    while (unmatchedUserPointer < unmatchedOptimisticUsers.length) {
+      const optimisticEntry = unmatchedOptimisticUsers[unmatchedUserPointer]!;
+      const matchState = optimisticUserMatchState.get(optimisticEntry.message.messageId!);
+      const insertionIndex = matchState?.transcriptMessageCountAtSend ?? mergedTranscript.length;
+      if (insertionIndex > transcriptIndex) {
+        break;
+      }
+      orderedMessages.push(optimisticEntry.message);
+      unmatchedUserPointer += 1;
+    }
+
+    orderedMessages.push(mergedTranscript[transcriptIndex]!);
+  }
+
+  while (unmatchedUserPointer < unmatchedOptimisticUsers.length) {
+    orderedMessages.push(unmatchedOptimisticUsers[unmatchedUserPointer]!.message);
+    unmatchedUserPointer += 1;
+  }
+
+  return [...orderedMessages, ...nonOptimisticRemainder];
+}
+
 export function mergeConversationMessages(
   ...collections: ReadonlyArray<readonly ChatMessage[]>
 ): ChatMessage[] {
@@ -181,7 +317,12 @@ export function mergeConversationMessages(
     }
   }
 
-  merged.sort((a, b) => a.originalIndex - b.originalIndex);
+  merged.sort((a, b) => {
+    const idxDiff = a.originalIndex - b.originalIndex;
+    if (idxDiff !== 0) return idxDiff;
+    // Tie-break by timestamp for messages that share an insertion index
+    return a.message.timestamp - b.message.timestamp;
+  });
 
   return merged.map(({ message }) => message);
 }

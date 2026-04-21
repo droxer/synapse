@@ -55,6 +55,32 @@ function mapAgentTerminalStatus(value: unknown): AgentStatusState {
   }
 }
 
+function mapPlanTerminalStatus(value: unknown): PlanStep["status"] {
+  switch (value) {
+    case "complete":
+    case "skipped":
+    case "replan_required":
+      return value;
+    case "pending":
+    case "running":
+      return value;
+    default:
+      return "error";
+  }
+}
+
+function applyPlanStepTerminalState(
+  planSteps: readonly PlanStep[],
+  agentId: string,
+  status: PlanStep["status"],
+): PlanStep[] {
+  return planSteps.map((step) =>
+    step.agentId === agentId
+      ? { ...step, status }
+      : step,
+  );
+}
+
 export interface DerivedAgentState {
   readonly messages: readonly ChatMessage[];
   readonly toolCalls: readonly ToolCallInfo[];
@@ -684,8 +710,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         messages.push(message);
         pendingImageArtifactIds = [];
       }
-      streamingText = "";
-      streamingTimestamp = 0;
+      // Only clear streaming text if we materialized the message here.
+      // For terminal end_turn, turn_complete will materialize the message.
+      if (!isTerminalEndTurn) {
+        streamingText = "";
+        streamingTimestamp = 0;
+      }
     } else if (event.type === "tool_call") {
       const toolId = String(event.data.tool_id ?? event.data.id ?? "");
       const toolName = String(event.data.tool_name ?? event.data.name ?? "tool");
@@ -961,8 +991,6 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       isDeepResearchTurn = false;
     } else if (event.type === "turn_complete" || event.type === "task_complete") {
       isStreaming = false;
-      streamingText = "";
-      streamingTimestamp = 0;
       if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
         planSteps = [buildPlannerFallbackStep("complete", "inline")];
       }
@@ -1005,6 +1033,19 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
           pendingImageArtifactIds = [];
         }
+      } else if (streamingText) {
+        // Materialize from streaming text if no result but we have streamed content
+        const streamContent = consumeDeepResearchFallbackContent(streamingText);
+        const pendingThinking = consumePendingThinking();
+        let message = finalizeAssistantMessage({
+          role: "assistant",
+          content: streamContent,
+          timestamp: event.timestamp,
+          ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+        });
+        message = applyPendingThinkingToMessage(message, pendingThinking);
+        messages.push(message);
+        pendingImageArtifactIds = [];
       } else {
         const fallbackOnly = consumeDeepResearchFallbackContent("");
         if (fallbackOnly) {
@@ -1020,6 +1061,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         }
         attachPendingArtifactsToLastAssistant();
       }
+      // Always clear streaming state after turn_complete/task_complete
+      streamingText = "";
+      streamingTimestamp = 0;
       attachPendingThinkingToLastAssistant();
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
@@ -1125,10 +1169,10 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           status: nextStatus,
         });
       }
-      planSteps = planSteps.map((step) =>
-        step.agentId === agentId
-          ? { ...step, status: nextStatus === "complete" ? "complete" : "error" }
-          : step,
+      planSteps = applyPlanStepTerminalState(
+        planSteps,
+        agentId,
+        mapPlanTerminalStatus(event.data.terminal_state),
       );
       if (nextStatus === "complete") {
         planSteps = planSteps.map((step) =>
@@ -1139,13 +1183,15 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       }
     } else if (event.type === "agent_skipped" || event.type === "agent_replan_required") {
       const agentId = String(event.data.agent_id ?? event.data.id ?? "");
+      const nextStatus = event.type === "agent_skipped" ? "skipped" : "replan_required";
       const existing = agentMap.get(agentId);
       if (existing) {
         agentMap.set(agentId, {
           ...existing,
-          status: event.type === "agent_skipped" ? "skipped" : "replan_required",
+          status: nextStatus,
         });
       }
+      planSteps = applyPlanStepTerminalState(planSteps, agentId, nextStatus);
     } else if (event.type === "agent_handoff") {
       const parentId = String(event.data.parent_agent_id ?? "");
       const existing = agentMap.get(parentId);
@@ -1293,7 +1339,15 @@ function toolCallsEqual(a: readonly ToolCallInfo[], b: readonly ToolCallInfo[]):
 function planStepsEqual(a: readonly PlanStep[], b: readonly PlanStep[]): boolean {
   if (a.length !== b.length) return false;
   for (let i = 0; i < a.length; i++) {
-    if (a[i].name !== b[i].name || a[i].status !== b[i].status) return false;
+    if (
+      a[i].name !== b[i].name
+      || a[i].description !== b[i].description
+      || a[i].executionType !== b[i].executionType
+      || a[i].status !== b[i].status
+      || a[i].agentId !== b[i].agentId
+    ) {
+      return false;
+    }
   }
   return true;
 }

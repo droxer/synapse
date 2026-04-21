@@ -839,7 +839,11 @@ pre, code {
   color: var(--color-muted-foreground);
 }
 
-.markdown-streaming-tail > * {
+.markdown-streaming-tail > div {
+  display: block;
+}
+
+.markdown-streaming-tail > span {
   display: inline;
 }
 

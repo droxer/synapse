@@ -53,11 +53,11 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
   useEffect(() => {
     if (open) {
       triggerRef.current = document.activeElement;
-      // Small delay to let animation start
+      // Delay focus until entry animation completes (120ms)
       const timer = setTimeout(() => {
         const firstFocusable = drawerRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR);
         firstFocusable?.focus();
-      }, 100);
+      }, 120);
       return () => clearTimeout(timer);
     } else if (triggerRef.current instanceof HTMLElement) {
       triggerRef.current.focus();

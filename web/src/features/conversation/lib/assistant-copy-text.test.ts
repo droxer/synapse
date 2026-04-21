@@ -12,6 +12,8 @@ const t = (key: string) => {
     "plan.statusRunning": "Running",
     "plan.statusComplete": "Done",
     "plan.statusError": "Failed",
+    "plan.statusSkipped": "Skipped",
+    "plan.statusReplanRequired": "Needs replan",
   };
   return map[key] ?? key;
 };
@@ -83,5 +85,37 @@ describe("buildAssistantCopyText", () => {
       t,
     });
     expect(text.match(/same/g)?.length).toBe(1);
+  });
+
+  it("exports skipped and replan-required plan labels", () => {
+    const msg: ChatMessage = {
+      role: "assistant",
+      content: "Status update",
+      timestamp: 1,
+    };
+    const planSteps: PlanStep[] = [
+      {
+        name: "Optional validation",
+        description: "",
+        executionType: "parallel_worker",
+        status: "skipped",
+      },
+      {
+        name: "Blocked implementation",
+        description: "",
+        executionType: "parallel_worker",
+        status: "replan_required",
+      },
+    ];
+
+    const text = buildAssistantCopyText(msg, {
+      hasEmbeddedPlan: true,
+      planSteps,
+      imageUrls: [],
+      t,
+    });
+
+    expect(text).toContain("[Skipped] Optional validation");
+    expect(text).toContain("[Needs replan] Blocked implementation");
   });
 });

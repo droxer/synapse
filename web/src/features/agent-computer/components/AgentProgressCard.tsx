@@ -22,6 +22,7 @@ import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { useStickyBottom } from "@/shared/hooks";
 import type { AgentEvent, AgentStatus, TaskState, ToolCallInfo } from "@/shared/types";
+import type { PlanStep } from "@/shared/types";
 import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
 import {
   getTaskStateAnnouncement,
@@ -41,6 +42,7 @@ interface AgentProgressCardProps {
   events: readonly AgentEvent[];
   toolCalls: readonly ToolCallInfo[];
   agentStatuses: readonly AgentStatus[];
+  planSteps: readonly PlanStep[];
   taskState: TaskState;
   isWaitingForAgent?: boolean;
   onClick?: () => void;
@@ -48,8 +50,14 @@ interface AgentProgressCardProps {
   panelOpen?: boolean;
 }
 
-type StepKind = "start" | "tool" | "skill" | "agent" | "complete" | "error";
-type TimelineStepStatus = "running" | "complete" | "error" | "skipped" | "replan_required";
+type StepKind = "start" | "tool" | "skill" | "agent" | "plan" | "complete" | "error";
+type TimelineStepStatus =
+  | "pending"
+  | "running"
+  | "complete"
+  | "error"
+  | "skipped"
+  | "replan_required";
 
 interface TimelineStep {
   readonly id: string;
@@ -240,14 +248,41 @@ function buildSkillDependencyFailedTitle(
   return "Skill dependency installation failed";
 }
 
+function buildPlanTimelineSteps(
+  planSteps: readonly PlanStep[],
+  indexes: ToolCallIndexes,
+): TimelineStep[] {
+  return planSteps.map((step, index) => {
+    const agentId = step.agentId?.trim();
+    const agentToolCount =
+      agentId && agentId.length > 0
+        ? indexes.countByAgentId.get(agentId) ?? 0
+        : 0;
+
+    return {
+      id: agentId ? `agent-${agentId}-plan-${index}` : `plan-step-${index}`,
+      kind: "plan",
+      title: step.name.trim() || `Step ${index + 1}`,
+      status: step.status,
+      agentToolCount: agentToolCount > 0 ? agentToolCount : undefined,
+    };
+  });
+}
+
 export function buildSteps(
   events: readonly AgentEvent[],
   indexes: ToolCallIndexes,
   toolCalls: readonly ToolCallInfo[],
+  planSteps: readonly PlanStep[],
   t: TFn,
   agentNameMap: ReadonlyMap<string, string>,
 ): TimelineStep[] {
   let steps: TimelineStep[] = [];
+  const matchedAgentIds = new Set(
+    planSteps
+      .map((step) => step.agentId?.trim())
+      .filter((value): value is string => Boolean(value)),
+  );
   const getSkillStepTitle = (
     skillName: string,
     status: TimelineStepStatus,
@@ -499,6 +534,9 @@ export function buildSteps(
 
       case "agent_spawn": {
         const spawnAgentId = String(event.data.agent_id ?? event.data.id ?? "");
+        if (matchedAgentIds.has(spawnAgentId)) {
+          break;
+        }
         const agentToolCount = indexes.countByAgentId.get(spawnAgentId) ?? 0;
         const data = event.data as Record<string, unknown>;
         steps = [...steps, {
@@ -513,6 +551,9 @@ export function buildSteps(
 
       case "agent_complete": {
         const agentId = String(event.data.agent_id ?? event.data.id ?? "");
+        if (matchedAgentIds.has(agentId)) {
+          break;
+        }
         const completedToolCount = indexes.countByAgentId.get(agentId) ?? 0;
         const newStatus = mapAgentStepStatus(event.data.terminal_state);
         steps = steps.map((s) =>
@@ -557,6 +598,25 @@ export function buildSteps(
     steps = [...steps, buildOptimisticSkillStep(toolCall, t)];
   }
 
+  if (planSteps.length > 0) {
+    const planTimelineSteps = buildPlanTimelineSteps(planSteps, indexes);
+    let planMarkerIndex = -1;
+    for (let i = steps.length - 1; i >= 0; i--) {
+      if (steps[i]?.id.startsWith("plan-")) {
+        planMarkerIndex = i;
+        break;
+      }
+    }
+    if (planMarkerIndex === -1) {
+      steps = [...steps, ...planTimelineSteps];
+    } else {
+      steps = [
+        ...steps.slice(0, planMarkerIndex + 1),
+        ...planTimelineSteps,
+        ...steps.slice(planMarkerIndex + 1),
+      ];
+    }
+  }
 
   return steps;
 }
@@ -639,6 +699,8 @@ function stepGlyphIcon(step: TimelineStep) {
       return getTimelineToolOrSkillIcon("skill", step.rawToolName, step.skillKey, step.name);
     case "agent":
       return Bot;
+    case "plan":
+      return Lightbulb;
     case "complete":
       return Flag;
     case "error":
@@ -681,6 +743,14 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
         text: "text-muted-foreground",
         rowBase: "rounded-lg opacity-60",
         rowHover: "hover:bg-muted hover:opacity-100",
+        iconSurface: "bg-muted",
+        iconColor: "text-muted-foreground-dim",
+      };
+    case "pending":
+      return {
+        text: "text-muted-foreground",
+        rowBase: "rounded-lg opacity-80",
+        rowHover: "hover:bg-muted/70",
         iconSurface: "bg-muted",
         iconColor: "text-muted-foreground-dim",
       };
@@ -754,6 +824,14 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
     );
   }
 
+  if (step.status === "pending") {
+    return (
+      <span className={cn(STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
+        <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
+      </span>
+    );
+  }
+
   if (useDistinctGlyph) {
     return (
       <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
@@ -814,6 +892,7 @@ export function AgentProgressCard({
   events,
   toolCalls,
   agentStatuses,
+  planSteps,
   taskState,
   isWaitingForAgent = false,
   onClick,
@@ -835,8 +914,8 @@ export function AgentProgressCard({
   }, [agentStatuses]);
 
   const steps = useMemo(
-    () => buildSteps(events, toolIndexes, toolCalls, t, agentNameMap),
-    [events, toolIndexes, toolCalls, t, agentNameMap],
+    () => buildSteps(events, toolIndexes, toolCalls, planSteps, t, agentNameMap),
+    [events, toolIndexes, toolCalls, planSteps, t, agentNameMap],
   );
 
   useStickyBottom(stepsScrollRef, { enabled: expanded && steps.length > 0 });
@@ -971,7 +1050,7 @@ export function AgentProgressCard({
                             stepVisual.text,
                           )}
                         >
-                          {step.kind === "agent" ? (
+                          {step.kind === "agent" || (step.kind === "plan" && step.agentToolCount != null) ? (
                             <AgentStepTitleLine
                               step={step}
                               t={t}

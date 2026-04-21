@@ -149,7 +149,7 @@ export default function ChannelsPage() {
               Telegram Threads
             </p>
           </div>
-          <div className="max-h-64 min-h-0 flex-1 overflow-y-auto md:max-h-none">
+          <div className="max-h-[50vh] min-h-0 flex-1 overflow-y-auto md:max-h-none">
             <ChannelConversationList
               selectedConversationId={selectedConversation?.conversation_id ?? null}
               onSelect={(conversation) => setSelectedConversationId(conversation.conversation_id)}

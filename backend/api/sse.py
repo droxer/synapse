@@ -16,6 +16,8 @@ from api.models import ConversationEntry
 _NON_LOSSY_SSE_EVENTS = {
     EventType.ASK_USER,
     EventType.USER_RESPONSE,
+    EventType.LLM_RESPONSE,
+    EventType.MESSAGE_USER,
     EventType.TURN_COMPLETE,
     EventType.TURN_CANCELLED,
     EventType.TASK_COMPLETE,

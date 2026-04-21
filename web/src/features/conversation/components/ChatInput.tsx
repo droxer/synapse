@@ -51,7 +51,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   const addFiles = useCallback((fileList: FileList | File[]) => {
     const newFiles: AttachedFile[] = Array.from(fileList).map((file) => ({
       file,
-      id: `${file.name}-${file.size}-${Date.now()}-${Math.random()}`,
+      id: crypto.randomUUID(),
       previewUrl: file.type.startsWith("image/") ? URL.createObjectURL(file) : undefined,
     }));
     setAttachedFiles((prev) => [...prev, ...newFiles]);

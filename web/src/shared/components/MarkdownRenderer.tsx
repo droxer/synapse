@@ -157,36 +157,245 @@ interface MarkdownRendererProps {
   mode?: MarkdownRenderStrategy;
 }
 
-function renderInlineCodeSegments(content: string): ReactNode[] {
-  const segments = content.split(/(`[^`\n]+`)/g);
+const LIGHTWEIGHT_INLINE_RE = /(`[^`\n]+`)|(\[([^\]]+)\]\(([^)\s]+)\))|(\*\*([^*\n]+)\*\*|__([^_\n]+)__)|(\*([^*\n]+)\*|_([^_\n]+)_)/g;
 
-  return segments.map((segment, index) => {
-    if (/^`[^`\n]+`$/.test(segment)) {
-      return (
+function renderLightweightInlineMarkdown(content: string, keyPrefix: string): ReactNode[] {
+  const nodes: ReactNode[] = [];
+  let cursor = 0;
+  let matchIndex = 0;
+
+  for (const match of content.matchAll(LIGHTWEIGHT_INLINE_RE)) {
+    const fullMatch = match[0];
+    const matchStart = match.index ?? 0;
+
+    if (matchStart > cursor) {
+      nodes.push(
+        <span key={`${keyPrefix}-text-${matchIndex}`}>{content.slice(cursor, matchStart)}</span>,
+      );
+      matchIndex += 1;
+    }
+
+    if (match[1]) {
+      nodes.push(
         <code
-          key={`inline-code-${index}`}
+          key={`${keyPrefix}-code-${matchIndex}`}
           className="rounded-lg border border-border-strong bg-muted px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
         >
-          {segment.slice(1, -1)}
-        </code>
+          {fullMatch.slice(1, -1)}
+        </code>,
+      );
+    } else if (match[2]) {
+      const href = match[4] ?? "";
+      const isExternal = href.startsWith("http://") || href.startsWith("https://");
+      nodes.push(
+        <a
+          key={`${keyPrefix}-link-${matchIndex}`}
+          href={href}
+          target={isExternal ? "_blank" : undefined}
+          rel={isExternal ? "noopener noreferrer" : undefined}
+          className="inline-flex items-center gap-0.5 text-focus underline underline-offset-2 hover:text-focus/80"
+        >
+          {match[3]}
+        </a>,
+      );
+    } else if (match[5]) {
+      nodes.push(
+        <strong key={`${keyPrefix}-strong-${matchIndex}`} className="font-semibold text-current">
+          {match[6] ?? match[7] ?? ""}
+        </strong>,
+      );
+    } else if (match[8]) {
+      nodes.push(
+        <em key={`${keyPrefix}-em-${matchIndex}`} className="italic text-current">
+          {match[9] ?? match[10] ?? ""}
+        </em>,
       );
     }
 
-    return <span key={`inline-text-${index}`}>{segment}</span>;
-  });
+    cursor = matchStart + fullMatch.length;
+    matchIndex += 1;
+  }
+
+  if (cursor < content.length) {
+    nodes.push(
+      <span key={`${keyPrefix}-text-tail`}>{content.slice(cursor)}</span>,
+    );
+  }
+
+  return nodes.length > 0 ? nodes : [<span key={`${keyPrefix}-text-full`}>{content}</span>];
+}
+
+function renderLightweightLine(line: string, lineIndex: number): ReactNode {
+  if (line.length === 0) {
+    return <div key={`line-${lineIndex}`} className="h-[0.8rem]" aria-hidden="true" />;
+  }
+
+  const headingMatch = /^ {0,3}(#{1,6})\s+(.*)$/.exec(line);
+  if (headingMatch) {
+    const level = Math.min(headingMatch[1]?.length ?? 1, 6);
+    const headingClass =
+      level <= 2
+        ? "text-lg font-semibold tracking-tight text-current"
+        : "text-base font-semibold text-current";
+    return (
+      <div key={`line-${lineIndex}`} className={headingClass}>
+        {renderLightweightInlineMarkdown(headingMatch[2] ?? "", `line-${lineIndex}`)}
+      </div>
+    );
+  }
+
+  const unorderedListMatch = /^ {0,3}[-+*]\s+(.*)$/.exec(line);
+  if (unorderedListMatch) {
+    return (
+      <div key={`line-${lineIndex}`} className="flex items-start gap-2">
+        <span aria-hidden="true" className="mt-[0.15rem] text-muted-foreground">•</span>
+        <span className="min-w-0">
+          {renderLightweightInlineMarkdown(unorderedListMatch[1] ?? "", `line-${lineIndex}`)}
+        </span>
+      </div>
+    );
+  }
+
+  const orderedListMatch = /^ {0,3}(\d+[.)])\s+(.*)$/.exec(line);
+  if (orderedListMatch) {
+    return (
+      <div key={`line-${lineIndex}`} className="flex items-start gap-2">
+        <span className="mt-[0.05rem] shrink-0 text-muted-foreground">{orderedListMatch[1]}</span>
+        <span className="min-w-0">
+          {renderLightweightInlineMarkdown(orderedListMatch[2] ?? "", `line-${lineIndex}`)}
+        </span>
+      </div>
+    );
+  }
+
+  const blockquoteMatch = /^ {0,3}>\s?(.*)$/.exec(line);
+  if (blockquoteMatch) {
+    return (
+      <div key={`line-${lineIndex}`} className="border-l-2 border-border-strong pl-3 text-muted-foreground">
+        {renderLightweightInlineMarkdown(blockquoteMatch[1] ?? "", `line-${lineIndex}`)}
+      </div>
+    );
+  }
+
+  return (
+    <div key={`line-${lineIndex}`} className="whitespace-pre-wrap">
+      {renderLightweightInlineMarkdown(line, `line-${lineIndex}`)}
+    </div>
+  );
 }
 
 function renderLightweightTail(content: string, className?: string): ReactNode {
   if (!content.length) return null;
 
+  const lines = content.split("\n");
+  const elements: ReactNode[] = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i] ?? "";
+
+    // Fenced code block
+    if (/^\s*```/.test(line)) {
+      const fenceMatch = /^(\s*)```(\w*)/.exec(line);
+      const indent = fenceMatch?.[1] ?? "";
+      const language = fenceMatch?.[2] || "text";
+      const codeLines: string[] = [];
+      i += 1;
+      while (i < lines.length) {
+        if (lines[i]?.startsWith(indent + "```")) {
+          i += 1;
+          break;
+        }
+        codeLines.push(lines[i] ?? "");
+        i += 1;
+      }
+      elements.push(
+        <div
+          key={`code-${i}`}
+          className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose shadow-card"
+        >
+          <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
+            <span>{language}</span>
+          </div>
+          <pre className="p-4 overflow-x-auto text-[length:var(--md-code-font-size,var(--text-sm))] font-mono bg-transparent m-0 border-none">
+            {codeLines.join("\n")}
+          </pre>
+        </div>,
+      );
+      continue;
+    }
+
+    // Table
+    const tableLines: string[] = [];
+    let j = i;
+    while (j < lines.length && /^\s*\|/.test(lines[j] ?? "")) {
+      tableLines.push(lines[j] ?? "");
+      j += 1;
+    }
+    if (tableLines.length >= 2) {
+      const separatorRow = tableLines[1] ?? "";
+      const isSeparator = /^\s*\|?(?:\s*:?-+:?\s*\|)+\s*:?-+:?\s*\|?\s*$/.test(separatorRow);
+      if (isSeparator) {
+        const headerCells = (tableLines[0] ?? "")
+          .split("|")
+          .map((c) => c.trim())
+          .filter((c) => c.length > 0);
+        const bodyRows = tableLines.slice(2);
+        elements.push(
+          <div key={`table-${i}`} className="overflow-x-auto my-6 not-prose">
+            <table className="min-w-full border-collapse text-sm">
+              <thead>
+                <tr>
+                  {headerCells.map((cell, ci) => (
+                    <th
+                      key={ci}
+                      className="border border-border bg-muted px-3 py-1.5 text-left font-medium"
+                    >
+                      {cell}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {bodyRows.map((row, ri) => {
+                  const cells = row
+                    .split("|")
+                    .map((c) => c.trim())
+                    .filter((c) => c.length > 0);
+                  return (
+                    <tr key={ri}>
+                      {cells.map((cell, ci) => (
+                        <td
+                          key={ci}
+                          className="border border-border px-3 py-1.5"
+                        >
+                          {cell}
+                        </td>
+                      ))}
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>,
+        );
+        i = j;
+        continue;
+      }
+    }
+
+    elements.push(renderLightweightLine(line, i));
+    i += 1;
+  }
+
   return (
     <div
       className={cn(
-        "markdown-streaming-tail whitespace-pre-wrap break-words leading-[1.5]",
+        "markdown-streaming-tail break-words leading-[1.5]",
         className,
       )}
     >
-      {renderInlineCodeSegments(content)}
+      <div className="space-y-2">{elements}</div>
     </div>
   );
 }

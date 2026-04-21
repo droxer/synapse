@@ -73,20 +73,21 @@ function useIncrementalMerge(
       return current.merged;
     }
 
-    let added = false;
+    const newEvents: AgentEvent[] = [];
     for (let i = current.liveProcessed; i < liveEvents.length; i++) {
       const event = liveEvents[i];
       const key = getEventKey(event);
       if (!current.seenKeys.has(key)) {
         current.seenKeys.add(key);
-        current.merged.push(event);
-        added = true;
+        newEvents.push(event);
       }
     }
     current.liveProcessed = liveEvents.length;
 
-    if (added) {
-      current.merged = [...current.merged];
+    if (newEvents.length > 0) {
+      // Create a new array instead of mutating the previously-returned one,
+      // so downstream consumers holding the old reference are not affected.
+      current.merged = [...current.merged, ...newEvents];
     }
 
     return current.merged;

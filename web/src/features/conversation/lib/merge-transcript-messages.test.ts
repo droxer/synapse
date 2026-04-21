@@ -88,4 +88,40 @@ describe("mergeHistoryWithEventDerivedMessages", () => {
       { name: "report.csv", size: 42, type: "text/csv" },
     ]);
   });
+
+  it("upgrades a live partial assistant bubble with fuller persisted history content", () => {
+    const history: ChatMessage[] = [
+      { role: "user", content: "Summarize it", timestamp: 100 },
+      { role: "assistant", content: "Final answer with the missing ending.", timestamp: 200 },
+    ];
+    const derived: ChatMessage[] = [
+      { role: "user", content: "Summarize it", timestamp: 100 },
+      { role: "assistant", content: "Final answer", timestamp: 190 },
+    ];
+
+    const merged = mergeHistoryWithEventDerivedMessages(history, derived);
+
+    expect(merged).toHaveLength(2);
+    expect(merged[1]?.content).toBe("Final answer with the missing ending.");
+  });
+
+  it("keeps distinct assistant segments separate when only the latest segment matches history", () => {
+    const history: ChatMessage[] = [
+      { role: "user", content: "Research", timestamp: 100 },
+      { role: "assistant", content: "Finding two with the final detail.", timestamp: 220 },
+    ];
+    const derived: ChatMessage[] = [
+      { role: "user", content: "Research", timestamp: 100 },
+      { role: "assistant", content: "Finding", timestamp: 150 },
+      { role: "assistant", content: "Finding two", timestamp: 210 },
+    ];
+
+    const merged = mergeHistoryWithEventDerivedMessages(history, derived);
+
+    expect(merged.map((message) => message.content)).toEqual([
+      "Research",
+      "Finding",
+      "Finding two with the final detail.",
+    ]);
+  });
 });

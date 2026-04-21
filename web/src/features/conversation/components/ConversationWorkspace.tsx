@@ -3,6 +3,7 @@
 import { memo, useRef, useEffect, useState, useCallback, useMemo } from "react";
 import { AnimatePresence, MotionConfig, motion, useReducedMotion } from "framer-motion";
 import { RotateCcw, Copy, Check, Paperclip, MessageSquare } from "lucide-react";
+import { useStickyBottom } from "@/shared/hooks";
 import { Button } from "@/shared/components/ui/button";
 import { Tooltip, TooltipTrigger, TooltipContent } from "@/shared/components/ui/tooltip";
 import { TopBar, MarkdownRenderer } from "@/shared/components";
@@ -15,7 +16,6 @@ import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
 import { ThreadTasksPanel } from "./ThreadTasksPanel";
 import { areMessageRowsEqual, type MessageRowMemoProps } from "./message-row-memo";
-import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import {
   getIsCurrentTurnAutoDetected,
   getLatestTurnMode,
@@ -173,9 +173,9 @@ export const MessageRow = memo(function MessageRow({
               </p>
               {msg.attachments && msg.attachments.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {msg.attachments.map((att, idx) => (
+                  {msg.attachments.map((att) => (
                     <span
-                      key={idx}
+                      key={att.name}
                       className="inline-flex items-center gap-1 rounded-md bg-background/50 px-2 py-0.5 text-micro font-mono text-muted-foreground"
                     >
                       <Paperclip className="h-3 w-3" />
@@ -202,11 +202,11 @@ export const MessageRow = memo(function MessageRow({
             {/* Reasoning blocks */}
             {hasThinking ? (
               <div className="mb-2 space-y-1.5">
-                {visibleThinkingEntries.map((entry, idx) => (
+                {visibleThinkingEntries.map((entry, entryIdx) => (
                   <ThinkingBlock
-                    key={`${msg.messageId ?? msg.timestamp}-thinking-${idx}`}
+                    key={`${msg.messageId ?? msg.timestamp}-thinking-${entry.timestamp ?? entryIdx}`}
                     content={entry.content}
-                    isThinking={isThinkingThis && idx === thinkingEntryCount - 1}
+                    isThinking={isThinkingThis && entryIdx === thinkingEntryCount - 1}
                     isTurnStreaming={isStreamingThis || isThinkingThis}
                     durationMs={entry.durationMs}
                   />
@@ -330,40 +330,16 @@ export function ConversationWorkspace({
 }: ConversationWorkspaceProps) {
   const { t, locale } = useTranslation();
   const chatScrollRef = useRef<HTMLDivElement>(null);
-  const activityCountRef = useRef(0);
   const shouldReduceMotion = useReducedMotion();
   const [panelOpen, setPanelOpen] = useState(false);
   const autoOpenedRef = useRef(false);
   const [highlightedStepId, setHighlightedStepId] = useState<string | null>(null);
 
   useEffect(() => {
-    activityCountRef.current = 0;
+    autoOpenedRef.current = false;
   }, [conversationId]);
 
-  useEffect(() => {
-    const el = chatScrollRef.current;
-    if (!el) return;
-
-    const activityCount = messages.length + events.length + toolCalls.length;
-    const prevCount = activityCountRef.current;
-    activityCountRef.current = activityCount;
-
-    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight;
-    if (
-      !shouldAutoScrollToBottom({
-        previousActivityCount: prevCount,
-        nextActivityCount: activityCount,
-        distanceFromBottom,
-      })
-    ) {
-      return;
-    }
-
-    el.scrollTo({
-      top: el.scrollHeight,
-      behavior: "smooth",
-    });
-  }, [messages.length, events.length, toolCalls.length]);
+  useStickyBottom(chatScrollRef, { enabled: true });
 
   const planMessageIndex = useMemo<number | null>(() => {
     return getPlanMessageIndex(events, messages);
@@ -432,14 +408,20 @@ export function ConversationWorkspace({
   }, [messages.length, events.length, isWaitingForAgent, isLoadingHistory, taskState, onNavigateHome]);
 
   // When isWaitingForAgent is true, only show the skeleton if the assistant
-  // hasn't responded yet (last message is still from the user). This handles
-  // fast responses where turn_complete resets both taskState and assistantPhase
-  // to idle before the clearing effect fires, leaving isWaitingForAgent stuck.
-  const lastMessage = messages[messages.length - 1];
+  // hasn't responded yet in the current turn. Scan backward from the end: if
+  // the most recent non-user message is an assistant, the current turn already
+  // has a response and the skeleton is not needed.
+  const currentTurnHasAssistantResponse = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i]?.role === "assistant") return true;
+      if (messages[i]?.role === "user") return false;
+    }
+    return false;
+  }, [messages]);
   const showLoadingSkeleton =
     !userCancelled &&
     (isWaitingForAgent
-      ? lastMessage?.role !== "assistant"
+      ? !currentTurnHasAssistantResponse
       : (assistantPhase.phase !== "idle" && !isStreaming)) &&
     messages.length > 0;
   const showPlannerChecklist = planMessageIndex === null && effectivePlanSteps.length > 0;
@@ -449,8 +431,13 @@ export function ConversationWorkspace({
     ? { phase: "thinking" }
     : assistantPhase;
 
-  const contentWidthClass = panelOpen ? "max-w-[46rem]" : "max-w-[56rem]";
-  const messageWidthClass = panelOpen ? "sm:max-w-[90%]" : "sm:max-w-[85%]";
+  const lastAssistantIndex = useMemo(
+    () => messages.findLastIndex((m) => m.role === "assistant"),
+    [messages],
+  );
+
+  const contentWidthClass = useMemo(() => panelOpen ? "max-w-[46rem]" : "max-w-[56rem]", [panelOpen]);
+  const messageWidthClass = useMemo(() => panelOpen ? "sm:max-w-[90%]" : "sm:max-w-[85%]", [panelOpen]);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -491,7 +478,7 @@ export function ConversationWorkspace({
 
                   <div className={cn("mx-auto w-full", contentWidthClass)}>
                     {messages.map((msg, i) => {
-                      const isLastAssistant = msg.role === "assistant" && i === messages.length - 1;
+                      const isLastAssistant = msg.role === "assistant" && i === lastAssistantIndex;
                       const isStreamingThis = isStreaming && isLastAssistant;
                       const isThinkingThis =
                         msg.role === "assistant" &&
@@ -538,9 +525,9 @@ export function ConversationWorkspace({
                         >
                           {currentThinkingEntries.length > 0 && (
                             <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
-                              {currentThinkingEntries.map((entry, idx) => (
+                              {currentThinkingEntries.map((entry) => (
                                 <ThinkingBlock
-                                  key={`current-thinking-${entry.timestamp}-${idx}`}
+                                  key={`current-thinking-${entry.timestamp}`}
                                   content={entry.content}
                                   isThinking={effectivePhase.phase === "thinking"}
                                   isTurnStreaming={isStreaming}
@@ -571,6 +558,7 @@ export function ConversationWorkspace({
                         events={events}
                         toolCalls={toolCalls}
                         agentStatuses={agentStatuses}
+                        planSteps={effectivePlanSteps}
                         taskState={effectiveTaskState}
                         isWaitingForAgent={isWaitingForAgent}
                         onClick={handleProgressCardClick}
@@ -599,7 +587,7 @@ export function ConversationWorkspace({
                     className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border bg-background md:w-[var(--agent-panel-width)]"
                     initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
                     animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 24 }}
+                    exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 12 }}
                     transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
                   >
                     {isConnected && threadTasks.length > 0 && (
