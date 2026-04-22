@@ -1,4 +1,4 @@
-import type { ChatMessage, PlanStep, TaskState } from "@/shared/types";
+import type { ChatMessage, PlanStep, TaskState, ThinkingEntry } from "@/shared/types";
 import type { Locale } from "@/i18n/types";
 
 export interface MessageRowMemoProps {
@@ -13,6 +13,8 @@ export interface MessageRowMemoProps {
   readonly taskState: TaskState;
   readonly locale: Locale;
   readonly suppressEmbeddedThinking?: boolean;
+  /** When set, these replace embedded msg thinking for display (e.g. live stream above body). */
+  readonly streamThinkingEntries?: readonly ThinkingEntry[];
   readonly onRetry?: () => void;
 }
 
@@ -52,6 +54,21 @@ export function areMessageRowsEqual(
         entry.durationMs === nextEntry?.durationMs
       );
     });
+  const sameStreamThinkingEntries = (() => {
+    const a = prev.streamThinkingEntries;
+    const b = next.streamThinkingEntries;
+    if (a === b) return true;
+    if (!a?.length && !b?.length) return true;
+    if (!a || !b || a.length !== b.length) return false;
+    return a.every((entry, index) => {
+      const o = b[index];
+      return (
+        entry.content === o?.content &&
+        entry.timestamp === o?.timestamp &&
+        entry.durationMs === o?.durationMs
+      );
+    });
+  })();
   const sameImageIds =
     (prevMsg.imageArtifactIds?.length ?? 0) === (nextMsg.imageArtifactIds?.length ?? 0) &&
     (prevMsg.imageArtifactIds ?? []).every((artifactId, index) => artifactId === nextMsg.imageArtifactIds?.[index]);
@@ -80,6 +97,7 @@ export function areMessageRowsEqual(
     prev.isStreamingThis === next.isStreamingThis &&
     prev.isThinkingThis === next.isThinkingThis &&
     prev.suppressEmbeddedThinking === next.suppressEmbeddedThinking &&
+    sameStreamThinkingEntries &&
     prev.messageWidthClass === next.messageWidthClass &&
     arePlanStepsEqual(prev.embeddedPlanSteps, next.embeddedPlanSteps) &&
     prev.index === next.index &&

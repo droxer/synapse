@@ -191,62 +191,6 @@ function findTrailingEmphasisStart(content: string): number | null {
   return offset + Math.min(...unmatchedOpeners.map((token) => token.index));
 }
 
-function isListMarker(line: string): boolean {
-  return /^ {0,3}(?:[-+*]|\d+[.)])\s+/.test(line);
-}
-
-function isHeadingMarker(line: string): boolean {
-  return /^ {0,3}#{1,6}\s+/.test(line);
-}
-
-function isBlockquoteMarker(line: string): boolean {
-  return /^ {0,3}>\s?/.test(line);
-}
-
-function isTableBlock(lines: readonly string[], startIndex: number): boolean {
-  const header = lines[startIndex]?.trim() ?? "";
-  const separator = lines[startIndex + 1]?.trim() ?? "";
-  if (!header.includes("|")) return false;
-  return /^\|?\s*:?-{3,}:?(?:\s*\|\s*:?-{3,}:?)+\s*\|?$/.test(separator);
-}
-
-function isStructuredTrailingBlock(lines: readonly string[], startIndex: number): boolean {
-  const line = lines[startIndex] ?? "";
-  return (
-    FENCE_OPEN_RE.test(line) ||
-    isHeadingMarker(line) ||
-    isListMarker(line) ||
-    isBlockquoteMarker(line) ||
-    isTableBlock(lines, startIndex) ||
-    /^ {4,}\S/.test(line)
-  );
-}
-
-function findTrailingParagraphStart(
-  lines: readonly string[],
-  lineStartOffsets: readonly number[],
-): number | null {
-  let endIndex = lines.length - 1;
-  while (endIndex >= 0 && lines[endIndex]?.trim() === "") {
-    endIndex -= 1;
-  }
-  if (endIndex < 0) return null;
-
-  const contentEndsWithNewline = lines[lines.length - 1] === "";
-  if (contentEndsWithNewline) return null;
-
-  let startIndex = endIndex;
-  while (startIndex > 0 && lines[startIndex - 1]?.trim() !== "") {
-    startIndex -= 1;
-  }
-
-  if (isStructuredTrailingBlock(lines, startIndex)) {
-    return null;
-  }
-
-  return lineStartOffsets[startIndex] ?? 0;
-}
-
 export function splitStreamingMarkdown(content: string): StreamingMarkdownSegments {
   if (!content) {
     return { stableContent: "", tailContent: "" };
@@ -269,9 +213,7 @@ export function splitStreamingMarkdown(content: string): StreamingMarkdownSegmen
     findTrailingEmphasisStart(content),
   ].filter((value): value is number => value !== null);
 
-  const unstableOffsets = syntaxUnstableOffsets.length > 0
-    ? syntaxUnstableOffsets
-    : [findTrailingParagraphStart(lines, lineStartOffsets)].filter((value): value is number => value !== null);
+  const unstableOffsets = syntaxUnstableOffsets;
 
   if (unstableOffsets.length === 0) {
     return { stableContent: content, tailContent: "" };

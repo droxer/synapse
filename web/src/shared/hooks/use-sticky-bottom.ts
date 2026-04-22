@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef } from "react";
 
 const DEFAULT_THRESHOLD_PX = 120;
+export const STICKY_BOTTOM_MUTATION_OBSERVER_OPTIONS: MutationObserverInit = {
+  childList: true,
+  subtree: true,
+  characterData: true,
+};
 
 export interface UseStickyBottomOptions {
   readonly enabled?: boolean;
@@ -60,7 +65,7 @@ export function useStickyBottom(
         scrollToBottom();
       });
     });
-    mo.observe(el, { childList: true, subtree: true });
+    mo.observe(el, STICKY_BOTTOM_MUTATION_OBSERVER_OPTIONS);
 
     scrollToBottom();
 

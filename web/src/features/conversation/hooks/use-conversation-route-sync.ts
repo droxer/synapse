@@ -24,7 +24,6 @@ export interface ConversationRouteSyncPlan {
 export function getConversationRouteSyncPlan(
   pathname: string,
   conversationId: string | null,
-  isLiveConversation: boolean,
   pendingConversationRouteId: string | null,
 ): ConversationRouteSyncPlan {
   if (pathname === "/") {
@@ -51,7 +50,7 @@ export function getConversationRouteSyncPlan(
     shouldResetConversation: false,
     switchConversationId:
       routeConversationId !== conversationId ? routeConversationId : null,
-    shouldResumeConversation: !isLiveConversation,
+    shouldResumeConversation: routeConversationId !== conversationId,
     shouldClearPendingRoute: routeConversationId === pendingConversationRouteId,
   };
 }
@@ -59,7 +58,6 @@ export function getConversationRouteSyncPlan(
 export function useConversationRouteSync() {
   const pathname = usePathname();
   const conversationId = useAppStore((state) => state.conversationId);
-  const isLiveConversation = useAppStore((state) => state.isLiveConversation);
   const pendingConversationRouteId = useAppStore(
     (state) => state.pendingConversationRouteId,
   );
@@ -74,7 +72,6 @@ export function useConversationRouteSync() {
     const plan = getConversationRouteSyncPlan(
       pathname,
       conversationId,
-      isLiveConversation,
       pendingConversationRouteId,
     );
 
@@ -93,7 +90,6 @@ export function useConversationRouteSync() {
   }, [
     pathname,
     conversationId,
-    isLiveConversation,
     pendingConversationRouteId,
     switchConversation,
     resumeConversation,

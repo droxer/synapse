@@ -152,11 +152,15 @@ function isBetterMatchCandidate(
   if (candidate.exactContent !== currentBest.exactContent) {
     return candidate.exactContent;
   }
-  if (candidate.sharedPrefixLength !== currentBest.sharedPrefixLength) {
-    return candidate.sharedPrefixLength > currentBest.sharedPrefixLength;
-  }
+  // Favor the event-derived row whose *time* is closest to the persisted
+  // message before preferring a longer text prefix. Otherwise a new reply that
+  // continues/extends a prior assistant (same intro) is merged into the
+  // *previous* bubble because that row shares more characters with the DB row.
   if (candidate.timestampDelta !== currentBest.timestampDelta) {
     return candidate.timestampDelta < currentBest.timestampDelta;
+  }
+  if (candidate.sharedPrefixLength !== currentBest.sharedPrefixLength) {
+    return candidate.sharedPrefixLength > currentBest.sharedPrefixLength;
   }
   return candidate.index > currentBest.index;
 }
@@ -165,16 +169,19 @@ function isBetterMatchCandidate(
  * Reconcile a persisted history row with the matching event-derived bubble.
  *
  * Message IDs are authoritative when they line up. Otherwise we fall back to
- * role + nearby timestamp bucket + content compatibility, where assistant
- * rows can match on exact text or partial/final prefix expansion.
+ * role + content compatibility, where assistant rows can also match on
+ * partial/prefix expansion. A timestamp *bucket* only applies to fuzzy
+ * (non-exact) matches — otherwise a refetched `created_at` that differs by
+ * minutes from the live event clock still dedupes the same user/assistant line.
  */
 function findDuplicateIndex(
   historyMessage: ChatMessage,
   eventDerivedMessages: readonly ChatMessage[],
   claimedIndexes: ReadonlySet<number>,
+  minimumIndex: number,
 ): number | undefined {
   if (historyMessage.messageId) {
-    for (let i = 0; i < eventDerivedMessages.length; i += 1) {
+    for (let i = Math.max(0, minimumIndex + 1); i < eventDerivedMessages.length; i += 1) {
       if (claimedIndexes.has(i)) continue;
       if (eventDerivedMessages[i]?.messageId === historyMessage.messageId) {
         return i;
@@ -184,15 +191,83 @@ function findDuplicateIndex(
 
   let bestMatch: MatchCandidate | null = null;
 
-  for (let i = 0; i < eventDerivedMessages.length; i += 1) {
+  for (let i = Math.max(0, minimumIndex + 1); i < eventDerivedMessages.length; i += 1) {
     if (claimedIndexes.has(i)) continue;
 
     const candidate = eventDerivedMessages[i]!;
     if (candidate.role !== historyMessage.role) continue;
-    if (!areNearbyBuckets(historyMessage.timestamp, candidate.timestamp)) continue;
+    if (
+      historyMessage.turnId
+      && candidate.turnId
+      && historyMessage.turnId !== candidate.turnId
+    ) {
+      continue;
+    }
 
     const contentMatch = getContentMatchMetadata(historyMessage, candidate);
     if (contentMatch === null) continue;
+
+    if (
+      !contentMatch.exactContent
+      && minimumIndex === -1
+      && !areNearbyBuckets(historyMessage.timestamp, candidate.timestamp)
+    ) {
+      continue;
+    }
+
+    const matchCandidate: MatchCandidate = {
+      index: i,
+      exactContent: contentMatch.exactContent,
+      sharedPrefixLength: contentMatch.sharedPrefixLength,
+      timestampDelta: Math.abs(historyMessage.timestamp - candidate.timestamp),
+    };
+
+    if (isBetterMatchCandidate(matchCandidate, bestMatch)) {
+      bestMatch = matchCandidate;
+    }
+  }
+
+  return bestMatch?.index;
+}
+
+/**
+ * History may already contain duplicate assistant rows from an older backend
+ * bug (e.g. provisional `message_user` text plus terminal completion text for
+ * the same turn). If an earlier history row already claimed the matching
+ * event-derived bubble, let later compatible history rows merge into that same
+ * bubble instead of surviving as transcript orphans after refresh.
+ */
+function findClaimedDuplicateIndex(
+  historyMessage: ChatMessage,
+  eventDerivedMessages: readonly ChatMessage[],
+  claimedIndexes: ReadonlySet<number>,
+  minimumIndex: number,
+): number | undefined {
+  let bestMatch: MatchCandidate | null = null;
+
+  for (let i = Math.max(0, minimumIndex); i < eventDerivedMessages.length; i += 1) {
+    if (!claimedIndexes.has(i)) continue;
+
+    const candidate = eventDerivedMessages[i]!;
+    if (candidate.role !== historyMessage.role) continue;
+    if (
+      historyMessage.turnId
+      && candidate.turnId
+      && historyMessage.turnId !== candidate.turnId
+    ) {
+      continue;
+    }
+
+    const contentMatch = getContentMatchMetadata(historyMessage, candidate);
+    if (contentMatch === null) continue;
+
+    if (
+      !contentMatch.exactContent
+      && minimumIndex === -1
+      && !areNearbyBuckets(historyMessage.timestamp, candidate.timestamp)
+    ) {
+      continue;
+    }
 
     const matchCandidate: MatchCandidate = {
       index: i,
@@ -228,13 +303,21 @@ export function mergeHistoryWithEventDerivedMessages(
   const merged: ChatMessage[] = [...eventDerivedMessages];
   const claimedIndexes = new Set<number>();
   const orphans: ChatMessage[] = [];
+  let lastMatchedIndex = -1;
 
   for (const hm of historyMessages) {
-    const duplicateIdx = findDuplicateIndex(hm, merged, claimedIndexes);
+    const duplicateIdx = findDuplicateIndex(hm, merged, claimedIndexes, lastMatchedIndex);
+    const claimedDuplicateIdx = duplicateIdx === undefined
+      ? findClaimedDuplicateIndex(hm, merged, claimedIndexes, lastMatchedIndex)
+      : undefined;
+    const resolvedDuplicateIdx = duplicateIdx ?? claimedDuplicateIdx;
 
-    if (duplicateIdx !== undefined) {
-      claimedIndexes.add(duplicateIdx);
-      const existing = merged[duplicateIdx]!;
+    if (resolvedDuplicateIdx !== undefined) {
+      if (duplicateIdx !== undefined) {
+        claimedIndexes.add(duplicateIdx);
+      }
+      lastMatchedIndex = Math.max(lastMatchedIndex, resolvedDuplicateIdx);
+      const existing = merged[resolvedDuplicateIdx]!;
       // Same bubble may appear in both tables; combine extras from either side.
       // History often has the richer row (thinking entries, artifact IDs) while
       // events have the streaming-derived row with partial content.
@@ -268,7 +351,7 @@ export function mergeHistoryWithEventDerivedMessages(
           continue;
         }
 
-        merged[duplicateIdx] = {
+        merged[resolvedDuplicateIdx] = {
           ...existing,
           content: mergedContent,
           thinkingContent: mergedThinkingContent,

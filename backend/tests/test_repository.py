@@ -4,6 +4,7 @@ Uses SQLite for fast, isolated tests.
 """
 
 import uuid
+from datetime import datetime, timezone
 
 import pytest
 import pytest_asyncio
@@ -208,6 +209,25 @@ class TestEvents:
         events = await repo.get_events(session, convo.id, limit=10, offset=0)
         assert len(events) == 1
         assert events[0].event_type == "task_start"
+
+    async def test_save_event_uses_provided_timestamp(
+        self, repo, session: AsyncSession
+    ) -> None:
+        convo = await repo.create_conversation(session, title="Timestamped event")
+        persisted_at = datetime(2026, 4, 22, 10, 0, tzinfo=timezone.utc)
+
+        await repo.save_event(
+            session,
+            convo.id,
+            event_type="turn_start",
+            data={"message": "hello"},
+            iteration=None,
+            timestamp=persisted_at,
+        )
+
+        events = await repo.get_events(session, convo.id)
+        assert len(events) == 1
+        assert events[0].timestamp.replace(tzinfo=timezone.utc) == persisted_at
 
     async def test_save_event_flushes_before_commit(
         self, repo, session: AsyncSession

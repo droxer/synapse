@@ -371,12 +371,14 @@ class ConversationRepository:
         event_type: str,
         data: dict,
         iteration: int | None = None,
+        timestamp: datetime | None = None,
     ) -> None:
         model = EventModel(
             conversation_id=conversation_id,
             event_type=event_type,
             data=data,
             iteration=iteration,
+            timestamp=timestamp or datetime.now(timezone.utc),
         )
         session.add(model)
         await self._touch_conversation(session, conversation_id)

@@ -22,7 +22,7 @@ describe("getConversationIdFromPathname", () => {
 describe("getConversationRouteSyncPlan", () => {
   it("resets stale conversation state on the home route", () => {
     expect(
-      getConversationRouteSyncPlan("/", "conversation-1", true, null),
+      getConversationRouteSyncPlan("/", "conversation-1", null),
     ).toEqual({
       shouldResetConversation: true,
       switchConversationId: null,
@@ -36,7 +36,6 @@ describe("getConversationRouteSyncPlan", () => {
       getConversationRouteSyncPlan(
         "/",
         "conversation-1",
-        true,
         "conversation-1",
       ),
     ).toEqual({
@@ -52,7 +51,6 @@ describe("getConversationRouteSyncPlan", () => {
       getConversationRouteSyncPlan(
         "/c/conversation-2",
         "conversation-1",
-        false,
         null,
       ),
     ).toEqual({
@@ -68,7 +66,6 @@ describe("getConversationRouteSyncPlan", () => {
       getConversationRouteSyncPlan(
         "/c/conversation-1",
         "conversation-1",
-        true,
         "conversation-1",
       ),
     ).toEqual({
@@ -76,6 +73,21 @@ describe("getConversationRouteSyncPlan", () => {
       switchConversationId: null,
       shouldResumeConversation: false,
       shouldClearPendingRoute: true,
+    });
+  });
+
+  it("does not auto-resume when already on the active conversation route", () => {
+    expect(
+      getConversationRouteSyncPlan(
+        "/c/conversation-1",
+        "conversation-1",
+        null,
+      ),
+    ).toEqual({
+      shouldResetConversation: false,
+      switchConversationId: null,
+      shouldResumeConversation: false,
+      shouldClearPendingRoute: false,
     });
   });
 });

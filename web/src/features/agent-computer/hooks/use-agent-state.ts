@@ -3,11 +3,14 @@
 import { useMemo, useRef } from "react";
 
 // Some models embed chain-of-thought in the assistant text using `<redacted_thinking>…</redacted_thinking>`
-// (see `agent/llm/client._split_think_tags`) or legacy `<redacted_thinking>…</think>` pairs.
+// (see `agent/llm/client._split_think_tags`), plain `<think>…</think>` / `<thinking>…</thinking>`
+// blocks, or legacy `<redacted_thinking>…</think>` pairs.
 // Strip every block so reasoning appears in ThinkingBlock, not in the markdown body.
 const INLINE_THINK_PATTERNS = [
   /<redacted_thinking>([\s\S]*?)<\/redacted_thinking>/gi,
   /<redacted_thinking>([\s\S]*?)<\/think>/gi,
+  /<think>([\s\S]*?)<\/think>/gi,
+  /<thinking>([\s\S]*?)<\/thinking>/gi,
 ];
 
 function splitThinkTag(text: string): { thinking: string; content: string } {
@@ -161,12 +164,85 @@ function buildPlannerFallbackStep(
   };
 }
 
-function normalizeComparableMessageContent(content: string): string {
-  return content.trim();
+/**
+ * Must stay aligned with `merge-transcript-messages` / `getContentMatchMetadata` so
+ * `llm_response` + `turn_complete` (or `message_user`) that describe the same answer
+ * merge into one bubble even when whitespace differs.
+ */
+function normalizeAssistantBodyForDeduplication(content: string): string {
+  return content.trim().replace(/\s+/g, " ");
+}
+
+function isDuplicateAssistantText(a: string, b: string): boolean {
+  const na = normalizeAssistantBodyForDeduplication(a);
+  const nb = normalizeAssistantBodyForDeduplication(b);
+  if (na === nb) {
+    return true;
+  }
+  if (!na || !nb) {
+    return false;
+  }
+  return na.startsWith(nb) || nb.startsWith(na);
+}
+
+function findTerminalResultTargetIndex(
+  messages: readonly ChatMessage[],
+  content: string,
+  currentTurnId: string,
+  eventTimestamp: number,
+): number {
+  if (!normalizeAssistantBodyForDeduplication(content)) {
+    return -1;
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== "assistant") continue;
+    if (message.turnId === currentTurnId) {
+      if (isDuplicateAssistantText(message.content, content)) {
+        return index;
+      }
+    }
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== "assistant") continue;
+    if (message.messageId?.startsWith(`${currentTurnId}:assistant:`)) {
+      if (isDuplicateAssistantText(message.content, content)) {
+        return index;
+      }
+    }
+  }
+
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (!message || message.role !== "assistant") continue;
+    if (message.turnId || message.messageId) continue;
+    if (Math.abs(message.timestamp - eventTimestamp) > 5_000) continue;
+    if (isDuplicateAssistantText(message.content, content)) {
+      return index;
+    }
+  }
+
+  return -1;
 }
 
 function collapseThinkingWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
+}
+
+function stripThinkingMarkdownFormatting(value: string): string {
+  return value
+    .replace(/^[>\s]*[-*+]\s+/gm, "")
+    .replace(/^[>\s]*\d+[.)]\s+/gm, "")
+    .replace(/^[>\s]*#{1,6}\s+/gm, "")
+    .replace(/[*_~`]+/g, "")
+    .trim();
+}
+
+function normalizeComparableThinking(value: string): string {
+  return collapseThinkingWhitespace(stripThinkingMarkdownFormatting(value));
 }
 
 function isThinkingContentRedundantWithEntries(
@@ -184,7 +260,7 @@ function isThinkingContentRedundantWithEntries(
   if (!combinedEntries) return false;
   if (trimmedThinkingContent === combinedEntries) return true;
 
-  return collapseThinkingWhitespace(trimmedThinkingContent) === collapseThinkingWhitespace(combinedEntries);
+  return normalizeComparableThinking(trimmedThinkingContent) === normalizeComparableThinking(combinedEntries);
 }
 
 function normalizeAgentStepMatchName(value: string): string {
@@ -371,6 +447,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let currentTurnIsPlanner = false;
   let currentTurnHadPlanCreated = false;
   let currentTurnHadAgentSpawn = false;
+  let currentTurnMutableAssistantIndex: number | null = null;
   const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
   let isDeepResearchTurn = false;
@@ -417,6 +494,40 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     source: "event",
     turnId: currentTurnId,
   });
+
+  const getCurrentTurnMutableAssistantIndex = (): number => {
+    if (currentTurnMutableAssistantIndex === null) {
+      return -1;
+    }
+    const candidate = messages[currentTurnMutableAssistantIndex];
+    if (
+      !candidate ||
+      candidate.role !== "assistant" ||
+      candidate.turnId !== currentTurnId
+    ) {
+      currentTurnMutableAssistantIndex = null;
+      return -1;
+    }
+    return currentTurnMutableAssistantIndex;
+  };
+
+  const pushMutableAssistantMessage = (message: ChatMessage): number => {
+    messages.push(message);
+    const index = messages.length - 1;
+    currentTurnMutableAssistantIndex = index;
+    return index;
+  };
+
+  const resolveTerminalAssistantTargetIndex = (
+    content: string,
+    eventTimestamp: number,
+  ): number => {
+    const mutableIndex = getCurrentTurnMutableAssistantIndex();
+    if (mutableIndex !== -1) {
+      return mutableIndex;
+    }
+    return findTerminalResultTargetIndex(messages, content, currentTurnId, eventTimestamp);
+  };
 
   const resolveToolResultRow = (apiToolId: string): string | undefined => {
     if (!apiToolId) return undefined;
@@ -652,6 +763,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     }
 
     if (event.type === "thinking") {
+      currentTurnMutableAssistantIndex = null;
       assistantPhase = { phase: "thinking" };
       const thinkingEntry = toThinkingEntry(event);
       if (thinkingEntry) {
@@ -672,6 +784,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       if (typeof event.data.agent_id === "string" && event.data.agent_id.length > 0) {
         continue;
       }
+      currentTurnMutableAssistantIndex = null;
       assistantPhase = { phase: "writing" };
       isStreaming = true;
       streamingText += String(event.data.delta ?? "");
@@ -707,7 +820,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
         });
         message = applyPendingThinkingToMessage(message, pendingThinking);
-        messages.push(message);
+        pushMutableAssistantMessage(message);
         pendingImageArtifactIds = [];
       }
       // Only clear streaming text if we materialized the message here.
@@ -930,15 +1043,37 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         inlineThinking,
         clearCurrentThinking: true,
       });
-      let message = finalizeAssistantMessage({
-        role: "assistant",
-        content: messageContent,
-        timestamp: event.timestamp,
-        ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
-      });
-      message = applyPendingThinkingToMessage(message, pendingThinking);
-      messages.push(message);
-      pendingImageArtifactIds = [];
+      const existingIdx = resolveTerminalAssistantTargetIndex(
+        messageContent,
+        event.timestamp,
+      );
+      if (existingIdx === -1) {
+        let message = finalizeAssistantMessage({
+          role: "assistant",
+          content: messageContent,
+          timestamp: event.timestamp,
+          ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+        });
+        message = applyPendingThinkingToMessage(message, pendingThinking);
+        messages.push(message);
+        pendingImageArtifactIds = [];
+      } else {
+        let existing = messages[existingIdx]!;
+        if (pendingImageArtifactIds.length > 0) {
+          existing = {
+            ...existing,
+            imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+          };
+        }
+        if (messageContent.trim().length > 0) {
+          existing = { ...existing, content: messageContent };
+        }
+        messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
+        pendingImageArtifactIds = [];
+      }
+      streamingText = "";
+      streamingTimestamp = 0;
+      currentTurnMutableAssistantIndex = null;
     } else if (event.type === "turn_start") {
       const userText = String(event.data.message ?? "");
       const attachments = Array.isArray(event.data.attachments)
@@ -960,6 +1095,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       currentTurnIsPlanner = event.data.orchestrator_mode === "planner";
       currentTurnHadPlanCreated = false;
       currentTurnHadAgentSpawn = false;
+      currentTurnMutableAssistantIndex = null;
       planSteps = currentTurnIsPlanner ? [buildPlannerFallbackStep("running", "active")] : [];
       pendingThinkingEntries = [];
       pendingThinkingParts = [];
@@ -984,6 +1120,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         streamingText = "";
         streamingTimestamp = 0;
       }
+      currentTurnMutableAssistantIndex = null;
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
       pendingToolIds.clear();
@@ -1005,11 +1142,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       if (rawResult) {
         const normalizedResult = consumeDeepResearchFallbackContent(rawResult);
         const { thinking: inlineThinking, content } = splitThinkTag(normalizedResult);
-        const normalizedContent = normalizeComparableMessageContent(content);
-        const existingIdx = messages.findLastIndex(
-          (message) =>
-            message.role === "assistant"
-            && normalizeComparableMessageContent(message.content) === normalizedContent,
+        const existingIdx = resolveTerminalAssistantTargetIndex(
+          content,
+          event.timestamp,
         );
         const pendingThinking = consumePendingThinking({ inlineThinking });
         if (existingIdx === -1) {
@@ -1030,6 +1165,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
               imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
             };
           }
+          if (content.trim().length > 0) {
+            existing = { ...existing, content };
+          }
           messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
           pendingImageArtifactIds = [];
         }
@@ -1044,7 +1182,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
         });
         message = applyPendingThinkingToMessage(message, pendingThinking);
-        messages.push(message);
+        pushMutableAssistantMessage(message);
         pendingImageArtifactIds = [];
       } else {
         const fallbackOnly = consumeDeepResearchFallbackContent("");
@@ -1061,6 +1199,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         }
         attachPendingArtifactsToLastAssistant();
       }
+      currentTurnMutableAssistantIndex = null;
       // Always clear streaming state after turn_complete/task_complete
       streamingText = "";
       streamingTimestamp = 0;
@@ -1072,6 +1211,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       isDeepResearchTurn = false;
     } else if (event.type === "task_error") {
       isStreaming = false;
+      currentTurnMutableAssistantIndex = null;
       if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
         planSteps = [buildPlannerFallbackStep("error", "error")];
       }
@@ -1240,11 +1380,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
 
   if (streamingText) {
     const streamContent = consumeDeepResearchFallbackContent(streamingText);
-    const normalizedStream = normalizeComparableMessageContent(streamContent);
     const lastAssistant = messages.findLast((m) => m.role === "assistant");
     const isDuplicateOfLastAssistant =
-      lastAssistant !== undefined
-      && normalizeComparableMessageContent(lastAssistant.content) === normalizedStream;
+      lastAssistant !== undefined && isDuplicateAssistantText(lastAssistant.content, streamContent);
     // Main-assistant streaming can be finalized by `message_user` or `turn_complete`
     // without a matching `llm_response`; skip a second bubble with identical content.
     if (!isDuplicateOfLastAssistant && streamContent) {
@@ -1256,7 +1394,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       message = applyPendingThinkingToMessage(message, {
         ...(pendingThinkingEntries.length > 0 ? { thinkingEntries: pendingThinkingEntries } : {}),
       });
-      messages.push(message);
+      pushMutableAssistantMessage(message);
       pendingImageArtifactIds = [];
     }
   }

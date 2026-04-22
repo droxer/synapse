@@ -101,6 +101,7 @@ export const MessageRow = memo(function MessageRow({
   isStreamingThis,
   isThinkingThis,
   suppressEmbeddedThinking = false,
+  streamThinkingEntries,
   messageWidthClass,
   embeddedPlanSteps,
   index,
@@ -135,9 +136,15 @@ export const MessageRow = memo(function MessageRow({
 
   const imageUrls = getImageUrlsForMessage(msg);
   const hasPlanHere = embeddedPlanSteps.length > 0;
-  const thinkingDisplay = selectThinkingDisplay(locale, msg.thinkingEntries, msg.thinkingContent);
-  const visibleThinkingEntries = suppressEmbeddedThinking ? [] : thinkingDisplay.entries;
-  const visibleThinkingContent = suppressEmbeddedThinking ? null : thinkingDisplay.thinkingContent;
+  const streamOverride =
+    streamThinkingEntries && streamThinkingEntries.length > 0
+      ? selectThinkingDisplay(locale, streamThinkingEntries, msg.thinkingContent)
+      : null;
+  const thinkingDisplay = streamOverride
+    ?? selectThinkingDisplay(locale, msg.thinkingEntries, msg.thinkingContent);
+  const useStreamOverride = streamOverride != null;
+  const visibleThinkingEntries = suppressEmbeddedThinking && !useStreamOverride ? [] : thinkingDisplay.entries;
+  const visibleThinkingContent = suppressEmbeddedThinking && !useStreamOverride ? null : thinkingDisplay.thinkingContent;
   const showOrphanThinkingContent = Boolean(visibleThinkingContent);
   const hasThinking =
     visibleThinkingEntries.length > 0 || showOrphanThinkingContent;
@@ -174,9 +181,9 @@ export const MessageRow = memo(function MessageRow({
               </p>
               {msg.attachments && msg.attachments.length > 0 && (
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
-                  {msg.attachments.map((att) => (
+                  {msg.attachments.map((att, attachmentIndex) => (
                     <span
-                      key={att.name}
+                      key={`${att.name}:${att.size}:${att.type}:${attachmentIndex}`}
                       className="inline-flex items-center gap-1 rounded-md bg-background/50 px-2 py-0.5 text-micro font-mono text-muted-foreground"
                     >
                       <Paperclip className="h-3 w-3" />
@@ -401,12 +408,13 @@ export function ConversationWorkspace({
       events.length === 0 &&
       !isWaitingForAgent &&
       !isLoadingHistory &&
+      !isConnected &&
       taskState === "idle" &&
       onNavigateHome
     ) {
       onNavigateHome();
     }
-  }, [messages.length, events.length, isWaitingForAgent, isLoadingHistory, taskState, onNavigateHome]);
+  }, [messages.length, events.length, isWaitingForAgent, isLoadingHistory, isConnected, taskState, onNavigateHome]);
 
   // When isWaitingForAgent is true, only show the skeleton if the assistant
   // hasn't responded yet in the current turn. Scan backward from the end: if
@@ -434,11 +442,27 @@ export function ConversationWorkspace({
   const effectivePhase: AssistantPhase = isWaitingForAgent && assistantPhase.phase === "idle"
     ? { phase: "thinking" }
     : assistantPhase;
+  const hasActiveStreamThinking =
+    currentThinkingEntries.length > 0
+    && (effectivePhase.phase === "thinking" || isStreaming);
 
   const lastAssistantIndex = useMemo(
     () => messages.findLastIndex((m) => m.role === "assistant"),
     [messages],
   );
+
+  const attachStreamThinkingToAssistant = useMemo(() => {
+    if (!hasActiveStreamThinking || !isStreaming) {
+      return false;
+    }
+    if (lastAssistantIndex < 0) {
+      return false;
+    }
+    return lastAssistantIndex === messages.length - 1;
+  }, [hasActiveStreamThinking, isStreaming, lastAssistantIndex, messages.length]);
+
+  const showDetachedStreamThinking =
+    hasActiveStreamThinking && !attachStreamThinkingToAssistant;
 
   const contentWidthClass = useMemo(() => panelOpen ? "max-w-[46rem]" : "max-w-[56rem]", [panelOpen]);
   const messageWidthClass = useMemo(() => panelOpen ? "sm:max-w-[90%]" : "sm:max-w-[85%]", [panelOpen]);
@@ -499,7 +523,7 @@ export function ConversationWorkspace({
                       const messageKey =
                         msg.role === "assistant" && isStreamingThis && msg.turnId
                           ? `${msg.turnId}:assistant-stream`
-                          : msg.messageId ?? `${msg.role}-${msg.timestamp}-${msg.content.slice(0, 20)}`;
+                          : msg.messageId ?? `${msg.role}-${msg.timestamp}-${msg.content.length}-${i}`;
 
                       return (
                         <MessageRow
@@ -509,6 +533,9 @@ export function ConversationWorkspace({
                           isStreamingThis={isStreamingThis}
                           isThinkingThis={isThinkingThis}
                           suppressEmbeddedThinking={suppressEmbeddedThinking}
+                          streamThinkingEntries={
+                            attachStreamThinkingToAssistant && isLastAssistant ? currentThinkingEntries : undefined
+                          }
                           messageWidthClass={messageWidthClass}
                           embeddedPlanSteps={embeddedPlanSteps}
                           index={i}
@@ -527,7 +554,7 @@ export function ConversationWorkspace({
                       </div>
                     )}
 
-                    {currentThinkingEntries.length > 0 && (
+                    {showDetachedStreamThinking && (
                       <div className={cn("mt-3 max-w-full space-y-1.5", messageWidthClass)}>
                         {currentThinkingEntries.map((entry) => (
                           <ThinkingBlock

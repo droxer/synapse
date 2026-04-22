@@ -2,8 +2,8 @@ import { describe, expect, it } from "@jest/globals";
 import { getMarkdownRenderStrategy, splitStreamingMarkdown } from "./markdown-render-strategy";
 
 describe("markdown render strategy", () => {
-  it("uses the lightweight streaming strategy for in-flight content", () => {
-    expect(getMarkdownRenderStrategy(true)).toBe("streaming-light");
+  it("uses the hybrid streaming strategy for in-flight content", () => {
+    expect(getMarkdownRenderStrategy(true)).toBe("streaming-hybrid");
   });
 
   it("uses the settled strategy after streaming ends", () => {
@@ -16,8 +16,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("# Title\n\n- one\n- two\n\nTrailing paragraph"),
     ).toEqual({
-      stableContent: "# Title\n\n- one\n- two\n\n",
-      tailContent: "Trailing paragraph",
+      stableContent: "# Title\n\n- one\n- two\n\nTrailing paragraph",
+      tailContent: "",
     });
   });
 
@@ -79,8 +79,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("Visit [docs](https://example.com) and **pay attention**."),
     ).toEqual({
-      stableContent: "",
-      tailContent: "Visit [docs](https://example.com) and **pay attention**.",
+      stableContent: "Visit [docs](https://example.com) and **pay attention**.",
+      tailContent: "",
     });
   });
 
@@ -88,8 +88,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("Keep *moving*."),
     ).toEqual({
-      stableContent: "",
-      tailContent: "Keep *moving*.",
+      stableContent: "Keep *moving*.",
+      tailContent: "",
     });
   });
 
@@ -97,8 +97,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("Use `npm test` before merging."),
     ).toEqual({
-      stableContent: "",
-      tailContent: "Use `npm test` before merging.",
+      stableContent: "Use `npm test` before merging.",
+      tailContent: "",
     });
   });
 
@@ -115,8 +115,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("A plain streaming paragraph"),
     ).toEqual({
-      stableContent: "",
-      tailContent: "A plain streaming paragraph",
+      stableContent: "A plain streaming paragraph",
+      tailContent: "",
     });
   });
 
@@ -124,8 +124,8 @@ describe("splitStreamingMarkdown", () => {
     expect(
       splitStreamingMarkdown("你好，世界"),
     ).toEqual({
-      stableContent: "",
-      tailContent: "你好，世界",
+      stableContent: "你好，世界",
+      tailContent: "",
     });
   });
 

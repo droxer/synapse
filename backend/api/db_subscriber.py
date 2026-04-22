@@ -12,6 +12,7 @@ import asyncio
 import dataclasses
 import uuid
 from collections.abc import Callable, Coroutine
+from datetime import datetime, timezone
 from typing import Any
 
 from loguru import logger
@@ -247,9 +248,21 @@ def create_db_subscriber(
             return
 
         clean = _clean_data(event.data)
+        persisted_timestamp = datetime.fromtimestamp(event.timestamp, tz=timezone.utc)
 
         async def _do_write() -> None:
             async with session_factory() as session:
+
+                async def _save_event_record() -> None:
+                    await repo.save_event(
+                        session,
+                        conversation_id,
+                        event_type=event.type.value,
+                        data=clean,
+                        iteration=event.iteration,
+                        timestamp=persisted_timestamp,
+                    )
+
                 if event.type == EventType.TURN_START:
                     message = clean.get("message", "")
                     attachments = clean.get("attachments")
@@ -263,6 +276,7 @@ def create_db_subscriber(
                         content=content,
                         iteration=None,
                     )
+                    await _save_event_record()
                     logger.info(
                         "db_message_saved role=user conversation_id={}",
                         conversation_id,
@@ -277,13 +291,7 @@ def create_db_subscriber(
                         content={"text": result},
                         iteration=event.iteration,
                     )
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
                     logger.info(
                         "db_message_saved role=assistant conversation_id={}",
                         conversation_id,
@@ -298,50 +306,28 @@ def create_db_subscriber(
                         content={"text": result},
                         iteration=event.iteration,
                     )
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
                     logger.info(
                         "db_message_saved role=assistant conversation_id={}",
                         conversation_id,
                     )
 
                 elif event.type == EventType.TASK_ERROR:
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
 
                 elif event.type == EventType.MESSAGE_USER:
-                    text = clean.get("message", clean.get("text", ""))
-                    await repo.save_message(
-                        session,
-                        conversation_id,
-                        role="assistant",
-                        content={"text": text},
-                        iteration=event.iteration,
-                    )
+                    # Transport-only assistant notification. Keep the live SSE
+                    # event, but do not persist it as transcript history:
+                    # the canonical assistant row for web chat comes from the
+                    # terminal TURN_COMPLETE / TASK_COMPLETE payload.
                     logger.info(
-                        "db_message_saved role=assistant (message_user) "
+                        "db_message_skipped role=assistant (message_user) "
                         "conversation_id={}",
                         conversation_id,
                     )
 
                 elif event.type == EventType.ASK_USER:
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
 
                 elif event.type == EventType.USER_RESPONSE:
                     reply = clean.get("response", "")
@@ -360,13 +346,7 @@ def create_db_subscriber(
                             conversation_id,
                         )
                     if not already_persisted:
-                        await repo.save_event(
-                            session,
-                            conversation_id,
-                            event_type=event.type.value,
-                            data=clean,
-                            iteration=event.iteration,
-                        )
+                        await _save_event_record()
 
                 elif event.type == EventType.ARTIFACT_CREATED:
                     artifact_payload = _normalize_artifact_payload(clean)
@@ -390,22 +370,10 @@ def create_db_subscriber(
                         )
                     # Also persist as a regular event so historical views
                     # can reconstruct the artifact list from the events table.
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
 
                 elif event.type == EventType.SKILL_ACTIVATED:
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
                     skill_name = clean.get("name", "")
                     if skill_name and skill_repo is not None:
                         await skill_repo.record_activation(
@@ -418,13 +386,7 @@ def create_db_subscriber(
                         )
 
                 elif event.type == EventType.LLM_RESPONSE:
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
                     if usage_repo is not None:
                         usage = clean.get("usage", {})
                         input_tok = usage.get("input_tokens", 0)
@@ -465,22 +427,10 @@ def create_db_subscriber(
                             summary.strip(),
                             compaction_profile.context_summary_max_chars,
                         )
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
 
                 else:
-                    await repo.save_event(
-                        session,
-                        conversation_id,
-                        event_type=event.type.value,
-                        data=clean,
-                        iteration=event.iteration,
-                    )
+                    await _save_event_record()
 
         async def _persist() -> None:
             try:

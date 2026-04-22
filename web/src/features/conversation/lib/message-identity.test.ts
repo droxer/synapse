@@ -326,4 +326,61 @@ describe("reconcileOptimisticConversationMessages", () => {
       "streaming reply",
     ]);
   });
+
+  it("matches optimistic users against deduped transcript indexes without skipping later user rows", () => {
+    const transcript: ChatMessage[] = [
+      {
+        messageId: "event-turn:1:user:0",
+        role: "user",
+        content: "hello",
+        timestamp: 10_000,
+        source: "event",
+      },
+      {
+        messageId: "event-turn:1:assistant:0",
+        role: "assistant",
+        content: "first response",
+        timestamp: 10_100,
+        source: "event",
+      },
+      {
+        messageId: "event-turn:2:user:0",
+        role: "user",
+        content: "follow up",
+        timestamp: 20_000,
+        source: "event",
+      },
+    ];
+    const local: ChatMessage[] = [
+      {
+        messageId: "optimistic:c1:1",
+        role: "user",
+        content: "hello",
+        timestamp: 9_900,
+        source: "optimistic",
+      },
+      {
+        messageId: "optimistic:c1:2",
+        role: "user",
+        content: "follow up",
+        timestamp: 19_900,
+        source: "optimistic",
+      },
+    ];
+
+    const merged = reconcileOptimisticConversationMessages(
+      transcript,
+      local,
+      new Map([
+        ["optimistic:c1:1", { transcriptUserCountAtSend: 0, transcriptMessageCountAtSend: 0 }],
+        ["optimistic:c1:2", { transcriptUserCountAtSend: 1, transcriptMessageCountAtSend: 2 }],
+      ]),
+    );
+
+    expect(merged.map((message) => message.messageId)).toEqual([
+      "event-turn:1:user:0",
+      "event-turn:1:assistant:0",
+      "event-turn:2:user:0",
+    ]);
+  });
 });

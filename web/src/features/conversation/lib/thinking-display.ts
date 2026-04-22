@@ -13,6 +13,19 @@ function collapseWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+function stripMarkdownFormatting(value: string): string {
+  return value
+    .replace(/^[>\s]*[-*+]\s+/gm, "")
+    .replace(/^[>\s]*\d+[.)]\s+/gm, "")
+    .replace(/^[>\s]*#{1,6}\s+/gm, "")
+    .replace(/[*_~`]+/g, "")
+    .trim();
+}
+
+function normalizeComparableThinking(value: string): string {
+  return collapseWhitespace(stripMarkdownFormatting(value));
+}
+
 function hasCjk(value: string): boolean {
   return /[\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff]/.test(value);
 }
@@ -52,7 +65,7 @@ export function isThinkingContentRedundantWithEntries(
   if (!combined) return false;
   if (trimmed === combined) return true;
 
-  return collapseWhitespace(trimmed) === collapseWhitespace(combined);
+  return normalizeComparableThinking(trimmed) === normalizeComparableThinking(combined);
 }
 
 export function selectThinkingDisplay<TEntry extends ThinkingEntryLike>(

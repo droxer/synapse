@@ -5,7 +5,6 @@ import { createElement } from "react";
 import { shouldAutoScrollToBottom } from "./conversation-scroll";
 import { getLatestTurnMode } from "./conversation-mode";
 import { areMessageRowsEqual } from "./message-row-memo";
-import { ConversationWorkspace, MessageRow } from "./ConversationWorkspace";
 import type { AgentEvent, ChatMessage, PlanStep } from "@/shared/types";
 
 let lastAgentProgressCardProps: Record<string, unknown> | null = null;
@@ -34,10 +33,26 @@ jest.mock("@/i18n", () => ({
 
 jest.mock("framer-motion", () => ({
   __esModule: true,
+  MotionConfig: ({ children }: { children: React.ReactNode }) => createElement(React.Fragment, null, children),
   AnimatePresence: ({ children }: { children: React.ReactNode }) => createElement(React.Fragment, null, children),
   motion: {
-    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => createElement("div", props, children),
+    div: ({
+      children,
+      initial: _initial,
+      animate: _animate,
+      exit: _exit,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & Record<string, unknown>) => createElement("div", props, children),
     span: ({ children, ...props }: React.HTMLAttributes<HTMLSpanElement>) => createElement("span", props, children),
+    li: ({
+      children,
+      initial: _initial,
+      animate: _animate,
+      exit: _exit,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLLIElement> & Record<string, unknown>) => createElement("li", props, children),
   },
   useReducedMotion: () => true,
 }));
@@ -53,6 +68,13 @@ jest.mock("@/shared/components", () => ({
   }: {
     content: string;
   }) => createElement("div", { "data-testid": "markdown" }, content),
+}));
+
+jest.mock("@/shared/components/ui/tooltip", () => ({
+  __esModule: true,
+  Tooltip: ({ children }: { children: React.ReactNode }) => createElement(React.Fragment, null, children),
+  TooltipTrigger: ({ children }: { children: React.ReactNode }) => createElement(React.Fragment, null, children),
+  TooltipContent: ({ children }: { children?: React.ReactNode }) => createElement("div", null, children ?? null),
 }));
 
 jest.mock("@/features/agent-computer", () => ({
@@ -76,6 +98,9 @@ jest.mock("@/features/conversation", () => ({
   __esModule: true,
   ChatInput: () => null,
 }));
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { ConversationWorkspace, MessageRow } = require("./ConversationWorkspace");
 
 describe("shouldAutoScrollToBottom", () => {
   it("scrolls on first populate", () => {
@@ -364,12 +389,50 @@ describe("ConversationWorkspace activity wiring", () => {
     }));
 
     expect((html.match(/data-thinking-block=/g) ?? [])).toHaveLength(2);
-    expect(html).toContain("Check constraints.");
+    expect(html).toContain("Inspect");
     expect(html).toContain("Extra inline rationale.");
     expect(html).toContain("Final answer body.");
   });
 
-  it("keeps standalone reasoning visible during streaming without duplicating embedded reasoning", () => {
+  it("does not render a second reasoning block when inline thinking only reformats the same content", () => {
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [],
+      messages: [
+        { role: "user", content: "Explain it", timestamp: 100 },
+        {
+          messageId: "event-turn:1:assistant:0",
+          role: "assistant",
+          content: "Final answer body.",
+          timestamp: 101,
+          source: "event",
+          turnId: "event-turn:1",
+          thinkingEntries: [{ content: "## Inspect\n\n- Check constraints.", durationMs: 0, timestamp: 100 }],
+          thinkingContent: "Inspect\n\nCheck constraints.",
+        },
+      ],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "idle",
+      currentThinkingEntries: [],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: false,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect((html.match(/data-thinking-block=/g) ?? [])).toHaveLength(1);
+    expect(html).toContain("Inspect");
+    expect(html).toContain("Final answer body.");
+  });
+
+  it("inlines live reasoning above the assistant body while streaming (no duplicate blocks)", () => {
     const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
       conversationId: "c1",
       conversationTitle: "Test",
@@ -404,6 +467,44 @@ describe("ConversationWorkspace activity wiring", () => {
     expect((html.match(/data-thinking-block=/g) ?? [])).toHaveLength(1);
     expect(html).toContain("Check constraints.");
     expect(html).toContain("Streaming answer body.");
+    expect(html.indexOf("Check constraints.")).toBeLessThan(html.indexOf("Streaming answer body."));
+  });
+
+  it("does not render detached live reasoning again after the turn is complete", () => {
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [],
+      messages: [
+        { role: "user", content: "Explain it", timestamp: 100 },
+        {
+          messageId: "event-turn:1:assistant:0",
+          role: "assistant",
+          content: "Final answer body.",
+          timestamp: 101,
+          source: "event",
+          turnId: "event-turn:1",
+          thinkingEntries: [{ content: "## Inspect\n\nCheck constraints.", durationMs: 0, timestamp: 100 }],
+        },
+      ],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [],
+      artifacts: [],
+      taskState: "complete",
+      currentThinkingEntries: [{ content: "## Inspect\n\nCheck constraints.", durationMs: 0, timestamp: 100 }],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: false,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect((html.match(/data-thinking-block=/g) ?? [])).toHaveLength(1);
+    expect(html).toContain("Inspect");
+    expect(html).toContain("Final answer body.");
   });
 
   it("shows planner badge and checklist while explicit planner is pending before events arrive", () => {
@@ -547,7 +648,6 @@ describe("ConversationWorkspace activity wiring", () => {
     }));
 
     const tasks = (lastThreadTasksPanelProps as { tasks?: Array<{ title?: string }> } | null)?.tasks ?? [];
-    expect(tasks).toHaveLength(1);
-    expect(tasks[0]?.title).toBe("Follow up");
+    expect(tasks).toHaveLength(0);
   });
 });

@@ -27,6 +27,39 @@ interface ChannelChatViewProps {
   hideTopBar?: boolean;
 }
 
+const PENDING_DUPLICATE_WINDOW_MS = 30_000;
+
+export function buildChannelChatMessages(
+  transcriptMessages: readonly ChatMessage[],
+  pendingMessages: readonly ChatMessage[],
+): ChatMessage[] {
+  if (pendingMessages.length === 0) {
+    return [...transcriptMessages];
+  }
+
+  const filteredPending = pendingMessages.filter(
+    (pending) => !transcriptMessages.some((message) =>
+      message.role === pending.role
+      && message.content === pending.content
+      && Math.abs(message.timestamp - pending.timestamp) <= PENDING_DUPLICATE_WINDOW_MS),
+  );
+
+  if (filteredPending.length === 0) {
+    return [...transcriptMessages];
+  }
+
+  const orderedPending = [...filteredPending].sort((left, right) => {
+    if (left.timestamp !== right.timestamp) {
+      return left.timestamp - right.timestamp;
+    }
+    return left.content.localeCompare(right.content);
+  });
+
+  // Preserve transcript causal order first; append optimistic rows that
+  // have not yet landed in transcript history.
+  return [...transcriptMessages, ...orderedPending];
+}
+
 export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewProps) {
   const { t } = useTranslation();
   const { conversation_id: conversationId } = conversation;
@@ -143,12 +176,10 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
     if (userCancelled && (taskState === "idle" || taskState === "complete")) setUserCancelled(false);
   }, [userCancelled, taskState]);
 
-  const allMessages = useMemo<ChatMessage[]>(() => {
-    const filtered = pendingMessages.filter(
-      (p) => !messages.some((m) => m.role === p.role && m.content === p.content && Math.abs(m.timestamp - p.timestamp) < 30_000),
-    );
-    return [...filtered, ...messages].sort((a, b) => a.timestamp - b.timestamp);
-  }, [pendingMessages, messages]);
+  const allMessages = useMemo<ChatMessage[]>(
+    () => buildChannelChatMessages(messages, pendingMessages),
+    [messages, pendingMessages],
+  );
 
   const { pendingAsk, handlePromptSubmit, respondError } = usePendingAsk(effectiveEvents, conversationId);
 

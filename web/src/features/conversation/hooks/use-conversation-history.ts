@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/shared/stores";
 import { fetchMessages, fetchEvents, fetchArtifacts } from "../api/history-api";
 import { EVENT_TYPES } from "@/shared/types";
-import type { ChatMessage, AgentEvent, EventType, ArtifactInfo } from "@/shared/types";
+import type {
+  ChatMessage,
+  AgentEvent,
+  EventType,
+  ArtifactInfo,
+  MessageAttachmentMetadata,
+} from "@/shared/types";
 import { toHistoryChatMessage } from "../lib/message-identity";
 import type {
   ConversationArtifactsResponse,
@@ -14,6 +20,7 @@ import type {
 } from "../api/history-api";
 
 const EVENT_TYPE_SET = new Set<string>(EVENT_TYPES);
+const TURN_START_MATCH_WINDOW_MS = 5_000;
 
 function isEventType(value: string): value is EventType {
   return EVENT_TYPE_SET.has(value);
@@ -67,6 +74,152 @@ export function normalizeHistoryEvent(
   } as AgentEvent];
 }
 
+function normalizeComparableText(value: string): string {
+  return value.trim();
+}
+
+function attachmentsEqual(
+  a: readonly MessageAttachmentMetadata[] | undefined,
+  b: readonly MessageAttachmentMetadata[] | undefined,
+): boolean {
+  const left = a ?? [];
+  const right = b ?? [];
+  if (left.length !== right.length) {
+    return false;
+  }
+  return left.every((attachment) =>
+    right.some((candidate) =>
+      candidate.name === attachment.name
+      && candidate.size === attachment.size
+      && candidate.type === attachment.type,
+    ));
+}
+
+function normalizeTurnStartAttachments(
+  attachments: unknown,
+): readonly MessageAttachmentMetadata[] | undefined {
+  if (!Array.isArray(attachments)) {
+    return undefined;
+  }
+  const normalized = attachments.filter((attachment): attachment is MessageAttachmentMetadata =>
+    Boolean(attachment)
+    && typeof attachment === "object"
+    && typeof attachment.name === "string"
+    && typeof attachment.size === "number"
+    && Number.isFinite(attachment.size)
+    && typeof attachment.type === "string",
+  );
+  return normalized.length > 0 ? normalized : undefined;
+}
+
+function isMatchingTurnStartEvent(
+  userMessage: ChatMessage,
+  event: AgentEvent,
+  requireTimestampMatch = true,
+): boolean {
+  if (event.type !== "turn_start") {
+    return false;
+  }
+  const eventMessage = typeof event.data.message === "string" ? event.data.message : "";
+  if (
+    normalizeComparableText(userMessage.content)
+    !== normalizeComparableText(eventMessage)
+  ) {
+    return false;
+  }
+  const eventAttachments = normalizeTurnStartAttachments(event.data.attachments);
+  if (!attachmentsEqual(userMessage.attachments, eventAttachments)) {
+    return false;
+  }
+  return (
+    !requireTimestampMatch
+    || Math.abs(userMessage.timestamp - event.timestamp) <= TURN_START_MATCH_WINDOW_MS
+  );
+}
+
+function buildSyntheticTurnStartEvent(userMessage: ChatMessage): AgentEvent {
+  return {
+    type: "turn_start",
+    data: {
+      message: userMessage.content,
+      ...(userMessage.attachments?.length ? { attachments: userMessage.attachments } : {}),
+    },
+    timestamp: userMessage.timestamp,
+    iteration: null,
+  };
+}
+
+function sortReplayEvents(events: readonly AgentEvent[]): AgentEvent[] {
+  return events
+    .map((event, index) => ({ event, index }))
+    .sort((a, b) => {
+      if (a.event.timestamp !== b.event.timestamp) {
+        return a.event.timestamp - b.event.timestamp;
+      }
+      if (a.event.type === "turn_start" && b.event.type !== "turn_start") {
+        return -1;
+      }
+      if (a.event.type !== "turn_start" && b.event.type === "turn_start") {
+        return 1;
+      }
+      return a.index - b.index;
+    })
+    .map(({ event }) => event);
+}
+
+export function backfillMissingTurnStartEvents(
+  messages: readonly ChatMessage[],
+  events: readonly AgentEvent[],
+): AgentEvent[] {
+  if (events.length === 0) {
+    return [...events];
+  }
+
+  const userMessages = messages.filter((message) => message.role === "user");
+  if (userMessages.length === 0) {
+    return [...events];
+  }
+
+  const turnStartEvents = events.filter((event) => event.type === "turn_start");
+  const syntheticEvents: AgentEvent[] = [];
+  let turnStartIndex = 0;
+
+  for (const userMessage of userMessages) {
+    let matched = false;
+    for (let candidateIndex = turnStartIndex; candidateIndex < turnStartEvents.length; candidateIndex += 1) {
+      const candidate = turnStartEvents[candidateIndex]!;
+      if (isMatchingTurnStartEvent(userMessage, candidate)) {
+        turnStartIndex = candidateIndex + 1;
+        matched = true;
+        break;
+      }
+    }
+
+    if (!matched) {
+      for (let candidateIndex = turnStartIndex; candidateIndex < turnStartEvents.length; candidateIndex += 1) {
+        const candidate = turnStartEvents[candidateIndex]!;
+        if (isMatchingTurnStartEvent(userMessage, candidate, false)) {
+          turnStartIndex = candidateIndex + 1;
+          matched = true;
+          break;
+        }
+      }
+    }
+
+    if (matched) {
+      continue;
+    }
+
+    syntheticEvents.push(buildSyntheticTurnStartEvent(userMessage));
+  }
+
+  if (syntheticEvents.length === 0) {
+    return [...events];
+  }
+
+  return sortReplayEvents([...events, ...syntheticEvents]);
+}
+
 export function normalizeHistoryArtifact(
   artifact: {
     id: string;
@@ -99,9 +252,14 @@ export function resolveConversationHistoryResults(
         .map(toHistoryChatMessage)
       : [];
 
-  const events =
+  const normalizedEvents =
     eventsResult.status === "fulfilled"
       ? eventsResult.value.events.flatMap(normalizeHistoryEvent)
+      : [];
+
+  const events =
+    eventsResult.status === "fulfilled"
+      ? backfillMissingTurnStartEvents(messages, normalizedEvents)
       : [];
 
   const artifacts =

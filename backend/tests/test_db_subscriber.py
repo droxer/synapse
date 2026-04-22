@@ -2,6 +2,7 @@
 
 import asyncio
 import uuid
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -48,6 +49,14 @@ async def test_persists_turn_start_as_user_message(repo, session_factory) -> Non
     event = _make_event(EventType.TURN_START, {"message": "hello"})
     await subscriber(event)
     repo.save_message.assert_called_once()
+    _, event_kwargs = repo.save_event.call_args
+    assert event_kwargs["event_type"] == "turn_start"
+    assert event_kwargs["data"] == {"message": "hello"}
+    assert event_kwargs["iteration"] is None
+    assert event_kwargs["timestamp"] == datetime.fromtimestamp(
+        event.timestamp,
+        tz=timezone.utc,
+    )
 
 
 async def test_persists_turn_start_attachments_in_user_message_content(
@@ -73,6 +82,18 @@ async def test_persists_turn_start_attachments_in_user_message_content(
         "text": "inspect this file",
         "attachments": [{"name": "report.csv", "size": 12, "type": "text/csv"}],
     }
+    _, event_kwargs = repo.save_event.call_args
+    assert event_kwargs["event_type"] == "turn_start"
+    assert event_kwargs["data"] == {
+        "message": "inspect this file",
+        "attachments": [
+            {"name": "report.csv", "size": 12, "type": "text/csv"},
+        ],
+    }
+    assert event_kwargs["timestamp"] == datetime.fromtimestamp(
+        event.timestamp,
+        tz=timezone.utc,
+    )
 
 
 async def test_persists_turn_complete_as_assistant_message(
@@ -95,6 +116,26 @@ async def test_persists_task_complete_message(repo, session_factory) -> None:
     repo.update_conversation.assert_not_called()
 
 
+async def test_message_user_is_transport_only_and_not_persisted(
+    repo, session_factory
+) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+    event = _make_event(
+        EventType.MESSAGE_USER,
+        {
+            "message": "Download complete.",
+            "title": "Reminder",
+            "background_task_id": "task-123",
+        },
+    )
+
+    await subscriber(event)
+
+    repo.save_message.assert_not_called()
+    repo.save_event.assert_not_called()
+
+
 async def test_persists_generic_event(repo, session_factory) -> None:
     conversation_id = uuid.uuid4()
     subscriber = create_db_subscriber(conversation_id, repo, session_factory)
@@ -110,6 +151,62 @@ async def test_skips_text_delta(repo, session_factory) -> None:
     await subscriber(event)
     repo.save_event.assert_not_called()
     repo.save_message.assert_not_called()
+
+
+async def test_message_user_then_turn_complete_persists_single_assistant_row(
+    repo, session_factory
+) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+
+    await subscriber(_make_event(EventType.TURN_START, {"message": "hello"}))
+    await subscriber(_make_event(EventType.MESSAGE_USER, {"message": "draft"}))
+    await subscriber(_make_event(EventType.TURN_COMPLETE, {"result": "final"}))
+
+    assistant_calls = [
+        call
+        for call in repo.save_message.call_args_list
+        if (
+            call.kwargs.get("role")
+            or (len(call.args) > 2 and call.args[2] == "assistant")
+        )
+        == "assistant"
+    ]
+    assert len(assistant_calls) == 1
+    content = (
+        assistant_calls[0].kwargs["content"]
+        if "content" in assistant_calls[0].kwargs
+        else assistant_calls[0].args[3]
+    )
+    assert content == {"text": "final"}
+
+
+async def test_message_user_then_task_complete_persists_single_assistant_row(
+    repo, session_factory
+) -> None:
+    conversation_id = uuid.uuid4()
+    subscriber = create_db_subscriber(conversation_id, repo, session_factory)
+
+    await subscriber(_make_event(EventType.TURN_START, {"message": "hello"}))
+    await subscriber(_make_event(EventType.MESSAGE_USER, {"message": "draft"}))
+    await subscriber(_make_event(EventType.TASK_COMPLETE, {"summary": "final"}))
+
+    assistant_calls = [
+        call
+        for call in repo.save_message.call_args_list
+        if (
+            call.kwargs.get("role")
+            or (len(call.args) > 2 and call.args[2] == "assistant")
+        )
+        == "assistant"
+    ]
+    assert len(assistant_calls) == 1
+    content = (
+        assistant_calls[0].kwargs["content"]
+        if "content" in assistant_calls[0].kwargs
+        else assistant_calls[0].args[3]
+    )
+    assert content == {"text": "final"}
 
 
 async def test_ask_user_event_does_not_create_prompt_record(

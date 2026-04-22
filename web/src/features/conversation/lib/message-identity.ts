@@ -168,33 +168,7 @@ export function reconcileOptimisticConversationMessages(
     return [...transcriptMessages];
   }
 
-  // Defensive deduplication: remove transcript messages that are exact
-  // duplicates of optimistic messages (same role, content, and near timestamp).
-  // This prevents both the optimistic and transcript versions from appearing
-  // when the reconciliation match fails due to stale counts or timing issues.
-  const dedupedTranscript: ChatMessage[] = [];
-  const seenTranscriptKeys = new Set<string>();
-  for (const tMsg of transcriptMessages) {
-    const key = `${tMsg.role}:${normalizeComparableMessageContent(tMsg.content)}:${tMsg.timestamp}`;
-    if (seenTranscriptKeys.has(key)) continue;
-
-    // Check if this transcript message is an exact duplicate of any optimistic user message
-    const isDuplicateOfOptimistic = localMessages.some((lMsg) => {
-      if (lMsg.role !== tMsg.role) return false;
-      if (lMsg.source !== "optimistic") return false;
-      if (normalizeComparableMessageContent(lMsg.content) !== normalizeComparableMessageContent(tMsg.content)) {
-        return false;
-      }
-      return Math.abs(lMsg.timestamp - tMsg.timestamp) <= DEFAULT_MATCH_WINDOW_MS;
-    });
-
-    if (!isDuplicateOfOptimistic) {
-      seenTranscriptKeys.add(key);
-      dedupedTranscript.push(tMsg);
-    }
-  }
-
-  const mergedTranscript = [...dedupedTranscript];
+  const mergedTranscript = [...transcriptMessages];
   const claimedTranscriptIndexes = new Set<number>();
   const matchedLocalMessageIds = new Set<string>();
 
@@ -210,8 +184,9 @@ export function reconcileOptimisticConversationMessages(
     }
 
     let transcriptUserOrdinal = 0;
+    let matched = false;
     for (let transcriptIndex = 0; transcriptIndex < mergedTranscript.length; transcriptIndex += 1) {
-      const transcriptMessage = transcriptMessages[transcriptIndex]!;
+      const transcriptMessage = mergedTranscript[transcriptIndex]!;
       if (transcriptMessage.role !== "user") {
         continue;
       }
@@ -238,6 +213,41 @@ export function reconcileOptimisticConversationMessages(
         continue;
       }
 
+      claimedTranscriptIndexes.add(transcriptIndex);
+      matchedLocalMessageIds.add(localMessage.messageId);
+      mergedTranscript[transcriptIndex] = mergeMessages(localMessage, transcriptMessage);
+      matched = true;
+      break;
+    }
+
+    if (matched) {
+      continue;
+    }
+
+    // Fallback: when transcript metadata drifts (e.g. replay races), fall back
+    // to insertion-index + content matching so optimistic bubbles can still
+    // reconcile once their persisted row arrives.
+    for (
+      let transcriptIndex = Math.max(matchState.transcriptMessageCountAtSend, 0);
+      transcriptIndex < mergedTranscript.length;
+      transcriptIndex += 1
+    ) {
+      const transcriptMessage = mergedTranscript[transcriptIndex]!;
+      if (transcriptMessage.role !== "user") {
+        continue;
+      }
+      if (claimedTranscriptIndexes.has(transcriptIndex)) {
+        continue;
+      }
+      if (
+        normalizeComparableMessageContent(transcriptMessage.content) !==
+        normalizeComparableMessageContent(localMessage.content)
+      ) {
+        continue;
+      }
+      if (!areAttachmentsCompatible(localMessage.attachments, transcriptMessage.attachments)) {
+        continue;
+      }
       claimedTranscriptIndexes.add(transcriptIndex);
       matchedLocalMessageIds.add(localMessage.messageId);
       mergedTranscript[transcriptIndex] = mergeMessages(localMessage, transcriptMessage);

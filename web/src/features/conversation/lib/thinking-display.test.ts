@@ -14,6 +14,14 @@ describe("isThinkingContentRedundantWithEntries", () => {
       ]),
     ).toBe(true);
   });
+
+  it("returns true when content only differs by markdown formatting", () => {
+    expect(
+      isThinkingContentRedundantWithEntries("Inspect\n\nCheck constraints.", [
+        { content: "## Inspect\n\n- Check constraints." },
+      ]),
+    ).toBe(true);
+  });
 });
 
 describe("selectThinkingDisplay", () => {

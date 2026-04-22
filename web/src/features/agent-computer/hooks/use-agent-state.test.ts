@@ -45,6 +45,71 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.thinkingContent).toBe("inline");
   });
 
+  it("suppresses inline thinking when it only restyles the same SSE reasoning", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "thinking",
+        data: { thinking: "## Inspect\n\n- Check constraints." },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "<redacted_thinking>Inspect\n\nCheck constraints.</think>Done." },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages[0]?.content).toBe("Done.");
+    expect(state.messages[0]?.thinkingEntries).toEqual([
+      { content: "## Inspect\n\n- Check constraints.", durationMs: 0, timestamp: 1 },
+    ]);
+    expect(state.messages[0]?.thinkingContent).toBeUndefined();
+  });
+
+  it("extracts plain think tags from assistant text so they do not render in the body", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "llm_response",
+        data: { text: "<think>internal notes</think>\n\nVisible answer" },
+        timestamp: 1,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Visible answer");
+    expect(state.messages[0]?.thinkingContent).toBe("internal notes");
+  });
+
+  it("extracts plain think tags on terminal results so they do not duplicate reasoning blocks", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "thinking",
+        data: { thinking: "internal notes" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "<think>internal notes</think>\n\nVisible answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Visible answer");
+    expect(state.messages[0]?.thinkingEntries).toEqual([
+      { content: "internal notes", durationMs: 0, timestamp: 1 },
+    ]);
+    expect(state.messages[0]?.thinkingContent).toBeUndefined();
+  });
+
   it("uses llm_response.content when text is missing", () => {
     const events: AgentEvent[] = [
       {
@@ -220,6 +285,28 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Deep research summary");
   });
 
+  it("does not duplicate when llm_response and turn_complete differ only by internal whitespace", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "llm_response",
+        data: { text: "The   quick  brown fox" },
+        timestamp: 100,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "The quick brown fox" },
+        timestamp: 110,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    // turn_complete is authoritative: body becomes the terminal payload.
+    expect(state.messages[0]?.content).toBe("The quick brown fox");
+  });
+
   it("preserves streaming text when llm_response has end_turn stop_reason", () => {
     const events: AgentEvent[] = [
       {
@@ -303,6 +390,98 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Full research report");
   });
 
+  it("does not duplicate when llm_response and message_user emit the same assistant content", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Same answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "Same answer" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Same answer");
+  });
+
+  it("reuses the partial llm_response bubble when turn_complete publishes a richer final answer", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "summarize the report" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Draft summary: investigating the data." },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: {
+          result: "Final summary with table:\n\n| Metric | Value |\n| --- | --- |\n| Revenue | Up |",
+        },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe(
+      "Final summary with table:\n\n| Metric | Value |\n| --- | --- |\n| Revenue | Up |",
+    );
+    expect(assistantMessages[0]?.messageId).toBe("event-turn:1:assistant:0");
+  });
+
+  it("reuses the partial llm_response bubble when message_user publishes the final answer", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "summarize the report" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Draft summary: investigating the data." },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "Final summary with citations and next steps." },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Final summary with citations and next steps.");
+    expect(assistantMessages[0]?.messageId).toBe("event-turn:1:assistant:0");
+  });
+
   it("does not duplicate when chunked CJK text is finalized by message_user", () => {
     const events: AgentEvent[] = [
       {
@@ -350,6 +529,119 @@ describe("deriveAgentState", () => {
     const state = deriveAgentState(events);
     expect(state.messages).toHaveLength(1);
     expect(state.messages[0]?.content).toBe("Same body");
+  });
+
+  it("replaces the streaming assistant body with the full turn_complete result when the server sends more than the stream", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "## Section 1\n\nPart A" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: {
+          result: "## Section 1\n\nPart A\n\n## Section 5\n\nConclusion and tables.",
+        },
+        timestamp: 50,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("## Section 1\n\nPart A\n\n## Section 5\n\nConclusion and tables.");
+  });
+
+  it("keeps one assistant message when streamed text is finalized by a richer message_user payload", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "text_delta",
+        data: { delta: "Draft answer: key findings" },
+        timestamp: 10,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "Final answer:\n\n1. Key findings\n2. Risks\n3. Recommendation" },
+        timestamp: 20,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+
+    expect(state.messages).toHaveLength(1);
+    expect(state.messages[0]?.content).toBe("Final answer:\n\n1. Key findings\n2. Risks\n3. Recommendation");
+  });
+
+  it("preserves earlier assistant segments and only finalizes the latest mutable segment", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "research this topic" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Finding 1: background context." },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Finding 2 draft: initial evidence." },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Finding 2 final: initial evidence plus corroborating details." },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(2);
+    expect(assistantMessages[0]?.content).toBe("Finding 1: background context.");
+    expect(assistantMessages[0]?.messageId).toBe("event-turn:1:assistant:0");
+    expect(assistantMessages[1]?.content).toBe("Finding 2 final: initial evidence plus corroborating details.");
+    expect(assistantMessages[1]?.messageId).toBe("event-turn:1:assistant:1");
+  });
+
+  it("keeps one assistant message when markdown-only formatting changes arrive in turn_complete", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "format this" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "## Results\n- item one\n- item two" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "## Results\n\n- item one\n- item two\n" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("## Results\n\n- item one\n- item two");
+    expect(assistantMessages[0]?.messageId).toBe("event-turn:1:assistant:0");
   });
 
   it("does not duplicate when an emoji split across deltas is finalized by turn_complete", () => {
@@ -587,6 +879,57 @@ describe("deriveAgentState", () => {
     ]);
     expect(state.messages[0]?.thinkingContent).toBeUndefined();
     expect(state.currentThinkingEntries).toEqual([]);
+  });
+
+  it("keeps terminal-result merges scoped to the current turn when assistant text repeats", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "first" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: "Done" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Done" },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "turn_start",
+        data: { message: "second" },
+        timestamp: 4,
+        iteration: null,
+      },
+      {
+        type: "thinking",
+        data: { thinking: "new turn reasoning" },
+        timestamp: 5,
+        iteration: 2,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Done" },
+        timestamp: 6,
+        iteration: 2,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(2);
+    expect(assistantMessages[0]?.content).toBe("Done");
+    expect(assistantMessages[0]?.thinkingEntries).toBeUndefined();
+    expect(assistantMessages[1]?.content).toBe("Done");
+    expect(assistantMessages[1]?.thinkingEntries).toEqual([
+      { content: "new turn reasoning", durationMs: 0, timestamp: 5 },
+    ]);
   });
 
   it("keeps partial streamed assistant text visible when a turn ends with task_error", () => {

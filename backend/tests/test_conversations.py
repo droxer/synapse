@@ -12,7 +12,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from agent.state.schemas import EventRecord
+from agent.state.schemas import EventRecord, MessageRecord
 
 # The conversations module transitively imports api.auth which triggers
 # ``get_settings()`` at module scope.  Provide dummy env vars so the import
@@ -21,6 +21,7 @@ os.environ.setdefault("ANTHROPIC_API_KEY", "test-key")
 os.environ.setdefault("TAVILY_API_KEY", "test-key")
 
 from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage  # noqa: E402
+from api.db_subscriber import create_db_subscriber  # noqa: E402
 from api.models import ConversationMetricsResponse  # noqa: E402
 from api.models import ConversationEntry  # noqa: E402
 from api.routes.conversations import (  # noqa: E402
@@ -38,6 +39,8 @@ from api.routes.conversations import (  # noqa: E402
     _planner_flag_to_mode,
     _resolve_execution_route,
     create_conversation,
+    get_conversation_events,
+    get_conversation_messages,
     send_message,
 )
 from api.events import EventEmitter  # noqa: E402
@@ -989,6 +992,235 @@ def _build_state_with_entry(
         db_session_factory=_noop_session_factory,
         db_repo=SimpleNamespace(update_conversation=AsyncMock()),
     )
+
+
+@pytest.mark.asyncio
+async def test_get_conversation_messages_returns_only_terminal_assistant_history() -> (
+    None
+):
+    conversation_id = str(uuid.uuid4())
+    conv_uuid = uuid.UUID(conversation_id)
+    now = datetime.now(timezone.utc)
+    session = object()
+
+    class _RecordingRepo:
+        def __init__(self) -> None:
+            self.messages: list[MessageRecord] = []
+
+        async def save_message(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            role: str,
+            content: dict[str, object],
+            iteration: int | None = None,
+        ) -> MessageRecord:
+            del session
+            record = MessageRecord(
+                id=uuid.uuid4(),
+                conversation_id=conversation_id,
+                role=role,
+                content=content,
+                iteration=iteration,
+                created_at=now,
+            )
+            self.messages.append(record)
+            return record
+
+        async def save_event(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            event_type: str,
+            data: dict[str, object],
+            iteration: int | None = None,
+            timestamp: datetime | None = None,
+        ) -> None:
+            del session, conversation_id, event_type, data, iteration, timestamp
+
+        async def get_conversation(
+            self, session: object, conversation_id: uuid.UUID
+        ) -> SimpleNamespace:
+            del session
+            return SimpleNamespace(id=conversation_id, title="Chat")
+
+        async def get_messages(
+            self, session: object, conversation_id: uuid.UUID
+        ) -> list[MessageRecord]:
+            del session
+            return [
+                message
+                for message in self.messages
+                if message.conversation_id == conversation_id
+            ]
+
+    @asynccontextmanager
+    async def _session_factory():
+        yield session
+
+    repo = _RecordingRepo()
+    subscriber = create_db_subscriber(conv_uuid, repo, _session_factory)
+
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TURN_START,
+            data={"message": "hello"},
+            iteration=None,
+            timestamp=now.timestamp(),
+        )
+    )
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.MESSAGE_USER,
+            data={"message": "draft answer"},
+            iteration=1,
+            timestamp=now.timestamp(),
+        )
+    )
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TURN_COMPLETE,
+            data={"result": "final answer"},
+            iteration=1,
+            timestamp=now.timestamp(),
+        )
+    )
+
+    state = SimpleNamespace(db_repo=repo)
+
+    payload = await get_conversation_messages(
+        conversation_id=conversation_id,
+        session=session,
+        state=state,
+        auth_user=None,
+    )
+
+    assert payload["conversation_id"] == conversation_id
+    assert [message["role"] for message in payload["messages"]] == [
+        "user",
+        "assistant",
+    ]
+    assert payload["messages"][1]["content"] == {"text": "final answer"}
+
+
+@pytest.mark.asyncio
+async def test_get_conversation_events_returns_persisted_turn_start() -> None:
+    conversation_id = str(uuid.uuid4())
+    conv_uuid = uuid.UUID(conversation_id)
+    now = datetime.now(timezone.utc)
+    session = object()
+
+    class _RecordingRepo:
+        def __init__(self) -> None:
+            self.messages: list[MessageRecord] = []
+            self.events: list[EventRecord] = []
+
+        async def save_message(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            role: str,
+            content: dict[str, object],
+            iteration: int | None = None,
+        ) -> MessageRecord:
+            del session
+            record = MessageRecord(
+                id=uuid.uuid4(),
+                conversation_id=conversation_id,
+                role=role,
+                content=content,
+                iteration=iteration,
+                created_at=now,
+            )
+            self.messages.append(record)
+            return record
+
+        async def save_event(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            event_type: str,
+            data: dict[str, object],
+            iteration: int | None = None,
+            timestamp: datetime | None = None,
+        ) -> EventRecord:
+            del session
+            record = EventRecord(
+                id=len(self.events) + 1,
+                conversation_id=conversation_id,
+                event_type=event_type,
+                data=data,
+                iteration=iteration,
+                timestamp=timestamp or now,
+            )
+            self.events.append(record)
+            return record
+
+        async def get_conversation(
+            self, session: object, conversation_id: uuid.UUID
+        ) -> SimpleNamespace:
+            del session
+            return SimpleNamespace(id=conversation_id, title="Chat")
+
+        async def get_events(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            limit: int = 500,
+            offset: int = 0,
+        ) -> list[EventRecord]:
+            del session
+            matching = [
+                event
+                for event in self.events
+                if event.conversation_id == conversation_id
+            ]
+            return matching[offset : offset + limit]
+
+    @asynccontextmanager
+    async def _session_factory():
+        yield session
+
+    repo = _RecordingRepo()
+    subscriber = create_db_subscriber(conv_uuid, repo, _session_factory)
+
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TURN_START,
+            data={
+                "message": "hello",
+                "attachments": [{"name": "report.csv", "size": 42, "type": "text/csv"}],
+            },
+            iteration=None,
+            timestamp=now.timestamp(),
+        )
+    )
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TURN_COMPLETE,
+            data={"result": "final answer"},
+            iteration=1,
+            timestamp=now.timestamp(),
+        )
+    )
+
+    state = SimpleNamespace(db_repo=repo)
+
+    payload = await get_conversation_events(
+        conversation_id=conversation_id,
+        session=session,
+        state=state,
+        auth_user=None,
+    )
+
+    assert [event["type"] for event in payload["events"]] == [
+        "turn_start",
+        "turn_complete",
+    ]
+    assert payload["events"][0]["data"] == {
+        "message": "hello",
+        "attachments": [{"name": "report.csv", "size": 42, "type": "text/csv"}],
+    }
 
 
 @pytest.mark.asyncio

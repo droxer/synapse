@@ -71,13 +71,12 @@ describe("MarkdownRenderer", () => {
     );
 
     expect(html).toContain('data-testid="parsed-markdown"');
-    expect(html).toContain("markdown-streaming-tail");
     expect(html).toContain("# Title");
     expect(html).toContain("- one");
     expect(html).toContain("Trailing paragraph");
   });
 
-  it("renders stable markdown blocks while keeping the trailing paragraph lightweight in hybrid mode", () => {
+  it("renders stable markdown blocks including the trailing paragraph in hybrid mode", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"# Title\n\n- one\n- two\n\nTrailing paragraph"}
@@ -89,7 +88,6 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain('data-testid="parsed-markdown"');
     expect(html).toContain("# Title");
     expect(html).toContain("- one");
-    expect(html).toContain("markdown-streaming-tail");
     expect(html).toContain("Trailing paragraph");
   });
 
@@ -125,7 +123,7 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain("- two");
   });
 
-  it("keeps an active inline paragraph in the lightweight tail to avoid in-place markdown replacement", () => {
+  it("renders completed inline markdown directly in parsed output", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"Visit [docs](https://example.com) and **pay attention**."}
@@ -133,12 +131,9 @@ describe("MarkdownRenderer", () => {
       />,
     );
 
-    expect(html).not.toContain('data-testid="parsed-markdown"');
-    expect(html).toContain(">docs</a>");
-    expect(html).toContain("<strong");
-    expect(html).not.toContain("**pay attention**");
-    expect(html).not.toContain("[docs](https://example.com)");
-    expect(html).toContain("markdown-streaming-tail");
+    expect(html).toContain('data-testid="parsed-markdown"');
+    expect(html).toContain("Visit [docs](https://example.com) and **pay attention**.");
+    expect(html).not.toContain("markdown-streaming-tail");
   });
 
   it("keeps an unfinished chunk-split link as raw lightweight tail text until it closes (hybrid)", () => {
@@ -219,7 +214,7 @@ describe("MarkdownRenderer", () => {
     expect(html).not.toContain("|---|");
   });
 
-  it("keeps a plain CJK paragraph in the lightweight tail while streaming", () => {
+  it("keeps a plain CJK paragraph in parsed output while streaming", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"你好，世界"}
@@ -227,8 +222,8 @@ describe("MarkdownRenderer", () => {
       />,
     );
 
-    expect(html).not.toContain('data-testid="parsed-markdown"');
-    expect(html).toContain("markdown-streaming-tail");
+    expect(html).toContain('data-testid="parsed-markdown"');
+    expect(html).not.toContain("markdown-streaming-tail");
     expect(html).toContain("你好，世界");
   });
 
