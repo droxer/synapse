@@ -1,10 +1,10 @@
 export type MarkdownRenderStrategy = "streaming-light" | "streaming-hybrid" | "settled";
 
 export function getMarkdownRenderStrategy(isStreaming?: boolean): MarkdownRenderStrategy {
-  // Full `streaming-hybrid` (ReactMarkdown + tail) re-parses the stable prefix on
-  // every token and can thrash layout. Prefer the lightweight path for in-flight
-  // text; callers can still force `mode="streaming-hybrid"` when needed.
-  return isStreaming ? "streaming-light" : "settled";
+  // Default to hybrid rendering while streaming so complete markdown blocks
+  // (headings, lists, fenced code, links) stay accurate in live view while
+  // keeping only the unfinished tail lightweight.
+  return isStreaming ? "streaming-hybrid" : "settled";
 }
 
 export interface StreamingMarkdownSegments {

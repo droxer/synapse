@@ -62,7 +62,7 @@ describe("MarkdownRenderer", () => {
     expect(html).toContain('data-testid="parsed-markdown"');
   });
 
-  it("defaults isStreaming to lightweight rendering (no ReactMarkdown thrash)", () => {
+  it("defaults isStreaming to hybrid rendering so stable markdown blocks stay parsed", () => {
     const html = renderToStaticMarkup(
       <MarkdownRenderer
         content={"# Title\n\n- one\n- two\n\nTrailing paragraph"}
@@ -70,10 +70,10 @@ describe("MarkdownRenderer", () => {
       />,
     );
 
-    expect(html).not.toContain('data-testid="parsed-markdown"');
+    expect(html).toContain('data-testid="parsed-markdown"');
     expect(html).toContain("markdown-streaming-tail");
-    expect(html).toContain(">Title</span>");
-    expect(html).toContain(">•</span>");
+    expect(html).toContain("# Title");
+    expect(html).toContain("- one");
     expect(html).toContain("Trailing paragraph");
   });
 
