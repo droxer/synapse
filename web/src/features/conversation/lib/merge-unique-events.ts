@@ -2,6 +2,51 @@ import type { AgentEvent } from "@/shared/types";
 
 const APPROXIMATE_DUPLICATE_WINDOW_MS = 2_000;
 
+function normalizeComparableText(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function normalizeAttachmentFingerprint(attachments: unknown): string {
+  if (!Array.isArray(attachments) || attachments.length === 0) {
+    return "";
+  }
+
+  return attachments
+    .filter((attachment): attachment is { name: string; size: number; type: string } =>
+      Boolean(attachment)
+      && typeof attachment === "object"
+      && typeof attachment.name === "string"
+      && typeof attachment.size === "number"
+      && Number.isFinite(attachment.size)
+      && typeof attachment.type === "string",
+    )
+    .map((attachment) => `${attachment.name}:${attachment.size}:${attachment.type}`)
+    .sort()
+    .join("|");
+}
+
+function getTurnStartFingerprint(event: Extract<AgentEvent, { type: "turn_start" }>): string {
+  return [
+    "turn_start",
+    normalizeComparableText(String(event.data.message ?? "")),
+    normalizeAttachmentFingerprint(event.data.attachments),
+  ].join("|");
+}
+
+function getTerminalResultFingerprint(
+  event: Extract<AgentEvent, { type: "turn_complete" | "task_complete" }>,
+): string {
+  const text = event.type === "task_complete"
+    ? String(event.data.summary ?? event.data.result ?? "")
+    : String(event.data.result ?? "");
+
+  return [
+    event.type,
+    String(event.iteration ?? ""),
+    normalizeComparableText(text),
+  ].join("|");
+}
+
 export function getStableDataKey(value: unknown): string {
   if (value === null || value === undefined) return String(value);
   if (typeof value !== "object") return JSON.stringify(value);
@@ -10,7 +55,9 @@ export function getStableDataKey(value: unknown): string {
   }
 
   const record = value as Record<string, unknown>;
-  const keys = Object.keys(record).sort();
+  const keys = Object.keys(record)
+    .filter((key) => record[key] !== undefined)
+    .sort();
   return `{${keys
     .map((key) => `${JSON.stringify(key)}:${getStableDataKey(record[key])}`)
     .join(",")}}`;
@@ -70,6 +117,12 @@ export function getEventKey(event: AgentEvent): string {
       ].join("|");
     }
   }
+  if (event.type === "turn_start") {
+    return `${getTurnStartFingerprint(event)}|${event.timestamp}`;
+  }
+  if (event.type === "turn_complete" || event.type === "task_complete") {
+    return `${getTerminalResultFingerprint(event)}|${event.timestamp}`;
+  }
   return [
     event.type,
     String(event.timestamp),
@@ -81,6 +134,12 @@ export function getEventKey(event: AgentEvent): string {
 function getApproximateEventFingerprint(event: AgentEvent): string | null {
   if (event.type === "text_delta" || event.type === "tool_call" || event.type === "tool_result") {
     return null;
+  }
+  if (event.type === "turn_start") {
+    return getTurnStartFingerprint(event);
+  }
+  if (event.type === "turn_complete" || event.type === "task_complete") {
+    return getTerminalResultFingerprint(event);
   }
 
   return [
@@ -99,24 +158,26 @@ export function mergeUniqueEvents(
   // non-monotonic timestamps (common in long tool-heavy turns), which shuffles
   // assistant segments (e.g. research steps vs findings).
   const seen = new Set<string>();
-  const approximateSeen = new Map<string, number[]>();
+  const approximateSeen = new Map<string, Array<{ timestamp: number; source: "history" | "live" }>>();
   const result: AgentEvent[] = [];
 
-  const appendEvent = (event: AgentEvent) => {
+  const appendEvent = (event: AgentEvent, source: "history" | "live") => {
     const key = getEventKey(event);
     if (seen.has(key)) return;
 
     const approximateFingerprint = getApproximateEventFingerprint(event);
     if (approximateFingerprint) {
-      const timestamps = approximateSeen.get(approximateFingerprint) ?? [];
-      const hasNearbyDuplicate = timestamps.some(
-        (timestamp) => Math.abs(timestamp - event.timestamp) <= APPROXIMATE_DUPLICATE_WINDOW_MS,
+      const entries = approximateSeen.get(approximateFingerprint) ?? [];
+      const hasNearbyDuplicate = entries.some(
+        ({ timestamp, source: seenSource }) =>
+          Math.abs(timestamp - event.timestamp) <= APPROXIMATE_DUPLICATE_WINDOW_MS
+          && (event.type !== "turn_start" || seenSource !== source),
       );
       if (hasNearbyDuplicate) {
         return;
       }
-      timestamps.push(event.timestamp);
-      approximateSeen.set(approximateFingerprint, timestamps);
+      entries.push({ timestamp: event.timestamp, source });
+      approximateSeen.set(approximateFingerprint, entries);
     }
 
     seen.add(key);
@@ -124,10 +185,10 @@ export function mergeUniqueEvents(
   };
 
   for (const event of historyEvents) {
-    appendEvent(event);
+    appendEvent(event, "history");
   }
   for (const event of liveEvents) {
-    appendEvent(event);
+    appendEvent(event, "live");
   }
 
   return result;

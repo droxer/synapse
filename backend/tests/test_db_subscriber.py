@@ -107,12 +107,15 @@ async def test_persists_turn_complete_as_assistant_message(
     repo.update_conversation.assert_not_called()
 
 
-async def test_persists_task_complete_message(repo, session_factory) -> None:
+async def test_task_complete_is_event_only_and_does_not_persist_message(
+    repo, session_factory
+) -> None:
     conversation_id = uuid.uuid4()
     subscriber = create_db_subscriber(conversation_id, repo, session_factory)
     event = _make_event(EventType.TASK_COMPLETE, {"summary": "all done"})
     await subscriber(event)
-    repo.save_message.assert_called_once()
+    repo.save_message.assert_not_called()
+    repo.save_event.assert_called_once()
     repo.update_conversation.assert_not_called()
 
 
@@ -181,7 +184,7 @@ async def test_message_user_then_turn_complete_persists_single_assistant_row(
     assert content == {"text": "final"}
 
 
-async def test_message_user_then_task_complete_persists_single_assistant_row(
+async def test_message_user_then_task_complete_does_not_persist_assistant_row(
     repo, session_factory
 ) -> None:
     conversation_id = uuid.uuid4()
@@ -200,13 +203,7 @@ async def test_message_user_then_task_complete_persists_single_assistant_row(
         )
         == "assistant"
     ]
-    assert len(assistant_calls) == 1
-    content = (
-        assistant_calls[0].kwargs["content"]
-        if "content" in assistant_calls[0].kwargs
-        else assistant_calls[0].args[3]
-    )
-    assert content == {"text": "final"}
+    assert assistant_calls == []
 
 
 async def test_ask_user_event_does_not_create_prompt_record(
@@ -503,9 +500,15 @@ async def test_pending_writes_serialize_background_event_persistence(
     persisted_tools: list[str] = []
 
     async def _save_event(
-        session, conversation_id_arg, *, event_type, data, iteration=None
+        session,
+        conversation_id_arg,
+        *,
+        event_type,
+        data,
+        iteration=None,
+        timestamp=None,
     ) -> None:
-        del session, conversation_id_arg, event_type, iteration
+        del session, conversation_id_arg, event_type, iteration, timestamp
         nonlocal active_writes, max_active_writes
         active_writes += 1
         max_active_writes = max(max_active_writes, active_writes)

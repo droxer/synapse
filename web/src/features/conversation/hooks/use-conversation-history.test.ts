@@ -6,7 +6,9 @@ import {
   normalizeHistoryMessage,
   normalizeHistoryArtifact,
   resolveConversationHistoryResults,
+  resolveConversationTranscriptHistoryResults,
 } from "./use-conversation-history";
+import { mergeUniqueEvents } from "../lib/merge-unique-events";
 
 describe("isConversationHistoryLoading", () => {
   it("treats a newly selected conversation as loading before the fetch effect settles", () => {
@@ -192,6 +194,113 @@ describe("isConversationHistoryLoading", () => {
     });
   });
 
+  it("keeps transcript-only refetch results without requiring event history", () => {
+    const resolved = resolveConversationTranscriptHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: { text: "hello" },
+              iteration: null,
+              created_at: "2026-04-18T07:14:52.297999Z",
+            },
+            {
+              id: "message-2",
+              role: "assistant",
+              content: { text: "done" },
+              iteration: 1,
+              created_at: "2026-04-18T07:14:55.297999Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    expect(resolved.missingConversation).toBe(false);
+    expect(resolved.messages.map((message) => `${message.role}:${message.content}`)).toEqual([
+      "user:hello",
+      "assistant:done",
+    ]);
+    expect(resolved.artifacts).toEqual([]);
+  });
+
+  it("produces a synthetic turn_start that later dedupes against a live turn_start with extra orchestration fields", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: {
+                text: "inspect this",
+                attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+              },
+              iteration: null,
+              created_at: "2026-04-18T07:14:52.297999Z",
+            },
+            {
+              id: "message-2",
+              role: "assistant",
+              content: { text: "done" },
+              iteration: 1,
+              created_at: "2026-04-18T07:14:55.297999Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: {
+          events: [
+            {
+              type: "turn_complete",
+              data: { result: "done" },
+              timestamp: "2026-04-18T07:14:55.297999Z",
+              iteration: 1,
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    const liveEvents = [
+      {
+        type: "turn_start" as const,
+        data: {
+          message: "inspect this",
+          attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+          orchestrator_mode: "planner" as const,
+          execution_shape: "parallel" as const,
+          execution_rationale: "needs multiple workers",
+        },
+        timestamp: new Date("2026-04-18T07:14:53.297999Z").getTime(),
+        iteration: null,
+      },
+    ];
+
+    const merged = mergeUniqueEvents(resolved.events, liveEvents);
+
+    expect(resolved.events.map((event) => event.type)).toEqual(["turn_start", "turn_complete"]);
+    expect(merged.map((event) => event.type)).toEqual(["turn_start", "turn_complete"]);
+  });
+
   it("backfills only the missing turn boundaries in multi-turn histories", () => {
     const resolved = resolveConversationHistoryResults(
       {
@@ -311,6 +420,54 @@ describe("isConversationHistoryLoading", () => {
     expect(resolved.events).toHaveLength(1);
     expect(resolved.artifacts).toEqual([]);
     expect(resolved.missingConversation).toBe(false);
+  });
+
+  it("collapses repeated persisted assistant rows for the same iteration to the latest message", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: { text: "hello" },
+              iteration: null,
+              created_at: "2026-04-18T07:14:52.297999Z",
+            },
+            {
+              id: "message-2",
+              role: "assistant",
+              content: { text: "task summary" },
+              iteration: 1,
+              created_at: "2026-04-18T07:14:53.297999Z",
+            },
+            {
+              id: "message-3",
+              role: "assistant",
+              content: { text: "final answer" },
+              iteration: 1,
+              created_at: "2026-04-18T07:14:54.297999Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: { events: [] },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    expect(resolved.messages.map((message) => `${message.role}:${message.content}`)).toEqual([
+      "user:hello",
+      "assistant:final answer",
+    ]);
   });
 
   it("keeps messages when events loading fails", () => {

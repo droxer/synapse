@@ -2,6 +2,29 @@ import type { HistoryMessage } from "@/features/conversation/api/history-api";
 import type { ChatMessage, MessageAttachmentMetadata } from "@/shared/types";
 
 const DEFAULT_MATCH_WINDOW_MS = 5_000;
+const INLINE_THINK_PATTERNS = [
+  /<redacted_thinking>([\s\S]*?)<\/redacted_thinking>/gi,
+  /<redacted_thinking>([\s\S]*?)<\/think>/gi,
+  /<think>([\s\S]*?)<\/think>/gi,
+  /<thinking>([\s\S]*?)<\/thinking>/gi,
+];
+
+function splitAssistantThinking(text: string): { thinkingContent?: string; content: string } {
+  const thinkingParts: string[] = [];
+  let clean = text;
+  for (const re of INLINE_THINK_PATTERNS) {
+    clean = clean.replace(re, (_match, inner: string) => {
+      const trimmed = inner.trim();
+      if (trimmed) thinkingParts.push(trimmed);
+      return "";
+    });
+  }
+  const thinkingContent = thinkingParts.join("\n\n").trim();
+  return {
+    ...(thinkingContent ? { thinkingContent } : {}),
+    content: clean.trim(),
+  };
+}
 
 function normalizeMessageContent(content: HistoryMessage["content"]): string {
   if (typeof content === "string") {
@@ -116,13 +139,20 @@ function areLikelySameMessage(a: ChatMessage, b: ChatMessage): boolean {
 }
 
 export function toHistoryChatMessage(message: HistoryMessage): ChatMessage {
+  const normalizedContent = normalizeMessageContent(message.content);
+  const assistantContent =
+    message.role === "assistant"
+      ? splitAssistantThinking(normalizedContent)
+      : { content: normalizedContent };
+
   return {
     messageId: `history:${message.id}`,
     role: message.role as "user" | "assistant",
-    content: normalizeMessageContent(message.content),
+    content: assistantContent.content,
     timestamp: new Date(message.created_at).getTime(),
     source: "history",
     attachments: normalizeMessageAttachments(message.content),
+    ...(assistantContent.thinkingContent ? { thinkingContent: assistantContent.thinkingContent } : {}),
   };
 }
 

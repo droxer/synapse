@@ -1,6 +1,8 @@
 import { describe, expect, it } from "@jest/globals";
 import { mergeUniqueEvents } from "./merge-unique-events";
 import { buildConversationTranscriptState } from "./build-conversation-transcript";
+import { normalizeHistoryEvent } from "../hooks/use-conversation-history";
+import { parseSSEEvent } from "@/shared/hooks/use-sse";
 import type { AgentEvent } from "@/shared/types";
 
 describe("mergeUniqueEvents", () => {
@@ -174,5 +176,143 @@ describe("mergeUniqueEvents", () => {
       "user:hello",
       "assistant:done",
     ]);
+  });
+
+  it("dedupes history and live turn events even when live SSE normalization adds optional undefined keys", () => {
+    const historyEvents = [
+      ...normalizeHistoryEvent({
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: "2026-04-18T07:14:52.297999Z",
+        iteration: null,
+      }),
+      ...normalizeHistoryEvent({
+        type: "turn_complete",
+        data: { result: "done" },
+        timestamp: "2026-04-18T07:14:55.297999Z",
+        iteration: 1,
+      }),
+    ];
+
+    const liveEvents = [
+      parseSSEEvent(JSON.stringify({
+        event_type: "turn_start",
+        data: { message: "hello" },
+        timestamp: new Date("2026-04-18T07:14:52.297999Z").getTime(),
+        iteration: null,
+      }), "turn_start"),
+      parseSSEEvent(JSON.stringify({
+        event_type: "turn_complete",
+        data: { result: "done" },
+        timestamp: new Date("2026-04-18T07:14:55.297999Z").getTime(),
+        iteration: 1,
+      }), "turn_complete"),
+    ].filter((event): event is AgentEvent => event !== null);
+
+    const transcript = buildConversationTranscriptState([], historyEvents, liveEvents);
+
+    expect(transcript.effectiveEvents).toHaveLength(2);
+    expect(transcript.messages.map((message) => `${message.role}:${message.content}`)).toEqual([
+      "user:hello",
+      "assistant:done",
+    ]);
+  });
+
+  it("dedupes turn_start replay when live SSE carries orchestration metadata", () => {
+    const history: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "hello", attachments: [{ name: "report.csv", size: 42, type: "text/csv" }] },
+        timestamp: 1_000,
+        iteration: null,
+      },
+    ];
+    const live: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: {
+          message: "hello",
+          attachments: [{ name: "report.csv", size: 42, type: "text/csv" }],
+          orchestrator_mode: "planner",
+          execution_shape: "parallel",
+          execution_rationale: "needs multiple workers",
+        },
+        timestamp: 1_000,
+        iteration: null,
+      },
+    ];
+
+    const merged = mergeUniqueEvents(history, live);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.type).toBe("turn_start");
+  });
+
+  it("keeps separate live turns when identical prompts arrive within the duplicate window", () => {
+    const live: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: 1_000,
+        iteration: null,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "first answer" },
+        timestamp: 1_800,
+        iteration: 1,
+      },
+      {
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: 2_400,
+        iteration: null,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "second answer" },
+        timestamp: 3_200,
+        iteration: 2,
+      },
+    ];
+
+    const transcript = buildConversationTranscriptState([], [], live);
+
+    expect(transcript.effectiveEvents.map((event) => event.type)).toEqual([
+      "turn_start",
+      "turn_complete",
+      "turn_start",
+      "turn_complete",
+    ]);
+    expect(transcript.messages.map((message) => `${message.role}:${message.content}`)).toEqual([
+      "user:hello",
+      "assistant:first answer",
+      "user:hello",
+      "assistant:second answer",
+    ]);
+  });
+
+  it("dedupes turn_complete replay when refetched history only differs in transport metadata", () => {
+    const history: AgentEvent[] = [
+      {
+        type: "turn_complete",
+        data: { result: "Final answer", artifact_ids: ["artifact-1"] },
+        timestamp: 3_000,
+        iteration: 1,
+      },
+    ];
+    const live: AgentEvent[] = [
+      {
+        type: "turn_complete",
+        data: { result: " Final   answer " },
+        timestamp: 3_000,
+        iteration: 1,
+      },
+    ];
+
+    const merged = mergeUniqueEvents(history, live);
+
+    expect(merged).toHaveLength(1);
+    expect(merged[0]?.type).toBe("turn_complete");
   });
 });

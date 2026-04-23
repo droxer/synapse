@@ -714,6 +714,236 @@ describe("deriveAgentState", () => {
     expect(state.messages[0]?.content).toBe("Legacy result");
   });
 
+  it("keeps one assistant message when task_complete is followed by turn_complete in the same turn", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "task_complete",
+        data: { summary: "Task summary" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final user-facing answer" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Final user-facing answer");
+  });
+
+  it("keeps one assistant message when message_user, task_complete, and turn_complete all occur in the same turn", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "message_user",
+        data: { message: "Interim answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "task_complete",
+        data: { summary: "Task-layer answer" },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final user-facing answer" },
+        timestamp: 4,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Final user-facing answer");
+    expect(assistantMessages[0]?.messageId).toBe("event-turn:1:assistant:0");
+  });
+
+  it("keeps same-turn reasoning and artifacts exactly once when task_complete is followed by turn_complete", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "thinking",
+        data: { thinking: "Reason carefully" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "artifact_created",
+        data: {
+          artifact_id: "artifact-image-1",
+          name: "chart.png",
+          content_type: "image/png",
+          size: 123,
+        },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "tool_result",
+        data: {
+          tool_id: "tool-1",
+          artifact_ids: ["artifact-image-1"],
+          output: "generated image",
+          success: true,
+        },
+        timestamp: 4,
+        iteration: 1,
+      },
+      {
+        type: "task_complete",
+        data: { summary: "Task-layer answer" },
+        timestamp: 5,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final user-facing answer" },
+        timestamp: 6,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Final user-facing answer");
+    expect(assistantMessages[0]?.thinkingEntries).toEqual([
+      { content: "Reason carefully", durationMs: 0, timestamp: 2 },
+    ]);
+    expect(assistantMessages[0]?.imageArtifactIds).toEqual(["artifact-image-1"]);
+  });
+
+  it("keeps one assistant message when message_user is followed by turn_complete in the same turn", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "message_user",
+        data: { message: "Interim answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final user-facing answer" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Final user-facing answer");
+  });
+
+  it("keeps distinct same-turn message_user bubbles separate", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "message_user",
+        data: { message: "First update" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "message_user",
+        data: { message: "Second update" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(2);
+    expect(assistantMessages.map((message) => message.content)).toEqual([
+      "First update",
+      "Second update",
+    ]);
+  });
+
+  it("finalizes later streamed output into a new bubble after an earlier message_user", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "message_user",
+        data: { message: "Status update" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "Draft final " },
+        timestamp: 3,
+        iteration: 1,
+      },
+      {
+        type: "text_delta",
+        data: { delta: "answer" },
+        timestamp: 4,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final answer" },
+        timestamp: 5,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(2);
+    expect(assistantMessages.map((message) => message.content)).toEqual([
+      "Status update",
+      "Final answer",
+    ]);
+    expect(assistantMessages[1]?.messageId).toBe("event-turn:1:assistant:1");
+  });
+
   it("renders deep-research thinking-only payloads as assistant content fallback", () => {
     const events: AgentEvent[] = [
       {

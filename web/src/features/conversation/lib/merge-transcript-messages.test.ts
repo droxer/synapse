@@ -170,6 +170,31 @@ describe("mergeHistoryWithEventDerivedMessages", () => {
     ]);
   });
 
+  it("appends a trailing persisted final report after event-only deep-research rounds instead of interleaving by timestamp", () => {
+    const history: ChatMessage[] = [
+      { role: "user", content: "Research", timestamp: 100 },
+      { role: "assistant", content: "Final research report", timestamp: 250 },
+    ];
+    const derived: ChatMessage[] = [
+      { role: "user", content: "Research", timestamp: 100 },
+      { role: "assistant", content: "Round 1 findings", timestamp: 150 },
+      { role: "assistant", content: "Round 2 findings", timestamp: 200 },
+      // Event order is canonical; later round can still carry a higher timestamp
+      // than the persisted final report after replay/refetch.
+      { role: "assistant", content: "Round 3 findings", timestamp: 300 },
+    ];
+
+    const merged = mergeHistoryWithEventDerivedMessages(history, derived);
+
+    expect(merged.map((message) => message.content)).toEqual([
+      "Research",
+      "Round 1 findings",
+      "Round 2 findings",
+      "Round 3 findings",
+      "Final research report",
+    ]);
+  });
+
   it("dedupes user and assistant DB rows to live event rows when persisted timestamps are far from event times (e.g. after turn_complete refetch)", () => {
     const tEventUser = 1_000_000;
     const tEventAsst = tEventUser + 5_000;

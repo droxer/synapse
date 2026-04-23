@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/shared/stores";
+import { normalizeEventData } from "@/shared/hooks/use-sse";
 import { fetchMessages, fetchEvents, fetchArtifacts } from "../api/history-api";
 import { EVENT_TYPES } from "@/shared/types";
 import type {
@@ -37,6 +38,34 @@ interface ResolvedConversationHistory {
   readonly missingConversation: boolean;
 }
 
+interface ResolvedConversationTranscriptHistory {
+  readonly messages: ChatMessage[];
+  readonly artifacts: ArtifactInfo[];
+  readonly missingConversation: boolean;
+}
+
+function collapseDuplicateAssistantHistoryMessages(
+  messages: readonly ConversationMessagesResponse["messages"][number][],
+): ConversationMessagesResponse["messages"] {
+  const keep = new Array(messages.length).fill(true);
+  const lastAssistantIndexByIteration = new Map<number, number>();
+
+  for (let index = 0; index < messages.length; index += 1) {
+    const message = messages[index]!;
+    if (message.role !== "assistant" || message.iteration === null) {
+      continue;
+    }
+
+    const previousIndex = lastAssistantIndexByIteration.get(message.iteration);
+    if (previousIndex !== undefined) {
+      keep[previousIndex] = false;
+    }
+    lastAssistantIndexByIteration.set(message.iteration, index);
+  }
+
+  return messages.filter((_, index) => keep[index]);
+}
+
 export function isConversationHistoryLoading(
   conversationId: string | null,
   loadedConversationId: string | null,
@@ -68,7 +97,7 @@ export function normalizeHistoryEvent(
   }
   return [{
     type: event.type,
-    data: event.data,
+    data: normalizeEventData(event.type, event.data),
     timestamp: new Date(event.timestamp).getTime(),
     iteration: event.iteration,
   } as AgentEvent];
@@ -247,7 +276,9 @@ export function resolveConversationHistoryResults(
 ): ResolvedConversationHistory {
   const messages =
     messagesResult.status === "fulfilled"
-      ? messagesResult.value.messages
+      ? collapseDuplicateAssistantHistoryMessages(
+        messagesResult.value.messages
+      )
         .filter((m) => m.role === "user" || m.role === "assistant")
         .map(toHistoryChatMessage)
       : [];
@@ -279,6 +310,34 @@ export function resolveConversationHistoryResults(
   };
 }
 
+export function resolveConversationTranscriptHistoryResults(
+  messagesResult: PromiseSettledResult<ConversationMessagesResponse>,
+  artifactsResult: PromiseSettledResult<ConversationArtifactsResponse>,
+): ResolvedConversationTranscriptHistory {
+  const messages =
+    messagesResult.status === "fulfilled"
+      ? collapseDuplicateAssistantHistoryMessages(
+        messagesResult.value.messages
+      )
+        .filter((m) => m.role === "user" || m.role === "assistant")
+        .map(toHistoryChatMessage)
+      : [];
+
+  const artifacts =
+    artifactsResult.status === "fulfilled"
+      ? artifactsResult.value.artifacts.map(normalizeHistoryArtifact)
+      : [];
+
+  const missingConversation =
+    messagesResult.status === "rejected" && isConversationNotFoundError(messagesResult.reason);
+
+  return {
+    messages,
+    artifacts,
+    missingConversation,
+  };
+}
+
 /**
  * Loads persisted messages and events for the selected conversation.
  * History remains available when transitioning between historical and live mode.
@@ -294,14 +353,32 @@ export function useConversationHistory(
   const [loadedConversationId, setLoadedConversationId] = useState<string | null>(null);
   const prevConversationId = useRef<string | null>(null);
   const requestSeqRef = useRef(0);
+  const loadingRequestSeqRef = useRef<number | null>(null);
   const resetConversation = useAppStore((state) => state.resetConversation);
   const clearPendingConversationRoute = useAppStore(
     (state) => state.clearPendingConversationRoute,
   );
 
-  const loadHistory = useCallback(async (targetConversationId: string) => {
+  const resetMissingConversation = useCallback(() => {
+    setHistoryMessages([]);
+    setHistoryEvents([]);
+    setHistoryArtifacts([]);
+    setLoadedConversationId(null);
+    clearPendingConversationRoute();
+    resetConversation();
+    router.replace("/");
+  }, [clearPendingConversationRoute, resetConversation, router]);
+
+  const loadAllHistory = useCallback(async (
+    targetConversationId: string,
+    options?: { readonly updateLoadingState?: boolean },
+  ) => {
+    const updateLoadingState = options?.updateLoadingState ?? true;
     const requestSeq = ++requestSeqRef.current;
-    setIsLoading(true);
+    if (updateLoadingState) {
+      loadingRequestSeqRef.current = requestSeq;
+      setIsLoading(true);
+    }
 
     try {
       const [messagesResult, eventsResult, artifactsResult] = await Promise.allSettled([
@@ -321,13 +398,7 @@ export function useConversationHistory(
       );
 
       if (resolved.missingConversation) {
-        setHistoryMessages([]);
-        setHistoryEvents([]);
-        setHistoryArtifacts([]);
-        setLoadedConversationId(null);
-        clearPendingConversationRoute();
-        resetConversation();
-        router.replace("/");
+        resetMissingConversation();
         return false;
       }
 
@@ -353,21 +424,68 @@ export function useConversationHistory(
       console.error("Failed to load conversation history:", err);
       return false;
     } finally {
-      if (requestSeq === requestSeqRef.current) {
+      if (updateLoadingState && loadingRequestSeqRef.current === requestSeq) {
+        loadingRequestSeqRef.current = null;
         setIsLoading(false);
       }
     }
-  }, [clearPendingConversationRoute, resetConversation, router]);
+  }, [resetMissingConversation]);
+
+  const loadTranscriptHistory = useCallback(async (targetConversationId: string) => {
+    const requestSeq = ++requestSeqRef.current;
+
+    try {
+      const [messagesResult, artifactsResult] = await Promise.allSettled([
+        fetchMessages(targetConversationId),
+        fetchArtifacts(targetConversationId),
+      ]);
+
+      if (requestSeq !== requestSeqRef.current) {
+        return false;
+      }
+
+      const resolved = resolveConversationTranscriptHistoryResults(
+        messagesResult,
+        artifactsResult,
+      );
+
+      if (resolved.missingConversation) {
+        resetMissingConversation();
+        return false;
+      }
+
+      if (messagesResult.status === "rejected") {
+        console.error("Failed to refetch conversation messages:", messagesResult.reason);
+      }
+      if (artifactsResult.status === "rejected") {
+        console.error("Failed to refetch conversation artifacts:", artifactsResult.reason);
+      }
+
+      setHistoryMessages(resolved.messages);
+      setHistoryArtifacts(resolved.artifacts);
+      setLoadedConversationId(targetConversationId);
+      return true;
+    } catch (err) {
+      if (requestSeq !== requestSeqRef.current) {
+        return false;
+      }
+      console.error("Failed to refetch conversation transcript history:", err);
+      return false;
+    }
+  }, [resetMissingConversation]);
 
   // Clear history immediately when switching conversations so stale
   // transcript/events do not flash while the next fetch is in flight.
   useEffect(() => {
     if (prevConversationId.current !== conversationId) {
       prevConversationId.current = conversationId;
+      requestSeqRef.current += 1;
+      loadingRequestSeqRef.current = null;
       setHistoryMessages([]);
       setHistoryEvents([]);
       setHistoryArtifacts([]);
       setLoadedConversationId(null);
+      setIsLoading(false);
     }
   }, [conversationId]);
 
@@ -379,19 +497,24 @@ export function useConversationHistory(
     }
 
     let cancelled = false;
-    void loadHistory(conversationId).then((ok) => {
+    void loadAllHistory(conversationId, { updateLoadingState: true }).then((ok) => {
       if (cancelled || ok) return;
     });
 
     return () => {
       cancelled = true;
     };
-  }, [conversationId, loadHistory]);
+  }, [conversationId, loadAllHistory]);
 
-  const refetchHistory = useCallback(async () => {
+  const refetchAllHistory = useCallback(async () => {
     if (!conversationId) return false;
-    return loadHistory(conversationId);
-  }, [conversationId, loadHistory]);
+    return loadAllHistory(conversationId, { updateLoadingState: false });
+  }, [conversationId, loadAllHistory]);
+
+  const refetchTranscriptHistory = useCallback(async () => {
+    if (!conversationId) return false;
+    return loadTranscriptHistory(conversationId);
+  }, [conversationId, loadTranscriptHistory]);
 
   return {
     historyMessages,
@@ -402,6 +525,7 @@ export function useConversationHistory(
       loadedConversationId,
       isLoading,
     ),
-    refetchHistory,
+    refetchAllHistory,
+    refetchTranscriptHistory,
   };
 }

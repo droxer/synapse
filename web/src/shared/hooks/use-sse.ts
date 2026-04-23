@@ -112,7 +112,7 @@ export function createTerminalDisconnectEvent(timestamp = Date.now()): AgentEven
   };
 }
 
-function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): AgentEventDataByType[K] {
+export function normalizeEventData<K extends EventType>(eventType: K, raw: unknown): AgentEventDataByType[K] {
   const data = isRecord(raw) ? raw : {};
 
   if (eventType === "text_delta") {

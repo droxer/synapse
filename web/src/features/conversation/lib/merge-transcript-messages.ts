@@ -303,6 +303,10 @@ export function mergeHistoryWithEventDerivedMessages(
   const merged: ChatMessage[] = [...eventDerivedMessages];
   const claimedIndexes = new Set<number>();
   const orphans: ChatMessage[] = [];
+  const historyMergeEntries: Array<
+    | { kind: "matched"; index: number }
+    | { kind: "orphan"; message: ChatMessage }
+  > = [];
   let lastMatchedIndex = -1;
 
   for (const hm of historyMessages) {
@@ -316,6 +320,7 @@ export function mergeHistoryWithEventDerivedMessages(
       if (duplicateIdx !== undefined) {
         claimedIndexes.add(duplicateIdx);
       }
+      historyMergeEntries.push({ kind: "matched", index: resolvedDuplicateIdx });
       lastMatchedIndex = Math.max(lastMatchedIndex, resolvedDuplicateIdx);
       const existing = merged[resolvedDuplicateIdx]!;
       // Same bubble may appear in both tables; combine extras from either side.
@@ -362,6 +367,7 @@ export function mergeHistoryWithEventDerivedMessages(
       }
     } else {
       orphans.push(hm);
+      historyMergeEntries.push({ kind: "orphan", message: hm });
     }
   }
 
@@ -369,44 +375,95 @@ export function mergeHistoryWithEventDerivedMessages(
     return merged;
   }
 
-  // Insert orphans into the merged array while preserving causal order.
-  // The merged array is in event-arrival (causal) order, NOT timestamp order.
-  // We find the correct insertion point by locating the nearest event-derived
-  // message with a close timestamp and inserting after it, rather than using
-  // strict timestamp comparison which breaks when timestamps are non-monotonic.
-  orphans.sort((a, b) => a.timestamp - b.timestamp);
+  // Insert orphans into the merged array while preserving history anchors first.
+  // This avoids trailing persisted rows (e.g. a deep-research final report) from
+  // being inserted into the middle of later event-only steps when timestamps are
+  // non-monotonic. We only fall back to timestamp placement if no history row
+  // matched the event-derived transcript at all.
+  const orphanInsertionsBefore = new Map<number, ChatMessage[]>();
+  const appendAtEnd: ChatMessage[] = [];
+  const fallbackTimestampOrphans: ChatMessage[] = [];
 
-  // Build insertion plan first, then apply all at once to avoid index shifting.
+  for (let i = 0; i < historyMergeEntries.length; i += 1) {
+    const entry = historyMergeEntries[i]!;
+    if (entry.kind !== "orphan") {
+      continue;
+    }
+
+    let nextMatchedIndex: number | null = null;
+    for (let j = i + 1; j < historyMergeEntries.length; j += 1) {
+      const candidate = historyMergeEntries[j]!;
+      if (candidate.kind === "matched") {
+        nextMatchedIndex = candidate.index;
+        break;
+      }
+    }
+
+    let hasPreviousMatch = false;
+    for (let j = i - 1; j >= 0; j -= 1) {
+      if (historyMergeEntries[j]!.kind === "matched") {
+        hasPreviousMatch = true;
+        break;
+      }
+    }
+
+    if (nextMatchedIndex !== null) {
+      const bucket = orphanInsertionsBefore.get(nextMatchedIndex) ?? [];
+      bucket.push(entry.message);
+      orphanInsertionsBefore.set(nextMatchedIndex, bucket);
+      continue;
+    }
+
+    if (hasPreviousMatch) {
+      appendAtEnd.push(entry.message);
+      continue;
+    }
+
+    fallbackTimestampOrphans.push(entry.message);
+  }
+
+  const rebuilt: ChatMessage[] = [];
+  for (let i = 0; i < merged.length; i += 1) {
+    const bucket = orphanInsertionsBefore.get(i);
+    if (bucket) {
+      rebuilt.push(...bucket);
+    }
+    rebuilt.push(merged[i]!);
+  }
+  rebuilt.push(...appendAtEnd);
+
+  if (fallbackTimestampOrphans.length === 0) {
+    return rebuilt;
+  }
+
+  // No history rows matched any event-derived message. Fall back to timestamp
+  // placement so wholly legacy rows still land in a sensible position.
+  const result = [...rebuilt];
+  fallbackTimestampOrphans.sort((a, b) => a.timestamp - b.timestamp);
   const insertions: Array<{ afterIndex: number; message: ChatMessage }> = [];
 
-  for (const o of orphans) {
-    // Find the last message in merged whose timestamp is <= orphan's timestamp.
-    // This preserves causal ordering: the orphan goes after the most recent
-    // event-derived message that preceded it chronologically.
+  for (const orphan of fallbackTimestampOrphans) {
     let bestIdx = -1;
     let bestDelta = Infinity;
-    for (let i = 0; i < merged.length; i++) {
-      const delta = o.timestamp - merged[i]!.timestamp;
+    for (let i = 0; i < result.length; i += 1) {
+      const delta = orphan.timestamp - result[i]!.timestamp;
       if (delta >= 0 && delta < bestDelta) {
         bestDelta = delta;
         bestIdx = i;
       }
     }
-    insertions.push({ afterIndex: bestIdx, message: o });
+    insertions.push({ afterIndex: bestIdx, message: orphan });
   }
 
-  // Sort insertions by target position (descending) so splicing from the end
-  // doesn't shift earlier indices.
   insertions.sort((a, b) => b.afterIndex - a.afterIndex);
 
   for (const { afterIndex, message } of insertions) {
     if (afterIndex === -1) {
-      // Orphan predates all event-derived messages — prepend.
-      merged.unshift(message);
+      result.unshift(message);
     } else {
-      merged.splice(afterIndex + 1, 0, message);
+      result.splice(afterIndex + 1, 0, message);
     }
   }
 
-  return merged;
+  return result;
 }

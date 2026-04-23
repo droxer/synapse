@@ -136,6 +136,25 @@ function getTerminalResultText(event: Extract<AgentEvent, { type: "turn_complete
   return String(event.data.result ?? "");
 }
 
+function collectTurnIdsWithTurnComplete(events: readonly AgentEvent[]): ReadonlySet<string> {
+  let turnSequence = 0;
+  let currentTurnId = "event-turn:0";
+  const turnIdsWithTurnComplete = new Set<string>();
+
+  for (const event of events) {
+    if (event.type === "turn_start") {
+      turnSequence += 1;
+      currentTurnId = `event-turn:${turnSequence}`;
+      continue;
+    }
+    if (event.type === "turn_complete") {
+      turnIdsWithTurnComplete.add(currentTurnId);
+    }
+  }
+
+  return turnIdsWithTurnComplete;
+}
+
 function buildPlannerFallbackStep(
   status: PlanStep["status"],
   variant: "active" | "inline" | "error",
@@ -448,10 +467,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   let currentTurnHadPlanCreated = false;
   let currentTurnHadAgentSpawn = false;
   let currentTurnMutableAssistantIndex: number | null = null;
+  let currentTurnTerminalAssistantIndex: number | null = null;
   const streamableCodeTools = new Set(["code_run", "code_interpret", "shell_exec"]);
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
   let isDeepResearchTurn = false;
   let pendingDeepResearchVisibleParts: string[] = [];
+  const turnIdsWithTurnComplete = collectTurnIdsWithTurnComplete(events);
 
   const nextAssistantMessageId = () =>
     `${currentTurnId}:assistant:${assistantMessageSequence}`;
@@ -511,6 +532,26 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     return currentTurnMutableAssistantIndex;
   };
 
+  const getCurrentTurnTerminalAssistantIndex = (): number => {
+    if (currentTurnTerminalAssistantIndex === null) {
+      return -1;
+    }
+    const candidate = messages[currentTurnTerminalAssistantIndex];
+    if (
+      !candidate ||
+      candidate.role !== "assistant" ||
+      candidate.turnId !== currentTurnId
+    ) {
+      currentTurnTerminalAssistantIndex = null;
+      return -1;
+    }
+    return currentTurnTerminalAssistantIndex;
+  };
+
+  const markCurrentTurnTerminalAssistantIndex = (index: number): void => {
+    currentTurnTerminalAssistantIndex = index;
+  };
+
   const pushMutableAssistantMessage = (message: ChatMessage): number => {
     messages.push(message);
     const index = messages.length - 1;
@@ -519,12 +560,27 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   };
 
   const resolveTerminalAssistantTargetIndex = (
+    eventType: "message_user" | "task_complete" | "turn_complete",
     content: string,
     eventTimestamp: number,
   ): number => {
     const mutableIndex = getCurrentTurnMutableAssistantIndex();
     if (mutableIndex !== -1) {
       return mutableIndex;
+    }
+    const terminalIndex = getCurrentTurnTerminalAssistantIndex();
+    const hasPendingAssistantContinuation =
+      streamingText.length > 0
+      || pendingThinkingEntries.length > 0
+      || pendingThinkingParts.length > 0
+      || currentThinkingEntries.length > 0
+      || pendingDeepResearchVisibleParts.length > 0;
+    if (
+      terminalIndex !== -1
+      && eventType !== "message_user"
+      && !hasPendingAssistantContinuation
+    ) {
+      return terminalIndex;
     }
     return findTerminalResultTargetIndex(messages, content, currentTurnId, eventTimestamp);
   };
@@ -1044,6 +1100,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         clearCurrentThinking: true,
       });
       const existingIdx = resolveTerminalAssistantTargetIndex(
+        "message_user",
         messageContent,
         event.timestamp,
       );
@@ -1056,6 +1113,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         });
         message = applyPendingThinkingToMessage(message, pendingThinking);
         messages.push(message);
+        markCurrentTurnTerminalAssistantIndex(messages.length - 1);
         pendingImageArtifactIds = [];
       } else {
         let existing = messages[existingIdx]!;
@@ -1069,6 +1127,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           existing = { ...existing, content: messageContent };
         }
         messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
+        markCurrentTurnTerminalAssistantIndex(existingIdx);
         pendingImageArtifactIds = [];
       }
       streamingText = "";
@@ -1096,6 +1155,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       currentTurnHadPlanCreated = false;
       currentTurnHadAgentSpawn = false;
       currentTurnMutableAssistantIndex = null;
+      currentTurnTerminalAssistantIndex = null;
       planSteps = currentTurnIsPlanner ? [buildPlannerFallbackStep("running", "active")] : [];
       pendingThinkingEntries = [];
       pendingThinkingParts = [];
@@ -1121,28 +1181,38 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         streamingTimestamp = 0;
       }
       currentTurnMutableAssistantIndex = null;
+      currentTurnTerminalAssistantIndex = null;
       currentThinkingEntries = [];
       assistantPhase = { phase: "idle" };
       pendingToolIds.clear();
       pendingDeepResearchVisibleParts = [];
       isDeepResearchTurn = false;
-    } else if (event.type === "turn_complete" || event.type === "task_complete") {
+    } else if (event.type === "task_complete") {
+      const turnHasTurnComplete = turnIdsWithTurnComplete.has(currentTurnId);
+
+      planSteps = planSteps.map((step) =>
+        step.executionType === "planner_owned" && step.status !== "complete"
+          ? { ...step, status: "complete" }
+          : step,
+      );
+
+      if (turnHasTurnComplete) {
+        isStreaming = false;
+        assistantPhase = { phase: "idle" };
+        pendingToolIds.clear();
+        continue;
+      }
+
       isStreaming = false;
       if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
         planSteps = [buildPlannerFallbackStep("complete", "inline")];
-      }
-      if (event.type === "task_complete") {
-        planSteps = planSteps.map((step) =>
-          step.executionType === "planner_owned" && step.status !== "complete"
-            ? { ...step, status: "complete" }
-            : step,
-        );
       }
       const rawResult = getTerminalResultText(event);
       if (rawResult) {
         const normalizedResult = consumeDeepResearchFallbackContent(rawResult);
         const { thinking: inlineThinking, content } = splitThinkTag(normalizedResult);
         const existingIdx = resolveTerminalAssistantTargetIndex(
+          "task_complete",
           content,
           event.timestamp,
         );
@@ -1156,6 +1226,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           });
           message = applyPendingThinkingToMessage(message, pendingThinking);
           messages.push(message);
+          markCurrentTurnTerminalAssistantIndex(messages.length - 1);
           pendingImageArtifactIds = [];
         } else {
           let existing = messages[existingIdx]!;
@@ -1169,6 +1240,86 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
             existing = { ...existing, content };
           }
           messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
+          markCurrentTurnTerminalAssistantIndex(existingIdx);
+          pendingImageArtifactIds = [];
+        }
+      } else if (streamingText) {
+        const streamContent = consumeDeepResearchFallbackContent(streamingText);
+        const pendingThinking = consumePendingThinking();
+        let message = finalizeAssistantMessage({
+          role: "assistant",
+          content: streamContent,
+          timestamp: event.timestamp,
+          ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+        });
+        message = applyPendingThinkingToMessage(message, pendingThinking);
+        const index = pushMutableAssistantMessage(message);
+        markCurrentTurnTerminalAssistantIndex(index);
+        pendingImageArtifactIds = [];
+      } else {
+        const fallbackOnly = consumeDeepResearchFallbackContent("");
+        if (fallbackOnly) {
+          let message = finalizeAssistantMessage({
+            role: "assistant",
+            content: fallbackOnly,
+            timestamp: event.timestamp,
+            ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+          });
+          message = applyPendingThinkingToMessage(message, consumePendingThinking());
+          messages.push(message);
+          markCurrentTurnTerminalAssistantIndex(messages.length - 1);
+          pendingImageArtifactIds = [];
+        }
+        attachPendingArtifactsToLastAssistant();
+      }
+      currentTurnMutableAssistantIndex = null;
+      streamingText = "";
+      streamingTimestamp = 0;
+      attachPendingThinkingToLastAssistant();
+      currentThinkingEntries = [];
+      assistantPhase = { phase: "idle" };
+      pendingToolIds.clear();
+      pendingDeepResearchVisibleParts = [];
+      isDeepResearchTurn = false;
+    } else if (event.type === "turn_complete") {
+      isStreaming = false;
+      if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
+        planSteps = [buildPlannerFallbackStep("complete", "inline")];
+      }
+      const rawResult = getTerminalResultText(event);
+      if (rawResult) {
+        const normalizedResult = consumeDeepResearchFallbackContent(rawResult);
+        const { thinking: inlineThinking, content } = splitThinkTag(normalizedResult);
+        const existingIdx = resolveTerminalAssistantTargetIndex(
+          "turn_complete",
+          content,
+          event.timestamp,
+        );
+        const pendingThinking = consumePendingThinking({ inlineThinking });
+        if (existingIdx === -1) {
+          let message = finalizeAssistantMessage({
+            role: "assistant",
+            content,
+            timestamp: event.timestamp,
+            ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
+          });
+          message = applyPendingThinkingToMessage(message, pendingThinking);
+          messages.push(message);
+          markCurrentTurnTerminalAssistantIndex(messages.length - 1);
+          pendingImageArtifactIds = [];
+        } else {
+          let existing = messages[existingIdx]!;
+          if (pendingImageArtifactIds.length > 0) {
+            existing = {
+              ...existing,
+              imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+            };
+          }
+          if (content.trim().length > 0) {
+            existing = { ...existing, content };
+          }
+          messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
+          markCurrentTurnTerminalAssistantIndex(existingIdx);
           pendingImageArtifactIds = [];
         }
       } else if (streamingText) {
@@ -1182,7 +1333,8 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           ...(pendingImageArtifactIds.length > 0 ? { imageArtifactIds: pendingImageArtifactIds } : {}),
         });
         message = applyPendingThinkingToMessage(message, pendingThinking);
-        pushMutableAssistantMessage(message);
+        const index = pushMutableAssistantMessage(message);
+        markCurrentTurnTerminalAssistantIndex(index);
         pendingImageArtifactIds = [];
       } else {
         const fallbackOnly = consumeDeepResearchFallbackContent("");
@@ -1195,12 +1347,13 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           });
           message = applyPendingThinkingToMessage(message, consumePendingThinking());
           messages.push(message);
+          markCurrentTurnTerminalAssistantIndex(messages.length - 1);
           pendingImageArtifactIds = [];
         }
         attachPendingArtifactsToLastAssistant();
       }
       currentTurnMutableAssistantIndex = null;
-      // Always clear streaming state after turn_complete/task_complete
+      // Always clear streaming state after turn_complete
       streamingText = "";
       streamingTimestamp = 0;
       attachPendingThinkingToLastAssistant();
@@ -1212,6 +1365,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     } else if (event.type === "task_error") {
       isStreaming = false;
       currentTurnMutableAssistantIndex = null;
+      currentTurnTerminalAssistantIndex = null;
       if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
         planSteps = [buildPlannerFallbackStep("error", "error")];
       }

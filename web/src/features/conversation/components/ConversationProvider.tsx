@@ -77,6 +77,30 @@ interface ConversationProviderProps {
   readonly children: ReactNode;
 }
 
+export type TerminalHistoryRefetchMode = "none" | "transcript" | "all";
+
+export function getHistoryRefetchModeForTerminalEvent(
+  event: AgentEvent | undefined,
+): TerminalHistoryRefetchMode {
+  if (event?.type === "task_complete") {
+    return "all";
+  }
+  if (
+    event?.type === "turn_complete"
+    || event?.type === "turn_cancelled"
+    || event?.type === "task_error"
+  ) {
+    return "transcript";
+  }
+  return "none";
+}
+
+export function shouldRefetchHistoryForTerminalEvent(
+  event: AgentEvent | undefined,
+): boolean {
+  return getHistoryRefetchModeForTerminalEvent(event) !== "none";
+}
+
 export function ConversationProvider({ children }: ConversationProviderProps) {
   const conversationId = useAppStore((s) => s.conversationId);
   const isLive = useAppStore((s) => s.isLiveConversation);
@@ -87,7 +111,8 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     historyEvents,
     historyArtifacts,
     isLoading: isLoadingHistory,
-    refetchHistory,
+    refetchAllHistory,
+    refetchTranscriptHistory,
   } = useConversationHistory(conversationId);
   const shouldConnectEvents = shouldConnectConversationEvents(
     conversationId,
@@ -130,13 +155,17 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
   const wasConnectedRef = useRef(false);
 
   useEffect(() => {
+    lastTerminalEventKeyRef.current = null;
+    wasConnectedRef.current = false;
+  }, [conversationId]);
+
+  useEffect(() => {
+    if (!isLive) {
+      return;
+    }
     const lastEvent = effectiveEvents[effectiveEvents.length - 1];
-    if (
-      lastEvent?.type !== "turn_complete"
-      && lastEvent?.type !== "task_complete"
-      && lastEvent?.type !== "turn_cancelled"
-      && lastEvent?.type !== "task_error"
-    ) {
+    const refetchMode = getHistoryRefetchModeForTerminalEvent(lastEvent);
+    if (refetchMode === "none") {
       return;
     }
     const key = `${lastEvent.type}:${lastEvent.timestamp}:${lastEvent.iteration ?? ""}`;
@@ -144,8 +173,12 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       return;
     }
     lastTerminalEventKeyRef.current = key;
-    void refetchHistory();
-  }, [effectiveEvents, refetchHistory]);
+    if (refetchMode === "all") {
+      void refetchAllHistory();
+      return;
+    }
+    void refetchTranscriptHistory();
+  }, [effectiveEvents, isLive, refetchAllHistory, refetchTranscriptHistory]);
 
   useEffect(() => {
     if (isConnected) {
@@ -155,8 +188,8 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
     if (!wasConnectedRef.current || !isLive || !conversationId) {
       return;
     }
-    void refetchHistory();
-  }, [conversationId, isConnected, isLive, refetchHistory]);
+    void refetchAllHistory();
+  }, [conversationId, isConnected, isLive, refetchAllHistory]);
 
   const effectiveTaskState: TaskState = isLive ? taskState : "complete";
   // Force phase to idle for completed (non-live) conversations so the

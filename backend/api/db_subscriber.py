@@ -298,17 +298,10 @@ def create_db_subscriber(
                     )
 
                 elif event.type == EventType.TASK_COMPLETE:
-                    result = clean.get("summary", clean.get("result", ""))
-                    await repo.save_message(
-                        session,
-                        conversation_id,
-                        role="assistant",
-                        content={"text": result},
-                        iteration=event.iteration,
-                    )
                     await _save_event_record()
                     logger.info(
-                        "db_message_saved role=assistant conversation_id={}",
+                        "db_message_skipped role=assistant (task_complete) "
+                        "conversation_id={}",
                         conversation_id,
                     )
 
@@ -319,7 +312,8 @@ def create_db_subscriber(
                     # Transport-only assistant notification. Keep the live SSE
                     # event, but do not persist it as transcript history:
                     # the canonical assistant row for web chat comes from the
-                    # terminal TURN_COMPLETE / TASK_COMPLETE payload.
+                    # terminal TURN_COMPLETE payload, or from TASK_COMPLETE
+                    # only via event replay when no TURN_COMPLETE exists.
                     logger.info(
                         "db_message_skipped role=assistant (message_user) "
                         "conversation_id={}",

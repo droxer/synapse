@@ -1104,6 +1104,112 @@ async def test_get_conversation_messages_returns_only_terminal_assistant_history
 
 
 @pytest.mark.asyncio
+async def test_get_conversation_messages_skips_task_complete_assistant_row() -> None:
+    conversation_id = str(uuid.uuid4())
+    conv_uuid = uuid.UUID(conversation_id)
+    now = datetime.now(timezone.utc)
+    session = object()
+
+    class _RecordingRepo:
+        def __init__(self) -> None:
+            self.messages: list[MessageRecord] = []
+
+        async def save_message(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            role: str,
+            content: dict[str, object],
+            iteration: int | None = None,
+        ) -> MessageRecord:
+            del session
+            record = MessageRecord(
+                id=uuid.uuid4(),
+                conversation_id=conversation_id,
+                role=role,
+                content=content,
+                iteration=iteration,
+                created_at=now,
+            )
+            self.messages.append(record)
+            return record
+
+        async def save_event(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            event_type: str,
+            data: dict[str, object],
+            iteration: int | None = None,
+            timestamp: datetime | None = None,
+        ) -> None:
+            del session, conversation_id, event_type, data, iteration, timestamp
+
+        async def get_conversation(
+            self, session: object, conversation_id: uuid.UUID
+        ) -> SimpleNamespace:
+            del session
+            return SimpleNamespace(id=conversation_id, title="Chat")
+
+        async def get_messages(
+            self, session: object, conversation_id: uuid.UUID
+        ) -> list[MessageRecord]:
+            del session
+            return [
+                message
+                for message in self.messages
+                if message.conversation_id == conversation_id
+            ]
+
+    @asynccontextmanager
+    async def _session_factory():
+        yield session
+
+    repo = _RecordingRepo()
+    subscriber = create_db_subscriber(conv_uuid, repo, _session_factory)
+
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TURN_START,
+            data={"message": "hello"},
+            iteration=None,
+            timestamp=now.timestamp(),
+        )
+    )
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TASK_COMPLETE,
+            data={"summary": "task summary"},
+            iteration=1,
+            timestamp=now.timestamp(),
+        )
+    )
+    await subscriber(
+        conversation_routes.AgentEvent(
+            type=conversation_routes.EventType.TURN_COMPLETE,
+            data={"result": "final answer"},
+            iteration=1,
+            timestamp=now.timestamp(),
+        )
+    )
+
+    state = SimpleNamespace(db_repo=repo)
+
+    payload = await get_conversation_messages(
+        conversation_id=conversation_id,
+        session=session,
+        state=state,
+        auth_user=None,
+    )
+
+    assert [message["role"] for message in payload["messages"]] == [
+        "user",
+        "assistant",
+    ]
+    assert payload["messages"][1]["content"] == {"text": "final answer"}
+
+
+@pytest.mark.asyncio
 async def test_get_conversation_events_returns_persisted_turn_start() -> None:
     conversation_id = str(uuid.uuid4())
     conv_uuid = uuid.UUID(conversation_id)

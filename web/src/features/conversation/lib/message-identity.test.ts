@@ -3,6 +3,7 @@ import type { ChatMessage } from "@/shared/types";
 import {
   mergeConversationMessages,
   reconcileOptimisticConversationMessages,
+  toHistoryChatMessage,
 } from "./message-identity";
 
 describe("mergeConversationMessages", () => {
@@ -76,6 +77,19 @@ describe("mergeConversationMessages", () => {
       "event:first",
       "event:second",
     ]);
+  });
+
+  it("normalizes persisted assistant think tags into thinkingContent", () => {
+    const message = toHistoryChatMessage({
+      id: "history-1",
+      role: "assistant",
+      content: { text: "<think>internal notes</think>\n\nVisible answer" },
+      iteration: 1,
+      created_at: "2026-04-18T07:14:52.297999Z",
+    });
+
+    expect(message.content).toBe("Visible answer");
+    expect(message.thinkingContent).toBe("internal notes");
   });
 });
 
