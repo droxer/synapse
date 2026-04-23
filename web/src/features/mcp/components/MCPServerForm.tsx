@@ -1,6 +1,6 @@
 "use client";
 
-import type { ChangeEvent, ClipboardEvent, KeyboardEvent } from "react";
+import type { ChangeEvent, ClipboardEvent } from "react";
 import {
   Check,
   FileJson,
@@ -10,9 +10,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
-import { TransportToggle } from "./TransportToggle";
 import { Button } from "@/shared/components/ui/button";
-import { Input } from "@/shared/components/ui/input";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
 import { useTranslation } from "@/i18n";
@@ -25,11 +23,8 @@ interface MCPServerFormProps {
   readonly formSchema: string;
   readonly onFormSchemaChange: (value: string) => void;
   readonly formName: string;
-  readonly onFormNameChange: (value: string) => void;
   readonly formTransport: MCPTransport;
-  readonly onFormTransportChange: (value: MCPTransport) => void;
   readonly formUrl: string;
-  readonly onFormUrlChange: (value: string) => void;
   readonly headerCount: number;
   readonly submitting: boolean;
   readonly title: string;
@@ -47,11 +42,8 @@ export function MCPServerForm({
   formSchema,
   onFormSchemaChange,
   formName,
-  onFormNameChange,
   formTransport,
-  onFormTransportChange,
   formUrl,
-  onFormUrlChange,
   headerCount,
   submitting,
   title,
@@ -62,12 +54,6 @@ export function MCPServerForm({
   idPrefix = "mcp",
 }: MCPServerFormProps) {
   const { t } = useTranslation();
-
-  const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter" && formName.trim() && !submitting) {
-      onSubmit();
-    }
-  };
 
   const handleSchemaPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const pasted = e.clipboardData.getData("text");
@@ -161,39 +147,34 @@ export function MCPServerForm({
           </span>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_15rem]">
-          <div className="space-y-1.5">
-            <Label htmlFor={`${idPrefix}-name`} className="text-xs">
+        <dl className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
+          <div className="min-w-0 rounded-md border border-border bg-background px-3 py-2">
+            <dt className="label-mono text-muted-foreground-dim">
               {t("mcp.name")}
-            </Label>
-            <Input
-              id={`${idPrefix}-name`}
-              placeholder={t("mcp.namePlaceholder")}
-              value={formName}
-              onChange={(e: ChangeEvent<HTMLInputElement>) => onFormNameChange(e.target.value)}
-              className="font-mono"
-            />
+            </dt>
+            <dd className="mt-1 truncate font-mono text-sm text-foreground">
+              {formName.trim() || t("mcp.namePlaceholder")}
+            </dd>
           </div>
 
-          <div className="space-y-1.5">
-            <Label className="text-xs">{t("mcp.transport")}</Label>
-            <TransportToggle value={formTransport} onChange={onFormTransportChange} />
+          <div className="rounded-md border border-border bg-background px-3 py-2">
+            <dt className="label-mono text-muted-foreground-dim">
+              {t("mcp.transport")}
+            </dt>
+            <dd className="mt-1 font-mono text-sm text-foreground">
+              {formTransport}
+            </dd>
           </div>
-        </div>
 
-        <div className="space-y-1.5">
-          <Label htmlFor={`${idPrefix}-url`} className="text-xs">
-            {t("mcp.urlLabel")}
-          </Label>
-          <Input
-            id={`${idPrefix}-url`}
-            placeholder={t("mcp.urlPlaceholder")}
-            value={formUrl}
-            onChange={(e: ChangeEvent<HTMLInputElement>) => onFormUrlChange(e.target.value)}
-            onKeyDown={handleKeyDown}
-            className="font-mono"
-          />
-        </div>
+          <div className="min-w-0 rounded-md border border-border bg-background px-3 py-2 sm:col-span-2">
+            <dt className="label-mono text-muted-foreground-dim">
+              {t("mcp.urlLabel")}
+            </dt>
+            <dd className="mt-1 truncate font-mono text-sm text-foreground">
+              {formUrl.trim() || t("mcp.urlPlaceholder")}
+            </dd>
+          </div>
+        </dl>
       </section>
 
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
@@ -211,7 +192,7 @@ export function MCPServerForm({
           <Button
             size="sm"
             onClick={onSubmit}
-            disabled={submitting || !formName.trim()}
+            disabled={submitting || !formSchema.trim()}
           >
             {submitting && (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />

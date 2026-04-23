@@ -8,12 +8,14 @@ import {
   toggleMCPServer,
   updateMCPServer,
   type MCPServer,
+  type MCPServerCreateParams,
 } from "../api/mcp-api";
 import { useTranslation } from "@/i18n";
 import {
   parseMCPConfig,
   type MCPTransport,
 } from "../lib/parse-mcp-config";
+import { buildMCPServerConfigFromJson } from "../lib/mcp-submit-config";
 
 export function useMCPServers() {
   const { t } = useTranslation();
@@ -30,7 +32,6 @@ export function useMCPServers() {
   const [formUrl, setFormUrl] = useState("");
   const [formHeaders, setFormHeaders] =
     useState<Readonly<Record<string, string>>>({});
-  const [formTimeout, setFormTimeout] = useState<number | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
   const [serverToEdit, setServerToEdit] = useState<MCPServer | null>(null);
 
@@ -55,7 +56,6 @@ export function useMCPServers() {
     setFormName("");
     setFormUrl("");
     setFormHeaders({});
-    setFormTimeout(undefined);
     setFormTransport("streamablehttp");
     setShowForm(false);
     setServerToEdit(null);
@@ -70,7 +70,6 @@ export function useMCPServers() {
       setFormTransport(parsed.transport);
       setFormUrl(parsed.url);
       setFormHeaders(parsed.headers);
-      setFormTimeout(parsed.timeout);
       setError(null);
     } catch {
       setError(t("mcp.invalidSchema"));
@@ -97,23 +96,33 @@ export function useMCPServers() {
     setFormTransport(server.transport);
     setFormUrl(server.url);
     setFormHeaders(headers);
-    setFormTimeout(server.timeout);
     setError(null);
     setShowForm(true);
   }, []);
 
+  const syncParsedConfig = useCallback((config: MCPServerCreateParams) => {
+    setFormName(config.name);
+    setFormTransport(config.transport);
+    setFormUrl(config.url ?? "");
+    setFormHeaders(config.headers ?? {});
+  }, []);
+
   const handleAdd = useCallback(async () => {
-    if (!formName.trim()) return;
+    if (!formSchema.trim()) return;
+
+    let config: MCPServerCreateParams;
+    try {
+      config = buildMCPServerConfigFromJson(formSchema);
+      syncParsedConfig(config);
+    } catch {
+      setError(t("mcp.invalidSchema"));
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      await addMCPServer({
-        name: formName.trim(),
-        transport: formTransport,
-        url: formUrl,
-        headers: formHeaders,
-        timeout: formTimeout,
-      });
+      await addMCPServer(config);
       resetForm();
       await loadServers();
     } catch (err) {
@@ -122,11 +131,9 @@ export function useMCPServers() {
       setSubmitting(false);
     }
   }, [
-    formName,
-    formTransport,
-    formUrl,
-    formHeaders,
-    formTimeout,
+    formSchema,
+    syncParsedConfig,
+    t,
     resetForm,
     loadServers,
   ]);
@@ -136,17 +143,21 @@ export function useMCPServers() {
       await handleAdd();
       return;
     }
-    if (!formName.trim()) return;
+    if (!formSchema.trim()) return;
+
+    let config: MCPServerCreateParams;
+    try {
+      config = buildMCPServerConfigFromJson(formSchema);
+      syncParsedConfig(config);
+    } catch {
+      setError(t("mcp.invalidSchema"));
+      return;
+    }
+
     setSubmitting(true);
     setError(null);
     try {
-      await updateMCPServer(serverToEdit.name, {
-        name: formName.trim(),
-        transport: formTransport,
-        url: formUrl,
-        headers: formHeaders,
-        timeout: formTimeout,
-      });
+      await updateMCPServer(serverToEdit.name, config);
       resetForm();
       await loadServers();
     } catch (err) {
@@ -156,11 +167,9 @@ export function useMCPServers() {
     }
   }, [
     serverToEdit,
-    formName,
-    formTransport,
-    formUrl,
-    formHeaders,
-    formTimeout,
+    formSchema,
+    syncParsedConfig,
+    t,
     handleAdd,
     resetForm,
     loadServers,
@@ -208,11 +217,8 @@ export function useMCPServers() {
     formSchema,
     setFormSchema,
     formName,
-    setFormName,
     formTransport,
-    setFormTransport,
     formUrl,
-    setFormUrl,
     formHeaders,
     serverToEdit,
     submitting,

@@ -20,11 +20,8 @@ interface MCPAddServerDialogProps {
   readonly formSchema: string;
   readonly onFormSchemaChange: (value: string) => void;
   readonly formName: string;
-  readonly onFormNameChange: (value: string) => void;
   readonly formTransport: MCPTransport;
-  readonly onFormTransportChange: (value: MCPTransport) => void;
   readonly formUrl: string;
-  readonly onFormUrlChange: (value: string) => void;
   readonly headerCount: number;
   readonly submitting: boolean;
   readonly mode?: "add" | "edit";
@@ -42,11 +39,8 @@ export function MCPAddServerDialog({
   formSchema,
   onFormSchemaChange,
   formName,
-  onFormNameChange,
   formTransport,
-  onFormTransportChange,
   formUrl,
-  onFormUrlChange,
   headerCount,
   submitting,
   mode = "add",
@@ -94,11 +88,8 @@ export function MCPAddServerDialog({
           formSchema={formSchema}
           onFormSchemaChange={onFormSchemaChange}
           formName={formName}
-          onFormNameChange={onFormNameChange}
           formTransport={formTransport}
-          onFormTransportChange={onFormTransportChange}
           formUrl={formUrl}
-          onFormUrlChange={onFormUrlChange}
           headerCount={headerCount}
           submitting={submitting}
           title={title}

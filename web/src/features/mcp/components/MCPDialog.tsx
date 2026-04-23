@@ -74,11 +74,8 @@ export function MCPDialog({
     formSchema,
     setFormSchema,
     formName,
-    setFormName,
     formTransport,
-    setFormTransport,
     formUrl,
-    setFormUrl,
     formHeaders,
     serverToEdit,
     submitting,
@@ -292,11 +289,8 @@ export function MCPDialog({
         formSchema={formSchema}
         onFormSchemaChange={setFormSchema}
         formName={formName}
-        onFormNameChange={setFormName}
         formTransport={formTransport}
-        onFormTransportChange={setFormTransport}
         formUrl={formUrl}
-        onFormUrlChange={setFormUrl}
         headerCount={Object.keys(formHeaders).length}
         submitting={submitting}
         mode={serverToEdit ? "edit" : "add"}
