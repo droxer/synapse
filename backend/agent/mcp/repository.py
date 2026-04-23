@@ -14,6 +14,10 @@ from agent.mcp.models import MCPServerModel
 _SUPPORTED_TRANSPORTS = ("sse", "streamablehttp")
 
 
+class MCPServerNameConflictError(Exception):
+    """Raised when an MCP server rename collides with another saved server."""
+
+
 async def list_mcp_servers(
     session: AsyncSession,
     user_id: uuid.UUID | None = None,
@@ -69,6 +73,58 @@ async def save_mcp_server(
             )
         )
     await session.commit()
+
+
+async def update_mcp_server(
+    session: AsyncSession,
+    old_name: str,
+    config: MCPServerConfig,
+    user_id: uuid.UUID | None = None,
+) -> MCPServerConfig | None:
+    """Update a persisted MCP server config by user+old name.
+
+    Returns the updated config, None when the original row does not exist, and
+    raises MCPServerNameConflictError when the requested new name is already
+    used by a different server for the same user scope.
+    """
+    stmt = select(MCPServerModel).where(
+        MCPServerModel.name == old_name,
+        MCPServerModel.transport.in_(_SUPPORTED_TRANSPORTS),
+    )
+    if user_id is not None:
+        stmt = stmt.where(MCPServerModel.user_id == user_id)
+    else:
+        stmt = stmt.where(MCPServerModel.user_id.is_(None))
+    result = await session.execute(stmt)
+    existing = result.scalar_one_or_none()
+    if existing is None:
+        return None
+
+    if config.name != old_name:
+        conflict_stmt = select(MCPServerModel).where(
+            MCPServerModel.name == config.name,
+            MCPServerModel.transport.in_(_SUPPORTED_TRANSPORTS),
+            MCPServerModel.id != existing.id,
+        )
+        if user_id is not None:
+            conflict_stmt = conflict_stmt.where(MCPServerModel.user_id == user_id)
+        else:
+            conflict_stmt = conflict_stmt.where(MCPServerModel.user_id.is_(None))
+        conflict_result = await session.execute(conflict_stmt)
+        if conflict_result.scalar_one_or_none() is not None:
+            raise MCPServerNameConflictError(f"Server '{config.name}' already exists")
+
+    existing.name = config.name
+    existing.transport = config.transport
+    existing.command = ""
+    existing.args = "[]"
+    existing.url = config.url
+    existing.env = "{}"
+    existing.headers = json.dumps(dict(config.headers))
+    existing.timeout = config.timeout
+    existing.enabled = config.enabled
+    await session.commit()
+    return _to_config(existing)
 
 
 async def delete_mcp_server(

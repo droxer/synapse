@@ -1,8 +1,13 @@
 "use client";
 
-import { Trash2, Blocks, Radio, Wrench, Globe } from "lucide-react";
+import { Trash2, Blocks, Radio, Wrench, Globe, Pencil } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import type { MCPServer } from "../api/mcp-api";
@@ -14,11 +19,17 @@ const transportStyle = {
 
 interface MCPServerCardProps {
   readonly server: MCPServer;
+  readonly onEdit?: (server: MCPServer) => void;
   readonly onDelete?: (name: string) => void;
   readonly onToggle?: (name: string, enabled: boolean) => void;
 }
 
-export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps) {
+export function MCPServerCard({
+  server,
+  onEdit,
+  onDelete,
+  onToggle,
+}: MCPServerCardProps) {
   const { t } = useTranslation();
   const transport = transportStyle[server.transport];
   const TransportIcon = transport.icon;
@@ -50,6 +61,28 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
             <TransportIcon className="mr-1 h-2.5 w-2.5" />
             {transport.label}
           </Badge>
+          {onEdit && server.editable !== false && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-xs"
+                  aria-label={t("mcp.editServer", { name: server.name })}
+                  className={cn(
+                    "shrink-0 text-transparent transition-colors",
+                    "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
+                    "hover:text-foreground hover:bg-muted",
+                  )}
+                  onClick={() => onEdit(server)}
+                >
+                  <Pencil className="h-3 w-3" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {t("mcp.editServer", { name: server.name })}
+              </TooltipContent>
+            </Tooltip>
+          )}
           {onDelete && (
             <Button
               variant="ghost"

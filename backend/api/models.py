@@ -209,9 +209,12 @@ class MCPServerResponse(BaseModel):
     name: str
     transport: str
     url: str = ""
+    headers: dict[str, str] = Field(default_factory=dict)
+    timeout: float = 30.0
     status: str  # "connected" | "disconnected"
     tool_count: int = 0
     enabled: bool = True
+    editable: bool = True
 
 
 class ConversationMetricsResponse(BaseModel):
@@ -264,3 +267,7 @@ class MCPServerCreateRequest(BaseModel):
             if name.lower() in MCP_RESERVED_HTTP_HEADERS:
                 raise ValueError(f"MCP HTTP header {name!r} is managed by Synapse")
         return v
+
+
+class MCPServerUpdateRequest(MCPServerCreateRequest):
+    """Request body for updating an existing MCP server."""

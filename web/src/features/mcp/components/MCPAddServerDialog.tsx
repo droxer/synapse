@@ -27,6 +27,7 @@ interface MCPAddServerDialogProps {
   readonly onFormUrlChange: (value: string) => void;
   readonly headerCount: number;
   readonly submitting: boolean;
+  readonly mode?: "add" | "edit";
   readonly onApplySchema: (value?: string) => void;
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
@@ -48,12 +49,15 @@ export function MCPAddServerDialog({
   onFormUrlChange,
   headerCount,
   submitting,
+  mode = "add",
   onApplySchema,
   onSubmit,
   onCancel,
   idPrefix,
 }: MCPAddServerDialogProps) {
   const { t } = useTranslation();
+  const title = mode === "edit" ? t("mcp.editFormTitle") : t("mcp.addFormTitle");
+  const submitLabel = mode === "edit" ? t("mcp.save") : t("mcp.connect");
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -66,7 +70,7 @@ export function MCPAddServerDialog({
               </div>
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <DialogTitle>{t("mcp.addFormTitle")}</DialogTitle>
+                  <DialogTitle>{title}</DialogTitle>
                   <span className="status-pill status-info">
                     <Globe className="h-3 w-3" />
                     HTTP
@@ -97,6 +101,8 @@ export function MCPAddServerDialog({
           onFormUrlChange={onFormUrlChange}
           headerCount={headerCount}
           submitting={submitting}
+          title={title}
+          submitLabel={submitLabel}
           onApplySchema={onApplySchema}
           onSubmit={onSubmit}
           onCancel={onCancel}

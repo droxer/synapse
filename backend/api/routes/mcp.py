@@ -15,16 +15,22 @@ from agent.mcp.bridge import MCPBridgedTool, mcp_server_tag
 from agent.mcp.client import MCPClient
 from agent.mcp.config import MCPServerConfig
 from agent.mcp.repository import (
+    MCPServerNameConflictError,
     delete_mcp_server as db_delete_mcp_server,
     list_mcp_servers as db_list_mcp_servers,
     save_mcp_server as db_save_mcp_server,
     set_mcp_server_enabled as db_set_mcp_server_enabled,
+    update_mcp_server as db_update_mcp_server,
 )
 from agent.mcp.sse_client import MCPSSEClient
 from agent.tools.registry import ToolRegistry
 from api.auth import AuthUser, common_dependencies, get_current_user
 from api.dependencies import AppState, get_app_state
-from api.models import MCPServerCreateRequest, MCPServerResponse
+from api.models import (
+    MCPServerCreateRequest,
+    MCPServerResponse,
+    MCPServerUpdateRequest,
+)
 from api.routes.conversations import _resolve_user_id
 from config.settings import get_settings
 
@@ -92,6 +98,54 @@ def _create_client_for_config(cfg: MCPServerConfig) -> MCPClient:
         headers=cfg.headers,
         allow_legacy_fallback=cfg.transport == "sse",
     )
+
+
+def _validate_mcp_url(url: str) -> None:
+    """Validate a user-provided MCP URL."""
+    from agent.skills.installer import _validate_https_url, _validate_not_internal
+
+    _validate_https_url(url)
+    _validate_not_internal(url)
+
+
+def _config_from_request(
+    request: MCPServerCreateRequest | MCPServerUpdateRequest,
+    *,
+    enabled: bool = True,
+) -> MCPServerConfig:
+    """Build a validated MCP config from an API request model."""
+    return MCPServerConfig(
+        name=request.name,
+        transport=request.transport,
+        url=request.url,
+        headers=tuple(request.headers.items()),
+        timeout=request.timeout,
+        enabled=enabled,
+    )
+
+
+async def _connect_and_register_tools(
+    cfg: MCPServerConfig,
+    key: str,
+    registry: ToolRegistry,
+) -> tuple[MCPClient, ToolRegistry]:
+    """Connect a client and return a registry with its tools added."""
+    client = _create_client_for_config(cfg)
+    try:
+        await client.connect()
+        tools = await client.list_tools()
+        for schema in tools:
+            bridged = MCPBridgedTool(schema, client, server_key=key)
+            try:
+                registry = registry.register(bridged)
+            except ValueError:
+                logger.warning(
+                    "mcp_tool_skipped name={} (already registered)", schema.name
+                )
+    except Exception:
+        await client.close()
+        raise
+    return client, registry
 
 
 async def _discover_mcp_tools(
@@ -195,7 +249,12 @@ def _client_is_alive(client: MCPClient) -> bool:
     return client.is_alive()
 
 
-def _build_server_response(mcp_state: Any, key: str) -> MCPServerResponse:
+def _build_server_response(
+    mcp_state: Any,
+    key: str,
+    *,
+    editable: bool = True,
+) -> MCPServerResponse:
     """Build a response model for a single MCP server.
 
     ``key`` may be a plain name (global) or ``user_id:name`` (per-user).
@@ -218,9 +277,12 @@ def _build_server_response(mcp_state: Any, key: str) -> MCPServerResponse:
         name=display_name,
         transport=cfg.transport if cfg else "streamablehttp",
         url=cfg.url if cfg else "",
+        headers=dict(cfg.headers) if cfg else {},
+        timeout=cfg.timeout if cfg else 30.0,
         status="connected" if client and _client_is_alive(client) else "disconnected",
         tool_count=tool_count,
         enabled=cfg.enabled if cfg else True,
+        editable=editable,
     )
 
 
@@ -247,7 +309,14 @@ async def list_servers(
         )
 
     visible = mcp_state.configs_for_user(user_id) if user_id else mcp_state.configs
-    servers = [_build_server_response(mcp_state, key) for key in visible]
+    servers = [
+        _build_server_response(
+            mcp_state,
+            key,
+            editable=key.startswith(f"{user_id}:") if user_id else True,
+        )
+        for key in visible
+    ]
     return {"servers": [s.model_dump() for s in servers]}
 
 
@@ -271,22 +340,12 @@ async def add_server(
             status_code=409, detail=f"Server '{request.name}' already exists"
         )
 
-    # Validate the HTTP URL to prevent SSRF attacks.
-    from agent.skills.installer import _validate_https_url, _validate_not_internal
-
     try:
-        _validate_https_url(request.url)
-        _validate_not_internal(request.url)
+        _validate_mcp_url(request.url)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    cfg = MCPServerConfig(
-        name=request.name,
-        transport=request.transport,
-        url=request.url,
-        headers=tuple(request.headers.items()),
-        timeout=request.timeout,
-    )
+    cfg = _config_from_request(request)
 
     client = _create_client_for_config(cfg)
 
@@ -320,6 +379,95 @@ async def add_server(
         logger.warning("mcp_server_persist_failed name={} error={}", cfg.name, exc)
 
     return _build_server_response(mcp_state, key)
+
+
+@router.put("/servers/{name}")
+async def update_server(
+    request: MCPServerUpdateRequest,
+    name: str = Path(...),
+    state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
+) -> MCPServerResponse:
+    """PUT /mcp/servers/{name} - update a persisted MCP server."""
+    mcp_state = state.mcp_state
+    if mcp_state is None:
+        raise HTTPException(status_code=503, detail="MCP is not enabled")
+    user_id = await _resolve_user_id(auth_user, state)
+    old_key = mcp_state.user_key(user_id, name) if user_id else name
+    new_key = mcp_state.user_key(user_id, request.name) if user_id else request.name
+
+    if old_key not in mcp_state.configs:
+        raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
+
+    try:
+        _validate_mcp_url(request.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    async with state.db_session_factory() as session:
+        saved_configs = await db_list_mcp_servers(session, user_id=user_id)
+    existing_saved = next((cfg for cfg in saved_configs if cfg.name == name), None)
+    if existing_saved is None:
+        raise HTTPException(
+            status_code=404, detail=f"Server '{name}' is not user editable"
+        )
+    if request.name != name and any(cfg.name == request.name for cfg in saved_configs):
+        raise HTTPException(
+            status_code=409, detail=f"Server '{request.name}' already exists"
+        )
+
+    cfg = _config_from_request(request, enabled=existing_saved.enabled)
+    new_client: MCPClient | None = None
+    new_registry: ToolRegistry | None = None
+    if cfg.enabled:
+        base_registry = mcp_state.registry or ToolRegistry()
+        registry_without_old = base_registry.remove_by_tag(mcp_server_tag(old_key))
+        try:
+            new_client, new_registry = await _connect_and_register_tools(
+                cfg, new_key, registry_without_old
+            )
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Failed to reconnect: {exc}"
+            ) from exc
+
+    try:
+        async with state.db_session_factory() as session:
+            updated = await db_update_mcp_server(session, name, cfg, user_id=user_id)
+    except MCPServerNameConflictError as exc:
+        if new_client is not None:
+            await new_client.close()
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    if updated is None:
+        if new_client is not None:
+            await new_client.close()
+        raise HTTPException(
+            status_code=404, detail=f"Server '{name}' is not user editable"
+        )
+
+    async with mcp_state.lock:
+        old_client = mcp_state.clients.pop(old_key, None)  # type: ignore[arg-type]
+        if old_client is not None:
+            await old_client.close()
+
+        if cfg.enabled:
+            mcp_state.registry = new_registry
+            if new_client is not None:
+                mcp_state.clients[new_key] = new_client
+        else:
+            if mcp_state.registry is not None:
+                mcp_state.registry = mcp_state.registry.remove_by_tag(
+                    mcp_server_tag(old_key)
+                )
+            if new_key in mcp_state.clients:
+                renamed_client = mcp_state.clients.pop(new_key, None)
+                if renamed_client is not None:
+                    await renamed_client.close()
+
+        mcp_state.configs.pop(old_key, None)
+        mcp_state.configs[new_key] = updated
+
+    return _build_server_response(mcp_state, new_key)
 
 
 class MCPServerToggleRequest(BaseModel):

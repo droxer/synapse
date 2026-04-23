@@ -259,6 +259,7 @@
   "mcp.toolCount": "{count} 個工具",
   "mcp.toolsCount": "{count} 個工具",
   "mcp.addFormTitle": "新增 MCP 伺服器",
+  "mcp.editFormTitle": "編輯 MCP 伺服器",
   "mcp.name": "名稱",
   "mcp.namePlaceholder": "my-server",
   "mcp.transport": "傳輸方式",
@@ -271,6 +272,7 @@
   "mcp.headersApplied": "已套用 {count} 個標頭",
   "mcp.cancel": "取消",
   "mcp.connect": "連線",
+  "mcp.save": "儲存",
   "mcp.removeTitle": "移除伺服器",
   "mcp.removeDesc": "中斷連線並移除 {name}？其工具將不再可用。",
   "mcp.remove": "移除",
@@ -281,6 +283,7 @@
   "mcp.disable": "停用伺服器",
   "mcp.enabled": "已啟用",
   "mcp.disabled": "已停用",
+  "mcp.editServer": "編輯伺服器：{name}",
 
   "error.title": "發生錯誤",
   "error.fallback": "發生了非預期的錯誤。",

@@ -32,6 +32,8 @@ interface MCPServerFormProps {
   readonly onFormUrlChange: (value: string) => void;
   readonly headerCount: number;
   readonly submitting: boolean;
+  readonly title: string;
+  readonly submitLabel: string;
   readonly onApplySchema: (value?: string) => void;
   readonly onSubmit: () => void;
   readonly onCancel: () => void;
@@ -52,6 +54,8 @@ export function MCPServerForm({
   onFormUrlChange,
   headerCount,
   submitting,
+  title,
+  submitLabel,
   onApplySchema,
   onSubmit,
   onCancel,
@@ -145,7 +149,7 @@ export function MCPServerForm({
         <div className="flex items-center justify-between gap-3">
           <div>
             <p className="label-mono text-muted-foreground-dim">
-              {t("mcp.addServer")}
+              {title}
             </p>
             <p className="mt-1 text-sm font-medium text-foreground">
               {formName.trim() || t("mcp.namePlaceholder")}
@@ -212,7 +216,7 @@ export function MCPServerForm({
             {submitting && (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             )}
-            {t("mcp.connect")}
+            {submitLabel}
           </Button>
         </div>
       </div>

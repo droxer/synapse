@@ -256,6 +256,7 @@
   "mcp.toolCount": "{count} tool",
   "mcp.toolsCount": "{count} tools",
   "mcp.addFormTitle": "Add MCP Server",
+  "mcp.editFormTitle": "Edit MCP Server",
   "mcp.name": "Name",
   "mcp.namePlaceholder": "my-server",
   "mcp.transport": "Transport",
@@ -268,6 +269,7 @@
   "mcp.headersApplied": "{count} headers applied",
   "mcp.cancel": "Cancel",
   "mcp.connect": "Connect",
+  "mcp.save": "Save",
   "mcp.removeTitle": "Remove server",
   "mcp.removeDesc": "Disconnect and remove {name}? Its tools will no longer be available.",
   "mcp.remove": "Remove",
@@ -278,6 +280,7 @@
   "mcp.disable": "Disable server",
   "mcp.enabled": "Enabled",
   "mcp.disabled": "Disabled",
+  "mcp.editServer": "Edit server: {name}",
 
   "error.title": "Something went wrong",
   "error.fallback": "An unexpected error occurred.",

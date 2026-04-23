@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   Trash2,
+  Pencil,
   Plus,
   Radio,
   Unplug,
@@ -19,6 +20,11 @@ import {
 } from "@/shared/components/ui/dialog";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/shared/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -74,13 +80,15 @@ export function MCPDialog({
     formUrl,
     setFormUrl,
     formHeaders,
+    serverToEdit,
     submitting,
     serverToDelete,
     setServerToDelete,
     loadServers,
     resetForm,
     applySchema,
-    handleAdd,
+    startEdit,
+    handleSave,
     handleDelete,
     handleToggle,
   } = useMCPServers();
@@ -238,6 +246,24 @@ export function MCPDialog({
                     </button>
 
                     {/* Delete */}
+                    {server.editable !== false && (
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            className="shrink-0 text-transparent transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                            onClick={() => startEdit(server)}
+                            aria-label={t("mcp.editServer", { name: server.name })}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {t("mcp.editServer", { name: server.name })}
+                        </TooltipContent>
+                      </Tooltip>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon-sm"
@@ -273,8 +299,9 @@ export function MCPDialog({
         onFormUrlChange={setFormUrl}
         headerCount={Object.keys(formHeaders).length}
         submitting={submitting}
+        mode={serverToEdit ? "edit" : "add"}
         onApplySchema={applySchema}
-        onSubmit={handleAdd}
+        onSubmit={handleSave}
         onCancel={resetForm}
         idPrefix="mcp-dialog"
       />

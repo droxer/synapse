@@ -71,13 +71,15 @@ export function MCPPage() {
     formUrl,
     setFormUrl,
     formHeaders,
+    serverToEdit,
     submitting,
     serverToDelete,
     setServerToDelete,
     loadServers,
     resetForm,
     applySchema,
-    handleAdd,
+    startEdit,
+    handleSave,
     handleDelete,
     handleToggle,
   } = useMCPServers();
@@ -262,6 +264,7 @@ export function MCPPage() {
                 <motion.div key={server.name} variants={listVariants.item} className="h-full">
                   <MCPServerCard
                     server={server}
+                    onEdit={startEdit}
                     onDelete={setServerToDelete}
                     onToggle={handleToggle}
                   />
@@ -288,8 +291,9 @@ export function MCPPage() {
         onFormUrlChange={setFormUrl}
         headerCount={Object.keys(formHeaders).length}
         submitting={submitting}
+        mode={serverToEdit ? "edit" : "add"}
         onApplySchema={applySchema}
-        onSubmit={handleAdd}
+        onSubmit={handleSave}
         onCancel={resetForm}
         idPrefix="mcp-page"
       />

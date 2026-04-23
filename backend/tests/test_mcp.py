@@ -11,9 +11,10 @@ from unittest.mock import AsyncMock
 
 import httpx
 import pytest
+from fastapi import HTTPException
 
 from api.auth import AuthUser
-from api.models import MCPServerCreateRequest, MCPState
+from api.models import MCPServerCreateRequest, MCPServerUpdateRequest, MCPState
 from api.routes import mcp as mcp_routes
 from agent.mcp import repository as mcp_repository
 from agent.mcp.client import (
@@ -676,17 +677,23 @@ class TestMCPRoutes:
                 "name": "global",
                 "transport": "streamablehttp",
                 "url": "https://global.example/mcp",
+                "headers": {},
+                "timeout": 30.0,
                 "status": "connected",
                 "tool_count": 1,
                 "enabled": True,
+                "editable": False,
             },
             {
                 "name": "shared",
                 "transport": "streamablehttp",
                 "url": "https://shared.example/mcp",
+                "headers": {},
+                "timeout": 30.0,
                 "status": "connected",
                 "tool_count": 1,
                 "enabled": True,
+                "editable": True,
             },
         ]
 
@@ -856,6 +863,337 @@ class TestMCPRoutes:
         assert old_client.closed is True
         assert mcp_state.clients["user-1:shared"] is new_client
         assert len(mcp_state.registry.list_tools()) == 1
+
+    @pytest.mark.asyncio
+    async def test_update_enabled_server_reconnects_and_replaces_tools(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        old_client = _FakeRouteClient()
+        new_client = _FakeRouteClient(schemas=(_schema("new_tool", "renamed"),))
+        registry = ToolRegistry().register(
+            MCPBridgedTool(
+                _schema("old_tool"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-1:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={"user-1:shared": old_client},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://old.example/mcp",
+                )
+            },
+        )
+        updated = MCPServerConfig(
+            name="renamed",
+            transport="streamablehttp",
+            url="https://new.example/mcp",
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(
+                return_value=(
+                    MCPServerConfig(
+                        name="shared",
+                        transport="streamablehttp",
+                        url="https://old.example/mcp",
+                    ),
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            mcp_routes, "_create_client_for_config", lambda cfg: new_client
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_update_mcp_server",
+            AsyncMock(return_value=updated),
+        )
+
+        response = await mcp_routes.update_server(
+            MCPServerUpdateRequest(
+                name="renamed",
+                transport="streamablehttp",
+                url="https://new.example/mcp",
+            ),
+            "shared",
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert response.name == "renamed"
+        assert response.tool_count == 1
+        assert old_client.closed is True
+        assert new_client.connected is True
+        assert "user-1:shared" not in mcp_state.clients
+        assert mcp_state.clients["user-1:renamed"] is new_client
+        assert "user-1:shared" not in mcp_state.configs
+        assert mcp_state.configs["user-1:renamed"].url == "https://new.example/mcp"
+        tool_names = {tool.name for tool in mcp_state.registry.list_tools()}
+        assert all("old_tool" not in name for name in tool_names)
+
+    @pytest.mark.asyncio
+    async def test_update_disabled_server_does_not_connect(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mcp_state = MCPState(
+            registry=ToolRegistry(),
+            clients={},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://old.example/mcp",
+                    enabled=False,
+                )
+            },
+        )
+        updated = MCPServerConfig(
+            name="shared",
+            transport="sse",
+            url="https://new.example/sse",
+            enabled=False,
+        )
+        create_client = AsyncMock()
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(
+                return_value=(
+                    MCPServerConfig(
+                        name="shared",
+                        transport="streamablehttp",
+                        url="https://old.example/mcp",
+                        enabled=False,
+                    ),
+                )
+            ),
+        )
+        monkeypatch.setattr(mcp_routes, "_create_client_for_config", create_client)
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_update_mcp_server",
+            AsyncMock(return_value=updated),
+        )
+
+        response = await mcp_routes.update_server(
+            MCPServerUpdateRequest(
+                name="shared",
+                transport="sse",
+                url="https://new.example/sse",
+            ),
+            "shared",
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert response.name == "shared"
+        assert response.enabled is False
+        assert response.status == "disconnected"
+        assert mcp_state.clients == {}
+        assert mcp_state.configs["user-1:shared"].transport == "sse"
+        create_client.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_update_rename_leaves_same_name_peer_server_untouched(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        user_client = _FakeRouteClient()
+        peer_client = _FakeRouteClient()
+        new_client = _FakeRouteClient(schemas=(_schema("mine_new", "mine-renamed"),))
+        registry = ToolRegistry()
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("mine"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-1:shared",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                _schema("peer"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-2:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={"user-1:shared": user_client, "user-2:shared": peer_client},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
+                ),
+                "user-2:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://peer.example/mcp",
+                ),
+            },
+        )
+        updated = MCPServerConfig(
+            name="mine-renamed",
+            transport="streamablehttp",
+            url="https://renamed.example/mcp",
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(
+                return_value=(
+                    MCPServerConfig(
+                        name="shared",
+                        transport="streamablehttp",
+                        url="https://shared.example/mcp",
+                    ),
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            mcp_routes, "_create_client_for_config", lambda cfg: new_client
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_update_mcp_server",
+            AsyncMock(return_value=updated),
+        )
+
+        response = await mcp_routes.update_server(
+            MCPServerUpdateRequest(
+                name="mine-renamed",
+                transport="streamablehttp",
+                url="https://renamed.example/mcp",
+            ),
+            "shared",
+            _app_state(mcp_state),
+            _auth_user(),
+        )
+
+        assert response.name == "mine-renamed"
+        assert user_client.closed is True
+        assert mcp_state.clients["user-2:shared"] is peer_client
+        assert "user-2:shared" in mcp_state.configs
+        assert "user-1:mine-renamed" in mcp_state.configs
+        assert len(mcp_state.registry.list_tools()) == 2
+
+    @pytest.mark.asyncio
+    async def test_update_rename_conflict_returns_409(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mcp_state = MCPState(
+            registry=ToolRegistry(),
+            clients={"user-1:shared": _FakeRouteClient()},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
+                )
+            },
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(
+                return_value=(
+                    MCPServerConfig(
+                        name="shared",
+                        transport="streamablehttp",
+                        url="https://shared.example/mcp",
+                    ),
+                    MCPServerConfig(
+                        name="taken",
+                        transport="streamablehttp",
+                        url="https://taken.example/mcp",
+                    ),
+                )
+            ),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await mcp_routes.update_server(
+                MCPServerUpdateRequest(
+                    name="taken",
+                    transport="streamablehttp",
+                    url="https://new.example/mcp",
+                ),
+                "shared",
+                _app_state(mcp_state),
+                _auth_user(),
+            )
+
+        assert exc_info.value.status_code == 409
+
+    @pytest.mark.asyncio
+    async def test_update_global_non_persisted_server_returns_404(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mcp_state = MCPState(
+            registry=ToolRegistry(),
+            clients={"global": _FakeRouteClient()},
+            configs={
+                "global": MCPServerConfig(
+                    name="global",
+                    transport="streamablehttp",
+                    url="https://global.example/mcp",
+                )
+            },
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(return_value=()),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await mcp_routes.update_server(
+                MCPServerUpdateRequest(
+                    name="global",
+                    transport="streamablehttp",
+                    url="https://new.example/mcp",
+                ),
+                "global",
+                _app_state(mcp_state),
+                _auth_user(),
+            )
+
+        assert exc_info.value.status_code == 404
 
     @pytest.mark.asyncio
     async def test_remove_server_leaves_same_name_peer_server_untouched(

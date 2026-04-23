@@ -5,9 +5,12 @@ export interface MCPServer {
   readonly name: string;
   readonly transport: MCPTransport;
   readonly url: string;
+  readonly headers?: Readonly<Record<string, string>>;
+  readonly timeout?: number;
   readonly status: "connected" | "disconnected";
   readonly tool_count: number;
   readonly enabled: boolean;
+  readonly editable?: boolean;
 }
 
 export interface MCPServerCreateParams {
@@ -38,6 +41,25 @@ export async function addMCPServer(
   if (!res.ok) {
     const detail = await res.text();
     throw new Error(`Failed to add MCP server: ${detail}`);
+  }
+  return res.json();
+}
+
+export async function updateMCPServer(
+  oldName: string,
+  config: MCPServerCreateParams,
+): Promise<MCPServer> {
+  const res = await fetch(
+    `${API_BASE}/mcp/servers/${encodeURIComponent(oldName)}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(config),
+    },
+  );
+  if (!res.ok) {
+    const detail = await res.text();
+    throw new Error(`Failed to update MCP server: ${detail}`);
   }
   return res.json();
 }

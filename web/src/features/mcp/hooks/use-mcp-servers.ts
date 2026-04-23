@@ -6,6 +6,7 @@ import {
   addMCPServer,
   removeMCPServer,
   toggleMCPServer,
+  updateMCPServer,
   type MCPServer,
 } from "../api/mcp-api";
 import { useTranslation } from "@/i18n";
@@ -20,7 +21,7 @@ export function useMCPServers() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Add form state
+  // Add/edit form state
   const [showForm, setShowForm] = useState(false);
   const [formSchema, setFormSchema] = useState("");
   const [formName, setFormName] = useState("");
@@ -31,6 +32,7 @@ export function useMCPServers() {
     useState<Readonly<Record<string, string>>>({});
   const [formTimeout, setFormTimeout] = useState<number | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
+  const [serverToEdit, setServerToEdit] = useState<MCPServer | null>(null);
 
   // Delete confirmation
   const [serverToDelete, setServerToDelete] = useState<string | null>(null);
@@ -56,6 +58,7 @@ export function useMCPServers() {
     setFormTimeout(undefined);
     setFormTransport("streamablehttp");
     setShowForm(false);
+    setServerToEdit(null);
   }, []);
 
   const applySchema = useCallback((value?: string) => {
@@ -73,6 +76,31 @@ export function useMCPServers() {
       setError(t("mcp.invalidSchema"));
     }
   }, [formSchema, t]);
+
+  const startEdit = useCallback((server: MCPServer) => {
+    const headers = server.headers ?? {};
+    const configEntry: Record<string, unknown> = {
+      type: server.transport,
+      url: server.url,
+    };
+    if (Object.keys(headers).length > 0) {
+      configEntry.headers = headers;
+    }
+    if (server.timeout !== undefined) {
+      configEntry.timeout = server.timeout;
+    }
+    setServerToEdit(server);
+    setFormSchema(JSON.stringify({
+      [server.name]: configEntry,
+    }, null, 2));
+    setFormName(server.name);
+    setFormTransport(server.transport);
+    setFormUrl(server.url);
+    setFormHeaders(headers);
+    setFormTimeout(server.timeout);
+    setError(null);
+    setShowForm(true);
+  }, []);
 
   const handleAdd = useCallback(async () => {
     if (!formName.trim()) return;
@@ -99,6 +127,41 @@ export function useMCPServers() {
     formUrl,
     formHeaders,
     formTimeout,
+    resetForm,
+    loadServers,
+  ]);
+
+  const handleSave = useCallback(async () => {
+    if (!serverToEdit) {
+      await handleAdd();
+      return;
+    }
+    if (!formName.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await updateMCPServer(serverToEdit.name, {
+        name: formName.trim(),
+        transport: formTransport,
+        url: formUrl,
+        headers: formHeaders,
+        timeout: formTimeout,
+      });
+      resetForm();
+      await loadServers();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to update server");
+    } finally {
+      setSubmitting(false);
+    }
+  }, [
+    serverToEdit,
+    formName,
+    formTransport,
+    formUrl,
+    formHeaders,
+    formTimeout,
+    handleAdd,
     resetForm,
     loadServers,
   ]);
@@ -151,13 +214,16 @@ export function useMCPServers() {
     formUrl,
     setFormUrl,
     formHeaders,
+    serverToEdit,
     submitting,
     serverToDelete,
     setServerToDelete,
     loadServers,
     resetForm,
     applySchema,
+    startEdit,
     handleAdd,
+    handleSave,
     handleDelete,
     handleToggle,
     confirmDelete,
