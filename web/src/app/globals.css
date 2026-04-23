@@ -80,7 +80,8 @@
   --ring-profile-hover: var(--color-profile-ring-hover);
 
   /* Font families */
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, var(--font-noto-sans-sc), var(--font-noto-sans-tc), "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --font-cjk-sans: var(--font-noto-sans-sc), var(--font-noto-sans-tc), "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC";
+  --font-sans: var(--font-geist-sans), var(--font-cjk-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
   --font-brand-family: var(--font-geist-sans), system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
@@ -332,6 +333,14 @@
   --shadow-input-focus: none;
   --shadow-primary-glow: none;
   --gradient-text-accent: none;
+}
+
+html:lang(zh-CN) {
+  --font-cjk-sans: var(--font-noto-sans-sc), var(--font-noto-sans-tc), "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC";
+}
+
+html:lang(zh-TW) {
+  --font-cjk-sans: var(--font-noto-sans-tc), var(--font-noto-sans-sc), "PingFang TC", "Noto Sans CJK TC", "Microsoft JhengHei", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC";
 }
 
 /* ─── Custom Tailwind Utilities ─── */
@@ -909,4 +918,10 @@ pre, code {
   background: color-mix(in srgb, var(--color-muted), transparent 10%);
   border-radius: var(--radius-md);
   padding: 0.15em 0.3em;
+}
+
+/* CJK glyphs should keep native spacing; Latin-only tightening above stays for en UI. */
+html:lang(zh-CN) :where(h1, h2, h3, h4, h5, h6, p:not(.label-mono):not(.brand-wordmark), li, .prose, .conversation-markdown, .markdown-reasoning),
+html:lang(zh-TW) :where(h1, h2, h3, h4, h5, h6, p:not(.label-mono):not(.brand-wordmark), li, .prose, .conversation-markdown, .markdown-reasoning) {
+  letter-spacing: 0;
 }

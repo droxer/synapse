@@ -130,6 +130,7 @@ const OFFICE_IFRAME_STYLES = `
 <style>
   :root {
     color-scheme: light dark;
+    --preview-font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", sans-serif;
     --preview-background: #FFFFFF;
     --preview-foreground: #000000;
     --preview-secondary: #EEF4FF;
@@ -145,10 +146,16 @@ const OFFICE_IFRAME_STYLES = `
     --preview-border: #2A2D33;
     --preview-hover: #1D2432;
   }
+  html:lang(zh-CN) {
+    --preview-font-sans: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
+  html:lang(zh-TW) {
+    --preview-font-sans: "PingFang TC", "Microsoft JhengHei", "Noto Sans CJK TC", "Noto Sans TC", "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  }
 
   body {
-    /* Mirror app sans contract without relying on remote font imports inside srcDoc iframes. */
-    font-family: var(--font-sans, "Geist"), "Geist", var(--font-noto-sans-sc, "PingFang SC"), var(--font-noto-sans-tc, "Noto Sans CJK TC"), system-ui, "Helvetica Neue", Helvetica, Arial, "Segoe UI", -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC", sans-serif;
+    /* srcDoc iframes do not inherit next/font @font-face rules; use local/system fonts only. */
+    font-family: var(--preview-font-sans);
     padding: 1rem 1.25rem;
     margin: 0;
     color: var(--preview-foreground);
@@ -185,9 +192,9 @@ const OFFICE_IFRAME_STYLES = `
 </style>
 `;
 
-function buildOfficeIframeContent(bodyHtml: string, isDarkTheme: boolean): string {
+function buildOfficeIframeContent(bodyHtml: string, isDarkTheme: boolean, locale: string): string {
   const htmlClass = isDarkTheme ? " class=\"dark\"" : "";
-  return `<!DOCTYPE html><html${htmlClass}><head><meta charset="utf-8">${OFFICE_IFRAME_STYLES}</head><body>${bodyHtml}</body></html>`;
+  return `<!DOCTYPE html><html lang="${locale}"${htmlClass}><head><meta charset="utf-8">${OFFICE_IFRAME_STYLES}</head><body>${bodyHtml}</body></html>`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -240,7 +247,7 @@ export function FilePreview({
   onDownload,
   className,
 }: FilePreviewProps) {
-  const { t } = useTranslation();
+  const { locale, t } = useTranslation();
   const { resolvedTheme } = useTheme();
   const [content, setContent] = useState<ContentState>({ status: "idle" });
   const [imageZoomed, setImageZoomed] = useState(false);
@@ -412,7 +419,7 @@ export function FilePreview({
 
   /* ---- DOCX / XLSX (client-side converted to HTML) ---- */
   if ((isDocxType(ct) || isXlsxType(ct)) && content.status === "ready" && content.html != null) {
-    const srcDoc = buildOfficeIframeContent(content.html, isDarkTheme);
+    const srcDoc = buildOfficeIframeContent(content.html, isDarkTheme, locale);
     return (
       <div className={className}>
         <iframe
