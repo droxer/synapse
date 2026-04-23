@@ -1,6 +1,6 @@
 "use client";
 
-import { Trash2, Blocks, Terminal, Radio, Wrench } from "lucide-react";
+import { Trash2, Blocks, Radio, Wrench, Globe } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Badge } from "@/shared/components/ui/badge";
 import { cn } from "@/shared/lib/utils";
@@ -8,8 +8,8 @@ import { useTranslation } from "@/i18n";
 import type { MCPServer } from "../api/mcp-api";
 
 const transportStyle = {
-  stdio: { icon: Terminal, label: "stdio" },
   sse: { icon: Radio, label: "sse" },
+  streamablehttp: { icon: Globe, label: "streamablehttp" },
 } as const;
 
 interface MCPServerCardProps {
@@ -104,10 +104,10 @@ export function MCPServerCard({ server, onDelete, onToggle }: MCPServerCardProps
         </span>
       </div>
 
-      {/* Footer: command/URL + status toggle */}
+      {/* Footer: URL + status toggle */}
       <div className="mt-auto flex items-center justify-between gap-2 pt-3">
         <span className="truncate font-mono text-micro text-muted-foreground-dim">
-          {server.command || server.url || "\u00A0"}
+          {server.url || "\u00A0"}
         </span>
         {onToggle && (
           <button

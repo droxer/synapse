@@ -32,11 +32,12 @@ class MCPServerModel(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(100), nullable=False)
-    transport = Column(String(10), nullable=False)
+    transport = Column(String(32), nullable=False)
     command = Column(String(500), nullable=False, default="")
     args = Column(Text, nullable=False, default="[]")  # JSON array
     url = Column(String(1000), nullable=False, default="")
     env = Column(Text, nullable=False, default="{}")  # JSON object
+    headers = Column(Text, nullable=False, default="{}")  # JSON object
     timeout = Column(Float, nullable=False, default=30.0)
     enabled = Column(Boolean, nullable=False, default=True)
     user_id = Column(

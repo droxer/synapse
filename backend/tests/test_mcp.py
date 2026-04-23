@@ -2,26 +2,27 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import types
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 
 from api.auth import AuthUser
 from api.models import MCPServerCreateRequest, MCPState
 from api.routes import mcp as mcp_routes
+from agent.mcp import repository as mcp_repository
 from agent.mcp.client import (
     MCPCallResult,
-    MCPStdioClient,
     MCPToolSchema,
     MCP_PROTOCOL_VERSION,
 )
 from agent.mcp.config import MCPServerConfig
+from agent.mcp.sse_client import MCPSSEClient, _StreamableNotSupported
 from agent.mcp.bridge import MCPBridgedTool
 from agent.tools.base import ExecutionContext
 from agent.tools.registry import ToolRegistry
@@ -34,25 +35,28 @@ from agent.tools.registry import ToolRegistry
 
 class TestMCPServerConfig:
     def test_frozen(self) -> None:
-        cfg = MCPServerConfig(name="test", transport="stdio", command="echo")
+        cfg = MCPServerConfig(
+            name="test",
+            transport="streamablehttp",
+            url="https://example.com/mcp",
+        )
         assert cfg.name == "test"
-        assert cfg.transport == "stdio"
+        assert cfg.transport == "streamablehttp"
         with pytest.raises(AttributeError):
             cfg.name = "other"  # type: ignore[misc]
 
     def test_defaults(self) -> None:
-        cfg = MCPServerConfig(name="x", transport="stdio", command="echo")
-        assert cfg.args == ()
-        assert cfg.url == ""
-        assert cfg.env == ()
+        cfg = MCPServerConfig(
+            name="x",
+            transport="streamablehttp",
+            url="https://example.com/mcp",
+        )
+        assert cfg.url == "https://example.com/mcp"
+        assert cfg.headers == ()
         assert cfg.timeout == 30.0
 
     def test_invalid_transport_raises(self) -> None:
         with pytest.raises(ValueError, match="Unsupported MCP transport"):
-            MCPServerConfig(name="x", transport="websocket", command="echo")
-
-    def test_stdio_requires_command(self) -> None:
-        with pytest.raises(ValueError, match="stdio transport requires a command"):
             MCPServerConfig(name="x", transport="stdio")
 
     def test_sse_requires_url(self) -> None:
@@ -63,8 +67,45 @@ class TestMCPServerConfig:
         cfg = MCPServerConfig(name="x", transport="sse", url="http://localhost:8080")
         assert cfg.url == "http://localhost:8080"
 
+    def test_streamablehttp_valid_with_headers(self) -> None:
+        cfg = MCPServerConfig(
+            name="x",
+            transport="streamablehttp",
+            url="https://example.com/mcp",
+            headers=(("Authorization", "Bearer token"),),
+        )
+        assert cfg.transport == "streamablehttp"
+        assert dict(cfg.headers) == {"Authorization": "Bearer token"}
+
+    def test_streamablehttp_requires_url(self) -> None:
+        with pytest.raises(ValueError, match="streamablehttp transport requires a url"):
+            MCPServerConfig(name="x", transport="streamablehttp")
+
+    def test_rejects_reserved_http_headers(self) -> None:
+        with pytest.raises(ValueError, match="managed by Synapse"):
+            MCPServerConfig(
+                name="x",
+                transport="streamablehttp",
+                url="https://example.com/mcp",
+                headers=(("Accept", "application/json"),),
+            )
+
+    def test_rejects_header_newlines(self) -> None:
+        with pytest.raises(ValueError, match="must not contain newlines"):
+            MCPServerConfig(
+                name="x",
+                transport="streamablehttp",
+                url="https://example.com/mcp",
+                headers=(("Authorization", "Bearer token\nbad"),),
+            )
+
     def test_custom_timeout(self) -> None:
-        cfg = MCPServerConfig(name="x", transport="stdio", command="echo", timeout=60.0)
+        cfg = MCPServerConfig(
+            name="x",
+            transport="streamablehttp",
+            url="https://example.com/mcp",
+            timeout=60.0,
+        )
         assert cfg.timeout == 60.0
 
 
@@ -213,7 +254,7 @@ class TestMCPBridgedTool:
             input_schema=types.MappingProxyType({"type": "object"}),
             server_name="srv",
         )
-        mock_client = AsyncMock(spec=MCPStdioClient)
+        mock_client = AsyncMock()
         mock_client.call_tool.return_value = MCPCallResult(content="found it")
 
         tool = MCPBridgedTool(schema, mock_client)
@@ -231,7 +272,7 @@ class TestMCPBridgedTool:
             input_schema=types.MappingProxyType({"type": "object"}),
             server_name="srv",
         )
-        mock_client = AsyncMock(spec=MCPStdioClient)
+        mock_client = AsyncMock()
         mock_client.call_tool.return_value = MCPCallResult(
             content="not found", is_error=True
         )
@@ -332,156 +373,107 @@ class TestMCPBridgedTool:
         assert left.anthropic_tools_fingerprint() != right.anthropic_tools_fingerprint()
 
 
-# ---------------------------------------------------------------------------
-# MCPStdioClient
-# ---------------------------------------------------------------------------
-
-
-def _make_mock_process(
-    responses: list[bytes],
-) -> MagicMock:
-    """Create a mock subprocess with stdout yielding *responses* then EOF."""
-    stdout_iter = iter(responses)
-
-    async def fake_readline() -> bytes:
-        try:
-            return next(stdout_iter)
-        except StopIteration:
-            return b""
-
-    mock_process = MagicMock()
-    mock_process.stdin = MagicMock()
-    mock_process.stdin.write = MagicMock()
-    mock_process.stdin.drain = AsyncMock()
-    mock_process.stdout = MagicMock()
-    mock_process.stdout.readline = fake_readline
-    mock_process.stderr = MagicMock()
-    mock_process.stderr.readline = AsyncMock(return_value=b"")
-    mock_process.returncode = None
-    mock_process.terminate = MagicMock()
-    mock_process.kill = MagicMock()
-    mock_process.wait = AsyncMock()
-    return mock_process
-
-
-class TestMCPStdioClientCallTool:
-    """Test call_tool and related methods using mocked subprocess."""
-
+class TestMCPStreamableHTTPClient:
     @pytest.mark.asyncio
-    async def test_call_tool_success(self) -> None:
-        client = MCPStdioClient(command="echo", server_name="test")
+    async def test_sends_headers_session_and_parses_sse_response(self) -> None:
+        requests: list[httpx.Request] = []
 
-        response_line = (
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "result": {
-                        "content": [{"type": "text", "text": "hello world"}],
-                        "isError": False,
+        def handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            if request.method == "DELETE":
+                return httpx.Response(204)
+
+            body = json.loads(request.content)
+            method = body["method"]
+            if method == "initialize":
+                return httpx.Response(
+                    200,
+                    headers={
+                        "content-type": "application/json",
+                        "mcp-session-id": "session-1",
                     },
-                }
-            )
-            + "\n"
-        ).encode()
-
-        client._process = _make_mock_process([response_line])
-        client._reader_task = asyncio.create_task(client._read_responses())
-        client._stderr_task = asyncio.create_task(client._drain_stderr())
-
-        result = await client.call_tool("my_tool", {"arg": "val"})
-
-        assert not result.is_error
-        assert result.content == "hello world"
-
-        await client.close()
-
-    @pytest.mark.asyncio
-    async def test_call_tool_mcp_error(self) -> None:
-        client = MCPStdioClient(command="echo", server_name="test")
-
-        response_line = (
-            json.dumps(
-                {
-                    "jsonrpc": "2.0",
-                    "id": 1,
-                    "result": {
-                        "content": [{"type": "text", "text": "something went wrong"}],
-                        "isError": True,
+                    json={
+                        "jsonrpc": "2.0",
+                        "id": body["id"],
+                        "result": {"protocolVersion": MCP_PROTOCOL_VERSION},
                     },
-                }
-            )
-            + "\n"
-        ).encode()
+                )
+            if method == "notifications/initialized":
+                return httpx.Response(202)
+            if method == "tools/list":
+                message = json.dumps(
+                    {
+                        "jsonrpc": "2.0",
+                        "id": body["id"],
+                        "result": {
+                            "tools": [
+                                {
+                                    "name": "search",
+                                    "description": "Search",
+                                    "inputSchema": {
+                                        "type": "object",
+                                        "properties": {},
+                                    },
+                                }
+                            ]
+                        },
+                    }
+                )
+                return httpx.Response(
+                    200,
+                    headers={"content-type": "text/event-stream"},
+                    text=f"event: message\ndata: {message}\n\n",
+                )
+            return httpx.Response(500)
 
-        client._process = _make_mock_process([response_line])
-        client._reader_task = asyncio.create_task(client._read_responses())
-        client._stderr_task = asyncio.create_task(client._drain_stderr())
+        client = MCPSSEClient(
+            url="https://example.com/mcp",
+            server_name="docs",
+            headers=(("Authorization", "Bearer token"),),
+            allow_legacy_fallback=False,
+        )
+        client._http = httpx.AsyncClient(transport=httpx.MockTransport(handler))
 
-        result = await client.call_tool("my_tool", {})
+        await client._streamable_initialize()
+        tools = await client.list_tools()
 
-        assert result.is_error
-        assert "something went wrong" in result.content
+        initialize_request = requests[0]
+        tools_request = next(
+            request for request in requests if b'"tools/list"' in request.content
+        )
+
+        assert tools[0].name == "search"
+        assert initialize_request.headers["authorization"] == "Bearer token"
+        assert initialize_request.headers["accept"] == (
+            "application/json, text/event-stream"
+        )
+        assert (
+            initialize_request.headers["mcp-protocol-version"] == MCP_PROTOCOL_VERSION
+        )
+        assert tools_request.headers["mcp-session-id"] == "session-1"
 
         await client.close()
 
     @pytest.mark.asyncio
-    async def test_call_tool_timeout(self) -> None:
-        client = MCPStdioClient(command="echo", server_name="test", timeout=0.1)
+    async def test_explicit_streamablehttp_does_not_fallback_to_legacy_sse(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        client = MCPSSEClient(
+            url="https://example.com/mcp",
+            server_name="docs",
+            allow_legacy_fallback=False,
+        )
+        monkeypatch.setattr(
+            client,
+            "_streamable_initialize",
+            AsyncMock(side_effect=_StreamableNotSupported()),
+        )
 
-        # No responses at all — reader returns EOF immediately, future gets rejected
-        client._process = _make_mock_process([])
-        client._reader_task = asyncio.create_task(client._read_responses())
-        client._stderr_task = asyncio.create_task(client._drain_stderr())
+        with pytest.raises(RuntimeError, match="does not support Streamable HTTP"):
+            await client.connect()
 
-        # call_tool catches exceptions and returns MCPCallResult with is_error
-        result = await client.call_tool("my_tool", {})
-        assert result.is_error
-        assert "failed" in result.content.lower()
-
-        await client.close()
-
-
-class TestMCPStdioClientReaderCrash:
-    """Test that pending futures are rejected when the reader stops."""
-
-    @pytest.mark.asyncio
-    async def test_pending_futures_rejected_on_reader_exit(self) -> None:
-        client = MCPStdioClient(command="echo", server_name="test", timeout=5.0)
-
-        # Reader that immediately returns EOF (simulating process crash)
-        async def eof_readline() -> bytes:
-            return b""
-
-        mock_process = MagicMock()
-        mock_process.stdin = MagicMock()
-        mock_process.stdin.write = MagicMock()
-        mock_process.stdin.drain = AsyncMock()
-        mock_process.stdout = MagicMock()
-        mock_process.stdout.readline = eof_readline
-        mock_process.stderr = MagicMock()
-        mock_process.stderr.readline = AsyncMock(return_value=b"")
-        mock_process.returncode = None
-        mock_process.terminate = MagicMock()
-        mock_process.kill = MagicMock()
-        mock_process.wait = AsyncMock()
-
-        client._process = mock_process
-
-        # Manually add a pending future
-        loop = asyncio.get_running_loop()
-        future: asyncio.Future[dict[str, Any]] = loop.create_future()
-        client._pending[99] = future
-
-        # Start reader — it will exit immediately and reject pending
-        reader_task = asyncio.create_task(client._read_responses())
-        await reader_task
-
-        assert future.done()
-        with pytest.raises(RuntimeError, match="reader stopped"):
-            future.result()
-
-        await client.close()
+        assert client._legacy is False
 
 
 # ---------------------------------------------------------------------------
@@ -493,6 +485,56 @@ class TestProtocolVersion:
     def test_protocol_version_is_string(self) -> None:
         assert isinstance(MCP_PROTOCOL_VERSION, str)
         assert len(MCP_PROTOCOL_VERSION) > 0
+
+
+class TestMCPServerCreateRequest:
+    def test_accepts_type_alias_and_headers(self) -> None:
+        request = MCPServerCreateRequest.model_validate(
+            {
+                "name": "mcd-mcp",
+                "type": "streamablehttp",
+                "url": "https://mcp.mcd.cn",
+                "headers": {"Authorization": "Bearer token"},
+            }
+        )
+
+        assert request.transport == "streamablehttp"
+        assert request.headers == {"Authorization": "Bearer token"}
+
+    def test_rejects_reserved_headers(self) -> None:
+        with pytest.raises(ValueError, match="managed by Synapse"):
+            MCPServerCreateRequest.model_validate(
+                {
+                    "name": "mcd-mcp",
+                    "type": "streamablehttp",
+                    "url": "https://mcp.mcd.cn",
+                    "headers": {"Mcp-Session-Id": "abc"},
+                }
+            )
+
+    def test_rejects_stdio_transport(self) -> None:
+        with pytest.raises(ValueError, match="transport must be 'sse'"):
+            MCPServerCreateRequest.model_validate(
+                {"name": "local", "transport": "stdio", "command": "npx"}
+            )
+
+
+class TestMCPRepository:
+    @pytest.mark.asyncio
+    async def test_save_and_load_headers(self, session: Any) -> None:
+        cfg = MCPServerConfig(
+            name="mcd-mcp",
+            transport="streamablehttp",
+            url="https://mcp.mcd.cn",
+            headers=(("Authorization", "Bearer token"),),
+        )
+
+        await mcp_repository.save_mcp_server(session, cfg)
+        loaded = await mcp_repository.list_mcp_servers(session)
+
+        assert len(loaded) == 1
+        assert loaded[0].transport == "streamablehttp"
+        assert dict(loaded[0].headers) == {"Authorization": "Bearer token"}
 
 
 # ---------------------------------------------------------------------------
@@ -603,13 +645,19 @@ class TestMCPRoutes:
             },
             configs={
                 "global": MCPServerConfig(
-                    name="global", transport="stdio", command="npx"
+                    name="global",
+                    transport="streamablehttp",
+                    url="https://global.example/mcp",
                 ),
                 "user-1:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 ),
                 "user-2:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 ),
             },
         )
@@ -626,18 +674,16 @@ class TestMCPRoutes:
         assert result["servers"] == [
             {
                 "name": "global",
-                "transport": "stdio",
-                "command": "npx",
-                "url": "",
+                "transport": "streamablehttp",
+                "url": "https://global.example/mcp",
                 "status": "connected",
                 "tool_count": 1,
                 "enabled": True,
             },
             {
                 "name": "shared",
-                "transport": "stdio",
-                "command": "npx",
-                "url": "",
+                "transport": "streamablehttp",
+                "url": "https://shared.example/mcp",
                 "status": "connected",
                 "tool_count": 1,
                 "enabled": True,
@@ -660,7 +706,9 @@ class TestMCPRoutes:
             clients={"user-2:shared": _FakeRouteClient()},
             configs={
                 "user-2:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 )
             },
         )
@@ -677,7 +725,11 @@ class TestMCPRoutes:
         monkeypatch.setattr(mcp_routes, "db_save_mcp_server", AsyncMock())
 
         response = await mcp_routes.add_server(
-            MCPServerCreateRequest(name="shared", transport="stdio", command="npx"),
+            MCPServerCreateRequest(
+                name="shared",
+                transport="streamablehttp",
+                url="https://shared.example/mcp",
+            ),
             _app_state(mcp_state),
             _auth_user(),
         )
@@ -712,15 +764,22 @@ class TestMCPRoutes:
             clients={"user-1:shared": user_client, "user-2:shared": peer_client},
             configs={
                 "user-1:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 ),
                 "user-2:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 ),
             },
         )
         updated = MCPServerConfig(
-            name="shared", transport="stdio", command="npx", enabled=False
+            name="shared",
+            transport="streamablehttp",
+            url="https://shared.example/mcp",
+            enabled=False,
         )
 
         monkeypatch.setattr(
@@ -758,12 +817,18 @@ class TestMCPRoutes:
             clients={"user-1:shared": old_client},
             configs={
                 "user-1:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx", enabled=False
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
+                    enabled=False,
                 )
             },
         )
         updated = MCPServerConfig(
-            name="shared", transport="stdio", command="npx", enabled=True
+            name="shared",
+            transport="streamablehttp",
+            url="https://shared.example/mcp",
+            enabled=True,
         )
 
         monkeypatch.setattr(
@@ -818,10 +883,14 @@ class TestMCPRoutes:
             clients={"user-1:shared": user_client, "user-2:shared": peer_client},
             configs={
                 "user-1:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 ),
                 "user-2:shared": MCPServerConfig(
-                    name="shared", transport="stdio", command="npx"
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
                 ),
             },
         )

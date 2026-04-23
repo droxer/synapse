@@ -8,18 +8,28 @@ import {
   toggleMCPServer,
   type MCPServer,
 } from "../api/mcp-api";
+import { useTranslation } from "@/i18n";
+import {
+  parseMCPConfig,
+  type MCPTransport,
+} from "../lib/parse-mcp-config";
 
 export function useMCPServers() {
+  const { t } = useTranslation();
   const [servers, setServers] = useState<readonly MCPServer[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Add form state
   const [showForm, setShowForm] = useState(false);
+  const [formSchema, setFormSchema] = useState("");
   const [formName, setFormName] = useState("");
-  const [formTransport, setFormTransport] = useState<"stdio" | "sse">("sse");
-  const [formCommand, setFormCommand] = useState("");
+  const [formTransport, setFormTransport] =
+    useState<MCPTransport>("streamablehttp");
   const [formUrl, setFormUrl] = useState("");
+  const [formHeaders, setFormHeaders] =
+    useState<Readonly<Record<string, string>>>({});
+  const [formTimeout, setFormTimeout] = useState<number | undefined>(undefined);
   const [submitting, setSubmitting] = useState(false);
 
   // Delete confirmation
@@ -39,12 +49,30 @@ export function useMCPServers() {
   }, []);
 
   const resetForm = useCallback(() => {
+    setFormSchema("");
     setFormName("");
-    setFormCommand("");
     setFormUrl("");
-    setFormTransport("sse");
+    setFormHeaders({});
+    setFormTimeout(undefined);
+    setFormTransport("streamablehttp");
     setShowForm(false);
   }, []);
+
+  const applySchema = useCallback((value?: string) => {
+    const source = value ?? formSchema;
+    try {
+      const parsed = parseMCPConfig(source);
+      setFormSchema(source);
+      setFormName(parsed.name);
+      setFormTransport(parsed.transport);
+      setFormUrl(parsed.url);
+      setFormHeaders(parsed.headers);
+      setFormTimeout(parsed.timeout);
+      setError(null);
+    } catch {
+      setError(t("mcp.invalidSchema"));
+    }
+  }, [formSchema, t]);
 
   const handleAdd = useCallback(async () => {
     if (!formName.trim()) return;
@@ -54,8 +82,9 @@ export function useMCPServers() {
       await addMCPServer({
         name: formName.trim(),
         transport: formTransport,
-        command: formTransport === "stdio" ? formCommand : "",
-        url: formTransport === "sse" ? formUrl : "",
+        url: formUrl,
+        headers: formHeaders,
+        timeout: formTimeout,
       });
       resetForm();
       await loadServers();
@@ -64,7 +93,15 @@ export function useMCPServers() {
     } finally {
       setSubmitting(false);
     }
-  }, [formName, formTransport, formCommand, formUrl, resetForm, loadServers]);
+  }, [
+    formName,
+    formTransport,
+    formUrl,
+    formHeaders,
+    formTimeout,
+    resetForm,
+    loadServers,
+  ]);
 
   const handleDelete = useCallback(async () => {
     if (!serverToDelete) return;
@@ -105,19 +142,21 @@ export function useMCPServers() {
     setError,
     showForm,
     setShowForm,
+    formSchema,
+    setFormSchema,
     formName,
     setFormName,
     formTransport,
     setFormTransport,
-    formCommand,
-    setFormCommand,
     formUrl,
     setFormUrl,
+    formHeaders,
     submitting,
     serverToDelete,
     setServerToDelete,
     loadServers,
     resetForm,
+    applySchema,
     handleAdd,
     handleDelete,
     handleToggle,

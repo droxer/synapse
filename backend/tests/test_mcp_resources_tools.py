@@ -16,7 +16,6 @@ from agent.mcp.client import (
     MCPResourceReadResult,
     MCPResourceSchema,
     MCPResourceTemplateSchema,
-    MCPStdioClient,
     _extract_text_content,
 )
 from agent.mcp.sse_client import MCPSSEClient
@@ -114,9 +113,9 @@ def test_extract_text_content_renders_text_and_binary_blocks() -> None:
 
 
 @pytest.mark.asyncio
-async def test_stdio_and_sse_clients_support_resources_and_prompts() -> None:
-    stdio_client = MCPStdioClient(command="echo", server_name="docs")
-    stdio_client._send_request = AsyncMock(  # type: ignore[method-assign]
+async def test_http_client_supports_resources_and_prompts() -> None:
+    http_client = MCPSSEClient(url="https://example.com/mcp", server_name="docs")
+    http_client._send_request = AsyncMock(  # type: ignore[method-assign]
         side_effect=[
             {
                 "resources": [
@@ -165,10 +164,10 @@ async def test_stdio_and_sse_clients_support_resources_and_prompts() -> None:
         ]
     )
 
-    resources = await stdio_client.list_resources()
-    templates = await stdio_client.list_resource_templates()
-    resource = await stdio_client.read_resource("file://guide.txt")
-    prompts = await stdio_client.list_prompts()
+    resources = await http_client.list_resources()
+    templates = await http_client.list_resource_templates()
+    resource = await http_client.read_resource("file://guide.txt")
+    prompts = await http_client.list_prompts()
 
     assert resources[0].uri == "file://guide.txt"
     assert templates[0].uri_template == "file://reports/{id}.txt"

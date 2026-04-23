@@ -6,15 +6,15 @@ import {
   Blocks,
   Globe,
   Plus,
-  SquareTerminal,
   Unplug,
   Search,
+  Radio,
 } from "lucide-react";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { MCPServerCard } from "./MCPServerCard";
-import { MCPServerForm } from "./MCPServerForm";
+import { MCPAddServerDialog } from "./MCPAddServerDialog";
 import { Button } from "@/shared/components/ui/button";
 import {
   AlertDialog,
@@ -26,13 +26,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/shared/components/ui/alert-dialog";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/shared/components/ui/dialog";
 import { cn } from "@/shared/lib/utils";
 import { listVariants } from "@/shared/lib/animations";
 import { useTranslation } from "@/i18n";
@@ -69,19 +62,21 @@ export function MCPPage() {
     setError,
     showForm,
     setShowForm,
+    formSchema,
+    setFormSchema,
     formName,
     setFormName,
     formTransport,
     setFormTransport,
-    formCommand,
-    setFormCommand,
     formUrl,
     setFormUrl,
+    formHeaders,
     submitting,
     serverToDelete,
     setServerToDelete,
     loadServers,
     resetForm,
+    applySchema,
     handleAdd,
     handleDelete,
     handleToggle,
@@ -94,12 +89,12 @@ export function MCPPage() {
   const connectedCount = servers.filter(
     (s) => s.status === "connected",
   ).length;
-  const remoteCount = useMemo(
-    () => servers.filter((s) => Boolean(s.url)).length,
+  const streamableCount = useMemo(
+    () => servers.filter((s) => s.transport === "streamablehttp").length,
     [servers],
   );
-  const localCount = useMemo(
-    () => servers.filter((s) => Boolean(s.command)).length,
+  const sseCount = useMemo(
+    () => servers.filter((s) => s.transport === "sse").length,
     [servers],
   );
 
@@ -107,7 +102,6 @@ export function MCPPage() {
     ? servers.filter(
         (s) =>
           s.name.toLowerCase().includes(filter.toLowerCase()) ||
-          s.command?.toLowerCase().includes(filter.toLowerCase()) ||
           s.url?.toLowerCase().includes(filter.toLowerCase()),
       )
     : servers;
@@ -160,19 +154,19 @@ export function MCPPage() {
               <div className="rounded-lg bg-muted/50 px-4 py-3">
                 <div className="flex items-center gap-2">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="label-mono text-muted-foreground-dim">URL</span>
+                  <span className="label-mono text-muted-foreground-dim">HTTP</span>
                 </div>
                 <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {remoteCount}
+                  {streamableCount}
                 </p>
               </div>
               <div className="rounded-lg bg-muted/50 px-4 py-3">
                 <div className="flex items-center gap-2">
-                  <SquareTerminal className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="label-mono text-muted-foreground-dim">CMD</span>
+                  <Radio className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span className="label-mono text-muted-foreground-dim">SSE</span>
                 </div>
                 <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {localCount}
+                  {sseCount}
                 </p>
               </div>
             </div>
@@ -279,32 +273,26 @@ export function MCPPage() {
         </div>
       </div>
 
-      {/* ── Add server dialog ── */}
-      <Dialog open={showForm} onOpenChange={(open) => { if (!open) resetForm(); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("mcp.addFormTitle")}</DialogTitle>
-            <DialogDescription>{t("mcp.subtitle")}</DialogDescription>
-          </DialogHeader>
-
-          <MCPServerForm
-            error={error}
-            onDismissError={() => setError(null)}
-            formName={formName}
-            onFormNameChange={setFormName}
-            formTransport={formTransport}
-            onFormTransportChange={setFormTransport}
-            formCommand={formCommand}
-            onFormCommandChange={setFormCommand}
-            formUrl={formUrl}
-            onFormUrlChange={setFormUrl}
-            submitting={submitting}
-            onSubmit={handleAdd}
-            onCancel={resetForm}
-            idPrefix="mcp-page"
-          />
-        </DialogContent>
-      </Dialog>
+      <MCPAddServerDialog
+        open={showForm}
+        onOpenChange={(open) => { if (!open) resetForm(); }}
+        error={error}
+        onDismissError={() => setError(null)}
+        formSchema={formSchema}
+        onFormSchemaChange={setFormSchema}
+        formName={formName}
+        onFormNameChange={setFormName}
+        formTransport={formTransport}
+        onFormTransportChange={setFormTransport}
+        formUrl={formUrl}
+        onFormUrlChange={setFormUrl}
+        headerCount={Object.keys(formHeaders).length}
+        submitting={submitting}
+        onApplySchema={applySchema}
+        onSubmit={handleAdd}
+        onCancel={resetForm}
+        idPrefix="mcp-page"
+      />
 
       {/* ── Delete confirmation ── */}
       <AlertDialog

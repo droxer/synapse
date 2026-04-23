@@ -72,10 +72,14 @@ class MCPSSEClient:
         url: str,
         server_name: str = "",
         timeout: float = 30.0,
+        headers: tuple[tuple[str, str], ...] = (),
+        allow_legacy_fallback: bool = True,
     ) -> None:
         self._url = url.rstrip("/")
         self._server_name = server_name
         self._timeout = timeout
+        self._headers = dict(headers)
+        self._allow_legacy_fallback = allow_legacy_fallback
         self._http: httpx.AsyncClient | None = None
         self._request_id = itertools.count(1)
         self._connected = False
@@ -103,6 +107,12 @@ class MCPSSEClient:
             logger.info("mcp_streamable_connected server={}", self._server_name)
             return
         except _StreamableNotSupported:
+            if not self._allow_legacy_fallback:
+                await self.close()
+                raise RuntimeError(
+                    f"MCP server {self._server_name} does not support "
+                    f"Streamable HTTP at {self._url}"
+                ) from None
             logger.debug(
                 "mcp_streamable_not_supported server={}, trying legacy SSE",
                 self._server_name,
@@ -297,6 +307,8 @@ class MCPSSEClient:
             self._legacy_task.cancel()
         self._reject_pending("MCP SSE client closed")
         if self._http is not None:
+            if not self._legacy and self._session_id is not None:
+                await self._streamable_delete_session()
             await self._http.aclose()
             self._http = None
         logger.info("mcp_sse_disconnected server={}", self._server_name)
@@ -336,7 +348,11 @@ class MCPSSEClient:
         await self._streamable_send_notification("notifications/initialized", {})
 
     async def _streamable_send_request(
-        self, method: str, params: dict[str, Any]
+        self,
+        method: str,
+        params: dict[str, Any],
+        *,
+        retry_session_expired: bool = True,
     ) -> dict[str, Any]:
         if self._http is None:
             raise RuntimeError("MCP SSE client not connected")
@@ -348,17 +364,25 @@ class MCPSSEClient:
             "method": method,
             "params": params,
         }
-        headers: dict[str, str] = {
-            "Content-Type": "application/json",
-            "Accept": "application/json, text/event-stream",
-        }
-        if self._session_id is not None:
-            headers["Mcp-Session-Id"] = self._session_id
+        headers = self._streamable_headers(include_content_type=True)
 
         try:
             resp = await self._http.post(self._url, json=message, headers=headers)
         except httpx.HTTPError as exc:
             raise _StreamableNotSupported from exc
+
+        if (
+            retry_session_expired
+            and resp.status_code == 404
+            and self._session_id is not None
+        ):
+            self._session_id = None
+            await self._streamable_initialize()
+            return await self._streamable_send_request(
+                method,
+                params,
+                retry_session_expired=False,
+            )
 
         if resp.status_code in (404, 405, 406):
             raise _StreamableNotSupported
@@ -389,9 +413,7 @@ class MCPSSEClient:
             "method": method,
             "params": params,
         }
-        headers: dict[str, str] = {"Content-Type": "application/json"}
-        if self._session_id is not None:
-            headers["Mcp-Session-Id"] = self._session_id
+        headers = self._streamable_headers(include_content_type=True)
         try:
             resp = await self._http.post(self._url, json=message, headers=headers)
             # Notifications may return 200, 202, or 204; ignore body.
@@ -404,6 +426,36 @@ class MCPSSEClient:
                 method,
                 exc.response.status_code,
             )
+
+    def _streamable_headers(self, *, include_content_type: bool) -> dict[str, str]:
+        """Build headers for a Streamable HTTP JSON-RPC request."""
+        headers = dict(self._headers)
+        headers["Accept"] = "application/json, text/event-stream"
+        headers["MCP-Protocol-Version"] = MCP_PROTOCOL_VERSION
+        if include_content_type:
+            headers["Content-Type"] = "application/json"
+        if self._session_id is not None:
+            headers["Mcp-Session-Id"] = self._session_id
+        return headers
+
+    async def _streamable_delete_session(self) -> None:
+        """Best-effort Streamable HTTP session termination."""
+        if self._http is None or self._session_id is None:
+            return
+        try:
+            response = await self._http.delete(
+                self._url,
+                headers=self._streamable_headers(include_content_type=False),
+            )
+            if response.status_code not in (200, 202, 204, 404):
+                response.raise_for_status()
+        except httpx.HTTPError:
+            logger.debug(
+                "mcp_streamable_delete_session_failed server={}",
+                self._server_name,
+            )
+        finally:
+            self._session_id = None
 
     @staticmethod
     def _extract_result_from_sse(text: str, req_id: int) -> dict[str, Any]:
@@ -464,7 +516,7 @@ class MCPSSEClient:
         resp = await self._http.post(
             self._legacy_endpoint,
             json=message,
-            headers={"Content-Type": "application/json"},
+            headers={**self._headers, "Content-Type": "application/json"},
         )
         resp.raise_for_status()
 
@@ -485,7 +537,11 @@ class MCPSSEClient:
         if self._http is None:
             return
         try:
-            async with self._http.stream("GET", sse_url) as response:
+            async with self._http.stream(
+                "GET",
+                sse_url,
+                headers={**self._headers, "Accept": "text/event-stream"},
+            ) as response:
                 response.raise_for_status()
                 event_type = ""
                 data_lines: list[str] = []

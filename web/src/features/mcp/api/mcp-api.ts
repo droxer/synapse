@@ -1,9 +1,9 @@
 import { API_BASE } from "@/shared/constants";
+import type { MCPTransport } from "../lib/parse-mcp-config";
 
 export interface MCPServer {
   readonly name: string;
-  readonly transport: "stdio" | "sse";
-  readonly command: string;
+  readonly transport: MCPTransport;
   readonly url: string;
   readonly status: "connected" | "disconnected";
   readonly tool_count: number;
@@ -12,11 +12,9 @@ export interface MCPServer {
 
 export interface MCPServerCreateParams {
   readonly name: string;
-  readonly transport: "stdio" | "sse";
-  readonly command?: string;
-  readonly args?: readonly string[];
+  readonly transport: MCPTransport;
   readonly url?: string;
-  readonly env?: Readonly<Record<string, string>>;
+  readonly headers?: Readonly<Record<string, string>>;
   readonly timeout?: number;
 }
 

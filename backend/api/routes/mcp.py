@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -13,7 +12,7 @@ from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import async_sessionmaker, AsyncSession
 
 from agent.mcp.bridge import MCPBridgedTool, mcp_server_tag
-from agent.mcp.client import MCPClient, MCPStdioClient
+from agent.mcp.client import MCPClient
 from agent.mcp.config import MCPServerConfig
 from agent.mcp.repository import (
     delete_mcp_server as db_delete_mcp_server,
@@ -29,36 +28,6 @@ from api.models import MCPServerCreateRequest, MCPServerResponse
 from api.routes.conversations import _resolve_user_id
 from config.settings import get_settings
 
-# ---------------------------------------------------------------------------
-# Constants
-# ---------------------------------------------------------------------------
-
-_MCP_BLOCKED_ENV_VARS = {
-    # Standard UNIX process-injection vectors
-    "PATH",
-    "LD_PRELOAD",
-    "LD_LIBRARY_PATH",
-    # macOS dynamic-linker equivalents of LD_PRELOAD
-    "DYLD_INSERT_LIBRARIES",
-    "DYLD_LIBRARY_PATH",
-    # Language-specific startup hooks that execute arbitrary code
-    "PYTHONPATH",
-    "PYTHONSTARTUP",
-    "PYTHONUSERSITE",
-    "NODE_PATH",
-    # Node --require / --import flags smuggled via environment
-    "NODE_OPTIONS",
-    # Miscellaneous identity variables that should come from the process owner
-    "HOME",
-    "USER",
-}
-
-# NOTE: This whitelist is a UX guardrail, not a security boundary.  Both
-# ``python``/``python3`` and ``node``/``npx``/``uvx`` can execute arbitrary
-# code once spawned, so the list prevents *accidental* use of system
-# executables (bash, curl, rm …) rather than preventing intentional misuse.
-_ALLOWED_MCP_COMMANDS = {"npx", "uvx", "node", "python", "python3"}
-
 router = APIRouter(prefix="/mcp", dependencies=common_dependencies)
 
 
@@ -67,22 +36,43 @@ router = APIRouter(prefix="/mcp", dependencies=common_dependencies)
 # ---------------------------------------------------------------------------
 
 
+def _iter_mcp_config_entries(entries: Any) -> list[tuple[str, dict[str, Any]]]:
+    """Normalize list and object-style MCP config containers."""
+    if isinstance(entries, dict) and isinstance(entries.get("mcpServers"), dict):
+        entries = entries["mcpServers"]
+
+    if isinstance(entries, list):
+        result: list[tuple[str, dict[str, Any]]] = []
+        for entry in entries:
+            if isinstance(entry, dict):
+                result.append((str(entry.get("name", "unknown")), entry))
+        return result
+
+    if isinstance(entries, dict):
+        result = []
+        for name, entry in entries.items():
+            if isinstance(entry, dict):
+                result.append((str(name), entry))
+        return result
+
+    return []
+
+
 def _parse_mcp_configs(raw: str) -> tuple[MCPServerConfig, ...]:
     """Parse MCP_SERVERS JSON string into validated config objects."""
     entries = json.loads(raw)
     configs: list[MCPServerConfig] = []
-    for entry in entries:
-        if not isinstance(entry, dict):
-            continue
+    for name, entry in _iter_mcp_config_entries(entries):
         try:
             configs.append(
                 MCPServerConfig(
-                    name=entry.get("name", "unknown"),
-                    transport=entry.get("transport", "stdio"),
-                    command=entry.get("command", ""),
-                    args=tuple(entry.get("args", [])),
+                    name=entry.get("name", name),
+                    transport=entry.get(
+                        "transport",
+                        entry.get("type", "streamablehttp"),
+                    ),
                     url=entry.get("url", ""),
-                    env=tuple((k, v) for k, v in entry.get("env", {}).items()),
+                    headers=tuple((k, v) for k, v in entry.get("headers", {}).items()),
                     timeout=float(entry.get("timeout", 30.0)),
                 )
             )
@@ -95,18 +85,12 @@ def _parse_mcp_configs(raw: str) -> tuple[MCPServerConfig, ...]:
 
 def _create_client_for_config(cfg: MCPServerConfig) -> MCPClient:
     """Create the appropriate MCP client for a server config."""
-    if cfg.transport == "sse":
-        return MCPSSEClient(
-            url=cfg.url,
-            server_name=cfg.name,
-            timeout=cfg.timeout,
-        )
-    return MCPStdioClient(
-        command=cfg.command,
-        args=cfg.args,
-        env=cfg.env,
+    return MCPSSEClient(
+        url=cfg.url,
         server_name=cfg.name,
         timeout=cfg.timeout,
+        headers=cfg.headers,
+        allow_legacy_fallback=cfg.transport == "sse",
     )
 
 
@@ -232,8 +216,7 @@ def _build_server_response(mcp_state: Any, key: str) -> MCPServerResponse:
 
     return MCPServerResponse(
         name=display_name,
-        transport=cfg.transport if cfg else "stdio",
-        command=cfg.command if cfg else "",
+        transport=cfg.transport if cfg else "streamablehttp",
         url=cfg.url if cfg else "",
         status="connected" if client and _client_is_alive(client) else "disconnected",
         tool_count=tool_count,
@@ -288,36 +271,20 @@ async def add_server(
             status_code=409, detail=f"Server '{request.name}' already exists"
         )
 
-    # Validate transport-specific constraints.
-    if request.transport == "stdio":
-        command_basename = os.path.basename(request.command)
-        if command_basename not in _ALLOWED_MCP_COMMANDS:
-            raise HTTPException(
-                status_code=403,
-                detail=f"Command '{command_basename}' is not in the allowed MCP commands: {sorted(_ALLOWED_MCP_COMMANDS)}",
-            )
-    elif request.transport == "sse":
-        # Validate the SSE URL to prevent SSRF attacks.
-        from agent.skills.installer import _validate_https_url, _validate_not_internal
+    # Validate the HTTP URL to prevent SSRF attacks.
+    from agent.skills.installer import _validate_https_url, _validate_not_internal
 
-        try:
-            _validate_https_url(request.url)
-            _validate_not_internal(request.url)
-        except ValueError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
-
-    # Filter blocked environment variables
-    sanitized_env = {
-        k: v for k, v in request.env.items() if k not in _MCP_BLOCKED_ENV_VARS
-    }
+    try:
+        _validate_https_url(request.url)
+        _validate_not_internal(request.url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
     cfg = MCPServerConfig(
         name=request.name,
         transport=request.transport,
-        command=request.command,
-        args=tuple(request.args),
         url=request.url,
-        env=tuple(sanitized_env.items()),
+        headers=tuple(request.headers.items()),
         timeout=request.timeout,
     )
 

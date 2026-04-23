@@ -187,7 +187,7 @@ Synapse/
 │   │   │   ├── manager.py   # ArtifactManager — downloads/tracks sandbox files
 │   │   │   └── storage.py   # StorageBackend abstraction (local/R2)
 │   │   ├── mcp/              # Model Context Protocol
-│   │   │   ├── client.py    # MCPStdioClient — stdio-based communication
+│   │   │   ├── client.py    # Shared MCP protocol client types
 │   │   │   ├── bridge.py    # MCP bridge for tool registration
 │   │   │   └── config.py    # MCP server configuration
 │   │   └── logging.py       # Loguru setup

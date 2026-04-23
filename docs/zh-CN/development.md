@@ -184,7 +184,7 @@ Synapse/
 │   │   │   ├── manager.py   # ArtifactManager — 下载/追踪沙箱文件
 │   │   │   └── storage.py   # StorageBackend 抽象（local/R2）
 │   │   ├── mcp/              # Model Context Protocol
-│   │   │   ├── client.py    # MCPStdioClient — 基于 stdio 的通信
+│   │   │   ├── client.py    # 共享 MCP 协议客户端类型
 │   │   │   ├── bridge.py    # MCP 桥接，用于工具注册
 │   │   │   └── config.py    # MCP 服务器配置
 │   │   └── logging.py       # Loguru 日志配置

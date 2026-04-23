@@ -5,10 +5,10 @@ import { motion } from "framer-motion";
 import {
   Trash2,
   Plus,
-  Terminal,
   Radio,
   Unplug,
   Wrench,
+  Globe,
 } from "lucide-react";
 import {
   Dialog,
@@ -33,7 +33,7 @@ import { cn } from "@/shared/lib/utils";
 import { listContainer, listItem } from "@/shared/lib/animations";
 import { useTranslation } from "@/i18n";
 import { useMCPServers } from "../hooks/use-mcp-servers";
-import { MCPServerForm } from "./MCPServerForm";
+import { MCPAddServerDialog } from "./MCPAddServerDialog";
 
 /* ── shimmer skeleton ── */
 function ServerSkeleton() {
@@ -65,19 +65,21 @@ export function MCPDialog({
     setError,
     showForm,
     setShowForm,
+    formSchema,
+    setFormSchema,
     formName,
     setFormName,
     formTransport,
     setFormTransport,
-    formCommand,
-    setFormCommand,
     formUrl,
     setFormUrl,
+    formHeaders,
     submitting,
     serverToDelete,
     setServerToDelete,
     loadServers,
     resetForm,
+    applySchema,
     handleAdd,
     handleDelete,
     handleToggle,
@@ -184,8 +186,8 @@ export function MCPDialog({
                             server.enabled === false && "opacity-60",
                           )}
                         >
-                          {server.transport === "stdio" ? (
-                            <Terminal className="h-3 w-3" />
+                          {server.transport === "streamablehttp" ? (
+                            <Globe className="h-3 w-3" />
                           ) : (
                             <Radio className="h-3 w-3" />
                           )}
@@ -202,11 +204,11 @@ export function MCPDialog({
                             ? t("mcp.toolCount", { count: server.tool_count })
                             : t("mcp.toolsCount", { count: server.tool_count })}
                         </span>
-                        {(server.command || server.url) && (
+                        {server.url && (
                           <>
                             <span className="text-border">|</span>
                             <span className="truncate font-mono">
-                              {server.command || server.url}
+                              {server.url}
                             </span>
                           </>
                         )}
@@ -256,32 +258,26 @@ export function MCPDialog({
         </DialogContent>
       </Dialog>
 
-      {/* Add server dialog */}
-      <Dialog open={showForm} onOpenChange={(isOpen) => { if (!isOpen) resetForm(); }}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle>{t("mcp.addFormTitle")}</DialogTitle>
-            <DialogDescription>{t("mcp.subtitle")}</DialogDescription>
-          </DialogHeader>
-
-          <MCPServerForm
-            error={error}
-            onDismissError={() => setError(null)}
-            formName={formName}
-            onFormNameChange={setFormName}
-            formTransport={formTransport}
-            onFormTransportChange={setFormTransport}
-            formCommand={formCommand}
-            onFormCommandChange={setFormCommand}
-            formUrl={formUrl}
-            onFormUrlChange={setFormUrl}
-            submitting={submitting}
-            onSubmit={handleAdd}
-            onCancel={resetForm}
-            idPrefix="mcp-dialog"
-          />
-        </DialogContent>
-      </Dialog>
+      <MCPAddServerDialog
+        open={showForm}
+        onOpenChange={(isOpen) => { if (!isOpen) resetForm(); }}
+        error={error}
+        onDismissError={() => setError(null)}
+        formSchema={formSchema}
+        onFormSchemaChange={setFormSchema}
+        formName={formName}
+        onFormNameChange={setFormName}
+        formTransport={formTransport}
+        onFormTransportChange={setFormTransport}
+        formUrl={formUrl}
+        onFormUrlChange={setFormUrl}
+        headerCount={Object.keys(formHeaders).length}
+        submitting={submitting}
+        onApplySchema={applySchema}
+        onSubmit={handleAdd}
+        onCancel={resetForm}
+        idPrefix="mcp-dialog"
+      />
 
       {/* Delete confirmation */}
       <AlertDialog

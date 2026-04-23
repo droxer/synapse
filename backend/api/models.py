@@ -7,10 +7,10 @@ import time as _time
 from dataclasses import dataclass, field
 from typing import Any, Protocol
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import AliasChoices, BaseModel, Field, field_validator
 
 from agent.mcp.client import MCPClient
-from agent.mcp.config import MCPServerConfig
+from agent.mcp.config import MCP_RESERVED_HTTP_HEADERS, MCPServerConfig
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import AgentEvent, EventEmitter
@@ -208,7 +208,6 @@ class MCPServerResponse(BaseModel):
 
     name: str
     transport: str
-    command: str = ""
     url: str = ""
     status: str  # "connected" | "disconnected"
     tool_count: int = 0
@@ -231,35 +230,37 @@ class MCPServerCreateRequest(BaseModel):
     """Request body for adding a new MCP server."""
 
     name: str = Field(max_length=100)
-    transport: str
-    command: str = ""
-    args: list[str] = Field(default_factory=list)
+    transport: str = Field(validation_alias=AliasChoices("transport", "type"))
     url: str = ""
-    env: dict[str, str] = Field(default_factory=dict)
+    headers: dict[str, str] = Field(default_factory=dict)
     timeout: float = 30.0
 
     @field_validator("transport")
     @classmethod
     def transport_must_be_valid(cls, v: str) -> str:
-        if v not in ("stdio", "sse"):
-            raise ValueError("transport must be 'stdio' or 'sse'")
-        return v
-
-    @field_validator("command")
-    @classmethod
-    def stdio_requires_command(cls, v: str, info: Any) -> str:
-        transport = info.data.get("transport", "")
-        if transport == "stdio" and not v.strip():
-            raise ValueError("stdio transport requires a non-empty command")
+        if v not in ("sse", "streamablehttp"):
+            raise ValueError("transport must be 'sse' or 'streamablehttp'")
         return v
 
     @field_validator("url")
     @classmethod
     def sse_requires_url(cls, v: str, info: Any) -> str:
         transport = info.data.get("transport", "")
-        if transport == "sse":
+        if transport in ("sse", "streamablehttp"):
             if not v.strip():
-                raise ValueError("sse transport requires a non-empty url")
+                raise ValueError(f"{transport} transport requires a non-empty url")
             if not v.startswith(("http://", "https://")):
-                raise ValueError("sse url must start with http:// or https://")
+                raise ValueError(f"{transport} url must start with http:// or https://")
+        return v
+
+    @field_validator("headers")
+    @classmethod
+    def headers_must_be_safe(cls, v: dict[str, str]) -> dict[str, str]:
+        for name, value in v.items():
+            if not name.strip():
+                raise ValueError("MCP HTTP header names must not be empty")
+            if "\n" in name or "\r" in name or "\n" in value or "\r" in value:
+                raise ValueError("MCP HTTP headers must not contain newlines")
+            if name.lower() in MCP_RESERVED_HTTP_HEADERS:
+                raise ValueError(f"MCP HTTP header {name!r} is managed by Synapse")
         return v

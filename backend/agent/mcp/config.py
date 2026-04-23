@@ -5,7 +5,16 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
-_VALID_TRANSPORTS = frozenset({"stdio", "sse"})
+_VALID_TRANSPORTS = frozenset({"sse", "streamablehttp"})
+
+MCP_RESERVED_HTTP_HEADERS = frozenset(
+    {
+        "accept",
+        "content-type",
+        "mcp-protocol-version",
+        "mcp-session-id",
+    }
+)
 
 
 @dataclass(frozen=True)
@@ -14,20 +23,16 @@ class MCPServerConfig:
 
     Attributes:
         name: Human-readable server name.
-        transport: Connection method ("stdio" or "sse").
-        command: For stdio transport, the command to spawn the server.
-        args: For stdio transport, command arguments.
-        url: For SSE transport, the server URL.
-        env: Environment variables to pass to stdio server.
+        transport: Connection method ("sse" or "streamablehttp").
+        url: Server URL.
+        headers: Extra HTTP headers for SSE and Streamable HTTP transports.
         timeout: Per-server request timeout in seconds.
     """
 
     name: str
-    transport: str  # "stdio" or "sse"
-    command: str = ""
-    args: tuple[str, ...] = ()
+    transport: str  # "sse" or "streamablehttp"
     url: str = ""
-    env: tuple[tuple[str, str], ...] = ()
+    headers: tuple[tuple[str, str], ...] = ()
     timeout: float = 30.0
     enabled: bool = True
 
@@ -37,7 +42,19 @@ class MCPServerConfig:
                 f"Unsupported MCP transport {self.transport!r}; "
                 f"expected one of {sorted(_VALID_TRANSPORTS)}"
             )
-        if self.transport == "stdio" and not self.command:
-            raise ValueError("stdio transport requires a command")
-        if self.transport == "sse" and not self.url:
-            raise ValueError("sse transport requires a url")
+        if not self.url:
+            raise ValueError(f"{self.transport} transport requires a url")
+        for name, value in self.headers:
+            _validate_http_header(name, value)
+
+
+def _validate_http_header(name: str, value: str) -> None:
+    """Validate a user-provided MCP HTTP header."""
+    if not isinstance(name, str) or not isinstance(value, str):
+        raise ValueError("MCP HTTP header names and values must be strings")
+    if not name.strip():
+        raise ValueError("MCP HTTP header names must not be empty")
+    if "\n" in name or "\r" in name or "\n" in value or "\r" in value:
+        raise ValueError("MCP HTTP headers must not contain newlines")
+    if name.lower() in MCP_RESERVED_HTTP_HEADERS:
+        raise ValueError(f"MCP HTTP header {name!r} is managed by Synapse")
