@@ -2,6 +2,16 @@ import type { AgentEvent } from "@/shared/types";
 
 const APPROXIMATE_DUPLICATE_WINDOW_MS = 2_000;
 
+export type UniqueEventSource = "history" | "live";
+
+export interface UniqueEventDedupState {
+  readonly seen: Set<string>;
+  readonly approximateSeen: Map<
+    string,
+    Array<{ timestamp: number; source: UniqueEventSource }>
+  >;
+}
+
 function normalizeComparableText(value: string): string {
   return value.trim().replace(/\s+/g, " ");
 }
@@ -149,6 +159,43 @@ function getApproximateEventFingerprint(event: AgentEvent): string | null {
   ].join("|");
 }
 
+export function createUniqueEventDedupState(): UniqueEventDedupState {
+  return {
+    seen: new Set<string>(),
+    approximateSeen: new Map<
+      string,
+      Array<{ timestamp: number; source: UniqueEventSource }>
+    >(),
+  };
+}
+
+export function claimUniqueEvent(
+  state: UniqueEventDedupState,
+  event: AgentEvent,
+  source: UniqueEventSource,
+): boolean {
+  const key = getEventKey(event);
+  if (state.seen.has(key)) return false;
+
+  const approximateFingerprint = getApproximateEventFingerprint(event);
+  if (approximateFingerprint) {
+    const entries = state.approximateSeen.get(approximateFingerprint) ?? [];
+    const hasNearbyDuplicate = entries.some(
+      ({ timestamp, source: seenSource }) =>
+        Math.abs(timestamp - event.timestamp) <= APPROXIMATE_DUPLICATE_WINDOW_MS
+        && (event.type !== "turn_start" || seenSource !== source),
+    );
+    if (hasNearbyDuplicate) {
+      return false;
+    }
+    entries.push({ timestamp: event.timestamp, source });
+    state.approximateSeen.set(approximateFingerprint, entries);
+  }
+
+  state.seen.add(key);
+  return true;
+}
+
 export function mergeUniqueEvents(
   historyEvents: readonly AgentEvent[],
   liveEvents: readonly AgentEvent[],
@@ -157,30 +204,11 @@ export function mergeUniqueEvents(
   // Sorting by timestamp reorders the stream when the backend uses coarse or
   // non-monotonic timestamps (common in long tool-heavy turns), which shuffles
   // assistant segments (e.g. research steps vs findings).
-  const seen = new Set<string>();
-  const approximateSeen = new Map<string, Array<{ timestamp: number; source: "history" | "live" }>>();
+  const state = createUniqueEventDedupState();
   const result: AgentEvent[] = [];
 
-  const appendEvent = (event: AgentEvent, source: "history" | "live") => {
-    const key = getEventKey(event);
-    if (seen.has(key)) return;
-
-    const approximateFingerprint = getApproximateEventFingerprint(event);
-    if (approximateFingerprint) {
-      const entries = approximateSeen.get(approximateFingerprint) ?? [];
-      const hasNearbyDuplicate = entries.some(
-        ({ timestamp, source: seenSource }) =>
-          Math.abs(timestamp - event.timestamp) <= APPROXIMATE_DUPLICATE_WINDOW_MS
-          && (event.type !== "turn_start" || seenSource !== source),
-      );
-      if (hasNearbyDuplicate) {
-        return;
-      }
-      entries.push({ timestamp: event.timestamp, source });
-      approximateSeen.set(approximateFingerprint, entries);
-    }
-
-    seen.add(key);
+  const appendEvent = (event: AgentEvent, source: UniqueEventSource) => {
+    if (!claimUniqueEvent(state, event, source)) return;
     result.push(event);
   };
 

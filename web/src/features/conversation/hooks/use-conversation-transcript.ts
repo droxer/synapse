@@ -3,13 +3,17 @@
 import { useMemo, useRef } from "react";
 import { useAgentState } from "@/features/agent-computer";
 import type { AgentEvent, ChatMessage } from "@/shared/types";
-import { getEventKey, mergeUniqueEvents } from "../lib/merge-unique-events";
+import {
+  claimUniqueEvent,
+  createUniqueEventDedupState,
+  type UniqueEventDedupState,
+} from "../lib/merge-unique-events";
 import { mergeHistoryWithEventDerivedMessages } from "../lib/merge-transcript-messages";
 import { mergeHistoryWithEventDerivedArtifacts } from "../lib/merge-transcript-artifacts";
 import type { ArtifactInfo } from "@/shared/types";
 
 interface IncrementalMergeState {
-  seenKeys: Set<string>;
+  dedupeState: UniqueEventDedupState;
   merged: AgentEvent[];
   historyLen: number;
   liveProcessed: number;
@@ -23,13 +27,34 @@ interface ConversationTranscriptState {
   readonly artifacts: ArtifactInfo[];
 }
 
+function buildMergedEventsWithDedupState(
+  historyEvents: readonly AgentEvent[],
+  liveEvents: readonly AgentEvent[],
+): { merged: AgentEvent[]; dedupeState: UniqueEventDedupState } {
+  const dedupeState = createUniqueEventDedupState();
+  const merged: AgentEvent[] = [];
+
+  for (const event of historyEvents) {
+    if (claimUniqueEvent(dedupeState, event, "history")) {
+      merged.push(event);
+    }
+  }
+  for (const event of liveEvents) {
+    if (claimUniqueEvent(dedupeState, event, "live")) {
+      merged.push(event);
+    }
+  }
+
+  return { merged, dedupeState };
+}
+
 function useIncrementalMerge(
   historyEvents: readonly AgentEvent[],
   liveEvents: readonly AgentEvent[],
   isLive: boolean,
 ): readonly AgentEvent[] {
   const stateRef = useRef<IncrementalMergeState>({
-    seenKeys: new Set(),
+    dedupeState: createUniqueEventDedupState(),
     merged: [],
     historyLen: 0,
     liveProcessed: 0,
@@ -46,9 +71,12 @@ function useIncrementalMerge(
       current.historyRef !== historyEvents || current.historyLen !== historyEvents.length;
 
     if (historyChanged) {
-      const merged = mergeUniqueEvents(historyEvents, liveEvents);
+      const { merged, dedupeState } = buildMergedEventsWithDedupState(
+        historyEvents,
+        liveEvents,
+      );
       stateRef.current = {
-        seenKeys: new Set(merged.map((event) => getEventKey(event))),
+        dedupeState,
         merged,
         historyLen: historyEvents.length,
         liveProcessed: liveEvents.length,
@@ -59,9 +87,12 @@ function useIncrementalMerge(
 
     if (liveEvents.length <= current.liveProcessed) {
       if (liveEvents.length < current.liveProcessed) {
-        const merged = mergeUniqueEvents(historyEvents, liveEvents);
+        const { merged, dedupeState } = buildMergedEventsWithDedupState(
+          historyEvents,
+          liveEvents,
+        );
         stateRef.current = {
-          seenKeys: new Set(merged.map((event) => getEventKey(event))),
+          dedupeState,
           merged,
           historyLen: historyEvents.length,
           liveProcessed: liveEvents.length,
@@ -76,9 +107,7 @@ function useIncrementalMerge(
     const newEvents: AgentEvent[] = [];
     for (let i = current.liveProcessed; i < liveEvents.length; i++) {
       const event = liveEvents[i];
-      const key = getEventKey(event);
-      if (!current.seenKeys.has(key)) {
-        current.seenKeys.add(key);
+      if (claimUniqueEvent(current.dedupeState, event, "live")) {
         newEvents.push(event);
       }
     }

@@ -1,5 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
-import { mergeUniqueEvents } from "./merge-unique-events";
+import {
+  claimUniqueEvent,
+  createUniqueEventDedupState,
+  mergeUniqueEvents,
+} from "./merge-unique-events";
 import { buildConversationTranscriptState } from "./build-conversation-transcript";
 import { normalizeHistoryEvent } from "../hooks/use-conversation-history";
 import { parseSSEEvent } from "@/shared/hooks/use-sse";
@@ -248,6 +252,66 @@ describe("mergeUniqueEvents", () => {
     expect(merged[0]?.type).toBe("turn_start");
   });
 
+  it("rejects drifted live replay after matching history events were already claimed", () => {
+    const state = createUniqueEventDedupState();
+    const accepted: AgentEvent[] = [];
+    const historyEvents: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "hello" },
+        timestamp: 1_000,
+        iteration: null,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "done" },
+        timestamp: 3_000,
+        iteration: 1,
+      },
+    ];
+    const replayedLiveEvents: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: {
+          message: "hello",
+          orchestrator_mode: "agent",
+          execution_shape: "single_agent",
+          execution_rationale: "restored live replay",
+        },
+        timestamp: 1_250,
+        iteration: null,
+      },
+      {
+        type: "turn_complete",
+        data: { result: " done " },
+        timestamp: 3_180,
+        iteration: 1,
+      },
+    ];
+
+    for (const event of historyEvents) {
+      if (claimUniqueEvent(state, event, "history")) {
+        accepted.push(event);
+      }
+    }
+    for (const event of replayedLiveEvents) {
+      if (claimUniqueEvent(state, event, "live")) {
+        accepted.push(event);
+      }
+    }
+
+    const transcript = buildConversationTranscriptState([], accepted, []);
+
+    expect(accepted.map((event) => event.type)).toEqual([
+      "turn_start",
+      "turn_complete",
+    ]);
+    expect(transcript.messages.map((message) => `${message.role}:${message.content}`)).toEqual([
+      "user:hello",
+      "assistant:done",
+    ]);
+  });
+
   it("keeps separate live turns when identical prompts arrive within the duplicate window", () => {
     const live: AgentEvent[] = [
       {
@@ -290,6 +354,25 @@ describe("mergeUniqueEvents", () => {
       "user:hello",
       "assistant:second answer",
     ]);
+  });
+
+  it("keeps separate same-source live turn starts in incremental dedupe state", () => {
+    const state = createUniqueEventDedupState();
+    const first: AgentEvent = {
+      type: "turn_start",
+      data: { message: "hello" },
+      timestamp: 1_000,
+      iteration: null,
+    };
+    const second: AgentEvent = {
+      type: "turn_start",
+      data: { message: "hello" },
+      timestamp: 1_400,
+      iteration: null,
+    };
+
+    expect(claimUniqueEvent(state, first, "live")).toBe(true);
+    expect(claimUniqueEvent(state, second, "live")).toBe(true);
   });
 
   it("dedupes turn_complete replay when refetched history only differs in transport metadata", () => {
