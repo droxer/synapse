@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import types
 from contextlib import asynccontextmanager
@@ -588,6 +589,11 @@ class _FakeRouteClient:
         return self._alive
 
 
+class _FailingRouteClient(_FakeRouteClient):
+    async def list_tools(self) -> tuple[MCPToolSchema, ...]:
+        raise RuntimeError("list failed")
+
+
 def _schema(name: str, server_name: str = "shared") -> MCPToolSchema:
     return MCPToolSchema(
         name=name,
@@ -615,6 +621,74 @@ def _app_state(mcp_state: MCPState) -> SimpleNamespace:
 
 
 class TestMCPRoutes:
+    @pytest.mark.asyncio
+    async def test_restore_persisted_servers_concurrent_restore_closes_losing_client(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mcp_state = MCPState(registry=ToolRegistry())
+        ready_count = 0
+        ready = asyncio.Event()
+        release = asyncio.Event()
+
+        class _BlockingRouteClient(_FakeRouteClient):
+            async def connect(self) -> None:
+                nonlocal ready_count
+                ready_count += 1
+                if ready_count == 2:
+                    ready.set()
+                await release.wait()
+                await super().connect()
+
+        clients = [
+            _BlockingRouteClient(schemas=(_schema("shared_tool"),)),
+            _BlockingRouteClient(schemas=(_schema("shared_tool"),)),
+        ]
+        all_clients = tuple(clients)
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(
+                return_value=(
+                    MCPServerConfig(
+                        name="shared",
+                        transport="streamablehttp",
+                        url="https://shared.example/mcp",
+                    ),
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "_create_client_for_config",
+            lambda cfg: clients.pop(0),
+        )
+
+        first_restore = asyncio.create_task(
+            mcp_routes._restore_persisted_servers(
+                mcp_state,
+                _app_state(mcp_state).db_session_factory,
+                user_id="user-1",
+            )
+        )
+        second_restore = asyncio.create_task(
+            mcp_routes._restore_persisted_servers(
+                mcp_state,
+                _app_state(mcp_state).db_session_factory,
+                user_id="user-1",
+            )
+        )
+        await asyncio.wait_for(ready.wait(), timeout=1)
+        release.set()
+
+        await asyncio.gather(first_restore, second_restore)
+
+        assert "user-1:shared" in mcp_state.clients
+        assert len(mcp_state.registry.list_tools()) == 1
+        restored_client = mcp_state.clients["user-1:shared"]
+        assert restored_client.closed is False
+        assert sum(client.closed for client in all_clients) == 1
+
     @pytest.mark.asyncio
     async def test_list_servers_only_counts_visible_namespaced_tools(
         self, monkeypatch: pytest.MonkeyPatch
@@ -865,6 +939,51 @@ class TestMCPRoutes:
         assert len(mcp_state.registry.list_tools()) == 1
 
     @pytest.mark.asyncio
+    async def test_toggle_server_enable_does_not_persist_when_reconnect_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        mcp_state = MCPState(
+            registry=ToolRegistry(),
+            clients={},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://shared.example/mcp",
+                    enabled=False,
+                )
+            },
+        )
+        failing_client = _FailingRouteClient()
+        set_enabled = AsyncMock()
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "_create_client_for_config",
+            lambda cfg: failing_client,
+        )
+        monkeypatch.setattr(mcp_routes, "db_set_mcp_server_enabled", set_enabled)
+
+        with pytest.raises(HTTPException) as exc_info:
+            await mcp_routes.toggle_server(
+                mcp_routes.MCPServerToggleRequest(enabled=True),
+                "shared",
+                _app_state(mcp_state),
+                _auth_user(),
+            )
+
+        assert exc_info.value.status_code == 502
+        assert failing_client.closed is True
+        set_enabled.assert_not_awaited()
+        assert mcp_state.clients == {}
+        assert mcp_state.configs["user-1:shared"].enabled is False
+
+    @pytest.mark.asyncio
     async def test_update_enabled_server_reconnects_and_replaces_tools(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -942,6 +1061,80 @@ class TestMCPRoutes:
         assert mcp_state.configs["user-1:renamed"].url == "https://new.example/mcp"
         tool_names = {tool.name for tool in mcp_state.registry.list_tools()}
         assert all("old_tool" not in name for name in tool_names)
+
+    @pytest.mark.asyncio
+    async def test_update_enabled_server_closes_new_client_when_db_update_fails(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        old_client = _FakeRouteClient()
+        new_client = _FakeRouteClient(schemas=(_schema("new_tool", "renamed"),))
+        registry = ToolRegistry().register(
+            MCPBridgedTool(
+                _schema("old_tool"),
+                client=None,  # type: ignore[arg-type]
+                server_key="user-1:shared",
+            )
+        )
+        mcp_state = MCPState(
+            registry=registry,
+            clients={"user-1:shared": old_client},
+            configs={
+                "user-1:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://old.example/mcp",
+                )
+            },
+        )
+
+        monkeypatch.setattr(
+            mcp_routes,
+            "_resolve_user_id",
+            AsyncMock(return_value="user-1"),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_list_mcp_servers",
+            AsyncMock(
+                return_value=(
+                    MCPServerConfig(
+                        name="shared",
+                        transport="streamablehttp",
+                        url="https://old.example/mcp",
+                    ),
+                )
+            ),
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "_create_client_for_config",
+            lambda cfg: new_client,
+        )
+        monkeypatch.setattr(
+            mcp_routes,
+            "db_update_mcp_server",
+            AsyncMock(side_effect=RuntimeError("database unavailable")),
+        )
+
+        with pytest.raises(RuntimeError, match="database unavailable"):
+            await mcp_routes.update_server(
+                MCPServerUpdateRequest(
+                    name="renamed",
+                    transport="streamablehttp",
+                    url="https://new.example/mcp",
+                ),
+                "shared",
+                _app_state(mcp_state),
+                _auth_user(),
+            )
+
+        assert new_client.closed is True
+        assert old_client.closed is False
+        assert mcp_state.clients["user-1:shared"] is old_client
+        assert "user-1:renamed" not in mcp_state.configs
+        tool_names = {tool.name for tool in mcp_state.registry.list_tools()}
+        assert len(tool_names) == 1
+        assert all("old_tool" in name for name in tool_names)
 
     @pytest.mark.asyncio
     async def test_update_disabled_server_does_not_connect(

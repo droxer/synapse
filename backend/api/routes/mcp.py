@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from dataclasses import replace
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Path
@@ -124,28 +125,39 @@ def _config_from_request(
     )
 
 
-async def _connect_and_register_tools(
-    cfg: MCPServerConfig,
-    key: str,
+def _register_mcp_tool_schemas(
     registry: ToolRegistry,
-) -> tuple[MCPClient, ToolRegistry]:
-    """Connect a client and return a registry with its tools added."""
+    client: MCPClient,
+    key: str,
+    schemas: tuple[Any, ...],
+) -> ToolRegistry:
+    """Return a registry with MCP tool schemas bridged for one server key."""
+    for schema in schemas:
+        bridged = MCPBridgedTool(schema, client, server_key=key)
+        try:
+            registry = registry.register(bridged)
+            logger.info(
+                "mcp_tool_registered name={} server={}",
+                schema.name,
+                schema.server_name,
+            )
+        except ValueError:
+            logger.warning("mcp_tool_skipped name={} (already registered)", schema.name)
+    return registry
+
+
+async def _connect_and_list_tools(
+    cfg: MCPServerConfig,
+) -> tuple[MCPClient, tuple[Any, ...]]:
+    """Connect a client and return its advertised tool schemas."""
     client = _create_client_for_config(cfg)
     try:
         await client.connect()
         tools = await client.list_tools()
-        for schema in tools:
-            bridged = MCPBridgedTool(schema, client, server_key=key)
-            try:
-                registry = registry.register(bridged)
-            except ValueError:
-                logger.warning(
-                    "mcp_tool_skipped name={} (already registered)", schema.name
-                )
     except Exception:
         await client.close()
         raise
-    return client, registry
+    return client, tools
 
 
 async def _discover_mcp_tools(
@@ -174,19 +186,7 @@ async def _discover_mcp_tools(
         try:
             await client.connect()
             tools = await client.list_tools()
-            for schema in tools:
-                bridged = MCPBridgedTool(schema, client, server_key=cfg.name)
-                try:
-                    registry = registry.register(bridged)
-                    logger.info(
-                        "mcp_tool_registered name={} server={}",
-                        schema.name,
-                        schema.server_name,
-                    )
-                except ValueError:
-                    logger.warning(
-                        "mcp_tool_skipped name={} (already registered)", schema.name
-                    )
+            registry = _register_mcp_tool_schemas(registry, client, cfg.name, tools)
             clients[cfg.name] = client
             configs[cfg.name] = cfg
         except Exception as exc:
@@ -205,43 +205,41 @@ async def _restore_persisted_servers(
     async with session_factory() as session:
         saved_configs = await db_list_mcp_servers(session, user_id=user_id)
 
-    registry = mcp_state.registry or ToolRegistry()
     for cfg in saved_configs:
-        if not cfg.enabled:
-            # Still register config so the UI can list it, but don't connect
-            key = mcp_state.user_key(user_id, cfg.name) if user_id else cfg.name
-            if key not in mcp_state.configs:
-                mcp_state.configs[key] = cfg
-            continue
-        # Namespace per-user servers with user_id prefix
         key = mcp_state.user_key(user_id, cfg.name) if user_id else cfg.name
-        if key in mcp_state.configs:
+        if not cfg.enabled:
+            async with mcp_state.lock:
+                if key not in mcp_state.configs:
+                    mcp_state.configs[key] = cfg
             continue
+
+        async with mcp_state.lock:
+            if key in mcp_state.configs:
+                continue
+
         client = _create_client_for_config(cfg)
         try:
             await client.connect()
             tools = await client.list_tools()
-            for schema in tools:
-                bridged = MCPBridgedTool(schema, client, server_key=key)
-                try:
-                    registry = registry.register(bridged)
-                    logger.info(
-                        "mcp_tool_registered name={} server={}",
-                        schema.name,
-                        schema.server_name,
-                    )
-                except ValueError:
-                    logger.warning(
-                        "mcp_tool_skipped name={} (already registered)",
-                        schema.name,
-                    )
-            mcp_state.clients[key] = client
-            mcp_state.configs[key] = cfg
-            logger.info("mcp_server_restored name={} user_id={}", cfg.name, user_id)
         except Exception as exc:
             logger.error("mcp_server_restore_failed name={} error={}", cfg.name, exc)
             await client.close()
-    mcp_state.registry = registry
+            continue
+
+        should_close_client = False
+        async with mcp_state.lock:
+            if key in mcp_state.configs:
+                should_close_client = True
+            else:
+                registry = mcp_state.registry or ToolRegistry()
+                registry = _register_mcp_tool_schemas(registry, client, key, tools)
+                mcp_state.registry = registry
+                mcp_state.clients[key] = client
+                mcp_state.configs[key] = cfg
+                logger.info("mcp_server_restored name={} user_id={}", cfg.name, user_id)
+
+        if should_close_client:
+            await client.close()
 
 
 def _client_is_alive(client: MCPClient) -> bool:
@@ -418,14 +416,10 @@ async def update_server(
 
     cfg = _config_from_request(request, enabled=existing_saved.enabled)
     new_client: MCPClient | None = None
-    new_registry: ToolRegistry | None = None
+    new_tools: tuple[Any, ...] = ()
     if cfg.enabled:
-        base_registry = mcp_state.registry or ToolRegistry()
-        registry_without_old = base_registry.remove_by_tag(mcp_server_tag(old_key))
         try:
-            new_client, new_registry = await _connect_and_register_tools(
-                cfg, new_key, registry_without_old
-            )
+            new_client, new_tools = await _connect_and_list_tools(cfg)
         except Exception as exc:
             raise HTTPException(
                 status_code=502, detail=f"Failed to reconnect: {exc}"
@@ -438,6 +432,10 @@ async def update_server(
         if new_client is not None:
             await new_client.close()
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except Exception:
+        if new_client is not None:
+            await new_client.close()
+        raise
     if updated is None:
         if new_client is not None:
             await new_client.close()
@@ -451,8 +449,13 @@ async def update_server(
             await old_client.close()
 
         if cfg.enabled:
-            mcp_state.registry = new_registry
             if new_client is not None:
+                registry = (mcp_state.registry or ToolRegistry()).remove_by_tag(
+                    mcp_server_tag(old_key)
+                )
+                mcp_state.registry = _register_mcp_tool_schemas(
+                    registry, new_client, new_key, new_tools
+                )
                 mcp_state.clients[new_key] = new_client
         else:
             if mcp_state.registry is not None:
@@ -493,56 +496,67 @@ async def toggle_server(
     if key not in mcp_state.configs:
         raise HTTPException(status_code=404, detail=f"Server '{name}' not found")
 
-    # Persist to DB
+    current_config = mcp_state.configs[key]
+
+    if request.enabled:
+        enabled_config = replace(current_config, enabled=True)
+        try:
+            new_client, new_tools = await _connect_and_list_tools(enabled_config)
+        except Exception as exc:
+            raise HTTPException(
+                status_code=502, detail=f"Failed to reconnect: {exc}"
+            ) from exc
+
+        try:
+            async with state.db_session_factory() as session:
+                updated = await db_set_mcp_server_enabled(
+                    session, name, True, user_id=user_id
+                )
+        except Exception:
+            await new_client.close()
+            raise
+        if updated is None:
+            await new_client.close()
+            raise HTTPException(
+                status_code=404, detail=f"Server '{name}' not found in database"
+            )
+
+        async with mcp_state.lock:
+            old_client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
+            if old_client is not None:
+                await old_client.close()
+            registry = (mcp_state.registry or ToolRegistry()).remove_by_tag(
+                mcp_server_tag(key)
+            )
+            mcp_state.registry = _register_mcp_tool_schemas(
+                registry, new_client, key, new_tools
+            )
+            mcp_state.clients[key] = new_client
+            mcp_state.configs[key] = updated
+
+        return {
+            "name": name,
+            "enabled": True,
+        }
+
     async with state.db_session_factory() as session:
-        updated = await db_set_mcp_server_enabled(
-            session, name, request.enabled, user_id=user_id
-        )
+        updated = await db_set_mcp_server_enabled(session, name, False, user_id=user_id)
     if updated is None:
         raise HTTPException(
             status_code=404, detail=f"Server '{name}' not found in database"
         )
 
     async with mcp_state.lock:
-        if request.enabled:
-            # Re-connect: create client, register tools
-            existing_client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
-            if existing_client is not None:
-                await existing_client.close()
-            client = _create_client_for_config(updated)
-            try:
-                await client.connect()
-                tools = await client.list_tools()
-                registry = mcp_state.registry or ToolRegistry()
-                for schema in tools:
-                    bridged = MCPBridgedTool(schema, client, server_key=key)
-                    try:
-                        registry = registry.register(bridged)
-                    except ValueError:
-                        pass
-                mcp_state.registry = registry
-                mcp_state.clients[key] = client
-                mcp_state.configs[key] = updated
-            except Exception as exc:
-                await client.close()
-                raise HTTPException(
-                    status_code=502, detail=f"Failed to reconnect: {exc}"
-                ) from exc
-        else:
-            # Disconnect: remove tools, close client
-            client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
-            if client is not None:
-                await client.close()
-            if mcp_state.registry is not None:
-                mcp_state.registry = mcp_state.registry.remove_by_tag(
-                    mcp_server_tag(key)
-                )
-            # Keep config in memory (with enabled=False) so UI can list it
-            mcp_state.configs[key] = updated
+        client = mcp_state.clients.pop(key, None)  # type: ignore[arg-type]
+        if client is not None:
+            await client.close()
+        if mcp_state.registry is not None:
+            mcp_state.registry = mcp_state.registry.remove_by_tag(mcp_server_tag(key))
+        mcp_state.configs[key] = updated
 
     return {
         "name": name,
-        "enabled": request.enabled,
+        "enabled": False,
     }
 
 

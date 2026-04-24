@@ -303,9 +303,10 @@ async def _prepare_conversation_runtime(
     )
     skill_task = asyncio.create_task(_build_user_skill_registry(state, user_id))
     mcp_enabled = user_id is not None and state.mcp_state is not None
+    mcp_restore_task: asyncio.Task[None] | None = None
 
     if mcp_enabled:
-        asyncio.create_task(
+        mcp_restore_task = asyncio.create_task(
             _restore_mcp_servers_background(
                 state.mcp_state,
                 state.db_session_factory,
@@ -318,6 +319,8 @@ async def _prepare_conversation_runtime(
         memory_task,
         skill_task,
     )
+    if mcp_restore_task is not None:
+        await mcp_restore_task
     logger.info(
         "conversation_runtime_inputs_ready id={} mode={} duration_ms={} memory_entries={} memory_limit={} skill_registry={} mcp_restore_enabled={}",
         conversation_id,
@@ -330,7 +333,7 @@ async def _prepare_conversation_runtime(
     )
     if mcp_enabled:
         logger.info(
-            "conversation_runtime_mcp_restore_scheduled id={}",
+            "conversation_runtime_mcp_restore_completed id={}",
             conversation_id,
         )
 

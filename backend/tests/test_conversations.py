@@ -22,8 +22,9 @@ os.environ.setdefault("TAVILY_API_KEY", "test-key")
 
 from agent.llm.client import AnthropicClient, LLMResponse, TokenUsage  # noqa: E402
 from api.db_subscriber import create_db_subscriber  # noqa: E402
-from api.models import ConversationMetricsResponse  # noqa: E402
 from api.models import ConversationEntry  # noqa: E402
+from api.models import ConversationMetricsResponse  # noqa: E402
+from api.models import MCPState  # noqa: E402
 from api.routes.conversations import (  # noqa: E402
     _EXECUTION_ROUTER_SYSTEM_PROMPT,
     _elapsed_ms,
@@ -980,6 +981,92 @@ class _ConcurrentOrchestrator:
 @asynccontextmanager
 async def _noop_session_factory():
     yield object()
+
+
+@pytest.mark.asyncio
+async def test_prepare_conversation_runtime_awaits_mcp_restore_before_building(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    order: list[str] = []
+    restored_registry = object()
+    mcp_state = MCPState()
+
+    class _FakePersistentStore:
+        def __init__(self, *args, **kwargs) -> None:
+            del args, kwargs
+
+        async def load_all(self, limit: int = 100) -> list[dict[str, str]]:
+            del limit
+            await asyncio.sleep(0)
+            order.append("memory")
+            return []
+
+    async def _fake_restore(
+        state: MCPState,
+        session_factory: object,
+        *,
+        conversation_id: str,
+        user_id: uuid.UUID,
+    ) -> None:
+        del session_factory, conversation_id, user_id
+        await asyncio.sleep(0)
+        state.registry = restored_registry  # type: ignore[assignment]
+        order.append("restore")
+
+    async def _fake_skill_registry(state: object, user_id: uuid.UUID) -> None:
+        del state, user_id
+        await asyncio.sleep(0)
+        order.append("skills")
+
+    def _fake_build_orchestrator(*args, **kwargs) -> tuple[object, object]:
+        del args
+        order.append("build")
+        assert "restore" in order
+        assert kwargs["mcp_state"].registry is restored_registry
+        return object(), object()
+
+    state = SimpleNamespace(
+        claude_client=object(),
+        db_session_factory=_noop_session_factory,
+        sandbox_provider=object(),
+        storage_backend=object(),
+        mcp_state=mcp_state,
+    )
+
+    monkeypatch.setattr(
+        conversation_routes, "PersistentMemoryStore", _FakePersistentStore
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "get_settings",
+        lambda: SimpleNamespace(INITIAL_CONVERSATION_MEMORY_LIMIT=7),
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_restore_mcp_servers_background",
+        _fake_restore,
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_build_user_skill_registry",
+        _fake_skill_registry,
+    )
+    monkeypatch.setattr(
+        conversation_routes,
+        "_build_orchestrator",
+        _fake_build_orchestrator,
+    )
+
+    await conversation_routes._prepare_conversation_runtime(
+        state,
+        conversation_id=str(uuid.uuid4()),
+        conv_uuid=uuid.uuid4(),
+        user_id=uuid.uuid4(),
+        mode=ORCHESTRATOR_AGENT,
+        emitter=EventEmitter(),
+    )
+
+    assert order[-1] == "build"
 
 
 def _build_state_with_entry(
