@@ -184,8 +184,9 @@ def _build_base_registry(
     registry = ToolRegistry()
     # Local tools
     registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
-    if settings.EXA_API_KEY:
-        registry = registry.register(ExaWebSearch(api_key=settings.EXA_API_KEY))
+    exa_api_key = getattr(settings, "EXA_API_KEY", "")
+    if exa_api_key:
+        registry = registry.register(ExaWebSearch(api_key=exa_api_key))
     registry = registry.register(WebFetch())
     registry = registry.register(MessageUser(event_emitter=event_emitter))
     registry = registry.register(AskUser(event_emitter=event_emitter))
@@ -309,8 +310,9 @@ def _build_planner_registry(
 
     registry = ToolRegistry()
     registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
-    if settings.EXA_API_KEY:
-        registry = registry.register(ExaWebSearch(api_key=settings.EXA_API_KEY))
+    exa_api_key = getattr(settings, "EXA_API_KEY", "")
+    if exa_api_key:
+        registry = registry.register(ExaWebSearch(api_key=exa_api_key))
     registry = registry.register(WebFetch())
     registry = registry.register(MessageUser(event_emitter=event_emitter))
     registry = registry.register(AskUser(event_emitter=event_emitter))
@@ -358,8 +360,9 @@ def _build_sub_agent_registry_factory(
         background_tasks = BackgroundTaskManager(event_emitter)
         registry = ToolRegistry()
         registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
-        if settings.EXA_API_KEY:
-            registry = registry.register(ExaWebSearch(api_key=settings.EXA_API_KEY))
+        exa_api_key = getattr(settings, "EXA_API_KEY", "")
+        if exa_api_key:
+            registry = registry.register(ExaWebSearch(api_key=exa_api_key))
         registry = registry.register(WebFetch())
         registry = registry.register(MessageUser(event_emitter=event_emitter))
         registry = registry.register(NotifyUser(event_emitter=event_emitter))

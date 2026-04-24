@@ -44,6 +44,10 @@ _BASE_DELAY = 0.15  # seconds — delays: 0.15, 0.45, 1.35, 4.05
 # Exceptions worth retrying (transient / connection issues)
 _RETRYABLE_EXCEPTIONS = (OperationalError, InterfaceError, TimeoutError, OSError)
 
+# Per-conversation background persistence queue bounds retained event payloads.
+_PERSISTENCE_QUEUE_MAXSIZE = 1000
+_PERSISTENCE_WORKER_IDLE_TIMEOUT_SECONDS = 30.0
+
 
 def _normalize_artifact_payload(
     clean: dict[str, Any],
@@ -239,11 +243,12 @@ def create_db_subscriber(
     """Create an async event subscriber that persists to PostgreSQL."""
 
     logger.info("db_subscriber_created conversation_id={}", conversation_id)
-    write_chain_lock = asyncio.Lock()
-    last_write_task: asyncio.Task[None] | None = None
+    persistence_queue: asyncio.Queue[AgentEvent] = asyncio.Queue(
+        maxsize=_PERSISTENCE_QUEUE_MAXSIZE
+    )
+    worker_task: asyncio.Task[None] | None = None
 
-    async def _subscriber(event: AgentEvent) -> None:
-        nonlocal last_write_task
+    async def _persist_event(event: AgentEvent) -> None:
         if event.type in _SKIP_EVENTS:
             return
 
@@ -439,19 +444,59 @@ def create_db_subscriber(
                     exc_info=True,
                 )
 
+        await _persist()
+
+    async def _worker() -> None:
+        while True:
+            try:
+                event = await asyncio.wait_for(
+                    persistence_queue.get(),
+                    timeout=_PERSISTENCE_WORKER_IDLE_TIMEOUT_SECONDS,
+                )
+            except asyncio.TimeoutError:
+                return
+
+            try:
+                await _persist_event(event)
+            finally:
+                persistence_queue.task_done()
+                if pending_writes is not None:
+                    pending_writes._decrement()  # noqa: SLF001
+
+    def _ensure_worker() -> None:
+        nonlocal worker_task
+        if worker_task is None or worker_task.done():
+            worker_task = asyncio.create_task(
+                _worker(),
+                name=f"db-subscriber-{str(conversation_id)[:8]}",
+            )
+
+    async def _subscriber(event: AgentEvent) -> None:
+        if event.type in _SKIP_EVENTS:
+            return
+
         if pending_writes is None:
-            await _persist()
-        else:
-            async with write_chain_lock:
-                previous_task = last_write_task
+            await _persist_event(event)
+            return
 
-                async def _persist_in_order() -> None:
-                    async with pending_writes.track():
-                        if previous_task is not None:
-                            await asyncio.gather(previous_task, return_exceptions=True)
-                        await _persist()
-
-                last_write_task = asyncio.create_task(_persist_in_order())
-            await asyncio.sleep(0)
+        pending_writes._increment()  # noqa: SLF001
+        try:
+            _ensure_worker()
+            if persistence_queue.full():
+                logger.warning(
+                    "db_subscriber_queue_full conversation_id={} maxsize={}",
+                    conversation_id,
+                    _PERSISTENCE_QUEUE_MAXSIZE,
+                )
+            snapshot = AgentEvent(
+                type=event.type,
+                data=_clean_data(event.data),
+                timestamp=event.timestamp,
+                iteration=event.iteration,
+            )
+            await persistence_queue.put(snapshot)
+        except BaseException:
+            pending_writes._decrement()  # noqa: SLF001
+            raise
 
     return _subscriber

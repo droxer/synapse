@@ -41,6 +41,28 @@ def _create_queue_subscriber(
 ) -> Any:
     """Create an async callback that pushes events into a queue."""
 
+    def _make_room_for_non_lossy_event() -> bool:
+        """Drop one lossy queued item so a structural live event can fit."""
+        queued: list[AgentEvent | None] = []
+        dropped = False
+        for _ in range(queue.qsize()):
+            try:
+                queued_event = queue.get_nowait()
+            except asyncio.QueueEmpty:
+                break
+            queued_type = getattr(queued_event, "type", None)
+            if not dropped and queued_type not in _NON_LOSSY_SSE_EVENTS:
+                dropped = True
+                continue
+            queued.append(queued_event)
+
+        for queued_event in queued:
+            try:
+                queue.put_nowait(queued_event)
+            except asyncio.QueueFull:
+                break
+        return dropped
+
     async def _subscriber(event: AgentEvent) -> None:
         callback = event.data.get("response_callback")
         if callback is not None:
@@ -56,7 +78,16 @@ def _create_queue_subscriber(
             queue.put_nowait(event)
         except asyncio.QueueFull:
             if event.type in _NON_LOSSY_SSE_EVENTS:
-                await queue.put(event)
+                if _make_room_for_non_lossy_event():
+                    try:
+                        queue.put_nowait(event)
+                        return
+                    except asyncio.QueueFull:
+                        pass
+                logger.warning(
+                    "event_queue_full event_type={} — dropping non-lossy live event",
+                    event.type,
+                )
                 return
             logger.warning(
                 "event_queue_full event_type={} — dropping event", event.type

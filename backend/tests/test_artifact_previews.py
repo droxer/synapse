@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -8,7 +9,11 @@ from fastapi import HTTPException
 
 from agent.artifacts.storage import LocalStorageBackend
 from agent.state.repository import ConversationRepository
-from api.artifact_previews import ArtifactPreviewCache, _slide_sort_key
+from api.artifact_previews import (
+    ArtifactPreviewCache,
+    ArtifactPreviewError,
+    _slide_sort_key,
+)
 from api.routes.artifacts import (
     get_artifact_preview_manifest,
     get_artifact_preview_slide,
@@ -75,6 +80,44 @@ def test_slide_sort_key_orders_numeric_suffixes_correctly() -> None:
         "slide-2.png",
         "slide-10.png",
     ]
+
+
+@pytest.mark.asyncio
+async def test_preview_convert_times_out_and_kills_process(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    cache = ArtifactPreviewCache(
+        cache_dir=tmp_path / "cache",
+        render_timeout_seconds=0.01,
+    )
+    killed = False
+
+    class _SlowProcess:
+        returncode = 0
+
+        async def communicate(self):
+            if killed:
+                return b"", b""
+            await asyncio.sleep(60)
+            return b"", b""
+
+        def kill(self) -> None:
+            nonlocal killed
+            killed = True
+
+    async def _fake_exec(*args, **kwargs):
+        del args, kwargs
+        return _SlowProcess()
+
+    monkeypatch.setattr(
+        "api.artifact_previews.asyncio.create_subprocess_exec", _fake_exec
+    )
+
+    with pytest.raises(ArtifactPreviewError, match="Timed out"):
+        await cache._convert_to_pdf(tmp_path / "deck.pptx", tmp_path)
+
+    assert killed is True
 
 
 @pytest.mark.asyncio

@@ -91,17 +91,18 @@ async def test_sse_queue_preserves_structural_events_when_full() -> None:
     pending_callbacks: dict[str, Any] = {}
     subscriber = _create_queue_subscriber(queue, pending_callbacks)
 
-    await queue.put(object())
-
-    consumer_started = asyncio.Event()
-
-    async def drain_queue() -> None:
-        consumer_started.set()
-        await asyncio.sleep(0)
-        await queue.get()
-        queue.task_done()
-
-    consumer = asyncio.create_task(drain_queue())
+    await subscriber(
+        type(
+            "Evt",
+            (),
+            {
+                "type": EventType.TEXT_DELTA,
+                "data": {"delta": "stale"},
+                "timestamp": 0,
+                "iteration": None,
+            },
+        )()
+    )
     await subscriber(
         type(
             "Evt",
@@ -114,8 +115,6 @@ async def test_sse_queue_preserves_structural_events_when_full() -> None:
             },
         )()
     )
-    await consumer_started.wait()
-    await consumer
 
     structural = await asyncio.wait_for(queue.get(), timeout=1)
     assert structural.type == EventType.TOOL_CALL
@@ -143,17 +142,18 @@ async def test_sse_queue_preserves_final_assistant_events_when_full(
     pending_callbacks: dict[str, Any] = {}
     subscriber = _create_queue_subscriber(queue, pending_callbacks)
 
-    await queue.put(object())
-
-    consumer_started = asyncio.Event()
-
-    async def drain_queue() -> None:
-        consumer_started.set()
-        await asyncio.sleep(0)
-        await queue.get()
-        queue.task_done()
-
-    consumer = asyncio.create_task(drain_queue())
+    await subscriber(
+        type(
+            "Evt",
+            (),
+            {
+                "type": EventType.TEXT_DELTA,
+                "data": {"delta": "stale"},
+                "timestamp": 0,
+                "iteration": None,
+            },
+        )()
+    )
     await subscriber(
         type(
             "Evt",
@@ -166,12 +166,49 @@ async def test_sse_queue_preserves_final_assistant_events_when_full(
             },
         )()
     )
-    await consumer_started.wait()
-    await consumer
 
     preserved = await asyncio.wait_for(queue.get(), timeout=1)
     assert preserved.type == event_type
     assert preserved.data == payload
+
+
+@pytest.mark.asyncio
+async def test_sse_queue_drops_new_non_lossy_event_instead_of_blocking() -> None:
+    queue: asyncio.Queue[Any] = asyncio.Queue(maxsize=1)
+    pending_callbacks: dict[str, Any] = {}
+    subscriber = _create_queue_subscriber(queue, pending_callbacks)
+
+    await subscriber(
+        type(
+            "Evt",
+            (),
+            {
+                "type": EventType.TOOL_CALL,
+                "data": {"tool_name": "first"},
+                "timestamp": 0,
+                "iteration": None,
+            },
+        )()
+    )
+
+    await asyncio.wait_for(
+        subscriber(
+            type(
+                "Evt",
+                (),
+                {
+                    "type": EventType.TOOL_RESULT,
+                    "data": {"tool_name": "second"},
+                    "timestamp": 1,
+                    "iteration": None,
+                },
+            )()
+        ),
+        timeout=0.1,
+    )
+
+    preserved = queue.get_nowait()
+    assert preserved.type == EventType.TOOL_CALL
 
 
 @pytest.mark.asyncio

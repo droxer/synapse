@@ -52,6 +52,10 @@ _UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 
 # Max event queue size for backpressure
 _EVENT_QUEUE_MAXSIZE = 5000
+_MAX_TOTAL_UPLOAD_SIZE_MB = 50
+_UPLOAD_READ_CHUNK_SIZE = 1024 * 1024
+_MCP_RESTORE_MAX_CONCURRENT = 3
+_MCP_RESTORE_SEMAPHORE = asyncio.Semaphore(_MCP_RESTORE_MAX_CONCURRENT)
 
 router = APIRouter(dependencies=common_dependencies)
 
@@ -117,11 +121,12 @@ async def _restore_mcp_servers_background(
 
     started_at = time.perf_counter()
     try:
-        await _restore_persisted_servers(
-            mcp_state,
-            session_factory,
-            user_id=user_id,
-        )
+        async with _MCP_RESTORE_SEMAPHORE:
+            await _restore_persisted_servers(
+                mcp_state,
+                session_factory,
+                user_id=user_id,
+            )
         logger.info(
             "conversation_runtime_mcp_restored id={} duration_ms={}",
             conversation_id,
@@ -303,10 +308,9 @@ async def _prepare_conversation_runtime(
     )
     skill_task = asyncio.create_task(_build_user_skill_registry(state, user_id))
     mcp_enabled = user_id is not None and state.mcp_state is not None
-    mcp_restore_task: asyncio.Task[None] | None = None
 
     if mcp_enabled:
-        mcp_restore_task = asyncio.create_task(
+        asyncio.create_task(
             _restore_mcp_servers_background(
                 state.mcp_state,
                 state.db_session_factory,
@@ -319,8 +323,6 @@ async def _prepare_conversation_runtime(
         memory_task,
         skill_task,
     )
-    if mcp_restore_task is not None:
-        await mcp_restore_task
     logger.info(
         "conversation_runtime_inputs_ready id={} mode={} duration_ms={} memory_entries={} memory_limit={} skill_registry={} mcp_restore_enabled={}",
         conversation_id,
@@ -332,10 +334,7 @@ async def _prepare_conversation_runtime(
         mcp_enabled,
     )
     if mcp_enabled:
-        logger.info(
-            "conversation_runtime_mcp_restore_completed id={}",
-            conversation_id,
-        )
+        logger.info("conversation_runtime_mcp_restore_scheduled id={}", conversation_id)
 
     if mode == ORCHESTRATOR_PLANNER:
         orchestrator_executor = _build_planner_orchestrator(
@@ -518,22 +517,40 @@ async def _parse_uploads(files: list[UploadFile]) -> tuple[FileAttachment, ...]:
 
     attachments: list[FileAttachment] = []
     max_bytes = MAX_FILE_SIZE_MB * 1024 * 1024
+    max_total_bytes = _MAX_TOTAL_UPLOAD_SIZE_MB * 1024 * 1024
+    total_bytes = 0
     max_filename_len = 255  # Most filesystems limit to 255 chars
 
     for f in files:
-        data = await f.read()
+        chunks: list[bytes] = []
+        file_bytes = 0
+        while True:
+            chunk = await f.read(_UPLOAD_READ_CHUNK_SIZE)
+            if not chunk:
+                break
+            file_bytes += len(chunk)
+            total_bytes += len(chunk)
+            if file_bytes > max_bytes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"File '{f.filename}' exceeds {MAX_FILE_SIZE_MB}MB limit",
+                )
+            if total_bytes > max_total_bytes:
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Uploaded files exceed "
+                        f"{_MAX_TOTAL_UPLOAD_SIZE_MB}MB aggregate limit"
+                    ),
+                )
+            chunks.append(chunk)
+        data = b"".join(chunks)
 
         # Check for empty files
         if len(data) == 0:
             raise HTTPException(
                 status_code=400,
                 detail=f"File '{f.filename}' is empty",
-            )
-
-        if len(data) > max_bytes:
-            raise HTTPException(
-                status_code=400,
-                detail=f"File '{f.filename}' exceeds {MAX_FILE_SIZE_MB}MB limit",
             )
 
         safe_name = _sanitize_filename(f.filename or "unnamed")
@@ -1595,21 +1612,32 @@ async def send_message(
 @router.get("/conversations/{conversation_id}/messages")
 async def get_conversation_messages(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
+    limit: int = 500,
+    offset: int = 0,
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
-    """Get all messages for a conversation (for history replay)."""
+    """Get paginated messages for a conversation (for history replay)."""
     with conversation_log_context(conversation_id):
         await _verify_conversation_ownership(state, conversation_id, auth_user)
         conv_uuid = uuid.UUID(conversation_id)
         convo = await state.db_repo.get_conversation(session, conv_uuid)
         if convo is None:
             raise HTTPException(status_code=404, detail="Conversation not found")
-        messages = await state.db_repo.get_messages(session, conv_uuid)
+        limit = max(1, min(limit, 1000))
+        offset = max(0, offset)
+        messages = await state.db_repo.get_messages(
+            session,
+            conv_uuid,
+            limit=limit,
+            offset=offset,
+        )
         return {
             "conversation_id": str(convo.id),
             "title": convo.title,
+            "limit": limit,
+            "offset": offset,
             "messages": [
                 {
                     "id": str(m.id),
@@ -1705,8 +1733,15 @@ async def get_conversation_metrics(
     with conversation_log_context(conversation_id):
         await _verify_conversation_ownership(state, conversation_id, auth_user)
         conv_uuid = uuid.UUID(conversation_id)
-        events = await state.db_repo.get_events(session, conv_uuid)
-        return _build_conversation_metrics_response(str(conversation_id), events)
+        events = await state.db_repo.get_events_for_metrics(session, conv_uuid)
+        response = _build_conversation_metrics_response(str(conversation_id), events)
+        usage_repo = getattr(state, "usage_repo", None)
+        if usage_repo is not None:
+            usage = await usage_repo.get_conversation_usage(session, conv_uuid)
+            if usage is not None:
+                response.total_input_tokens = usage.input_tokens
+                response.total_output_tokens = usage.output_tokens
+        return response
 
 
 @router.post("/conversations/{conversation_id}/respond")

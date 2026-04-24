@@ -14,7 +14,6 @@ from __future__ import annotations
 import hmac
 import re
 import time as _time
-from collections import defaultdict
 from dataclasses import dataclass
 
 from fastapi import Depends, HTTPException, Request
@@ -95,15 +94,36 @@ class _RateLimiter:
     def __init__(self, max_requests: int, window_seconds: int = 60) -> None:
         self._max = max_requests
         self._window = window_seconds
-        self._requests: dict[str, list[float]] = defaultdict(list)
+        self._requests: dict[str, list[float]] = {}
+        self._last_sweep = 0.0
+
+    @property
+    def key_count(self) -> int:
+        """Return the number of active keys, exposed for tests."""
+        return len(self._requests)
+
+    def _sweep_expired_keys(self, window_start: float, now: float) -> None:
+        if now - self._last_sweep < self._window:
+            return
+        self._last_sweep = now
+        expired = [
+            key
+            for key, timestamps in self._requests.items()
+            if not timestamps or timestamps[-1] <= window_start
+        ]
+        for key in expired:
+            self._requests.pop(key, None)
 
     def check(self, key: str) -> bool:
         now = _time.monotonic()
         window_start = now - self._window
-        self._requests[key] = [t for t in self._requests[key] if t > window_start]
-        if len(self._requests[key]) >= self._max:
+        self._sweep_expired_keys(window_start, now)
+        requests = [t for t in self._requests.get(key, []) if t > window_start]
+        if len(requests) >= self._max:
+            self._requests[key] = requests
             return False
-        self._requests[key].append(now)
+        requests.append(now)
+        self._requests[key] = requests
         return True
 
 

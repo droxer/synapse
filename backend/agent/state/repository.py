@@ -335,14 +335,42 @@ class ConversationRepository:
         self,
         session: AsyncSession,
         conversation_id: uuid.UUID,
+        limit: int | None = None,
+        offset: int = 0,
     ) -> list[MessageRecord]:
         stmt = (
             select(MessageModel)
             .where(MessageModel.conversation_id == conversation_id)
             .order_by(MessageModel.created_at.asc())
         )
+        if limit is not None:
+            stmt = stmt.limit(limit).offset(offset)
         result = await session.execute(stmt)
         return [_to_message(m) for m in result.scalars().all()]
+
+    async def get_events_for_metrics(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+    ) -> list[EventRecord]:
+        """Return only event rows needed for metrics aggregation."""
+        stmt = (
+            select(EventModel)
+            .where(
+                EventModel.conversation_id == conversation_id,
+                EventModel.event_type.in_(
+                    (
+                        "llm_response",
+                        "context_compacted",
+                        "tool_call",
+                        "agent_complete",
+                    )
+                ),
+            )
+            .order_by(EventModel.timestamp.asc(), EventModel.id.asc())
+        )
+        result = await session.execute(stmt)
+        return [_to_event(m) for m in result.scalars().all()]
 
     async def get_recent_messages(
         self,

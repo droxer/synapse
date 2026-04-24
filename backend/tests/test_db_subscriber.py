@@ -478,7 +478,7 @@ async def test_pending_writes_passed_to_subscriber(
     )
     event = _make_event(EventType.TOOL_CALL, {"tool": "test"})
     await subscriber(event)
-    # After completion, should be drained
+    assert await pending_writes.wait_drained(timeout=0.2) is True
     assert pending_writes.count == 0
 
 
