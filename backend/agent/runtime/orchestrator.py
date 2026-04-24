@@ -681,7 +681,7 @@ class AgentOrchestrator:
             )
 
         llm_model = getattr(self._client, "default_model", "<unknown>")
-        debug_logging_enabled = get_settings().AGENT_DEBUG_LOGGING
+        debug_logging_enabled = getattr(get_settings(), "AGENT_DEBUG_LOGGING", False)
         try:
             thinking_emitted_during_stream = False
 

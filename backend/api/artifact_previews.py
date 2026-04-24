@@ -16,6 +16,9 @@ import httpx
 from agent.artifacts.storage import StorageBackend
 from agent.state.schemas import ArtifactRecord
 
+_PREVIEW_RENDER_TIMEOUT_SECONDS = 120
+_PREVIEW_RENDER_MAX_CONCURRENT = 2
+
 
 def is_ppt_previewable(content_type: str, filename: str) -> bool:
     normalized = content_type.lower()
@@ -59,12 +62,20 @@ class PptPreviewManifest:
 class ArtifactPreviewCache:
     """Generates and caches image previews for PPT/PPTX artifacts."""
 
-    def __init__(self, cache_dir: str | Path | None = None) -> None:
+    def __init__(
+        self,
+        cache_dir: str | Path | None = None,
+        *,
+        max_concurrent_renders: int = _PREVIEW_RENDER_MAX_CONCURRENT,
+        render_timeout_seconds: float = _PREVIEW_RENDER_TIMEOUT_SECONDS,
+    ) -> None:
         base_dir = cache_dir or os.path.join(
             tempfile.gettempdir(), "synapse-artifact-preview-cache"
         )
         self._cache_dir = Path(base_dir)
         self._locks: dict[str, asyncio.Lock] = {}
+        self._render_semaphore = asyncio.Semaphore(max(1, max_concurrent_renders))
+        self._render_timeout_seconds = render_timeout_seconds
 
     async def ensure_ppt_preview(
         self,
@@ -83,18 +94,23 @@ class ArtifactPreviewCache:
             return cached
 
         lock = self._locks.setdefault(artifact.id, asyncio.Lock())
-        async with lock:
-            cached = self._read_manifest(manifest_path)
-            if cached is not None:
-                return cached
+        try:
+            async with lock:
+                cached = self._read_manifest(manifest_path)
+                if cached is not None:
+                    return cached
 
-            await asyncio.to_thread(artifact_dir.mkdir, parents=True, exist_ok=True)
-            await self._render_preview(artifact, storage_backend, artifact_dir)
-            manifest = self._read_manifest(manifest_path)
-            if manifest is None:
-                raise ArtifactPreviewError("Preview manifest was not generated")
-            await self._cleanup_stale_cache_dirs(artifact, artifact_dir)
-            return manifest
+                await asyncio.to_thread(artifact_dir.mkdir, parents=True, exist_ok=True)
+                async with self._render_semaphore:
+                    await self._render_preview(artifact, storage_backend, artifact_dir)
+                manifest = self._read_manifest(manifest_path)
+                if manifest is None:
+                    raise ArtifactPreviewError("Preview manifest was not generated")
+                await self._cleanup_stale_cache_dirs(artifact, artifact_dir)
+                return manifest
+        finally:
+            if not lock.locked():
+                self._locks.pop(artifact.id, None)
 
     async def get_slide_path(
         self,
@@ -122,23 +138,27 @@ class ArtifactPreviewCache:
         await asyncio.to_thread(work_dir.mkdir, parents=True, exist_ok=True)
         await asyncio.to_thread(slides_dir.mkdir, parents=True, exist_ok=True)
 
-        source_path = await self._materialize_source(
-            artifact, storage_backend, work_dir
-        )
-        pdf_path = await self._convert_to_pdf(source_path, work_dir)
-        slide_paths = await self._render_pdf_to_pngs(pdf_path, slides_dir)
-        if not slide_paths:
-            raise ArtifactPreviewError("No slides were rendered from presentation")
+        try:
+            source_path = await self._materialize_source(
+                artifact, storage_backend, work_dir
+            )
+            pdf_path = await self._convert_to_pdf(source_path, work_dir)
+            slide_paths = await self._render_pdf_to_pngs(pdf_path, slides_dir)
+            if not slide_paths:
+                raise ArtifactPreviewError("No slides were rendered from presentation")
 
-        manifest = {
-            "kind": "slides",
-            "file_name": artifact.original_name,
-            "slide_count": len(slide_paths),
-            "slide_paths": [str(path) for path in slide_paths],
-        }
-        manifest_path = artifact_dir / "manifest.json"
-        await asyncio.to_thread(manifest_path.write_text, json.dumps(manifest), "utf-8")
-        await asyncio.to_thread(shutil.rmtree, work_dir, True)
+            manifest = {
+                "kind": "slides",
+                "file_name": artifact.original_name,
+                "slide_count": len(slide_paths),
+                "slide_paths": [str(path) for path in slide_paths],
+            }
+            manifest_path = artifact_dir / "manifest.json"
+            await asyncio.to_thread(
+                manifest_path.write_text, json.dumps(manifest), "utf-8"
+            )
+        finally:
+            await asyncio.to_thread(shutil.rmtree, work_dir, True)
 
     async def _materialize_source(
         self,
@@ -176,7 +196,17 @@ class ArtifactPreviewCache:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await proc.communicate()
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=self._render_timeout_seconds,
+            )
+        except asyncio.TimeoutError as exc:
+            proc.kill()
+            await proc.communicate()
+            raise ArtifactPreviewError(
+                "Timed out converting presentation to PDF"
+            ) from exc
         if proc.returncode != 0:
             raise ArtifactPreviewError(
                 "Failed to convert presentation to PDF: "
@@ -198,7 +228,15 @@ class ArtifactPreviewCache:
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE,
         )
-        stdout, stderr = await proc.communicate()
+        try:
+            stdout, stderr = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=self._render_timeout_seconds,
+            )
+        except asyncio.TimeoutError as exc:
+            proc.kill()
+            await proc.communicate()
+            raise ArtifactPreviewError("Timed out rendering PDF slides") from exc
         if proc.returncode != 0:
             raise ArtifactPreviewError(
                 "Failed to render PDF slides: "

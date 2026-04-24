@@ -576,7 +576,7 @@ class TaskAgentRunner:
             )
 
         llm_model = self._config.model or settings.TASK_MODEL
-        debug_logging_enabled = settings.AGENT_DEBUG_LOGGING
+        debug_logging_enabled = getattr(settings, "AGENT_DEBUG_LOGGING", False)
         try:
             if debug_logging_enabled:
                 logger.debug(

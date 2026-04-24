@@ -476,7 +476,7 @@ class AnthropicClient:
             if kwargs["max_tokens"] < min_max_tokens:
                 kwargs["max_tokens"] = min_max_tokens
 
-        debug_logging_enabled = get_settings().AGENT_DEBUG_LOGGING
+        debug_logging_enabled = getattr(get_settings(), "AGENT_DEBUG_LOGGING", False)
 
         last_exc: Exception | None = None
         for attempt in range(_MAX_RETRIES):

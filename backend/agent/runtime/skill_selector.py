@@ -285,5 +285,8 @@ async def select_skill_for_message(
         )
 
     # ---- tier 3: keyword fallback ------------------------------------------
+    if fallback is None:
+        logger.info("skill_selector_no_keyword_fallback")
+        return None
     logger.info("skill_selector_keyword_fallback name={}", fallback.metadata.name)
     return fallback

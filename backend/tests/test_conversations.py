@@ -11,6 +11,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock
 
 import pytest
+from fastapi import HTTPException
 
 from agent.state.schemas import EventRecord, MessageRecord
 
@@ -76,6 +77,33 @@ def test_elapsed_ms_rounds_down_to_integer_milliseconds(
 ) -> None:
     monkeypatch.setattr(conversation_routes.time, "perf_counter", lambda: 10.9876)
     assert _elapsed_ms(10.1234) == 864
+
+
+@pytest.mark.asyncio
+async def test_parse_uploads_enforces_aggregate_size_limit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(conversation_routes, "_MAX_TOTAL_UPLOAD_SIZE_MB", 1)
+    monkeypatch.setattr(conversation_routes, "_UPLOAD_READ_CHUNK_SIZE", 512 * 1024)
+
+    class _Upload:
+        filename = "large.bin"
+        content_type = "application/octet-stream"
+
+        def __init__(self) -> None:
+            self._chunks = [b"x" * (512 * 1024), b"x" * (512 * 1024), b"x"]
+
+        async def read(self, size: int = -1) -> bytes:
+            del size
+            if not self._chunks:
+                return b""
+            return self._chunks.pop(0)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await conversation_routes._parse_uploads([_Upload()])
+
+    assert exc_info.value.status_code == 400
+    assert "aggregate limit" in str(exc_info.value.detail)
 
 
 # ---------------------------------------------------------------------------
@@ -984,7 +1012,7 @@ async def _noop_session_factory():
 
 
 @pytest.mark.asyncio
-async def test_prepare_conversation_runtime_awaits_mcp_restore_before_building(
+async def test_prepare_conversation_runtime_schedules_mcp_restore_without_blocking(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     order: list[str] = []
@@ -1009,20 +1037,23 @@ async def test_prepare_conversation_runtime_awaits_mcp_restore_before_building(
         user_id: uuid.UUID,
     ) -> None:
         del session_factory, conversation_id, user_id
-        await asyncio.sleep(0)
+        await asyncio.sleep(0.05)
         state.registry = restored_registry  # type: ignore[assignment]
         order.append("restore")
+        restore_done.set()
 
     async def _fake_skill_registry(state: object, user_id: uuid.UUID) -> None:
         del state, user_id
         await asyncio.sleep(0)
         order.append("skills")
 
+    restore_done = asyncio.Event()
+
     def _fake_build_orchestrator(*args, **kwargs) -> tuple[object, object]:
         del args
         order.append("build")
-        assert "restore" in order
-        assert kwargs["mcp_state"].registry is restored_registry
+        assert "restore" not in order
+        assert kwargs["mcp_state"] is mcp_state
         return object(), object()
 
     state = SimpleNamespace(
@@ -1067,6 +1098,8 @@ async def test_prepare_conversation_runtime_awaits_mcp_restore_before_building(
     )
 
     assert order[-1] == "build"
+    await asyncio.wait_for(restore_done.wait(), timeout=1)
+    assert order[-1] == "restore"
 
 
 def _build_state_with_entry(
@@ -1132,14 +1165,21 @@ async def test_get_conversation_messages_returns_only_terminal_assistant_history
             return SimpleNamespace(id=conversation_id, title="Chat")
 
         async def get_messages(
-            self, session: object, conversation_id: uuid.UUID
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            limit: int | None = None,
+            offset: int = 0,
         ) -> list[MessageRecord]:
             del session
-            return [
+            messages = [
                 message
                 for message in self.messages
                 if message.conversation_id == conversation_id
             ]
+            if limit is None:
+                return messages[offset:]
+            return messages[offset : offset + limit]
 
     @asynccontextmanager
     async def _session_factory():
@@ -1239,14 +1279,21 @@ async def test_get_conversation_messages_skips_task_complete_assistant_row() -> 
             return SimpleNamespace(id=conversation_id, title="Chat")
 
         async def get_messages(
-            self, session: object, conversation_id: uuid.UUID
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            limit: int | None = None,
+            offset: int = 0,
         ) -> list[MessageRecord]:
             del session
-            return [
+            messages = [
                 message
                 for message in self.messages
                 if message.conversation_id == conversation_id
             ]
+            if limit is None:
+                return messages[offset:]
+            return messages[offset : offset + limit]
 
     @asynccontextmanager
     async def _session_factory():
