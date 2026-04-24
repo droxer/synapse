@@ -32,6 +32,10 @@
 |:---:|:---:|:---:|
 | ![多智能体规划](images/multi-agents.png) | ![技能系统](images/skills.png) | ![MCP 集成](images/mcp.png) |
 
+| 产物资料库 | 频道实现 |
+|:---:|:---:|
+| ![产物资料库](images/library.png) | ![频道实现](images/channels.png) |
+
 ## 特性
 
 - **Google OAuth 认证**，支持按用户隔离的技能和 MCP 服务器配置
