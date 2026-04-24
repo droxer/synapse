@@ -2,11 +2,11 @@
 
 # Synapse Brand Guidelines
 
-> Product UI note: the live application color system is defined by `docs/DESIGN_STYLE_GUIDE.md` and `docs/reference/design-system.md`. This file remains brand and voice reference and should not override the app token contract.
+> Product UI note: the live application color system is defined by `docs/DESIGN_STYLE_GUIDE.md` and `docs/reference/design-system.md`. This file records the brand layer and must stay aligned with the app token contract.
 
 ## Brand Identity
 
-Synapse is an intelligent AI agent platform. The brand communicates **capability**, **warmth**, and **approachable confidence** through a warm cream-first aesthetic with organic softness, generous whitespace, and professional polish.
+Synapse is an intelligent AI agent platform. The brand communicates **capability**, **clarity**, and **technical confidence** through precise product surfaces, restrained chrome, sharp separation, and a calm developer-tool tone.
 
 ## Voice & Tone
 
@@ -18,32 +18,31 @@ Synapse is an intelligent AI agent platform. The brand communicates **capability
 
 ### Design Direction
 
-The palette is warm and approachable, built on **stone neutrals** — cream backgrounds, warm gray text, and a warm violet accent. Avoid cold grays (zinc, slate), pure white/black backgrounds, and cold indigo accents.
+The product palette is built on **cool technical neutrals** with a blue action layer and a restrained AI signal. Use semantic tokens from `web/src/app/globals.css`; avoid warm stone/sand neutrals, decorative gradients, and hardcoded palette colors.
 
 ### Core Palette
 
 | Token | Dark | Light | Usage |
 |-------|------|-------|-------|
-| `background` | `#1C1917` | `#FAF9F6` | Page background (warm dark / warm cream) |
-| `foreground` | `#EDEDED` | `#1C1917` | Primary text |
-| `card` | `#292524` | `#FFFFFF` | Card surfaces |
-| `border` | `#44403C` | `#E8E5E0` | Default borders (warm stone) |
-| `muted-foreground` | `#A8A29E` | `#78716C` | Secondary text (stone-400 / stone-500) |
+| `background` | `#101114` | `#FFFFFF` | App canvas |
+| `foreground` | `#FFFFFF` | `#000000` | Primary text |
+| `card` | `#181A1E` | `#FFFFFF` | Card and panel surfaces |
+| `border` | `#2A2D33` | `#E4E6EB` | Default borders and dividers |
+| `muted-foreground` | `#B1B9C7` | `#5B6573` | Secondary text |
 
 ### Accent Colors
 
 | Token | Dark | Light | Usage |
 |-------|------|-------|-------|
-| `ai-glow` | `#8B5CF6` (Violet 500) | `#8B5CF6` | AI activity indicator, primary brand signal |
-| `accent-purple` | `#8B5CF6` | `#8B5CF6` | AI accent, tool execution |
-| `user-accent` | `#3B82F6` (Blue 500) | `#3B82F6` | User messages, input focus |
-| `accent-emerald` | `#34D399` | `#10B981` | Success, completion |
-| `accent-amber` | `#D97706` | `#B45309` | Warnings, caution |
-| `accent-rose` | `#F87171` | `#EF4444` | Errors, destructive actions |
+| `primary` | `#5B8CFF` | `#2563EB` | Primary CTA and action fill |
+| `accent-purple` | `#8B8FFF` | `#6366F1` | AI-only signal |
+| `accent-emerald` | `#5C9D70` | `#0E8345` | Success, completion |
+| `accent-amber` | `#AE8523` | `#9F6402` | Warnings, caution |
+| `accent-rose` | `#DE5B5D` | `#DE1135` | Errors, destructive actions |
 
 ### AI Accent Usage
 
-The warm violet `accent-purple` / `ai-glow` (`#8B5CF6`) is the signature brand color. Use it for:
+The AI signal is restrained and secondary to the primary action color. Use `accent-purple` / `ai-glow` only for:
 - Pulsing activity dots (agent running) — via opacity animation, not glow
 - Progress bar gradients
 - Active sidebar indicators (solid bar, no glow)
@@ -61,24 +60,22 @@ Do NOT use `ai-glow` for:
 
 | Family | Font | Usage |
 |--------|------|-------|
-| `--font-sans` | Montserrat | Body text, UI labels, buttons — warm geometric sans |
-| `--font-serif` | Instrument Serif | Hero headings (WelcomeScreen) |
-| `--font-mono` | JetBrains Mono | Code, terminal output, technical values |
+| `--font-sans` | Geist Sans + Noto Sans SC/TC | Body text, UI labels, buttons, headings |
+| `--font-brand-family` | Geist Sans | Product wordmark treatment |
+| `--font-mono` | Geist Mono | Code, terminal output, technical values |
 
 ### Type Scale
 
 | Token | Size | Tailwind | Usage |
 |-------|------|----------|-------|
-| `hero` | 3.75rem | `text-6xl` | Welcome screen heading |
 | `h1` | 1.5rem | `text-2xl` | Page titles |
 | `h2` / `heading` | 1rem | `text-base` | Section headers |
 | `body` | 0.875rem | `text-sm` | Body text, messages |
 | `caption` | 0.75rem | `text-xs` | Labels, timestamps, metadata |
-| `micro` | 0.625rem | `text-[10px]` | Keyboard shortcuts, badges |
+| `micro` | 0.625rem | `text-micro` | Keyboard shortcuts, badges |
 
 ### Hierarchy Rules
 
-- Hero pages: `font-serif` + `text-6xl`
 - Page titles: `font-sans` + `text-base font-semibold`
 - Section headers: `font-sans` + `text-sm font-medium text-muted-foreground`
 - Body: `font-sans` + `text-sm`
@@ -87,15 +84,15 @@ Do NOT use `ai-glow` for:
 
 ### Border Radius
 
-Radii are generous and soft, creating an approachable feel:
+Radii are sharp and compact:
 
 | Element Type | Radius | Tailwind |
 |-------------|--------|----------|
-| Sidebar items, small buttons | 8px | `rounded-md` |
-| Cards, inputs, containers | 12px | `rounded-lg` |
-| Dialogs, command palette | 16px | `rounded-xl` |
-| Pills, tags, chips | 9999px | `rounded-full` |
-| User message bubble (bottom-right) | 8px | `rounded-br-md` |
+| Tiny indicators | 2px | `rounded-sm` |
+| Buttons, chips, badges | 4px | `rounded-md` |
+| Inputs and standard controls | 6px | `rounded-lg` |
+| Panels and overlays | 8px | `rounded-xl` |
+| Exceptional large surfaces | 10px | `rounded-2xl` |
 
 ### Padding Convention
 
@@ -108,18 +105,18 @@ Radii are generous and soft, creating an approachable feel:
 
 ## Shadows
 
-**Warm shadows:** All shadows use warm stone rgba values, never pure black.
+Shadows are minimal and border-led. Use shadows only where they clarify overlay stacking.
 
 | Token | Usage |
 |-------|-------|
 | `shadow-sm` / `shadow-card` | Card resting state, content elements |
-| `shadow-md` / `shadow-card-hover` | Card hover, input focus |
+| `shadow-md` / `shadow-card-hover` | Rare hover emphasis through border-like separation |
 | `shadow-elevated` | Floating overlays ONLY (modals, command palette, dropdowns) |
 
 Card/content depth uses subtle shadow + border:
-- Rest: `border border-border shadow-sm`
-- Hover: `hover:border-border-strong hover:shadow-md`
-- Focus/active: `border-border-active shadow-md`
+- Rest: `border border-border`
+- Hover: `hover:border-border-strong`
+- Focus/active: `border-border-active` plus the standard focus ring
 
 **Glow effects are prohibited.** No `box-shadow: 0 0 Xpx` halos, no `aiGlow` keyframes, no `orbitalPulse` animations.
 
@@ -162,7 +159,7 @@ Always use the `<Button>` component from `shared/components/ui/button`. Never us
 
 ### Focus Rings
 
-Standardize all focus indicators: `focus-visible:ring-[3px] focus-visible:ring-ring/50`
+Standardize focus indicators: `focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background`
 
 ### Touch Targets
 
@@ -171,22 +168,22 @@ All interactive elements must have a minimum 44px touch target (WCAG). Use paddi
 ### Cards
 
 All card-like containers use:
-- `rounded-lg` (12px radius)
+- `rounded-xl` (8px radius) for panels, or `rounded-lg` (6px) for tighter controls
 - `border border-border`
-- `shadow-sm` at rest
-- `hover:border-border-strong hover:shadow-md` on hover
+- no default shadow
+- `hover:border-border-strong` on hover
 - Solid `bg-card` background (no glassmorphism)
 
 ### Inputs
 
-- `rounded-lg` border radius
+- `rounded-lg` (6px) border radius
 - Solid `bg-card` background
-- Focus: `border-border-active shadow-md` (no glow)
+- Focus: canonical focus ring plus active border (no glow)
 - No `backdrop-blur` or transparency
 
 ## Logo & Favicon
 
-- Master logo: `public/logo.png`
+- Master logo assets: `web/public/logo.svg`, `web/public/logo.png`
 - Favicon variants:
   - `web/public/favicon-light.svg`, `web/public/favicon-dark.svg`
   - `web/public/favicon-16.png`, `web/public/favicon-32.png`, `web/public/favicon.ico`

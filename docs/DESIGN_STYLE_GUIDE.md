@@ -137,8 +137,8 @@ Used sparingly for status indicators and semantic meaning. Never as dominant sur
 
 | Role | Font | Variable | Fallback | Usage Scope |
 |------|------|----------|----------|-------------|
-| Body (sans) | Geist Sans | `--font-geist` | Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Noto Sans SC/TC, PingFang SC, Microsoft YaHei, sans-serif | All body text, UI chrome, labels, headings, panel titles, including WelcomeScreen hero. Modern geometric sans designed for screens. |
-| CJK (sans) | Noto Sans SC / Noto Sans TC | `--font-noto-sans-sc`, `--font-noto-sans-tc` | PingFang SC, Microsoft YaHei, sans-serif | Chinese Simplified and Traditional text. Loaded as web fonts for consistent cross-platform rendering. |
+| Body (sans) | Geist Sans | `--font-geist-sans` | Noto Sans SC/TC, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica Neue, Arial, sans-serif | All body text, UI chrome, labels, headings, panel titles, including WelcomeScreen hero. Bundled through `next/font/local` for stable rendering. |
+| CJK (sans) | Noto Sans SC / Noto Sans TC | `--font-noto-sans-sc`, `--font-noto-sans-tc` | PingFang SC/TC, Microsoft YaHei/JhengHei, Noto Sans CJK SC/TC, sans-serif | Simplified and Traditional Chinese text. Bundled as local font assets for consistent cross-platform rendering. |
 | Code (mono) | Geist Mono | `--font-geist-mono` | ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace | Code blocks, raw data, terminal logs, keyboard shortcut labels |
 
 ### Type Scale
@@ -192,6 +192,8 @@ pre, code {
 -moz-osx-font-smoothing: grayscale;
 text-rendering: optimizeLegibility;
 ```
+
+Font files live in `web/src/app/font-assets/`, are loaded from `web/src/app/fonts.ts`, and are tracked through Git LFS.
 
 ---
 
@@ -555,7 +557,7 @@ These patterns have been found in the codebase and must be avoided:
 | `opacity-0 group-hover:opacity-100` (alone) | Add `group-focus-within:opacity-100` |
 | `style={{ background: "#818CF8" }}` | Use `var(--color-accent-purple)` |
 | Warm gray tokens (stone, sand, amber-tinted) | Use cool slate-based neutrals |
-| `Montserrat` font references | Use `Geist Sans` (`--font-geist`), Inter is a fallback only |
+| `Montserrat` font references | Use `Geist Sans` (`--font-geist-sans`) |
 | `text-muted-foreground/60`, `/40` | Use `text-muted-foreground-dim` (WCAG AA) |
 | `border-border/60`, `bg-border/60` | Use `border-border` (no opacity modifiers) |
 | `backdrop-blur-sm` on UI elements | Remove — use solid backgrounds only |

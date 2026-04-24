@@ -19,7 +19,7 @@ Token source is `web/src/app/globals.css`:
 - Keep light/dark parity by changing variables, not component class structure.
 - Preserve Synapse's dense product UI with border-led separation and small radii.
 - Use chroma intentionally: `primary` for actions, `secondary` for cool support surfaces, `accent` for hover/highlight.
-- Keep font licensing clean: use `Geist` + system/CJK fallbacks, not proprietary fonts.
+- Keep font licensing clean: use bundled `Geist`/`Noto Sans` assets plus system fallbacks, not proprietary fonts.
 
 ---
 
@@ -104,10 +104,10 @@ Embedded preview surfaces (e.g. `srcDoc`/iframe office previews) may use local f
 
 ### Font stacks
 
-Defined in `web/src/app/fonts.ts` and injected via `web/src/app/layout.tsx`.
+Defined in `web/src/app/fonts.ts`, loaded from `web/src/app/font-assets/`, and injected via `web/src/app/layout.tsx`.
 
-- `--font-sans`: `Geist`, Noto SC/TC, system stack.
-- `--font-mono`: `Geist Mono`.
+- `--font-sans`: local `Geist Sans`, local Noto SC/TC, system stack.
+- `--font-mono`: local `Geist Mono`, system mono stack.
 - `--font-brand-family`: Geist/system fallback for product wordmark treatment.
 
 ### Type scale
@@ -184,10 +184,11 @@ Token maintenance checklist:
 - Add or update every semantic token in all three locations in `globals.css`: `@theme`, `:root`, and `.dark`.
 - Keep fallback values for embedded content (iframes/previews) aligned with the same semantic token intent.
 - Prefer semantic aliases (e.g. `ring` -> `focus`) over direct literal reuse when a role already exists.
+- Keep font assets in `web/src/app/font-assets/`; binary font files are tracked through Git LFS.
 
 Guardrail command:
 
-- Run `npm run audit:design-tokens` in `web/` to detect banned token patterns and hardcoded color literals (with approved exception allowlist).
+- Run `make audit-design-tokens` from the repo root, or `npm run audit:design-tokens` in `web/`, to detect banned token patterns and hardcoded color literals (with approved exception allowlist).
 - The audit also blocks `backdrop-blur`, `glass-surface`, `workspace-atmosphere`, `gradient-heading`, and non-overlay shadow patterns in product UI.
 
 ---

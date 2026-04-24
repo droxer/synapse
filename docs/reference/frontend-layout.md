@@ -9,10 +9,13 @@
 | Path | Role |
 | --- | --- |
 | `src/app/` | App Router routes: conversation, skills, MCP, library, channels, login |
+| `src/app/font-assets/` | Bundled local font assets loaded through `next/font/local` |
 | `src/features/conversation/` | Chat composer, SSE wiring, message rendering, upload flow, reconnect handling |
 | `src/features/agent-computer/` | Derived agent state, progress cards, tool output renderers, artifact panels, browser/computer-use output |
 | `src/features/skills/` | Installed/bundled skills UI, search/filtering, install/upload/toggle/detail pages, file browser |
+| `src/features/mcp/` | MCP server list, add/edit dialog, JSON config parsing, enable/disable/remove flows |
 | `src/features/channels/` | Channel UI and API |
+| `src/i18n/` | Locale provider and dictionaries for `en`, `zh-CN`, and `zh-TW` |
 | `src/shared/stores/app-store.ts` | Zustand persistent store |
 
 ## Agent-computer surface (detail)
@@ -38,6 +41,10 @@
 ## Proxy
 
 `next.config.ts` rewrites `/api/*` → `http://localhost:8000/*` in development.
+
+## Fonts and locale bootstrapping
+
+`src/app/fonts.ts` loads local Geist and Noto Sans SC/TC assets from `src/app/font-assets/`. `src/app/layout.tsx` applies the font variables and uses a `beforeInteractive` script to sync the persisted locale onto `<html lang>` before hydration.
 
 ## Related
 

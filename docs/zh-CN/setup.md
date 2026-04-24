@@ -239,9 +239,10 @@ Synapse/
 ├── web/               # Next.js 前端
 │   └── src/
 │       ├── app/       # 页面（App Router）
+│       │   └── font-assets/ # 内置本地 Geist/Noto 字体资源
 │       ├── features/  # 功能模块（对话、智能体面板、技能、MCP、资料库、频道）
 │       ├── shared/    # 共享组件、hooks、状态管理、类型定义
-│       └── i18n/      # 国际化（en、zh-CN）
+│       └── i18n/      # 国际化（en、zh-CN、zh-TW）
 ├── container/         # 沙盒 Dockerfiles
 ├── docs/              # 文档
 └── Makefile           # 开发命令
@@ -265,6 +266,8 @@ Synapse/
 | `make pre-commit` | 安装 pre-commit 钩子 |
 | `make pre-commit-all` | 对所有文件运行 pre-commit |
 | `make lint-web` | 前端代码检查 |
+| `make test-web` | 运行前端测试 |
+| `make audit-design-tokens` | 审核前端 token、颜色和阴影规则 |
 | `make clean` | 删除 `.venv`、`node_modules`、`.next` |
 
 ### 后端测试与代码检查

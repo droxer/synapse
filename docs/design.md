@@ -59,8 +59,8 @@ Use ring-2 only when stronger emphasis is intentionally required by a component 
 
 ### 3.5 Typography contract
 
-- Sans stack: Geist + Noto CJK + system fallbacks
-- Mono stack: Geist Mono + system mono fallbacks
+- Sans stack: bundled Geist Sans + bundled Noto Sans SC/TC + system fallbacks
+- Mono stack: bundled Geist Mono + system mono fallbacks
 - Primary product body: `text-sm`
 - Metadata: `text-caption`/`text-xs` and `text-micro`
 - Avoid ad-hoc text sizes if equivalent scale token exists
@@ -184,12 +184,15 @@ When changing design tokens or visual standards:
 2. Update this `design.md` only for rule/contract changes (not for every small value tweak).
 3. Validate impacted shared primitives and high-traffic feature pages.
 4. Run frontend checks and visual QA in both themes.
-5. Keep audits as supporting evidence, not canonical specification.
+5. Run `make audit-design-tokens` when token, color, surface, shadow, or typography rules change.
+6. Keep audits as supporting evidence, not canonical specification.
 
 ## 12) Canonical Reference Map
 
 ### Tokens and utilities
 - `web/src/app/globals.css`
+- `web/src/app/fonts.ts`
+- `web/src/app/font-assets/`
 
 ### Shared shell/components
 - `web/src/shared/components/Sidebar.tsx`

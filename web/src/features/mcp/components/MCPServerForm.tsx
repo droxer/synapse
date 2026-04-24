@@ -4,7 +4,6 @@ import type { ChangeEvent, ClipboardEvent } from "react";
 import {
   Check,
   FileJson,
-  Link2,
   Loader2,
   ShieldCheck,
   Sparkles,
@@ -26,7 +25,6 @@ interface MCPServerFormProps {
   readonly formTransport: MCPTransport;
   readonly headerCount: number;
   readonly submitting: boolean;
-  readonly title: string;
   readonly submitLabel: string;
   readonly onApplySchema: (value?: string) => void;
   readonly onSubmit: () => void;
@@ -44,7 +42,6 @@ export function MCPServerForm({
   formTransport,
   headerCount,
   submitting,
-  title,
   submitLabel,
   onApplySchema,
   onSubmit,
@@ -52,6 +49,11 @@ export function MCPServerForm({
   idPrefix = "mcp",
 }: MCPServerFormProps) {
   const { t } = useTranslation();
+  const parsedName = formName.trim();
+  const hasParsedConfig = parsedName.length > 0;
+  const schemaHelper = formSchema.trim()
+    ? t("mcp.schemaApplyHint")
+    : t("mcp.schemaPasteHint");
 
   const handleSchemaPaste = (e: ClipboardEvent<HTMLTextAreaElement>) => {
     const pasted = e.clipboardData.getData("text");
@@ -80,8 +82,8 @@ export function MCPServerForm({
               >
                 {t("mcp.schema")}
               </Label>
-              <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                {formSchema.trim() ? t("mcp.applySchema") : t("mcp.schema")}
+              <p className="mt-0.5 max-w-[28rem] text-xs text-muted-foreground">
+                {schemaHelper}
               </p>
             </div>
           </div>
@@ -103,67 +105,34 @@ export function MCPServerForm({
           value={formSchema}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onFormSchemaChange(e.target.value)}
           onPaste={handleSchemaPaste}
-          className="min-h-[9rem] resize-y rounded-none border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed focus-visible:ring-0 focus-visible:ring-offset-0"
+          className="min-h-[9rem] resize-y rounded-none border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed"
           autoFocus
         />
 
         <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border bg-muted/20 px-4 py-2.5">
-          <span
-            className={cn(
-              "status-pill",
-              headerCount > 0 ? "status-ok" : "status-neutral",
-            )}
-          >
-            {headerCount > 0 ? (
-              <Check className="h-3 w-3" />
-            ) : (
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            <span
+              className={cn(
+                "status-pill",
+                hasParsedConfig ? "status-info" : "status-neutral",
+              )}
+            >
               <ShieldCheck className="h-3 w-3" />
+              {hasParsedConfig ? parsedName : t("mcp.waitingForConfig")}
+            </span>
+            {headerCount > 0 && (
+              <span className="status-pill status-ok">
+                <Check className="h-3 w-3" />
+                {t("mcp.headersApplied", { count: headerCount })}
+              </span>
             )}
-            {headerCount > 0
-              ? t("mcp.headersApplied", { count: headerCount })
-              : t("mcp.schema")}
-          </span>
-          <span className="font-mono text-micro text-muted-foreground-dim">
-            {formTransport}
-          </span>
-        </div>
-      </section>
-
-      <section className="space-y-4 rounded-lg border border-border bg-muted/20 p-4">
-        <div className="flex items-center justify-between gap-3">
-          <div>
-            <p className="label-mono text-muted-foreground-dim">
-              {title}
-            </p>
-            <p className="mt-1 text-sm font-medium text-foreground">
-              {formName.trim() || t("mcp.namePlaceholder")}
-            </p>
           </div>
-          <span className="status-pill status-info">
-            <Link2 className="h-3 w-3" />
-            {formTransport}
-          </span>
-        </div>
-
-        <dl className="grid gap-3 sm:grid-cols-[minmax(0,1fr)_12rem]">
-          <div className="min-w-0 rounded-md border border-border bg-background px-3 py-2">
-            <dt className="label-mono text-muted-foreground-dim">
-              {t("mcp.name")}
-            </dt>
-            <dd className="mt-1 truncate font-mono text-sm text-foreground">
-              {formName.trim() || t("mcp.namePlaceholder")}
-            </dd>
-          </div>
-
-          <div className="rounded-md border border-border bg-background px-3 py-2">
-            <dt className="label-mono text-muted-foreground-dim">
-              {t("mcp.transport")}
-            </dt>
-            <dd className="mt-1 font-mono text-sm text-foreground">
+          {hasParsedConfig && (
+            <span className="font-mono text-micro text-muted-foreground-dim">
               {formTransport}
-            </dd>
-          </div>
-        </dl>
+            </span>
+          )}
+        </div>
       </section>
 
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">

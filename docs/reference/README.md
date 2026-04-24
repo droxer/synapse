@@ -13,6 +13,7 @@ Small, linkable shards used by **`AGENTS.md`** and **`CLAUDE.md`**. Parent hub: 
 
 - [style-python.md](style-python.md)
 - [style-typescript.md](style-typescript.md)
+- [design-system.md](design-system.md)
 
 ## Architecture
 

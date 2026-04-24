@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { geistSans, geistMono, notoSansSC, notoSansTC } from "./fonts";
 import { Providers } from "./providers";
 import "./globals.css";
@@ -31,13 +32,9 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
     >
-      <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `(function(){try{var l=localStorage.getItem('i18n:locale');if(l)document.documentElement.lang=l;}catch(e){}})();`,
-          }}
-        />
-      </head>
+      <Script id="sync-locale-lang" strategy="beforeInteractive">
+        {`(function(){try{var l=localStorage.getItem('i18n:locale');if(l)document.documentElement.lang=l;}catch(e){}})();`}
+      </Script>
       <body className="font-sans antialiased">
         <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground">
           Skip to main content

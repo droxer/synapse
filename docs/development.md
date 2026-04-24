@@ -17,6 +17,8 @@ make clean            # Remove .venv, node_modules, .next
 make pre-commit       # Install pre-commit hooks
 make pre-commit-all   # Run pre-commit on all files
 make lint-web         # Lint frontend: cd web && npx eslint src/
+make test-web         # Run frontend tests: cd web && npm test
+make audit-design-tokens # Audit frontend token/color/shadow guardrails
 make desktop          # Start Tauri desktop app in dev mode
 make build-desktop    # Build Tauri desktop app (.app bundle)
 ```
@@ -235,7 +237,9 @@ Synapse/
 │   │   │   │   └── hooks/            # use-skills-cache
 │   │   │   ├── mcp/                  # MCP configuration
 │   │   │   │   ├── api/              # mcp-api.ts
-│   │   │   │   └── components/       # MCPPage, MCPDialog, TransportToggle
+│   │   │   │   ├── components/       # MCPPage, MCPDialog, MCPAddServerDialog, MCPServerForm
+│   │   │   │   ├── hooks/            # use-mcp-servers
+│   │   │   │   └── lib/              # parse-mcp-config, mcp-submit-config
 │   │   │   └── library/              # Artifact library
 │   │   │       ├── api/              # library-api.ts
 │   │   │       ├── components/       # LibraryPage, LibraryArtifactCard, ConversationGroup
@@ -247,9 +251,9 @@ Synapse/
 │   │   │   ├── stores/              # app-store (Zustand)
 │   │   │   ├── types/               # events.ts (AgentEvent, EventType, TaskState)
 │   │   │   └── lib/                 # utils, a11y
-│   │   └── i18n/                    # Internationalization (en, zh-CN)
+│   │   └── i18n/                    # Internationalization (en, zh-CN, zh-TW)
+│   │       └── locales/             # Translation dictionaries
 │   ├── next.config.ts               # API proxy to backend
-│   ├── tailwind.config.ts
 │   └── package.json
 ├── container/                # Sandbox Docker images (multi-stage, optimized)
 │   ├── Dockerfile.base           # Base image: Python 3.12, system packages, shared Python deps
@@ -332,6 +336,8 @@ task_complete event ──────────────────► Fr
 |--------|------|-------------|
 | `GET` | `/mcp/servers` | List connected MCP servers |
 | `POST` | `/mcp/servers` | Connect an MCP server. Body: transport config |
+| `PUT` | `/mcp/servers/{name}` | Update an MCP server. Body: transport config |
+| `PATCH` | `/mcp/servers/{name}` | Enable or disable an MCP server. Body: `disabled` |
 | `DELETE` | `/mcp/servers/{name}` | Disconnect an MCP server |
 
 ### Authentication

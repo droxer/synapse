@@ -39,3 +39,7 @@ web/src-tauri/icons/android/mipmap-hdpi/ic_launcher_round.png filter=lfs diff=lf
 web/src-tauri/icons/android/mipmap-hdpi/ic_launcher.png filter=lfs diff=lfs merge=lfs -text
 images/library.png filter=lfs diff=lfs merge=lfs -text
 images/channels.png filter=lfs diff=lfs merge=lfs -text
+web/src/app/font-assets/geist-mono-variable.woff2 filter=lfs diff=lfs merge=lfs -text
+web/src/app/font-assets/geist-sans-variable.woff2 filter=lfs diff=lfs merge=lfs -text
+web/src/app/font-assets/noto-sans-sc-variable.otf filter=lfs diff=lfs merge=lfs -text
+web/src/app/font-assets/noto-sans-tc-variable.otf filter=lfs diff=lfs merge=lfs -text

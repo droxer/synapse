@@ -64,7 +64,7 @@ Synapse includes dedicated views for planning, skills, MCP configuration, artifa
 - **Agent evaluation system** — YAML-defined eval cases with programmatic and LLM-as-judge grading, covering tool use, skill invocation, sub-agent spawning, and agent handoff
 - **Channel integrations** — Connect messaging platforms (Telegram) to chat with Synapse from your favorite apps
 - **User preferences** — Persistent theme (dark/light/system) and locale settings per user
-- **Dark/light theme** with internationalization (English, Chinese)
+- **Dark/light theme** with internationalization (English, Simplified Chinese, Traditional Chinese)
 - **Keyboard-first UX** — Command palette (Cmd+K), responsive layout
 
 ## Quick Start
@@ -123,7 +123,6 @@ See [Desktop App Guide](docs/desktop-app.md) for configuration and troubleshooti
 - [Documentation Index](docs/README.md) — Reference shards and deeper docs, including agent runtime, memory, and evals
 - [Desktop App Guide](docs/desktop-app.md) — Tauri desktop app setup, configuration, OAuth flow, and troubleshooting
 - [Agent Memory Guide](docs/agent-memory-management.md) — Working context, compaction, persistent memory, and verified facts
-- [Agent Implementation Review](docs/agent-implementation-review-2026-04-19.md) — Current audit findings and confirmed documentation drift
 - [Design Style Guide](docs/DESIGN_STYLE_GUIDE.md) — UI component patterns, color system, typography, and accessibility
 - [Brand Guidelines](docs/brand-guidelines.md) — Brand identity, color palette, and visual design language
 

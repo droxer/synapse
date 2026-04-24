@@ -219,7 +219,7 @@ make desktop
 make build-desktop
 ```
 
-See [Desktop App Guide](../desktop-app.md) for details.
+See [Desktop App Guide](desktop-app.md) for details.
 
 ---
 
@@ -237,9 +237,10 @@ Synapse/
 ├── web/               # Next.js frontend
 │   └── src/
 │       ├── app/       # Pages (App Router)
+│       │   └── font-assets/ # Bundled local Geist/Noto font assets
 │       ├── features/  # Feature modules (conversation, agent-computer, skills, mcp, library, channels)
 │       ├── shared/    # Shared components, hooks, stores, types
-│       └── i18n/      # Internationalization (en, zh-CN)
+│       └── i18n/      # Internationalization (en, zh-CN, zh-TW)
 ├── container/         # Sandbox Dockerfiles
 ├── docs/              # Documentation
 └── Makefile           # Dev commands
@@ -263,6 +264,8 @@ Synapse/
 | `make pre-commit` | Install pre-commit hooks |
 | `make pre-commit-all` | Run pre-commit on all files |
 | `make lint-web` | Lint frontend code |
+| `make test-web` | Run frontend tests |
+| `make audit-design-tokens` | Audit frontend token/color/shadow guardrails |
 | `make clean` | Remove `.venv`, `node_modules`, `.next` |
 
 ### Backend Testing & Linting

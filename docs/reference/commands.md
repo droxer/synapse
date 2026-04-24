@@ -19,6 +19,8 @@ Run tasks from the **repository root** via `make` unless noted otherwise.
 | `make install-web` | `cd web && npm install` |
 | `make build-web` | `cd web && npm run build` |
 | `make build-sandbox` | Build Boxlite sandbox Docker images |
+| `make push-sandbox` | Push sandbox images to GHCR |
+| `make generate-favicons` | Generate favicon/icon assets from SVG sources |
 
 ## Quality
 
@@ -26,7 +28,12 @@ Run tasks from the **repository root** via `make` unless noted otherwise.
 | --- | --- |
 | `make pre-commit` | Install pre-commit hooks |
 | `make pre-commit-all` | Run pre-commit on all files |
+| `make test` | Backend tests: `cd backend && uv run pytest` |
+| `make lint` | Backend lint: `cd backend && uv run ruff check .` |
+| `make format` | Backend format: `cd backend && uv run ruff format .` |
 | `make lint-web` | `cd web && npx eslint src/` |
+| `make test-web` | `cd web && npm test` |
+| `make audit-design-tokens` | `cd web && npm run audit:design-tokens` |
 
 ## Desktop
 

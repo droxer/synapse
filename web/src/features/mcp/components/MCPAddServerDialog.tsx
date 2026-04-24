@@ -50,6 +50,8 @@ export function MCPAddServerDialog({
   const { t } = useTranslation();
   const title = mode === "edit" ? t("mcp.editFormTitle") : t("mcp.addFormTitle");
   const submitLabel = mode === "edit" ? t("mcp.save") : t("mcp.connect");
+  const parsedName = formName.trim();
+  const TransportIcon = formTransport === "streamablehttp" ? Globe : Radio;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -63,14 +65,12 @@ export function MCPAddServerDialog({
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
                   <DialogTitle>{title}</DialogTitle>
-                  <span className="status-pill status-info">
-                    <Globe className="h-3 w-3" />
-                    HTTP
-                  </span>
-                  <span className="status-pill status-neutral">
-                    <Radio className="h-3 w-3" />
-                    SSE
-                  </span>
+                  {parsedName && (
+                    <span className="status-pill status-info">
+                      <TransportIcon className="h-3 w-3" />
+                      {formTransport}
+                    </span>
+                  )}
                 </div>
                 <DialogDescription className="mt-1 max-w-xl">
                   {t("mcp.subtitle")}
@@ -89,7 +89,6 @@ export function MCPAddServerDialog({
           formTransport={formTransport}
           headerCount={headerCount}
           submitting={submitting}
-          title={title}
           submitLabel={submitLabel}
           onApplySchema={onApplySchema}
           onSubmit={onSubmit}

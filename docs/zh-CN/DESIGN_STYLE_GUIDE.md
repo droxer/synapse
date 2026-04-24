@@ -134,9 +134,9 @@
 
 | 角色 | 字体 | 变量 | 回退字体 | 使用范围 |
 |------|------|------|----------|----------|
-| 正文 (sans) | Geist Sans | `--font-geist` | Inter, -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Noto Sans SC/TC, PingFang SC, Microsoft YaHei, sans-serif | 所有正文文本、UI 装饰、标签、标题、面板标题，包括 WelcomeScreen 主视觉。专为屏幕设计的现代几何无衬线字体。 |
-| 中日韩 (sans) | Noto Sans SC / Noto Sans TC | `--font-noto-sans-sc`, `--font-noto-sans-tc` | PingFang SC, Microsoft YaHei, sans-serif | 简体中文和繁体中文文本。作为网络字体加载以实现跨平台一致渲染。 |
-| 代码 (mono) | Geist Mono | `--font-geist-mono` | JetBrains Mono, monospace | 代码块、原始数据、终端日志、键盘快捷键标签 |
+| 正文 (sans) | Geist Sans | `--font-geist-sans` | Noto Sans SC/TC, -apple-system, BlinkMacSystemFont, Segoe UI, Helvetica Neue, Arial, sans-serif | 所有正文文本、UI 装饰、标签、标题、面板标题，包括 WelcomeScreen 主视觉。通过 `next/font/local` 以内置资源加载，确保渲染稳定。 |
+| 中日韩 (sans) | Noto Sans SC / Noto Sans TC | `--font-noto-sans-sc`, `--font-noto-sans-tc` | PingFang SC/TC, Microsoft YaHei/JhengHei, Noto Sans CJK SC/TC, sans-serif | 简体中文和繁体中文文本。以内置本地字体资源加载，以实现跨平台一致渲染。 |
+| 代码 (mono) | Geist Mono | `--font-geist-mono` | ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace | 代码块、原始数据、终端日志、键盘快捷键标签 |
 
 ### 字号比例
 
@@ -189,6 +189,8 @@ pre, code {
 -moz-osx-font-smoothing: grayscale;
 text-rendering: optimizeLegibility;
 ```
+
+字体文件位于 `web/src/app/font-assets/`，由 `web/src/app/fonts.ts` 加载，并通过 Git LFS 跟踪。
 
 ---
 
@@ -552,7 +554,7 @@ focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-vi
 | `opacity-0 group-hover:opacity-100`（单独使用） | 添加 `group-focus-within:opacity-100` |
 | `style={{ background: "#818CF8" }}` | 使用 `var(--color-accent-purple)` |
 | 暖灰色令牌（stone、sand、琥珀色调） | 使用冷色 slate 系中性色 |
-| `Montserrat` 字体引用 | 使用 `Geist Sans`（`--font-geist`），Inter 仅作为回退 |
+| `Montserrat` 字体引用 | 使用 `Geist Sans`（`--font-geist-sans`） |
 | `text-muted-foreground/60`、`/40` | 使用 `text-muted-foreground-dim`（WCAG AA） |
 | `border-border/60`、`bg-border/60` | 使用 `border-border`（无透明度修饰符） |
 | `backdrop-blur-sm` 用于 UI 元素 | 移除 — 仅使用纯色背景 |
