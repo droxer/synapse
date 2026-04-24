@@ -24,7 +24,6 @@ interface MCPServerFormProps {
   readonly onFormSchemaChange: (value: string) => void;
   readonly formName: string;
   readonly formTransport: MCPTransport;
-  readonly formUrl: string;
   readonly headerCount: number;
   readonly submitting: boolean;
   readonly title: string;
@@ -43,7 +42,6 @@ export function MCPServerForm({
   onFormSchemaChange,
   formName,
   formTransport,
-  formUrl,
   headerCount,
   submitting,
   title,
@@ -165,22 +163,10 @@ export function MCPServerForm({
               {formTransport}
             </dd>
           </div>
-
-          <div className="min-w-0 rounded-md border border-border bg-background px-3 py-2 sm:col-span-2">
-            <dt className="label-mono text-muted-foreground-dim">
-              {t("mcp.urlLabel")}
-            </dt>
-            <dd className="mt-1 truncate font-mono text-sm text-foreground">
-              {formUrl.trim() || t("mcp.urlPlaceholder")}
-            </dd>
-          </div>
         </dl>
       </section>
 
       <div className="flex flex-col-reverse gap-2 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <p className="font-mono text-micro text-muted-foreground-dim">
-          {formUrl.trim() || t("mcp.urlPlaceholder")}
-        </p>
         <div className="flex justify-end gap-2">
           <Button
             variant="ghost"

@@ -66,7 +66,6 @@ export function MCPPage() {
     setFormSchema,
     formName,
     formTransport,
-    formUrl,
     formHeaders,
     serverToEdit,
     submitting,
@@ -282,7 +281,6 @@ export function MCPPage() {
         onFormSchemaChange={setFormSchema}
         formName={formName}
         formTransport={formTransport}
-        formUrl={formUrl}
         headerCount={Object.keys(formHeaders).length}
         submitting={submitting}
         mode={serverToEdit ? "edit" : "add"}
