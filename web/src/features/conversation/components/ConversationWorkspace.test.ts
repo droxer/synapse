@@ -99,8 +99,13 @@ jest.mock("@/features/conversation", () => ({
   ChatInput: () => null,
 }));
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const { ConversationWorkspace, MessageRow } = require("./ConversationWorkspace");
+const {
+  ConversationWorkspace,
+  MessageRow,
+  getConversationWorkspaceLayoutClasses,
+} =
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  require("./ConversationWorkspace");
 
 describe("shouldAutoScrollToBottom", () => {
   it("scrolls on first populate", () => {
@@ -351,6 +356,33 @@ describe("areMessageRowsEqual", () => {
 
     expect(html).toContain("inspect this");
     expect(html).toContain("report.csv");
+  });
+});
+
+describe("getConversationWorkspaceLayoutClasses", () => {
+  it("keeps the default workspace on the spacious large-screen panel layout", () => {
+    expect(getConversationWorkspaceLayoutClasses("default", true)).toEqual({
+      contentWidthClass: "max-w-[46rem]",
+      workspaceLayoutClass:
+        "grid grid-rows-[minmax(0,1fr)_minmax(20rem,42%)] lg:grid-cols-[minmax(0,1fr)_minmax(22rem,var(--agent-panel-width))] lg:grid-rows-1",
+      panelBorderClass: "border-t lg:border-l lg:border-t-0",
+    });
+  });
+
+  it("uses the tighter embedded columns for channels", () => {
+    expect(getConversationWorkspaceLayoutClasses("embedded", true)).toEqual({
+      contentWidthClass: "max-w-[42rem]",
+      workspaceLayoutClass:
+        "grid grid-rows-[minmax(0,1fr)_minmax(18rem,40%)] md:grid-cols-[minmax(0,1fr)_minmax(20rem,36%)] md:grid-rows-1",
+      panelBorderClass: "border-t md:border-l md:border-t-0",
+    });
+  });
+
+  it("renders a single-column workspace when the panel is closed", () => {
+    expect(getConversationWorkspaceLayoutClasses("embedded", false)).toMatchObject({
+      contentWidthClass: "max-w-[56rem]",
+      workspaceLayoutClass: "flex flex-col",
+    });
   });
 });
 

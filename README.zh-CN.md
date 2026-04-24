@@ -32,9 +32,9 @@
 |:---:|:---:|:---:|
 | ![多智能体规划](images/multi-agents.png) | ![技能系统](images/skills.png) | ![MCP 集成](images/mcp.png) |
 
-| 产物资料库 | 频道实现 |
-|:---:|:---:|
-| ![产物资料库](images/library.png) | ![频道实现](images/channels.png) |
+| 产物资料库 | Web 频道页面 | Telegram 频道集成 |
+|:---:|:---:|:---:|
+| ![产物资料库](images/library.png) | ![Web 频道页面](images/channels.png) | ![Telegram 频道集成](images/telegram.jpg) |
 
 ## 特性
 

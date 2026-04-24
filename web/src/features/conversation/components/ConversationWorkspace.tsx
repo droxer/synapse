@@ -40,9 +40,35 @@ import type {
   ThinkingEntry,
 } from "@/shared/types";
 
+type ConversationWorkspaceLayoutVariant = "default" | "embedded";
+
+export function getConversationWorkspaceLayoutClasses(
+  layoutVariant: ConversationWorkspaceLayoutVariant,
+  panelOpen: boolean,
+) {
+  return {
+    contentWidthClass:
+      layoutVariant === "embedded" && panelOpen
+        ? "max-w-[42rem]"
+        : panelOpen
+          ? "max-w-[46rem]"
+          : "max-w-[56rem]",
+    workspaceLayoutClass: panelOpen
+      ? layoutVariant === "embedded"
+        ? "grid grid-rows-[minmax(0,1fr)_minmax(18rem,40%)] md:grid-cols-[minmax(0,1fr)_minmax(20rem,36%)] md:grid-rows-1"
+        : "grid grid-rows-[minmax(0,1fr)_minmax(20rem,42%)] lg:grid-cols-[minmax(0,1fr)_minmax(22rem,var(--agent-panel-width))] lg:grid-rows-1"
+      : "flex flex-col",
+    panelBorderClass:
+      layoutVariant === "embedded"
+        ? "border-t md:border-l md:border-t-0"
+        : "border-t lg:border-l lg:border-t-0",
+  } as const;
+}
+
 interface ConversationWorkspaceProps {
   conversationId: string | null;
   conversationTitle?: string;
+  layoutVariant?: ConversationWorkspaceLayoutVariant;
   events: readonly AgentEvent[];
   messages: readonly ChatMessage[];
   toolCalls: readonly ToolCallInfo[];
@@ -335,6 +361,7 @@ export function ConversationWorkspace({
   onRetry,
   isLoadingHistory = false,
   hideTopBar = false,
+  layoutVariant = "default",
 }: ConversationWorkspaceProps) {
   const { t, locale } = useTranslation();
   const chatScrollRef = useRef<HTMLDivElement>(null);
@@ -464,8 +491,9 @@ export function ConversationWorkspace({
   const showDetachedStreamThinking =
     hasActiveStreamThinking && !attachStreamThinkingToAssistant;
 
-  const contentWidthClass = useMemo(() => panelOpen ? "max-w-[46rem]" : "max-w-[56rem]", [panelOpen]);
   const messageWidthClass = useMemo(() => panelOpen ? "sm:max-w-[90%]" : "sm:max-w-[85%]", [panelOpen]);
+  const { contentWidthClass, workspaceLayoutClass, panelBorderClass } =
+    getConversationWorkspaceLayoutClasses(layoutVariant, panelOpen);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -486,11 +514,11 @@ export function ConversationWorkspace({
             isPlannerAutoDetected={isCurrentTurnAutoDetected}
           />
         )}
-        <div className="flex flex-1 overflow-hidden">
-          <div className="relative flex min-h-0 flex-1 overflow-hidden bg-background">
-            <div className="relative flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
+        <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
+          <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+            <div className={cn("relative min-h-0 min-w-0 flex-1 overflow-hidden", workspaceLayoutClass)}>
               {/* Left pane: Conversation */}
-              <div className={cn("relative flex min-h-0 flex-col", panelOpen ? "w-full lg:w-[58%]" : "w-full")}>
+              <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
                 <div ref={chatScrollRef} className="flex-1 overflow-y-auto px-4 py-5 sm:px-6 sm:py-6">
                   {showEmptyState && (
                     <div className="flex h-full items-center justify-center">
@@ -626,7 +654,10 @@ export function ConversationWorkspace({
                 {panelOpen && (
                   <motion.div
                     key="agent-computer-panel"
-                    className="relative z-10 flex w-full min-h-0 flex-col overflow-hidden border-l border-border bg-background md:w-[var(--agent-panel-width)]"
+                    className={cn(
+                      "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-border bg-background",
+                      panelBorderClass,
+                    )}
                     initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 12 }}

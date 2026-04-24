@@ -142,8 +142,8 @@ export default function ChannelsPage() {
     }
 
     return (
-      <div className="flex min-h-0 flex-1 flex-col md:flex-row">
-        <aside className="flex w-full shrink-0 flex-col bg-sidebar/40 md:w-[320px] md:border-r md:border-border">
+      <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1">
+        <aside className="flex min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar/40 md:border-r md:border-border">
           <div className="px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Telegram Threads
@@ -161,7 +161,7 @@ export default function ChannelsPage() {
           </div>
         </aside>
 
-        <div className="min-h-0 flex-1">
+        <div className="min-h-0 min-w-0 overflow-hidden">
           {selectedConversation ? (
             <ChannelChatView
               key={selectedConversation.conversation_id}

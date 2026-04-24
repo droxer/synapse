@@ -34,9 +34,9 @@ Synapse includes dedicated views for planning, skills, MCP configuration, artifa
 |:---:|:---:|:---:|
 | ![Multi-Agent Planning](images/multi-agents.png) | ![Skills System](images/skills.png) | ![MCP Integration](images/mcp.png) |
 
-| Artifact Library | Channel Implementation |
-|:---:|:---:|
-| ![Artifact Library](images/library.png) | ![Channel Implementation](images/channels.png) |
+| Artifact Library | Web Channel Page | Telegram Channel Integration |
+|:---:|:---:|:---:|
+| ![Artifact Library](images/library.png) | ![Web Channel Page](images/channels.png) | ![Telegram Channel Integration](images/telegram.jpg) |
 
 ## Brand Assets
 

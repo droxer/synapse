@@ -234,7 +234,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
   const title = `${displayName} · ${providerLabel}`;
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {pendingAsk && (
         <div className="border-b border-border bg-secondary px-4 py-3">
           <div className="flex items-start gap-3">
@@ -261,8 +261,9 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
         </div>
       )}
 
-      <div className="min-h-0 flex-1">
+      <div className="min-h-0 min-w-0 flex-1 overflow-hidden">
         <ConversationWorkspace
+          layoutVariant="embedded"
           conversationId={conversationId}
           conversationTitle={title}
           hideTopBar={hideTopBar}
