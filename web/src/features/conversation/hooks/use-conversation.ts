@@ -91,6 +91,7 @@ export function useConversation(
   const switchConversation = useAppStore((s) => s.switchConversation);
   const resumeConversation = useAppStore((s) => s.resumeConversation);
   const updateConversationTitle = useAppStore((s) => s.updateConversationTitle);
+  const updateConversationMode = useAppStore((s) => s.updateConversationMode);
   const setPendingConversationRoute = useAppStore((s) => s.setPendingConversationRoute);
   const clearPendingConversationRoute = useAppStore((s) => s.clearPendingConversationRoute);
 
@@ -166,6 +167,17 @@ export function useConversation(
     }
   }, [conversationId, events, updateConversationTitle]);
 
+  useEffect(() => {
+    if (!conversationId) return;
+    for (let i = events.length - 1; i >= 0; i -= 1) {
+      const mode = events[i]?.data.orchestrator_mode;
+      if (mode === "agent" || mode === "planner") {
+        updateConversationMode(conversationId, mode);
+        return;
+      }
+    }
+  }, [conversationId, events, updateConversationMode]);
+
   const transcriptUserCount = useMemo(
     () => transcriptMessages.filter((message) => message.role === "user").length,
     [transcriptMessages],
@@ -223,7 +235,7 @@ export function useConversation(
       try {
         const data = await createConversation(message, files, skills, usePlanner);
         setPendingConversationRoute(data.conversation_id);
-        startConversation(data.conversation_id, message);
+        startConversation(data.conversation_id, message, usePlanner === true ? "planner" : "agent");
         // Update URL without triggering a Next.js navigation to avoid
         // re-mounting the ConversationProvider tree that is already
         // showing the workspace via isOptimisticallyStarting.

@@ -11,6 +11,7 @@ export interface ConversationHistoryItem {
   readonly title: string;
   readonly timestamp: number;
   readonly isRunning: boolean;
+  readonly orchestratorMode: "agent" | "planner" | null;
 }
 
 export interface PendingNewTask {
@@ -25,6 +26,10 @@ export function toHistoryItem(item: ConversationListItem): ConversationHistoryIt
     title: item.title ?? "Untitled",
     timestamp: new Date(item.created_at).getTime(),
     isRunning: item.is_running === true,
+    orchestratorMode:
+      item.orchestrator_mode === "agent" || item.orchestrator_mode === "planner"
+        ? item.orchestrator_mode
+        : null,
   };
 }
 
@@ -44,8 +49,16 @@ interface AppState {
   readonly sidebarOpen: boolean;
 
   // Actions
-  readonly startConversation: (conversationId: string, title: string) => void;
+  readonly startConversation: (
+    conversationId: string,
+    title: string,
+    orchestratorMode?: "agent" | "planner" | null,
+  ) => void;
   readonly updateConversationTitle: (conversationId: string, title: string) => void;
+  readonly updateConversationMode: (
+    conversationId: string,
+    orchestratorMode: "agent" | "planner",
+  ) => void;
   readonly switchConversation: (conversationId: string) => void;
   readonly resumeConversation: () => void;
   readonly resetConversation: () => void;
@@ -104,7 +117,7 @@ export const useAppStore = create<AppState>()(
         });
       },
 
-      startConversation: (conversationId, title) =>
+      startConversation: (conversationId, title, orchestratorMode = null) =>
         set((state) => ({
           conversationId,
           isLiveConversation: true,
@@ -114,6 +127,7 @@ export const useAppStore = create<AppState>()(
               title: title.slice(0, 80),
               timestamp: Date.now(),
               isRunning: true,
+              orchestratorMode,
             },
             ...state.conversationHistory.filter((c) => c.id !== conversationId),
           ],
@@ -126,6 +140,13 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           conversationHistory: state.conversationHistory.map((c) =>
             c.id === conversationId ? { ...c, title } : c
+          ),
+        })),
+
+      updateConversationMode: (conversationId, orchestratorMode) =>
+        set((state) => ({
+          conversationHistory: state.conversationHistory.map((c) =>
+            c.id === conversationId ? { ...c, orchestratorMode } : c
           ),
         })),
 

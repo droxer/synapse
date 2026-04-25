@@ -3,6 +3,7 @@ import { API_BASE } from "@/shared/constants";
 export interface ConversationListItem {
   readonly id: string;
   readonly title: string | null;
+  readonly orchestrator_mode?: "agent" | "planner" | string | null;
   readonly created_at: string;
   readonly updated_at: string;
   readonly is_running?: boolean;

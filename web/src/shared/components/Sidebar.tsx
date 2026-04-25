@@ -4,7 +4,7 @@ import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { Logo } from "@/shared/components/Logo";
 import { PulsingDot } from "@/shared/components/PulsingDot";
-import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, FolderOpen, Lightbulb, Radio } from "lucide-react";
+import { Plus, PanelLeftClose, PanelLeftOpen, Trash2, Blocks, FolderOpen, Lightbulb, Radio, GitFork } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import {
   Tooltip,
@@ -408,6 +408,10 @@ export function Sidebar({
             )}
             {taskHistory.map((task) => {
               const isActive = task.id === activeTaskId;
+              const isPlanner = task.orchestratorMode === "planner";
+              const taskTooltip = isPlanner
+                ? `${t("sidebar.planTask")} · ${task.title}`
+                : task.title;
               return collapsed ? (
                 <Tooltip key={task.id}>
                   <TooltipTrigger asChild>
@@ -422,17 +426,27 @@ export function Sidebar({
                         isActive && "bg-sidebar-active ring-1 ring-border-strong",
                       )}
                     >
-                      {task.isRunning ? (
-                        <PulsingDot size="sm" />
+                      {isPlanner ? (
+                        <GitFork
+                          className={cn(
+                            "h-3.5 w-3.5 transition-colors duration-200",
+                            isActive ? "text-focus" : "text-primary",
+                          )}
+                        />
                       ) : (
                         <div className={cn(
                           "h-1.5 w-1.5 shrink-0 rounded-md transition-colors duration-200",
                           isActive ? "bg-focus" : "bg-border-strong",
                         )} />
                       )}
+                      {task.isRunning && (
+                        <span className="absolute right-1.5 top-1.5">
+                          <PulsingDot size="sm" />
+                        </span>
+                      )}
                     </button>
                   </TooltipTrigger>
-                  <TooltipContent side="right">{task.title}</TooltipContent>
+                  <TooltipContent side="right">{taskTooltip}</TooltipContent>
                 </Tooltip>
               ) : (
                 <div key={task.id} className="group relative">
@@ -452,13 +466,27 @@ export function Sidebar({
                     <span
                       title={task.title}
                       className={cn(
-                        "flex-1 truncate text-sm transition-colors duration-200",
+                        "min-w-0 flex-1 truncate text-sm transition-colors duration-200",
                         isActive ? "font-medium text-foreground" : "text-sidebar-foreground-muted",
                         task.isRunning && !isActive && "text-foreground",
                       )}
                     >
                       {task.title}
                     </span>
+                    {isPlanner && (
+                      <span
+                        title={t("sidebar.planTask")}
+                        className={cn(
+                          "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.65rem] font-medium leading-none",
+                          isActive
+                            ? "border-border-active bg-primary text-primary-foreground"
+                            : "border-border bg-secondary text-foreground",
+                        )}
+                      >
+                        <GitFork className="h-3 w-3" />
+                        <span>{t("topbar.plan")}</span>
+                      </span>
+                    )}
                   </button>
                   {onDeleteTask && (
                     <Button

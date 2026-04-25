@@ -13,7 +13,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi import HTTPException
 
-from agent.state.schemas import EventRecord, MessageRecord
+from agent.state.schemas import ConversationRecord, EventRecord, MessageRecord
 
 # The conversations module transitively imports api.auth which triggers
 # ``get_settings()`` at module scope.  Provide dummy env vars so the import
@@ -43,6 +43,7 @@ from api.routes.conversations import (  # noqa: E402
     create_conversation,
     get_conversation_events,
     get_conversation_messages,
+    list_conversations,
     send_message,
 )
 from api.events import EventEmitter  # noqa: E402
@@ -77,6 +78,35 @@ def test_elapsed_ms_rounds_down_to_integer_milliseconds(
 ) -> None:
     monkeypatch.setattr(conversation_routes.time, "perf_counter", lambda: 10.9876)
     assert _elapsed_ms(10.1234) == 864
+
+
+@pytest.mark.asyncio
+async def test_list_conversations_includes_orchestrator_mode() -> None:
+    now = datetime.now(timezone.utc)
+    conversation_id = uuid.uuid4()
+    record = ConversationRecord(
+        id=conversation_id,
+        user_id=None,
+        title="Planner task",
+        orchestrator_mode=ORCHESTRATOR_PLANNER,
+        context_summary=None,
+        created_at=now,
+        updated_at=now,
+    )
+    state = SimpleNamespace(
+        db_repo=SimpleNamespace(
+            list_conversations=AsyncMock(return_value=([record], 1)),
+        ),
+    )
+
+    response = await list_conversations(
+        request=SimpleNamespace(),
+        state=state,
+        session=object(),
+        auth_user=None,
+    )
+
+    assert response["items"][0]["orchestrator_mode"] == ORCHESTRATOR_PLANNER
 
 
 @pytest.mark.asyncio

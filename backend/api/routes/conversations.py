@@ -1372,6 +1372,7 @@ async def list_conversations(
             {
                 "id": str(item.id),
                 "title": item.title,
+                "orchestrator_mode": item.orchestrator_mode,
                 "created_at": item.created_at.isoformat(),
                 "updated_at": item.updated_at.isoformat(),
             }

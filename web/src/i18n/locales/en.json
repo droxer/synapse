@@ -29,6 +29,7 @@
   "sidebar.skills": "Skills",
   "sidebar.mcp": "MCP",
   "sidebar.recentTasks": "All tasks",
+  "sidebar.planTask": "Plan mode",
   "sidebar.noTasks": "No tasks yet.",
   "sidebar.deleteTask": "Delete task",
   "sidebar.deleteTaskLabel": "Delete task: {title}",

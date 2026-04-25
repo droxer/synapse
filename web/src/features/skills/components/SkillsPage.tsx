@@ -243,76 +243,55 @@ export function SkillsPage() {
     : null;
 
   const displaySkills = filtered ?? skills;
-  const skillSummary = [t("skills.builtIn", { count: bundledSkills.length })];
-  if (installedSkills.length > 0) {
-    skillSummary.push(t("skills.installed", { count: installedSkills.length }));
-  }
-
   return (
     <div className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
       <motion.div
-        className="shrink-0 px-6 py-6"
+        className="shrink-0 px-4 py-5 sm:px-6"
         initial={{ opacity: 0, y: -4 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.12, ease: "easeOut" }}
       >
-        <div className="mx-auto max-w-6xl">
-          <div className="px-1">
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_21rem] lg:items-start">
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                    <Lightbulb aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="label-mono text-muted-foreground-dim">
-                      {t("skills.agentSkills")}
-                    </p>
-                    <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
-                      {t("skills.title")}
-                    </h1>
-                    <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                      {t("skills.subtitle")}
-                    </p>
-                  </div>
-                </div>
-                {skills.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    <span className="status-pill status-ai">
-                      <Package aria-hidden="true" className="h-3 w-3" />
-                      {t("skills.builtIn", { count: bundledSkills.length })}
-                    </span>
-                    <span className="status-pill status-neutral">
-                      <Globe aria-hidden="true" className="h-3 w-3" />
-                      {t("skills.installed", { count: installedSkills.length })}
-                    </span>
-                  </div>
-                )}
+        <div className="mx-auto max-w-6xl space-y-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary">
+                <Lightbulb aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
               </div>
-              <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-1">
-                <div className="rounded-lg bg-muted/50 px-4 py-3">
-                  <p className="label-mono text-muted-foreground-dim">
-                    {t("skills.sectionBuiltIn")}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                    {bundledSkills.length}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("skills.sectionBuiltInDesc")}
-                  </p>
-                </div>
-                <div className="rounded-lg bg-muted/50 px-4 py-3">
-                  <p className="label-mono text-muted-foreground-dim">
-                    {t("skills.sectionInstalled")}
-                  </p>
-                  <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                    {installedSkills.length}
-                  </p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {t("skills.sectionInstalledDesc")}
-                  </p>
-                </div>
+              <div className="min-w-0">
+                <p className="label-mono text-muted-foreground-dim">
+                  {t("skills.agentSkills")}
+                </p>
+                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
+                  {t("skills.title")}
+                </h1>
+                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                  {t("skills.subtitle")}
+                </p>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem]">
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <p className="label-mono text-muted-foreground-dim">
+                  {t("skills.sectionBuiltIn")}
+                </p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {bundledSkills.length}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("skills.sectionBuiltInDesc")}
+                </p>
+              </div>
+              <div className="rounded-lg bg-muted/50 px-4 py-3">
+                <p className="label-mono text-muted-foreground-dim">
+                  {t("skills.sectionInstalled")}
+                </p>
+                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+                  {installedSkills.length}
+                </p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  {t("skills.sectionInstalledDesc")}
+                </p>
               </div>
             </div>
           </div>
@@ -320,7 +299,7 @@ export function SkillsPage() {
       </motion.div>
 
       {/* ── Content ── */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
+      <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4 sm:px-6">
         <div className="mx-auto max-w-6xl space-y-5">
           {/* Error banner */}
           {pageError && (
@@ -334,7 +313,7 @@ export function SkillsPage() {
                 {t("skills.agentSkills")}
               </p>
               <p className="mt-1 text-sm text-muted-foreground">
-                {skillSummary.join(" · ")}
+                {t("skills.subtitle")}
               </p>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

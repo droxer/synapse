@@ -29,6 +29,7 @@
   "sidebar.skills": "技能",
   "sidebar.mcp": "MCP",
   "sidebar.recentTasks": "所有任务",
+  "sidebar.planTask": "规划模式",
   "sidebar.noTasks": "暂无任务",
   "sidebar.deleteTask": "删除任务",
   "sidebar.deleteTaskLabel": "删除任务：{title}",

@@ -4,6 +4,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Square, Plus, ArrowUp, GitFork } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
+import { Toggle } from "@/shared/components/ui/toggle";
 import { FileAttachmentChip } from "@/shared/components/FileAttachmentChip";
 import { SkillSelector } from "@/features/skills";
 import { cn } from "@/shared/lib/utils";
@@ -241,24 +242,24 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
               />
 
               {isWelcome && (
-                <Button
+                <Toggle
                   type="button"
-                  variant="ghost"
+                  pressed={usePlanner}
+                  onPressedChange={setUsePlanner}
+                  disabled={disabled}
                   size="sm"
                   aria-label={t("chat.planner")}
-                  aria-pressed={usePlanner}
-                  onClick={() => setUsePlanner((v) => !v)}
                   className={cn(
-                    "h-7 gap-1.5 rounded-lg px-2 text-xs font-medium transition-colors duration-150",
+                    "h-7 gap-1.5 rounded-lg border px-2 text-xs font-medium transition-colors duration-150 data-[state=on]:border-border-active data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm",
                     usePlanner
-                      ? "bg-secondary text-foreground"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
+                      ? "hover:bg-primary/90 hover:text-primary-foreground"
+                      : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                   title={usePlanner ? t("chat.plannerActive") : t("chat.plannerHint")}
                 >
                   <GitFork className="h-3.5 w-3.5" />
                   <span className="hidden sm:inline">{t("chat.planLabel")}</span>
-                </Button>
+                </Toggle>
               )}
 
             </div>
