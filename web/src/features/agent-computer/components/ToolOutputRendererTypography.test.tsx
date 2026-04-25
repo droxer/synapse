@@ -37,4 +37,32 @@ describe("ToolOutputRenderer typography", () => {
     expect(html).toContain("mt-1 text-sm text-muted-foreground");
     expect(html).toContain("border-destructive bg-card");
   });
+
+  it("constrains tall output bodies inside a scrollable region", () => {
+    const html = renderToStaticMarkup(
+      <ToolOutputRenderer
+        output={Array.from({ length: 80 }, (_, i) => `line ${i}`).join("\n")}
+        toolName="web_fetch"
+        success
+      />,
+    );
+
+    expect(html).toContain("max-h-64");
+    expect(html).toContain("overflow-auto");
+    expect(html).toContain("overscroll-contain");
+  });
+
+  it("constrains code output bodies inside a scrollable region", () => {
+    const html = renderToStaticMarkup(
+      <ToolOutputRenderer
+        output={Array.from({ length: 80 }, (_, i) => `print(${i})`).join("\n")}
+        toolName="file_read"
+        success
+        contentType="text/x-python"
+      />,
+    );
+
+    expect(html).toContain("max-h-64");
+    expect(html).toContain("overflow-auto");
+  });
 });

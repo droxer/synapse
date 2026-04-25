@@ -269,6 +269,23 @@ class SubAgentManager:
         self._results[agent_id] = result
         return result
 
+    def redundant_active_agent_id(self, config: TaskAgentConfig) -> str | None:
+        """Return an active agent already covering the same task and role."""
+        if config.allow_redundant:
+            return None
+
+        new_signature = _normalize_task_signature(config.task_description)
+        for existing_id, existing in self._configs.items():
+            if existing_id in self._results:
+                continue
+            same_role = existing.role.strip().lower() == config.role.strip().lower()
+            same_task = (
+                _normalize_task_signature(existing.task_description) == new_signature
+            )
+            if same_role and same_task:
+                return existing_id
+        return None
+
     async def spawn(self, config: TaskAgentConfig) -> str:
         """Spawn a new task agent and return its agent_id.
 
@@ -303,20 +320,10 @@ class SubAgentManager:
         else:
             estimated_tokens = 0
 
-        if not config.allow_redundant:
-            new_signature = _normalize_task_signature(config.task_description)
-            for existing_id, existing in self._configs.items():
-                if existing_id in self._results:
-                    continue
-                same_role = existing.role.strip().lower() == config.role.strip().lower()
-                same_task = (
-                    _normalize_task_signature(existing.task_description)
-                    == new_signature
-                )
-                if same_role and same_task:
-                    raise RuntimeError(
-                        "Redundant task agent rejected; use allow_redundant=True for explicit voting/redundancy patterns"
-                    )
+        if self.redundant_active_agent_id(config) is not None:
+            raise RuntimeError(
+                "Redundant task agent rejected; use allow_redundant=True for explicit voting/redundancy patterns"
+            )
 
         agent_id = str(uuid.uuid4())
         self._configs[agent_id] = config

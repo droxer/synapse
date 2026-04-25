@@ -26,15 +26,29 @@ class PlannerState:
     def __init__(self) -> None:
         self._steps_by_name: dict[str, PlannedStep] = {}
         self._plan_created = False
-        self._spawned_step_names: list[str] = []
+        self._agent_ids_by_spawned_step_name: dict[str, str] = {}
         self._waited_agent_ids: set[str] = set()
+        self._execution_shape: str | None = None
+        self._max_worker_spawns: int | None = None
 
     def reset(self) -> None:
         """Clear any prior plan state at the start of a new turn."""
         self._steps_by_name.clear()
         self._plan_created = False
-        self._spawned_step_names.clear()
+        self._agent_ids_by_spawned_step_name.clear()
         self._waited_agent_ids.clear()
+        self._execution_shape = None
+        self._max_worker_spawns = None
+
+    def configure_spawn_policy(
+        self,
+        *,
+        execution_shape: str | None,
+        max_worker_spawns: int | None,
+    ) -> None:
+        """Configure route-aware worker-spawn limits for the active turn."""
+        self._execution_shape = execution_shape
+        self._max_worker_spawns = max_worker_spawns
 
     def register_steps(self, steps: list[dict[str, Any]]) -> None:
         """Persist the current plan and validate duplicate step names."""
@@ -53,6 +67,8 @@ class PlannerState:
             )
         self._steps_by_name = normalized
         self._plan_created = True
+        self._agent_ids_by_spawned_step_name.clear()
+        self._waited_agent_ids.clear()
 
     @property
     def has_plan(self) -> bool:
@@ -62,7 +78,7 @@ class PlannerState:
     @property
     def spawned_agent_count(self) -> int:
         """Return the number of worker spawns recorded for the active turn."""
-        return len(self._spawned_step_names)
+        return len(self._agent_ids_by_spawned_step_name)
 
     @property
     def waited_agent_count(self) -> int:
@@ -90,11 +106,32 @@ class PlannerState:
 
         return None
 
-    def record_spawn(self, step_name: str) -> None:
+    def validate_new_spawn(self) -> str | None:
+        """Return an error message when creating another worker is disallowed."""
+        if self._execution_shape in {"single_agent", "prompt_chain"}:
+            return (
+                "agent_spawn is not allowed for this execution_shape; keep the work "
+                "inside the current agent."
+            )
+        if (
+            self._max_worker_spawns is not None
+            and self.spawned_agent_count >= self._max_worker_spawns
+        ):
+            return (
+                "agent_spawn worker limit reached for this execution_shape "
+                f"({self._max_worker_spawns})."
+            )
+        return None
+
+    def spawned_agent_id(self, step_name: str) -> str | None:
+        """Return the worker agent_id already spawned for a plan step."""
+        return self._agent_ids_by_spawned_step_name.get(_normalize_step_name(step_name))
+
+    def record_spawn(self, step_name: str, agent_id: str) -> None:
         """Record a successful worker spawn for the current plan."""
         normalized_name = _normalize_step_name(step_name)
-        if normalized_name:
-            self._spawned_step_names.append(normalized_name)
+        if normalized_name and agent_id:
+            self._agent_ids_by_spawned_step_name[normalized_name] = agent_id
 
     def record_wait(self, agent_ids: list[str]) -> None:
         """Record worker results observed via a successful agent_wait call."""

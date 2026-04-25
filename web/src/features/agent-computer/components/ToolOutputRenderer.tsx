@@ -46,6 +46,7 @@ import {
   OUTPUT_HEADER_LABEL_CLASSES,
   OUTPUT_HEADER_ROW_CLASSES,
   OUTPUT_COLLAPSE_THRESHOLD,
+  OUTPUT_SCROLL_AREA_CLASSES,
 } from "../lib/format-tools";
 import { CODE_TOOLS } from "../lib/tool-constants";
 import { getToolCategory, type ToolCategory } from "../lib/tool-constants";
@@ -226,7 +227,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         </div>
 
         {/* Output */}
-        <div className="mt-2 overflow-x-auto">
+        <div className={cn("mt-2", OUTPUT_SCROLL_AREA_CLASSES)}>
           <pre className="whitespace-pre text-[var(--color-terminal-text)]">{stripAnsi(output)}</pre>
         </div>
 
@@ -255,7 +256,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     return (
       <TerminalWindow title={t("output.shell.title")} className="mt-2" copyText={stripAnsi(output)}>
         {/* Output */}
-        <div className="overflow-x-auto">
+        <div className={OUTPUT_SCROLL_AREA_CLASSES}>
           <pre className="whitespace-pre text-[var(--color-terminal-text)]">
             {stripAnsi(displayText)}
             {isLong && !expanded && (
@@ -314,7 +315,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
           )}
         />
         <OutputSurfaceBody>
-          <OutputSurfaceInner className="overflow-x-auto">
+          <OutputSurfaceInner className={OUTPUT_SCROLL_AREA_CLASSES}>
             <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
               {displayJson}
               {isLongJson && !expanded && ELLIPSIS}
@@ -375,7 +376,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
               <GitFork className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentResults")}</span>
             </div>
-            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1")}>
+            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1", OUTPUT_SCROLL_AREA_CLASSES)}>
               {entries.map(([agentId, result]) => (
                 <div key={agentId} className={cn(OUTPUT_CARD_INNER_CLASSES, "flex items-start gap-2.5 py-1.5 text-sm text-muted-foreground")}>
                   {result.success ? (
@@ -416,7 +417,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
               <MessageSquare className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.agentMessages", { count: messages.length })}</span>
             </div>
-            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1.5")}>
+            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1.5", OUTPUT_SCROLL_AREA_CLASSES)}>
               {messages.map((msg, i) => (
                 <div key={i} className={cn(OUTPUT_CARD_INNER_CLASSES, "text-sm")}>
                   <div className="mb-0.5 text-micro text-muted-foreground-dim">
@@ -451,7 +452,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                 <span className={OUTPUT_HEADER_LABEL_CLASSES}>{summaryLine}</span>
               </div>
               <div className={OUTPUT_CARD_BODY_CLASSES}>
-              <div className={cn(OUTPUT_CARD_INNER_CLASSES, "overflow-x-auto")}>
+              <div className={cn(OUTPUT_CARD_INNER_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="border-b border-border">
@@ -493,7 +494,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
               <Database className="h-3 w-3" />
               <span className={OUTPUT_HEADER_LABEL_CLASSES}>{t("output.memoryEntries", { count: entries.length })}</span>
             </div>
-            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1")}>
+            <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1", OUTPUT_SCROLL_AREA_CLASSES)}>
               {entries.map((entry, i) => {
                 const label = entry.namespace ? `${entry.namespace}:${entry.key}` : entry.key;
                 const value = typeof entry.value === "string" ? entry.value : JSON.stringify(entry.value);
@@ -522,7 +523,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
           {t("output.toolFailed")}
         </div>
         <div className={OUTPUT_CARD_BODY_CLASSES}>
-          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, "border-destructive bg-card")}>
+          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, OUTPUT_SCROLL_AREA_CLASSES, "border-destructive bg-card")}>
             <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
             {isLong && !expanded && (
               <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
@@ -546,7 +547,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
       )}
 
       <OutputSurfaceBody>
-        <OutputSurfaceInner className={PROSE_CLASSES}>
+        <OutputSurfaceInner className={cn(PROSE_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
           <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
           {isLong && !expanded && (
             <span className="text-muted-foreground-dim">{ELLIPSIS}</span>

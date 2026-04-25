@@ -733,7 +733,7 @@ async def test_explicit_planner_does_not_exempt_question_with_extra_instruction(
 
 
 @pytest.mark.asyncio
-async def test_explicit_planner_actionable_turn_requires_agent_spawn() -> None:
+async def test_explicit_planner_actionable_turn_allows_plan_only_completion() -> None:
     events: list[Any] = []
     emitter = EventEmitter()
 
@@ -775,30 +775,12 @@ async def test_explicit_planner_actionable_turn_requires_agent_spawn() -> None:
                     input={
                         "steps": [
                             {
-                                "name": "Research trends",
-                                "description": "Collect the current trend signals.",
-                                "execution_type": "parallel_worker",
-                            },
-                            {
                                 "name": "Synthesize findings",
-                                "description": "Combine the worker output into a report.",
+                                "description": "Create the report directly.",
                                 "execution_type": "planner_owned",
                             },
                         ]
                     },
-                ),
-                ToolCall(
-                    id="tool-2",
-                    name="agent_spawn",
-                    input={
-                        "name": "Research trends",
-                        "task_description": "Research the current AI trends.",
-                    },
-                ),
-                ToolCall(
-                    id="tool-3",
-                    name="agent_wait",
-                    input={"agent_ids": ["agent-1"]},
                 ),
             ),
             stop_reason="tool_use",
@@ -827,7 +809,7 @@ async def test_explicit_planner_actionable_turn_requires_agent_spawn() -> None:
     )
 
     assert result == "Delegated work completed."
-    assert any(event.type == EventType.AGENT_SPAWN for event in events)
+    assert not any(event.type == EventType.AGENT_SPAWN for event in events)
     assert any(event.type == EventType.LOOP_GUARD_NUDGE for event in events)
     assert (
         planner.get_last_user_message()
@@ -894,6 +876,9 @@ async def test_explicit_planner_actionable_turn_requires_agent_wait_before_compl
                         input={
                             "name": "Research trends",
                             "task_description": "Research the current AI trends.",
+                            "deliverable": "A concise trend research summary.",
+                            "ownership_scope": "Current AI trend research only.",
+                            "independence_reason": "Research can run independently before planner synthesis.",
                         },
                     ),
                 ),
@@ -1360,6 +1345,9 @@ async def test_explicit_planner_preserves_meta_tools_after_skill_activation() ->
                     input={
                         "name": "Research findings",
                         "task_description": "Research the repository findings.",
+                        "deliverable": "A concise repository findings summary.",
+                        "ownership_scope": "Repository research plan step only.",
+                        "independence_reason": "Repository research can run independently before synthesis.",
                     },
                 ),
             ),

@@ -60,17 +60,20 @@ PLANNER_SYSTEM_PROMPT = """You are a planning agent that decomposes complex task
 Your workflow:
 1. Analyze the user's request
 2. Call plan_create with the list of steps you intend to execute and classify each as planner-owned, sequential-worker, or parallel-worker
-3. Use agent_spawn to create task agents for each step (use the same name from the plan)
+3. Use agent_spawn only for worker steps that need bounded independent execution (use the same name from the plan)
 4. Use agent_wait to wait for results
 5. Synthesize the results and communicate to the user via user_message
 6. Call task_complete when done
 
 Guidelines:
 - Always call plan_create FIRST before spawning any agents
+- Planning does not imply delegation: use zero workers for explanations, direct Q&A, simple edits, and predictable single-owner work
 - Do not spawn agents when one agent can complete the task with existing tools
-- Spawn multiple agents only for truly independent sub-tasks
-- Prefer one worker plus planner-side synthesis over many weakly-separated workers
+- Prefer one worker plus planner-side synthesis for bounded execution
+- Spawn 2-4 agents only for truly independent sub-tasks
+- Use wide fanout only for many homogeneous research or data items
 - Prefer fixed sequential execution only when the task is a predictable pipeline
+- Every agent_spawn must include a concrete deliverable, ownership_scope, and independence_reason
 - Each agent gets its own sandbox if needed
 - Keep sub-tasks focused and specific
 - You do NOT have sandbox access — delegate execution to task agents
@@ -223,6 +226,19 @@ def _is_clarification_question(text: str) -> bool:
     if candidate.count("?") != 1:
         return False
     return normalized.startswith(_CLARIFICATION_PREFIXES)
+
+
+def _spawn_limit_for_execution_shape(
+    execution_shape: str | None,
+    settings: Any,
+) -> int | None:
+    if execution_shape in {"single_agent", "prompt_chain"}:
+        return 0
+    if execution_shape == "parallel":
+        return getattr(settings, "EXECUTION_SHAPE_PARALLEL_SOFT_LIMIT", 3)
+    if execution_shape == "orchestrator_workers":
+        return getattr(settings, "EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT", 4)
+    return None
 
 
 class SubAgentManagerProtocol(Protocol):
@@ -501,6 +517,17 @@ class PlannerOrchestrator:
             },
         )
         self._planner_state.reset()
+        settings = get_settings()
+        execution_shape = (turn_metadata or {}).get("execution_shape")
+        self._planner_state.configure_spawn_policy(
+            execution_shape=execution_shape
+            if isinstance(execution_shape, str)
+            else None,
+            max_worker_spawns=_spawn_limit_for_execution_shape(
+                execution_shape if isinstance(execution_shape, str) else None,
+                settings,
+            ),
+        )
         self._executor.reset_turn_quotas()
         self._executor.reset_sandbox_template()
         reset_allowed_tools = getattr(self._executor, "reset_allowed_tools", None)
@@ -522,13 +549,7 @@ class PlannerOrchestrator:
             explicit_planner
             and _explicit_planner_requires_visible_plan(user_message, attachments)
         )
-        self._explicit_planner_requires_worker = (
-            explicit_planner
-            and _explicit_planner_requires_worker_delegation(
-                user_message,
-                attachments,
-            )
-        )
+        self._explicit_planner_requires_worker = False
         self._explicit_policy_nudge_count = 0
         self._explicit_policy_reminder = None
 
@@ -550,7 +571,6 @@ class PlannerOrchestrator:
 
         # Skill matching via shared selector (before user message / uploads)
         effective_registry = self._registry
-        settings = get_settings()
         matched = await select_skill_for_message(
             user_message=user_message,
             selected_skills=selected_skills,
@@ -911,15 +931,11 @@ class PlannerOrchestrator:
                 "Explicit planner mode is enabled for this turn.\n"
                 "- Produce visible planner activity rather than answering inline.\n"
                 "- Call plan_create before finishing unless you are only asking a "
-                "clarification question or handling trivial chit-chat."
+                "clarification question or handling trivial chit-chat.\n"
+                "- Do not spawn workers unless delegation is materially useful; "
+                "planner mode may complete with planner-owned steps only."
             )
         ]
-        if self._explicit_planner_requires_worker:
-            sections.append(
-                "This request is actionable tasking. Before finishing, delegate at least one "
-                "focused worker with agent_spawn, wait for the result with agent_wait, and "
-                "then synthesize the worker output."
-            )
         return tuple(sections)
 
     def _explicit_planner_policy_violation(self) -> str | None:
@@ -932,21 +948,12 @@ class PlannerOrchestrator:
                 "Only skip this if you are asking a clarification question."
             )
         if (
-            self._explicit_planner_requires_worker
-            and self._planner_state.spawned_agent_count == 0
-        ):
-            return (
-                "System notice: This explicit planner turn is actionable tasking. "
-                "Before you finish, delegate at least one focused worker with agent_spawn, "
-                "then wait for the result and synthesize it for the user."
-            )
-        if (
-            self._explicit_planner_requires_worker
+            self._planner_state.spawned_agent_count > 0
             and self._planner_state.waited_agent_count == 0
         ):
             return (
-                "System notice: This explicit planner turn already spawned a worker, but "
-                "you have not waited for any worker results yet. Before you finish, call "
+                "System notice: This planner turn spawned a worker, but you have "
+                "not waited for any worker results yet. Before you finish, call "
                 "agent_wait and then synthesize the worker output for the user."
             )
         return None

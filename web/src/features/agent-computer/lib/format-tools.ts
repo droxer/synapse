@@ -28,6 +28,7 @@ export const OUTPUT_CARD_DENSE_CLASSES = OUTPUT_SURFACE_INNER_DENSE_CLASSES;
 export const OUTPUT_HEADER_ROW_CLASSES = OUTPUT_SURFACE_HEADER_CLASSES;
 export const OUTPUT_HEADER_LABEL_CLASSES = OUTPUT_SURFACE_LABEL_CLASSES;
 export const OUTPUT_META_TEXT_CLASSES = OUTPUT_SURFACE_META_CLASSES;
+export const OUTPUT_SCROLL_AREA_CLASSES = "min-h-0 max-h-64 overflow-auto overscroll-contain pr-1";
 export const EVENT_ROW_BASE_CLASSES = "surface-panel rounded-xl px-3 py-2.5";
 export { ACTIVITY_META_BADGE_CLASSES as EVENT_META_BADGE_CLASSES } from "@/shared/lib/activity-meta-badge";
 export const EVENT_LEFT_RAIL_CLASSES = "border-l border-border pl-3";

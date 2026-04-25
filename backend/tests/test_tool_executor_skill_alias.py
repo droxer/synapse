@@ -81,6 +81,24 @@ def test_canonical_tool_call_payload_normalizes_skill_alias() -> None:
     assert tool_input == {"name": "docx"}
 
 
+@pytest.mark.asyncio
+async def test_executor_retries_once_after_stale_sandbox_session() -> None:
+    tool = _StaleOnceBrowserTool()
+    provider = _RotatingSandboxProvider()
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(tool),
+        sandbox_provider=provider,
+    )
+
+    result = await executor.execute("browser_view", {})
+
+    assert result.success
+    assert result.output == "ok"
+    assert len(provider.sessions) == 2
+    assert provider.destroyed == [provider.sessions[0]]
+    assert tool.sessions == provider.sessions
+
+
 class _RecordingSession:
     async def exec(
         self,
@@ -101,6 +119,21 @@ class _FakeSandboxProvider:
         return self.session
 
 
+class _RotatingSandboxProvider:
+    def __init__(self) -> None:
+        self.sessions: list[object] = []
+        self.destroyed: list[object] = []
+
+    async def create_session(self, config: Any) -> object:
+        del config
+        session = object()
+        self.sessions.append(session)
+        return session
+
+    async def destroy_session(self, session: object) -> None:
+        self.destroyed.append(session)
+
+
 class _RecordingShellExec(SandboxTool):
     def __init__(self) -> None:
         self.calls: list[dict[str, Any]] = []
@@ -116,6 +149,30 @@ class _RecordingShellExec(SandboxTool):
 
     async def execute(self, session: Any, **kwargs: Any) -> ToolResult:
         self.calls.append({"session": session, **kwargs})
+        return ToolResult.ok("ok")
+
+
+class _StaleOnceBrowserTool(SandboxTool):
+    def __init__(self) -> None:
+        self.sessions: list[object] = []
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name="browser_view",
+            description="View browser.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.SANDBOX,
+            tags=("browser",),
+        )
+
+    async def execute(self, session: object, **kwargs: Any) -> ToolResult:
+        del kwargs
+        self.sessions.append(session)
+        if len(self.sessions) == 1:
+            raise RuntimeError(
+                "stopped: Handle invalidated after stop(). "
+                "Use runtime.get() to get a new handle."
+            )
         return ToolResult.ok("ok")
 
 

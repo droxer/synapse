@@ -6,6 +6,10 @@ from unittest.mock import AsyncMock
 import pytest
 
 from agent.tools.sandbox import browser_session_tools
+from agent.tools.executor import ToolExecutor
+from agent.tools.registry import ToolRegistry
+from agent.tools.sandbox import browser_tools
+from agent.tools.sandbox.browser_tools import BrowserView
 
 
 def _state(**overrides: Any) -> dict[str, Any]:
@@ -131,3 +135,30 @@ async def test_browser_downloads_and_upload_use_session_driver(
         "artifact_paths": ["/tmp/upload.png"],
     }
     assert mocked.await_args_list[1].kwargs == {"timeout": 20}
+
+
+@pytest.mark.asyncio
+async def test_browser_tools_use_browser_template_even_with_default_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class _Provider:
+        def __init__(self) -> None:
+            self.templates: list[str] = []
+
+        async def create_session(self, config: Any) -> object:
+            self.templates.append(config.template)
+            return object()
+
+    mocked = AsyncMock(return_value={"success": True, "state": _state()})
+    monkeypatch.setattr(browser_tools, "send_browser_command", mocked)
+    provider = _Provider()
+    executor = ToolExecutor(
+        registry=ToolRegistry().register(BrowserView()),
+        sandbox_provider=provider,
+    )
+
+    executor.set_sandbox_template("default")
+    result = await executor.execute("browser_view", {})
+
+    assert result.success
+    assert provider.templates == ["browser"]

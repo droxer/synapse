@@ -137,6 +137,14 @@ TASK_AGENT_PROMPT_TEMPLATE = TaskAgentPromptTemplate(
 - Include any relevant file paths or outputs in your summary""",
 )
 
+_TASK_AGENT_PRESERVED_TOOL_NAMES = (
+    "activate_skill",
+    "task_complete",
+    "agent_handoff",
+    "agent_send",
+    "agent_receive",
+)
+
 
 def ensure_task_agent_name_suffix(name: str) -> str:
     """Ensure user-facing task-agent names end with the ``agent`` suffix."""
@@ -422,7 +430,8 @@ class TaskAgentRunner:
 
         if skill.metadata.allowed_tools:
             allowed_names, allowed_tags = split_allowed_tools(
-                skill.metadata.allowed_tools
+                skill.metadata.allowed_tools,
+                preserved_names=_TASK_AGENT_PRESERVED_TOOL_NAMES,
             )
             set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
             if callable(set_allowed_tools):
@@ -495,7 +504,8 @@ class TaskAgentRunner:
 
             if matched.metadata.allowed_tools:
                 allowed_names, allowed_tags = split_allowed_tools(
-                    matched.metadata.allowed_tools
+                    matched.metadata.allowed_tools,
+                    preserved_names=_TASK_AGENT_PRESERVED_TOOL_NAMES,
                 )
                 set_allowed_tools = getattr(self._executor, "set_allowed_tools", None)
                 if callable(set_allowed_tools):

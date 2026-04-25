@@ -722,18 +722,22 @@ def _build_execution_shape_prompt_sections(
     elif execution_shape == EXECUTION_SHAPE_PARALLEL:
         sections.append(
             "Routing guidance: only spawn workers for truly independent tasks. "
-            f"Soft spawn budget: {settings.EXECUTION_SHAPE_PARALLEL_SOFT_LIMIT} workers."
+            f"Worker limit: {settings.EXECUTION_SHAPE_PARALLEL_SOFT_LIMIT}. "
+            "Every worker must have a concrete deliverable, ownership scope, and independence reason."
         )
     elif execution_shape == EXECUTION_SHAPE_ORCHESTRATOR_WORKERS:
         sections.append(
-            "Routing guidance: planner-managed worker orchestration is allowed, but only when decomposition is not knowable upfront. "
-            f"Soft spawn budget: {settings.EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT} workers."
+            "Routing guidance: planner-managed worker orchestration is allowed, "
+            "but only when delegation is materially useful. "
+            f"Worker limit: {settings.EXECUTION_SHAPE_ORCHESTRATOR_WORKERS_SOFT_LIMIT}. "
+            "Prefer zero workers for direct answers, one worker for bounded execution, "
+            "and multiple workers only for independent slices."
         )
     if explicit_planner:
         sections.append(
             "Planner mode was explicitly requested by the user for this turn. "
-            "Produce visible planning activity. Call plan_create before finishing, and for actionable tasks "
-            "delegate at least one focused worker with agent_spawn, wait for results with agent_wait, and synthesize the worker output."
+            "Produce visible planning activity. Call plan_create before finishing unless the turn is trivial or only needs clarification. "
+            "Spawn workers only when the plan has a bounded independent worker step, then wait for results and synthesize."
         )
     return tuple(sections)
 

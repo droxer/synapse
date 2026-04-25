@@ -1046,6 +1046,42 @@ class TestSubAgentSpawnLimits:
             )
 
     @pytest.mark.asyncio
+    async def test_redundant_active_agent_id_returns_matching_agent(self):
+        manager = SubAgentManager(
+            claude_client=MagicMock(),
+            tool_registry_factory=lambda: ToolRegistry(),
+            tool_executor_factory=lambda reg: MagicMock(),
+            event_emitter=EventEmitter(),
+        )
+
+        async def mock_run_agent(agent_id, config):
+            await asyncio.sleep(0.05)
+            return AgentResult(agent_id=agent_id, success=True, summary="done")
+
+        manager._run_agent = mock_run_agent
+        existing_id = await manager.spawn(
+            TaskAgentConfig(task_description="Research API docs", role="researcher")
+        )
+
+        redundant = manager.redundant_active_agent_id(
+            TaskAgentConfig(
+                task_description="research   api docs",
+                role="researcher",
+            )
+        )
+        allowed = manager.redundant_active_agent_id(
+            TaskAgentConfig(
+                task_description="research api docs",
+                role="researcher",
+                allow_redundant=True,
+            )
+        )
+
+        assert redundant == existing_id
+        assert allowed is None
+        await manager.cleanup()
+
+    @pytest.mark.asyncio
     async def test_spawn_reserves_estimated_tokens_before_results_exist(
         self, monkeypatch
     ):
@@ -1624,6 +1660,9 @@ class TestSpawnTaskAgentDependencyFailureMode:
         result = await tool.execute(
             task_description="my task",
             name="test task",
+            deliverable="A worker result.",
+            ownership_scope="The test task only.",
+            independence_reason="The test task can run independently.",
             dependency_failure_mode="degrade",
         )
         assert result.success
@@ -1654,6 +1693,9 @@ class TestSpawnTaskAgentDependencyFailureMode:
         result = await tool.execute(
             task_description="my task",
             name="test task",
+            deliverable="A worker result.",
+            ownership_scope="The test task only.",
+            independence_reason="The test task can run independently.",
         )
         assert result.success
         assert len(captured_configs) == 1
@@ -1683,6 +1725,9 @@ class TestSpawnTaskAgentDependencyFailureMode:
         result = await tool.execute(
             task_description="my task",
             name="test task",
+            deliverable="A worker result.",
+            ownership_scope="The test task only.",
+            independence_reason="The test task can run independently.",
             timeout_seconds=12.5,
         )
         assert result.success

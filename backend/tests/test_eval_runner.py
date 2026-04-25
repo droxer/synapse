@@ -274,7 +274,12 @@ class TestRunCase:
                         {
                             "id": "tc_spawn",
                             "name": "agent_spawn",
-                            "input": {"task_description": "Research AI trends"},
+                            "input": {
+                                "task_description": "Research AI trends",
+                                "deliverable": "A concise AI trends summary.",
+                                "ownership_scope": "AI trends research only.",
+                                "independence_reason": "Research can run independently before synthesis.",
+                            },
                         }
                     ],
                     "stop_reason": "tool_use",
@@ -381,6 +386,9 @@ class TestRunCase:
                             "input": {
                                 "name": "Research findings",
                                 "task_description": "Research the repository findings.",
+                                "deliverable": "A concise repository findings summary.",
+                                "ownership_scope": "Repository findings research only.",
+                                "independence_reason": "Repository research can run independently before synthesis.",
                             },
                         },
                     ],

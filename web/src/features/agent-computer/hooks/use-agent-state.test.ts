@@ -742,6 +742,59 @@ describe("deriveAgentState", () => {
     expect(assistantMessages[0]?.content).toBe("Final user-facing answer");
   });
 
+  it("marks turn_complete as completed task state", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "Final answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+
+    expect(state.taskState).toBe("complete");
+    expect(state.isStreaming).toBe(false);
+    expect(state.assistantPhase).toEqual({ phase: "idle" });
+  });
+
+  it("preserves task_complete summary when turn_complete result is empty", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "Do it" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "task_complete",
+        data: { summary: "Task-layer answer" },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "turn_complete",
+        data: { result: "" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(state.taskState).toBe("complete");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Task-layer answer");
+  });
+
   it("keeps one assistant message when message_user, task_complete, and turn_complete all occur in the same turn", () => {
     const events: AgentEvent[] = [
       {
@@ -836,6 +889,44 @@ describe("deriveAgentState", () => {
     expect(assistantMessages[0]?.thinkingEntries).toEqual([
       { content: "Reason carefully", durationMs: 0, timestamp: 2 },
     ]);
+    expect(assistantMessages[0]?.imageArtifactIds).toEqual(["artifact-image-1"]);
+  });
+
+  it("deduplicates repeated pending image artifacts on assistant messages", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "artifact_created",
+        data: {
+          artifact_id: "artifact-image-1",
+          name: "image.png",
+          content_type: "image/png",
+          size: 123,
+        },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "tool_result",
+        data: {
+          tool_id: "tool-1",
+          artifact_ids: ["artifact-image-1", "artifact-image-1"],
+          output: "generated image",
+          success: true,
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+      {
+        type: "task_complete",
+        data: { summary: "Done" },
+        timestamp: 3,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
     expect(assistantMessages[0]?.imageArtifactIds).toEqual(["artifact-image-1"]);
   });
 

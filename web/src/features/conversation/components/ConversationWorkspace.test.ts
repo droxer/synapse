@@ -332,6 +332,30 @@ describe("areMessageRowsEqual", () => {
     expect(html).toContain("Part 1 and Part 2");
   });
 
+  it("renders duplicate image artifact IDs only once", () => {
+    const assistantMessage: ChatMessage = {
+      ...baseMessage,
+      content: "",
+      imageArtifactIds: ["artifact-image-1", "artifact-image-1"],
+    };
+
+    const html = renderToStaticMarkup(createElement(MessageRow, {
+      msg: assistantMessage,
+      isLastAssistant: false,
+      isStreamingThis: false,
+      isThinkingThis: false,
+      messageWidthClass: "sm:max-w-[82%]",
+      embeddedPlanSteps: planSteps,
+      index: 0,
+      conversationId: "c1",
+      taskState: "idle",
+      locale: "en",
+      t: (key: string) => key,
+    }));
+
+    expect(html.match(/\/api\/conversations\/c1\/artifacts\/artifact-image-1/g) ?? []).toHaveLength(1);
+  });
+
   it("renders attachment chips for replayed user messages", () => {
     const userMessage: ChatMessage = {
       role: "user",
@@ -596,6 +620,45 @@ describe("ConversationWorkspace activity wiring", () => {
     expect((lastTopBarProps as { orchestratorMode?: unknown } | null)?.orchestratorMode).toBe("planner");
     expect(html).toContain("Planner mode active");
     expect(html).not.toContain("conversation.waiting");
+  });
+
+  it("renders the live planner checklist before the final assistant answer", () => {
+    const html = renderToStaticMarkup(createElement(ConversationWorkspace, {
+      conversationId: "c1",
+      conversationTitle: "Test",
+      events: [
+        { type: "turn_start", data: { message: "Plan this task", orchestrator_mode: "planner" }, timestamp: 100, iteration: null },
+        { type: "plan_created", data: { steps: [] }, timestamp: 110, iteration: 1 },
+      ],
+      messages: [
+        { role: "user", content: "Plan this task", timestamp: 100 },
+        { role: "assistant", content: "Final answer body.", timestamp: 200 },
+      ],
+      toolCalls: [],
+      agentStatuses: [],
+      planSteps: [
+        {
+          name: "Search prices",
+          description: "Find current prices.",
+          executionType: "parallel_worker",
+          status: "complete",
+        },
+      ],
+      artifacts: [],
+      taskState: "complete",
+      currentThinkingEntries: [],
+      isStreaming: false,
+      assistantPhase: { phase: "idle" },
+      isConnected: true,
+      onSendMessage: () => undefined,
+      isWaitingForAgent: false,
+      userCancelled: false,
+      isLoadingHistory: false,
+    }));
+
+    expect(html.indexOf("plan.title")).toBeGreaterThan(-1);
+    expect(html.indexOf("Final answer body.")).toBeGreaterThan(-1);
+    expect(html.indexOf("plan.title")).toBeLessThan(html.indexOf("Final answer body."));
   });
 
   it("passes optimistic selected skills through to both activity surfaces during a live turn", () => {

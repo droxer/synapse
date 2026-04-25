@@ -6,6 +6,7 @@ import { useTranslation } from "@/i18n";
 import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { Progress } from "@/shared/components/ui/progress";
 import { ExpandToggle } from "@/shared/components/ui/expand-toggle";
+import { cn } from "@/shared/lib/utils";
 import {
   OutputSurface,
   OutputSurfaceBody,
@@ -17,6 +18,7 @@ import {
   PROSE_CLASSES,
   TOOL_OUTPUT_MARKDOWN_CLASSES,
   OUTPUT_COLLAPSE_THRESHOLD,
+  OUTPUT_SCROLL_AREA_CLASSES,
 } from "../lib/format-tools";
 import type { BrowserMetadata } from "@/shared/types";
 
@@ -96,7 +98,7 @@ export function BrowserOutput({
         )}
 
         {/* Markdown body */}
-        <OutputSurfaceInner className={PROSE_CLASSES}>
+        <OutputSurfaceInner className={cn(PROSE_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
           {displayText.trim().length > 0 ? (
             <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} />
           ) : (

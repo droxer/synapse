@@ -5,7 +5,10 @@ import { FileText } from "lucide-react";
 import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { ExpandToggle } from "./expand-toggle";
-import { OUTPUT_COLLAPSE_THRESHOLD } from "@/features/agent-computer/lib/format-tools";
+import {
+  OUTPUT_COLLAPSE_THRESHOLD,
+  OUTPUT_SCROLL_AREA_CLASSES,
+} from "@/features/agent-computer/lib/format-tools";
 import {
   OUTPUT_SURFACE_BODY_CLASSES,
   OUTPUT_SURFACE_HEADER_CLASSES,
@@ -35,7 +38,7 @@ export function HtmlOutput({ output, className, label }: HtmlOutputProps) {
         <span className={OUTPUT_SURFACE_LABEL_CLASSES}>{resolvedLabel}</span>
       </div>
       <div className={OUTPUT_SURFACE_BODY_CLASSES}>
-        <div className={OUTPUT_SURFACE_INNER_CLASSES}>
+        <div className={cn(OUTPUT_SURFACE_INNER_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
           <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
             {displayText}
             {isLong && !expanded && "..."}

@@ -153,9 +153,14 @@ export const MessageRow = memo(function MessageRow({
       if (!conversationId || !m.imageArtifactIds || m.imageArtifactIds.length === 0) {
         return [];
       }
-      return m.imageArtifactIds.map(
-        (aid) => `/api/conversations/${conversationId}/artifacts/${aid}`
-      );
+      const urls: string[] = [];
+      const seenArtifactIds = new Set<string>();
+      for (const artifactId of m.imageArtifactIds) {
+        if (seenArtifactIds.has(artifactId)) continue;
+        seenArtifactIds.add(artifactId);
+        urls.push(`/api/conversations/${conversationId}/artifacts/${artifactId}`);
+      }
+      return urls;
     },
     [conversationId],
   );
@@ -259,6 +264,12 @@ export const MessageRow = memo(function MessageRow({
             ) : null}
             {/* Message body */}
             <div className="conversation-response-body text-sm leading-[1.5] text-foreground">
+              {hasPlanHere && (
+                <div className={showMarkdown || imageUrls.length > 0 ? "mb-3" : undefined}>
+                  <PlanChecklistPanel planSteps={embeddedPlanSteps} />
+                </div>
+              )}
+
               {showMarkdown ? (
                 <MarkdownRenderer
                   content={msg.content}
@@ -281,12 +292,6 @@ export const MessageRow = memo(function MessageRow({
                   ))}
                 </div>
               ) : null}
-
-              {hasPlanHere && (
-                <div className="mt-3">
-                  <PlanChecklistPanel planSteps={embeddedPlanSteps} />
-                </div>
-              )}
             </div>
 
             {/* Message action bar — inline, no timestamp */}

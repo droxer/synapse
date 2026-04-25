@@ -41,21 +41,46 @@ criteria:
 mock_responses:
   - text: "I'll decompose this into three parallel sub-tasks."
     tool_calls:
+      - id: tc_plan_1
+        name: plan_create
+        input:
+          steps:
+            - name: "Research AI trends"
+              description: "Research the latest AI trends for 2024-2025."
+              execution_type: parallel_worker
+            - name: "Write summary report"
+              description: "Write the summary report from the research."
+              execution_type: sequential_worker
+            - name: "Create comparison chart"
+              description: "Create a comparison chart of AI technologies."
+              execution_type: parallel_worker
       - id: tc_spawn_1
         name: agent_spawn
         input:
+          name: "Research AI trends"
           task_description: "Research the latest AI trends for 2024-2025"
+          deliverable: "A concise research brief on current AI trends."
+          ownership_scope: "AI trend research only."
+          independence_reason: "Research can proceed independently before synthesis."
           role: researcher
       - id: tc_spawn_2
         name: agent_spawn
         input:
+          name: "Write summary report"
           task_description: "Write a summary report on AI trends"
+          deliverable: "A summary report draft."
+          ownership_scope: "Summary report writing only."
+          independence_reason: "Writing can proceed from the research brief as its bounded input."
           role: writer
           depends_on: []
       - id: tc_spawn_3
         name: agent_spawn
         input:
+          name: "Create comparison chart"
           task_description: "Create a comparison chart of AI technologies"
+          deliverable: "A comparison chart of AI technologies."
+          ownership_scope: "Comparison chart creation only."
+          independence_reason: "Chart creation is isolated from the report prose."
           role: data_analyst
     stop_reason: tool_use
     usage:

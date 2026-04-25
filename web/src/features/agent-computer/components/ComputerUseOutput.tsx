@@ -13,6 +13,7 @@ import {
 import { ArtifactScreenshotGallery } from "./ArtifactScreenshotGallery";
 import {
   OUTPUT_COLLAPSE_THRESHOLD,
+  OUTPUT_SCROLL_AREA_CLASSES,
 } from "../lib/format-tools";
 import type { ComputerUseMetadata } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
@@ -118,7 +119,7 @@ export function ComputerUseOutput({
         )}
 
         {!hasScreenshot && hasOutputText && (
-          <OutputSurfaceInner className="overflow-x-auto">
+          <OutputSurfaceInner className={OUTPUT_SCROLL_AREA_CLASSES}>
             <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
               {displayText}
               {isLong && !expanded && ELLIPSIS}

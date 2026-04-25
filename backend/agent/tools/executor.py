@@ -17,6 +17,11 @@ from agent.tools.schema_validation import (
 from agent.tools.sandbox.artifact_detection import extract_artifact_paths_from_text
 from api.events import EventType
 
+_STALE_SANDBOX_SESSION_MARKERS = (
+    "Handle invalidated after stop()",
+    "stopped:",
+)
+
 
 class ToolExecutor:
     """Routes tool calls to the appropriate execution environment.
@@ -116,12 +121,42 @@ class ToolExecutor:
         """Clear any per-turn sandbox template override."""
         self._sandbox_config = None
 
+    @staticmethod
+    def _is_stale_sandbox_session_error(exc: Exception) -> bool:
+        message = str(exc)
+        return any(marker in message for marker in _STALE_SANDBOX_SESSION_MARKERS)
+
+    async def _discard_sandbox_session(
+        self,
+        template: str,
+        session: Any,
+        *,
+        reason: Exception,
+    ) -> None:
+        """Evict a cached sandbox session that can no longer execute commands."""
+        if self._sandbox_sessions.get(template) is session:
+            self._sandbox_sessions.pop(template, None)
+        self._staged_skills_by_template.pop(template, None)
+
+        if self._sandbox_provider is None:
+            return
+
+        try:
+            await self._sandbox_provider.destroy_session(session)
+        except Exception as exc:
+            logger.info(
+                "stale_sandbox_destroy_failed template={} original_error={} destroy_error={}",
+                template,
+                reason,
+                exc,
+            )
+
     def _resolve_template(self, tool_tags: tuple[str, ...] = ()) -> str:
         """Determine the sandbox template from config or tool tags."""
-        if self._sandbox_config is not None:
-            return self._sandbox_config.template
         if "browser" in tool_tags:
             return "browser"
+        if self._sandbox_config is not None:
+            return self._sandbox_config.template
         return "default"
 
     async def _get_sandbox_session(self, tool_tags: tuple[str, ...] = ()) -> Any:
@@ -145,7 +180,10 @@ class ToolExecutor:
 
         from agent.sandbox.base import SandboxConfig
 
-        if self._sandbox_config is not None:
+        if (
+            self._sandbox_config is not None
+            and self._sandbox_config.template == template
+        ):
             config = self._sandbox_config
         elif template == "browser":
             config = SandboxConfig(template="browser", memory_mb=4096, cpu_count=2)
@@ -332,24 +370,42 @@ class ToolExecutor:
                             "Shell tool call limit reached for this turn. "
                             "Stop invoking shell/shell_exec or batch work differently.",
                         )
-                session = await self._get_sandbox_session(tags)
-                logger.debug(
-                    "sandbox_tool_input name={} keys={}",
-                    resolved_name,
-                    list(resolved_input.keys()),
-                )
-                result = await tool.execute(
-                    session=session,
-                    event_emitter=self._event_emitter,
-                    conversation_id=self._conversation_id,
-                    **resolved_input,
-                )
-                result = await self._extract_artifacts(result, session)
-                return self._validate_tool_result_schema(
-                    tool_name=tool_name,
-                    definition=definition,
-                    result=result,
-                )
+                template = self._resolve_template(tags)
+                for attempt in range(2):
+                    session = await self._get_sandbox_session(tags)
+                    logger.debug(
+                        "sandbox_tool_input name={} keys={}",
+                        resolved_name,
+                        list(resolved_input.keys()),
+                    )
+                    try:
+                        result = await tool.execute(
+                            session=session,
+                            event_emitter=self._event_emitter,
+                            conversation_id=self._conversation_id,
+                            **resolved_input,
+                        )
+                        result = await self._extract_artifacts(result, session)
+                        return self._validate_tool_result_schema(
+                            tool_name=tool_name,
+                            definition=definition,
+                            result=result,
+                        )
+                    except Exception as exc:
+                        if attempt == 0 and self._is_stale_sandbox_session_error(exc):
+                            logger.info(
+                                "sandbox_session_stale_retry name={} template={} error={}",
+                                resolved_name,
+                                template,
+                                exc,
+                            )
+                            await self._discard_sandbox_session(
+                                template,
+                                session,
+                                reason=exc,
+                            )
+                            continue
+                        raise
 
             return ToolResult.fail(
                 f"Tool '{tool_name}' has an unrecognised type: {type(tool).__name__}",

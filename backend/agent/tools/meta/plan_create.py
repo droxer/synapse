@@ -31,7 +31,8 @@ class PlanCreate(LocalTool):
             description=(
                 "Declare the plan before spawning agents. "
                 "Call this FIRST with the list of steps you intend to execute, "
-                "then spawn agents for each step."
+                "then spawn agents only for worker steps that benefit from "
+                "bounded independent execution."
             ),
             input_schema={
                 "type": "object",
@@ -107,5 +108,5 @@ class PlanCreate(LocalTool):
         step_names = [s.get("name", "") for s in steps]
         return ToolResult.ok(
             f"Plan created with {len(steps)} steps: {', '.join(step_names)}. "
-            "Now spawn agents for each step."
+            "Spawn agents only for non-planner-owned steps that need delegation."
         )

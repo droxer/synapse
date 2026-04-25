@@ -7,7 +7,10 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { ExpandToggle } from "./expand-toggle";
-import { OUTPUT_COLLAPSE_THRESHOLD } from "@/features/agent-computer/lib/format-tools";
+import {
+  OUTPUT_COLLAPSE_THRESHOLD,
+  OUTPUT_SCROLL_AREA_CLASSES,
+} from "@/features/agent-computer/lib/format-tools";
 import {
   OUTPUT_SURFACE_BODY_CLASSES,
   OUTPUT_SURFACE_FOCUS_CLASSES,
@@ -86,7 +89,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
 
       {/* Content — rendered via MarkdownRenderer for syntax highlighting */}
       <div className={OUTPUT_SURFACE_BODY_CLASSES}>
-        <div className={cn(OUTPUT_SURFACE_INNER_CLASSES, "code-output-content [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-0")}>
+        <div className={cn(OUTPUT_SURFACE_INNER_CLASSES, OUTPUT_SCROLL_AREA_CLASSES, "code-output-content [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-0")}>
           <MarkdownRenderer content={fenced} className={CODE_OUTPUT_MARKDOWN_CLASSES} compactCode />
           {isLong && !expanded && (
             <span className="font-mono text-xs text-muted-foreground-dim">{"\n..."}</span>

@@ -179,6 +179,39 @@ describe("buildConversationTranscriptState", () => {
     expect(assistantMessages[0]?.content).toBe("Final answer");
   });
 
+  it("keeps task_complete assistant reply when turn_complete has no result", () => {
+    const transcript = buildConversationTranscriptState(
+      [],
+      [],
+      [
+        {
+          type: "turn_start",
+          data: { message: "Question" },
+          timestamp: 1000,
+          iteration: null,
+        },
+        {
+          type: "task_complete",
+          data: { summary: "Task-layer answer" },
+          timestamp: 2000,
+          iteration: 1,
+        },
+        {
+          type: "turn_complete",
+          data: { result: "" },
+          timestamp: 3000,
+          iteration: 1,
+        },
+      ],
+    );
+
+    const assistantMessages = transcript.messages.filter((message) => message.role === "assistant");
+
+    expect(transcript.agentState.taskState).toBe("complete");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe("Task-layer answer");
+  });
+
   it("keeps one assistant bubble when persisted history arrives with think tags around the final answer", () => {
     const resolved = resolveConversationHistoryResults(
       {

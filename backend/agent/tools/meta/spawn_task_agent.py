@@ -16,6 +16,8 @@ from agent.tools.base import (
 from agent.tools.meta.planner_state import PlannerState
 from api.events import EventEmitter, EventType
 
+_REDUNDANT_TASK_REJECTION = "Redundant task agent rejected"
+
 
 class SpawnTaskAgent(LocalTool):
     """Spawn a new task agent to handle a focused sub-task."""
@@ -55,6 +57,24 @@ class SpawnTaskAgent(LocalTool):
                         "type": "string",
                         "description": "Additional context or instructions for the agent.",
                         "default": "",
+                    },
+                    "deliverable": {
+                        "type": "string",
+                        "description": "Concrete output the worker must return to the planner.",
+                    },
+                    "ownership_scope": {
+                        "type": "string",
+                        "description": (
+                            "The files, modules, research slice, data subset, or "
+                            "responsibility boundary owned by this worker."
+                        ),
+                    },
+                    "independence_reason": {
+                        "type": "string",
+                        "description": (
+                            "Why this worker can proceed independently and why "
+                            "delegation is useful for this task."
+                        ),
                     },
                     "sandbox_template": {
                         "type": "string",
@@ -112,16 +132,25 @@ class SpawnTaskAgent(LocalTool):
                         "default": False,
                     },
                 },
-                "required": ["task_description", "name"],
+                "required": [
+                    "task_description",
+                    "name",
+                    "deliverable",
+                    "ownership_scope",
+                    "independence_reason",
+                ],
             },
             execution_context=ExecutionContext.LOCAL,
             tags=("meta", "agent"),
         )
 
     async def execute(self, **kwargs: Any) -> ToolResult:
-        task_description: str = kwargs.get("task_description", "")
-        name: str = kwargs.get("name", "")
-        context: str = kwargs.get("context", "")
+        task_description = str(kwargs.get("task_description", ""))
+        name = str(kwargs.get("name", ""))
+        context = str(kwargs.get("context", ""))
+        deliverable = str(kwargs.get("deliverable", ""))
+        ownership_scope = str(kwargs.get("ownership_scope", ""))
+        independence_reason = str(kwargs.get("independence_reason", ""))
         sandbox_template: str = kwargs.get("sandbox_template", "default")
         depends_on: list[str] = kwargs.get("depends_on", [])
         use_lite_model: bool = kwargs.get("use_lite_model", False)
@@ -137,18 +166,46 @@ class SpawnTaskAgent(LocalTool):
             return ToolResult.fail("task_description must not be empty")
         if error := self._planner_state.validate_spawn(name):
             return ToolResult.fail(error)
+        if not deliverable.strip():
+            return ToolResult.fail("deliverable must not be empty")
+        if not ownership_scope.strip():
+            return ToolResult.fail("ownership_scope must not be empty")
+        if not independence_reason.strip():
+            return ToolResult.fail("independence_reason must not be empty")
         display_name = ensure_task_agent_name_suffix(name)
+        if existing_agent_id := self._planner_state.spawned_agent_id(name):
+            logger.info(
+                "spawn_task_agent_reused_existing step_name={} agent_id={}",
+                name,
+                existing_agent_id,
+            )
+            return ToolResult.ok(
+                f"Agent already spawned with id: {existing_agent_id}",
+                metadata={"agent_id": existing_agent_id},
+            )
+        if error := self._planner_state.validate_new_spawn():
+            return ToolResult.fail(error)
 
+        config: TaskAgentConfig
         try:
             from agent.runtime.task_runner import DependencyFailureMode, TaskAgentConfig
             from config.settings import get_settings
 
             model = get_settings().LITE_MODEL if use_lite_model else None
+            worker_contract = (
+                "Worker contract:\n"
+                f"- Deliverable: {deliverable.strip()}\n"
+                f"- Ownership scope: {ownership_scope.strip()}\n"
+                f"- Independence reason: {independence_reason.strip()}"
+            )
+            full_context = "\n\n".join(
+                part for part in (worker_contract, context.strip()) if part
+            )
 
             config = TaskAgentConfig(
                 task_description=task_description,
                 name=display_name,
-                context=context,
+                context=full_context,
                 sandbox_template=sandbox_template,
                 depends_on=tuple(depends_on),
                 model=model,
@@ -158,13 +215,31 @@ class SpawnTaskAgent(LocalTool):
                 allow_redundant=allow_redundant,
             )
             agent_id = await self._manager.spawn(config)
+        except RuntimeError as exc:
+            if str(exc).startswith(_REDUNDANT_TASK_REJECTION):
+                redundant_agent_id = self._redundant_active_agent_id(config)
+                if redundant_agent_id is not None:
+                    logger.info(
+                        "spawn_task_agent_reused_redundant name={} agent_id={}",
+                        name,
+                        redundant_agent_id,
+                    )
+                    self._planner_state.record_spawn(name, redundant_agent_id)
+                    return ToolResult.ok(
+                        f"Agent already spawned with id: {redundant_agent_id}",
+                        metadata={"agent_id": redundant_agent_id},
+                    )
+                logger.info("spawn_task_agent_rejected reason=redundant_task")
+                return ToolResult.fail(str(exc))
+            logger.warning("spawn_task_agent_failed error={}", exc)
+            return ToolResult.fail(f"Failed to spawn agent: {exc}")
         except Exception as exc:
             logger.warning("spawn_task_agent_failed error={}", exc)
             return ToolResult.fail(f"Failed to spawn agent: {exc}")
 
         # Emit AGENT_SPAWN immediately so the frontend can update the plan
         # checklist without waiting for the async task to acquire the semaphore.
-        self._planner_state.record_spawn(name)
+        self._planner_state.record_spawn(name, agent_id)
         if self._emitter is not None:
             await self._emitter.emit(
                 EventType.AGENT_SPAWN,
@@ -180,3 +255,10 @@ class SpawnTaskAgent(LocalTool):
             f"Agent spawned with id: {agent_id}",
             metadata={"agent_id": agent_id},
         )
+
+    def _redundant_active_agent_id(self, config: Any) -> str | None:
+        lookup = getattr(self._manager, "redundant_active_agent_id", None)
+        if not callable(lookup):
+            return None
+        agent_id = lookup(config)
+        return agent_id if isinstance(agent_id, str) and agent_id else None

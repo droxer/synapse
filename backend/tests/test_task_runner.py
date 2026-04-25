@@ -196,6 +196,22 @@ class _FakeMCPTool(LocalTool):
         return ToolResult.ok("ok")
 
 
+class _FakeMetaTool(LocalTool):
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    def definition(self) -> ToolDefinition:
+        return ToolDefinition(
+            name=self._name,
+            description=f"{self._name} meta tool.",
+            input_schema={"type": "object", "properties": {}},
+            execution_context=ExecutionContext.LOCAL,
+        )
+
+    async def execute(self, **kwargs) -> ToolResult:
+        return ToolResult.ok("ok")
+
+
 class _FakeSandboxProbeTool(SandboxTool):
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -559,6 +575,59 @@ async def test_task_runner_auto_selects_skill_and_filters_tools(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_task_runner_auto_skill_preserves_worker_meta_tools(monkeypatch):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: _task_settings(timeout_seconds=5.0),
+    )
+
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(_FakeMetaTool("task_complete"))
+        .register(_FakeMetaTool("agent_handoff"))
+        .register(_FakeMetaTool("agent_send"))
+        .register(_FakeMetaTool("agent_receive"))
+        .register(ActivateSkill(skill_registry=_skill_registry()))
+    )
+    session = _FakeSkillSession()
+    client = _SkillAwareClient(
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=2, output_tokens=1),
+        )
+    )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-skill-auto-meta",
+        config=TaskAgentConfig(task_description="please research the topic"),
+        claude_client=client,
+        tool_registry=registry,
+        tool_executor=_TaskRunnerExecutor(registry, session),  # type: ignore[arg-type]
+        event_emitter=EventEmitter(),
+        observer=_NoopObserver(),
+        skill_registry=_skill_registry(),
+    )
+
+    result = await runner.run()
+
+    assert result.success is True
+    assert client.tool_batches == [
+        {
+            "activate_skill",
+            "agent_handoff",
+            "agent_receive",
+            "agent_send",
+            "task_complete",
+            "web_search",
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_task_runner_mid_turn_skill_activation_restricts_tools(monkeypatch):
     monkeypatch.setattr(
         "agent.runtime.task_runner.get_settings",
@@ -613,6 +682,69 @@ async def test_task_runner_mid_turn_skill_activation_restricts_tools(monkeypatch
         "web_search",
     }
     assert client.tool_batches[1] == {"activate_skill", "web_search"}
+
+
+@pytest.mark.asyncio
+async def test_task_runner_mid_turn_skill_preserves_worker_meta_tools(monkeypatch):
+    monkeypatch.setattr(
+        "agent.runtime.task_runner.get_settings",
+        lambda: _task_settings(timeout_seconds=5.0),
+    )
+
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(_FakeMCPTool())
+        .register(_FakeMetaTool("task_complete"))
+        .register(_FakeMetaTool("agent_handoff"))
+        .register(_FakeMetaTool("agent_send"))
+        .register(_FakeMetaTool("agent_receive"))
+        .register(ActivateSkill(skill_registry=_skill_registry()))
+    )
+    session = _FakeSkillSession()
+    client = _SkillAwareClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+
+    runner = TaskAgentRunner(
+        agent_id="agent-skill-mid-turn-meta",
+        config=TaskAgentConfig(task_description="help me"),
+        claude_client=client,
+        tool_registry=registry,
+        tool_executor=_TaskRunnerExecutor(registry, session),  # type: ignore[arg-type]
+        event_emitter=EventEmitter(),
+        observer=_NoopObserver(),
+        skill_registry=_skill_registry(),
+    )
+
+    result = await runner.run()
+
+    assert result.success is True
+    assert client.tool_batches[1] == {
+        "activate_skill",
+        "agent_handoff",
+        "agent_receive",
+        "agent_send",
+        "task_complete",
+        "web_search",
+    }
 
 
 @pytest.mark.asyncio

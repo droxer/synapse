@@ -119,6 +119,16 @@ function appendUnique<T>(source: readonly T[] | undefined, additions: readonly T
   return [...source, ...additions];
 }
 
+function appendUniqueStrings(source: readonly string[] | undefined, additions: readonly string[]): string[] {
+  const merged = source ? [...source] : [];
+  for (const item of additions) {
+    if (!merged.includes(item)) {
+      merged.push(item);
+    }
+  }
+  return merged;
+}
+
 function toDisplayText(value: unknown): string {
   if (value === null || value === undefined) return "";
   if (typeof value === "string") return value;
@@ -134,25 +144,6 @@ function getTerminalResultText(event: Extract<AgentEvent, { type: "turn_complete
     return String(event.data.summary ?? event.data.result ?? "");
   }
   return String(event.data.result ?? "");
-}
-
-function collectTurnIdsWithTurnComplete(events: readonly AgentEvent[]): ReadonlySet<string> {
-  let turnSequence = 0;
-  let currentTurnId = "event-turn:0";
-  const turnIdsWithTurnComplete = new Set<string>();
-
-  for (const event of events) {
-    if (event.type === "turn_start") {
-      turnSequence += 1;
-      currentTurnId = `event-turn:${turnSequence}`;
-      continue;
-    }
-    if (event.type === "turn_complete") {
-      turnIdsWithTurnComplete.add(currentTurnId);
-    }
-  }
-
-  return turnIdsWithTurnComplete;
 }
 
 function buildPlannerFallbackStep(
@@ -478,7 +469,6 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
   let isDeepResearchTurn = false;
   let pendingDeepResearchVisibleParts: string[] = [];
-  const turnIdsWithTurnComplete = collectTurnIdsWithTurnComplete(events);
 
   const nextAssistantMessageId = () =>
     `${currentTurnId}:assistant:${assistantMessageSequence}`;
@@ -728,7 +718,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     const existing = messages[lastAssistantIdx]!;
     messages[lastAssistantIdx] = {
       ...existing,
-      imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+      imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
     };
     pendingImageArtifactIds = [];
   };
@@ -816,7 +806,9 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       taskState = currentTurnIsPlanner && !currentTurnHadAgentSpawn ? "planning" : "executing";
     } else if (event.type === "agent_spawn") {
       taskState = "planning";
-    } else if (event.type === "turn_complete" || event.type === "turn_cancelled") {
+    } else if (event.type === "turn_complete") {
+      taskState = "complete";
+    } else if (event.type === "turn_cancelled") {
       taskState = "idle";
     } else if (event.type === "task_complete") {
       taskState = "complete";
@@ -1015,7 +1007,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       const artifactIds = Array.isArray(event.data.artifact_ids) ? event.data.artifact_ids : [];
       const newImageIds = artifactIds.filter((artifactId) => imageArtifactIdSet.has(artifactId));
       if (newImageIds.length > 0) {
-        pendingImageArtifactIds = [...pendingImageArtifactIds, ...newImageIds];
+        pendingImageArtifactIds = appendUniqueStrings(pendingImageArtifactIds, newImageIds);
       }
     } else if (event.type === "skill_activated") {
       const skillName = String(event.data.name ?? "");
@@ -1126,7 +1118,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
         if (pendingImageArtifactIds.length > 0) {
           existing = {
             ...existing,
-            imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+            imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
           };
         }
         if (messageContent.trim().length > 0) {
@@ -1194,20 +1186,11 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       pendingDeepResearchVisibleParts = [];
       isDeepResearchTurn = false;
     } else if (event.type === "task_complete") {
-      const turnHasTurnComplete = turnIdsWithTurnComplete.has(currentTurnId);
-
       planSteps = planSteps.map((step) =>
         step.executionType === "planner_owned" && step.status !== "complete"
           ? { ...step, status: "complete" }
           : step,
       );
-
-      if (turnHasTurnComplete) {
-        isStreaming = false;
-        assistantPhase = { phase: "idle" };
-        pendingToolIds.clear();
-        continue;
-      }
 
       isStreaming = false;
       if (currentTurnIsPlanner && !currentTurnHadPlanCreated) {
@@ -1239,7 +1222,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           if (pendingImageArtifactIds.length > 0) {
             existing = {
               ...existing,
-              imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+              imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
             };
           }
           if (content.trim().length > 0) {
@@ -1318,7 +1301,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           if (pendingImageArtifactIds.length > 0) {
             existing = {
               ...existing,
-              imageArtifactIds: appendUnique(existing.imageArtifactIds, pendingImageArtifactIds),
+              imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
             };
           }
           if (content.trim().length > 0) {

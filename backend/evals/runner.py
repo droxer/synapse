@@ -102,8 +102,16 @@ class _MockAgentSpawnTool(LocalTool):
                 "properties": {
                     "task_description": {"type": "string"},
                     "name": {"type": "string"},
+                    "deliverable": {"type": "string"},
+                    "ownership_scope": {"type": "string"},
+                    "independence_reason": {"type": "string"},
                 },
-                "required": ["task_description"],
+                "required": [
+                    "task_description",
+                    "deliverable",
+                    "ownership_scope",
+                    "independence_reason",
+                ],
             },
             execution_context=ExecutionContext.LOCAL,
         )
