@@ -251,6 +251,7 @@ function buildSkillDependencyFailedTitle(
 function buildPlanTimelineSteps(
   planSteps: readonly PlanStep[],
   indexes: ToolCallIndexes,
+  t: TFn,
 ): TimelineStep[] {
   return planSteps.map((step, index) => {
     const agentId = step.agentId?.trim();
@@ -262,7 +263,7 @@ function buildPlanTimelineSteps(
     return {
       id: agentId ? `agent-${agentId}-plan-${index}` : `plan-step-${index}`,
       kind: "plan",
-      title: step.name.trim() || `Step ${index + 1}`,
+      title: (step.nameI18nKey ? t(step.nameI18nKey) : step.name).trim() || `Step ${index + 1}`,
       status: step.status,
       agentToolCount: agentToolCount > 0 ? agentToolCount : undefined,
     };
@@ -599,7 +600,7 @@ export function buildSteps(
   }
 
   if (planSteps.length > 0) {
-    const planTimelineSteps = buildPlanTimelineSteps(planSteps, indexes);
+    const planTimelineSteps = buildPlanTimelineSteps(planSteps, indexes, t);
     let planMarkerIndex = -1;
     for (let i = steps.length - 1; i >= 0; i--) {
       if (steps[i]?.id.startsWith("plan-")) {

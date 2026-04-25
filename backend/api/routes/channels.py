@@ -33,6 +33,7 @@ from api.dependencies import AppState, get_app_state
 from api.events import AgentEvent, EventEmitter, EventType
 from api.models import ConversationEntry, FileAttachment
 from api.sse import _create_queue_subscriber
+from api.user_responses import SubmitResponseStatus
 from config.settings import get_settings
 
 router = APIRouter(prefix="/channels", tags=["channels"])
@@ -438,10 +439,38 @@ async def _handle_channel_message(
                 return
             if callable(callback):
                 channel_router._pending_prompts.pop(conv_uuid, None)  # noqa: SLF001
+                coordinator = getattr(state, "response_coordinator", None)
+                persisted = False
+                if coordinator is not None:
+                    result = await coordinator.submit_response(
+                        conversation_id=str(conv_uuid),
+                        request_id=request_id,
+                        response=message.text,
+                    )
+                    if result.status == SubmitResponseStatus.ALREADY_RESPONDED:
+                        logger.info(
+                            "channel_ask_user_already_fulfilled conv={} request={}",
+                            conv_uuid,
+                            request_id,
+                        )
+                        return
+                    if result.status == SubmitResponseStatus.FULFILLED:
+                        persisted = True
+                    else:
+                        logger.warning(
+                            "channel_ask_user_prompt_not_persisted conv={} request={}",
+                            conv_uuid,
+                            request_id,
+                        )
+
                 callback(message.text)
                 await entry.emitter.emit(
                     EventType.USER_RESPONSE,
-                    {"request_id": request_id, "response": message.text},
+                    {
+                        "request_id": request_id,
+                        "response": message.text,
+                        "persisted": persisted,
+                    },
                 )
                 logger.info(
                     "channel_ask_user_fulfilled conv={} request={}",

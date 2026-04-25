@@ -53,12 +53,24 @@ function StepIndicator({ status }: { readonly status: PlanStep["status"] }) {
   );
 }
 
-function StepRow({ step, index }: { readonly step: PlanStep; readonly index: number }) {
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+function getLocalizedStepName(step: PlanStep, t: TFn): string {
+  return step.nameI18nKey ? t(step.nameI18nKey) : step.name;
+}
+
+function getLocalizedStepDescription(step: PlanStep, t: TFn): string {
+  return step.descriptionI18nKey ? t(step.descriptionI18nKey) : step.description;
+}
+
+function StepRow({ step, index, t }: { readonly step: PlanStep; readonly index: number; readonly t: TFn }) {
   const isComplete = step.status === "complete";
   const isSkipped = step.status === "skipped";
   const isError = step.status === "error";
   const isReplanRequired = step.status === "replan_required";
   const isRunning = step.status === "running";
+  const name = getLocalizedStepName(step, t);
+  const description = getLocalizedStepDescription(step, t);
 
   return (
     <motion.li
@@ -99,11 +111,11 @@ function StepRow({ step, index }: { readonly step: PlanStep; readonly index: num
             !isRunning && !isComplete && !isSkipped && !isError && !isReplanRequired && "text-muted-foreground",
           )}
         >
-          {step.name}
+          {name}
         </p>
-        {step.description && !isComplete && !isSkipped && (
+        {description && !isComplete && !isSkipped && (
           <p className="mt-0.5 text-caption text-muted-foreground-dim leading-snug line-clamp-2">
-            {step.description}
+            {description}
           </p>
         )}
         {isRunning && (
@@ -177,7 +189,7 @@ export function PlanChecklistPanel({ planSteps }: PlanChecklistPanelProps) {
       <ul className="py-1">
         <AnimatePresence initial={false}>
           {planSteps.map((step, i) => (
-            <StepRow key={step.name} step={step} index={i} />
+            <StepRow key={`${step.nameI18nKey ?? step.name}-${i}`} step={step} index={i} t={t} />
           ))}
         </AnimatePresence>
       </ul>

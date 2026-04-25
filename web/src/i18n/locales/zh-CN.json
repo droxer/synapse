@@ -457,6 +457,12 @@
   "plan.statusError": "失败",
   "plan.statusSkipped": "已跳过",
   "plan.statusReplanRequired": "需要重新规划",
+  "plan.fallbackActiveName": "规划模式已激活",
+  "plan.fallbackActiveDescription": "正在为此轮准备可见计划。",
+  "plan.fallbackInlineName": "规划器已直接回答，未委派给工作智能体",
+  "plan.fallbackInlineDescription": "此轮已跳过结构化规划。",
+  "plan.fallbackErrorName": "规划器在发布结构化计划前结束",
+  "plan.fallbackErrorDescription": "规划模式已激活，但未创建可见计划。",
 
   "tools.arg.url": "网址",
   "tools.arg.task": "任务",

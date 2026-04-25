@@ -4,8 +4,29 @@ from __future__ import annotations
 
 import asyncio
 import uuid
+from dataclasses import dataclass
+from enum import StrEnum
 
 from agent.state.repository import ConversationRepository, UserPromptRepository
+
+
+class SubmitResponseStatus(StrEnum):
+    """Outcome for a persisted prompt response submission."""
+
+    FULFILLED = "fulfilled"
+    NOT_FOUND = "not_found"
+    ALREADY_RESPONDED = "already_responded"
+
+
+@dataclass(frozen=True)
+class SubmitResponseResult:
+    """Result of submitting a user response to a prompt."""
+
+    status: SubmitResponseStatus
+
+    @property
+    def fulfilled(self) -> bool:
+        return self.status == SubmitResponseStatus.FULFILLED
 
 
 class UserResponseCoordinator:
@@ -118,32 +139,41 @@ class UserResponseCoordinator:
         conversation_id: str,
         request_id: str,
         response: str,
-    ) -> bool:
+    ) -> SubmitResponseResult:
+        conversation_uuid = uuid.UUID(conversation_id)
         async with self._session_factory() as session:
             conversation = await self._conversation_repo.get_conversation(
                 session,
-                uuid.UUID(conversation_id),
+                conversation_uuid,
             )
             if conversation is None:
-                return False
-            prompt = await self._prompt_repo.get_prompt(session, request_id=request_id)
-            if prompt is None or str(prompt.conversation_id) != conversation_id:
-                return False
-            await self._prompt_repo.fulfill_prompt(
+                return SubmitResponseResult(SubmitResponseStatus.NOT_FOUND)
+            fulfilled_prompt = await self._prompt_repo.fulfill_prompt(
                 session,
                 request_id=request_id,
+                conversation_id=conversation_uuid,
                 response=response,
             )
+            if fulfilled_prompt is None:
+                prompt = await self._prompt_repo.get_prompt(
+                    session,
+                    request_id=request_id,
+                )
+                if prompt is None or str(prompt.conversation_id) != conversation_id:
+                    return SubmitResponseResult(SubmitResponseStatus.NOT_FOUND)
+                if prompt.status == "responded":
+                    return SubmitResponseResult(SubmitResponseStatus.ALREADY_RESPONDED)
+                return SubmitResponseResult(SubmitResponseStatus.NOT_FOUND)
             await self._conversation_repo.save_message(
                 session,
-                uuid.UUID(conversation_id),
+                conversation_uuid,
                 role="user",
                 content={"text": response},
                 iteration=None,
             )
             await self._conversation_repo.save_event(
                 session,
-                uuid.UUID(conversation_id),
+                conversation_uuid,
                 event_type="user_response",
                 data={"request_id": request_id, "response": response},
                 iteration=None,
@@ -154,4 +184,4 @@ class UserResponseCoordinator:
             request_id=request_id,
             response=response,
         )
-        return True
+        return SubmitResponseResult(SubmitResponseStatus.FULFILLED)

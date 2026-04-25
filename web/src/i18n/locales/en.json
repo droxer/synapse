@@ -457,6 +457,12 @@
   "plan.statusError": "Failed",
   "plan.statusSkipped": "Skipped",
   "plan.statusReplanRequired": "Needs replan",
+  "plan.fallbackActiveName": "Planner mode active",
+  "plan.fallbackActiveDescription": "Preparing a visible plan for this turn.",
+  "plan.fallbackInlineName": "Planner answered inline without worker delegation",
+  "plan.fallbackInlineDescription": "Structured planning was skipped for this turn.",
+  "plan.fallbackErrorName": "Planner turn ended before publishing a structured plan",
+  "plan.fallbackErrorDescription": "Planner mode was active, but no visible plan was created.",
 
   "tools.arg.url": "URL",
   "tools.arg.task": "Task",

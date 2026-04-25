@@ -436,6 +436,25 @@ class ConversationRepository:
         result = await session.execute(stmt)
         return [_to_event(m) for m in result.scalars().all()]
 
+    async def get_latest_events(
+        self,
+        session: AsyncSession,
+        conversation_id: uuid.UUID,
+        limit: int,
+        offset: int = 0,
+    ) -> list[EventRecord]:
+        """Return the latest conversation events, restored to causal order."""
+        stmt = (
+            select(EventModel)
+            .where(EventModel.conversation_id == conversation_id)
+            .order_by(EventModel.timestamp.desc(), EventModel.id.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        result = await session.execute(stmt)
+        events = [_to_event(m) for m in result.scalars().all()]
+        return list(reversed(events))
+
     async def save_artifact(
         self,
         session: AsyncSession,
@@ -611,22 +630,29 @@ class UserPromptRepository:
         session: AsyncSession,
         *,
         request_id: str,
+        conversation_id: uuid.UUID,
         response: str,
     ) -> UserPromptRecord | None:
-        stmt = select(UserPromptModel).where(UserPromptModel.request_id == request_id)
+        stmt = (
+            update(UserPromptModel)
+            .where(
+                UserPromptModel.request_id == request_id,
+                UserPromptModel.conversation_id == conversation_id,
+                UserPromptModel.status == "pending",
+            )
+            .values(
+                status="responded",
+                response=response,
+                responded_at=datetime.now(timezone.utc),
+            )
+            .returning(UserPromptModel.request_id)
+        )
         result = await session.execute(stmt)
-        model = result.scalar_one_or_none()
-        if model is None:
+        updated_request_id = result.scalar_one_or_none()
+        if updated_request_id is None:
             return None
-        if model.status == "responded":
-            return _to_user_prompt(model)
-
-        model.status = "responded"
-        model.response = response
-        model.responded_at = datetime.now(timezone.utc)
         await session.commit()
-        await session.refresh(model)
-        return _to_user_prompt(model)
+        return await self.get_prompt(session, request_id=updated_request_id)
 
 
 # ---------------------------------------------------------------------------

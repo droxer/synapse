@@ -329,6 +329,8 @@ export interface ArtifactInfo {
 export interface PlanStep {
   readonly name: string;
   readonly description: string;
+  readonly nameI18nKey?: string;
+  readonly descriptionI18nKey?: string;
   readonly executionType: "planner_owned" | "sequential_worker" | "parallel_worker";
   readonly status:
     | "pending"

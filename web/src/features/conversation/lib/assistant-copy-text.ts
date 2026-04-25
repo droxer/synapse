@@ -22,6 +22,14 @@ function getPlanStatusLabel(status: PlanStep["status"], t: (key: string) => stri
   return t(PLAN_STATUS_I18N[status]);
 }
 
+function getLocalizedPlanStepName(step: PlanStep, t: (key: string) => string): string {
+  return step.nameI18nKey ? t(step.nameI18nKey) : step.name;
+}
+
+function getLocalizedPlanStepDescription(step: PlanStep, t: (key: string) => string): string {
+  return step.descriptionI18nKey ? t(step.descriptionI18nKey) : step.description;
+}
+
 /**
  * Plain text for clipboard: reasoning (entries + non-redundant thinkingContent), answer,
  * embedded plan steps, and image URLs when present.
@@ -53,10 +61,11 @@ export function buildAssistantCopyText(
 
   if (hasEmbeddedPlan && planSteps.length > 0) {
     const lines = planSteps.map((step, i) => {
-      const detail = step.description.trim()
-        ? `: ${step.description.trim()}`
+      const description = getLocalizedPlanStepDescription(step, t).trim();
+      const detail = description
+        ? `: ${description}`
         : "";
-      return `${i + 1}. [${getPlanStatusLabel(step.status, t)}] ${step.name.trim()}${detail}`;
+      return `${i + 1}. [${getPlanStatusLabel(step.status, t)}] ${getLocalizedPlanStepName(step, t).trim()}${detail}`;
     });
     chunks.push(`${t("conversation.copySectionPlan")}\n\n${lines.join("\n")}`);
   }

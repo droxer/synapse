@@ -10,9 +10,9 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from api.db_subscriber import create_db_subscriber
 from api.events import EventEmitter, EventType
 from agent.state.models import Base
-from agent.state.models import UserPromptModel
+from agent.state.models import EventModel, MessageModel, UserPromptModel
 from agent.state.repository import ConversationRepository, UserPromptRepository
-from api.user_responses import UserResponseCoordinator
+from api.user_responses import SubmitResponseStatus, UserResponseCoordinator
 
 
 @pytest.mark.asyncio
@@ -51,12 +51,12 @@ async def test_cross_instance_response_can_be_polled_from_storage() -> None:
 
     async def _submit() -> None:
         await asyncio.sleep(0.05)
-        accepted = await coordinator.submit_response(
+        result = await coordinator.submit_response(
             conversation_id=str(conversation_id),
             request_id=request_id,
             response="yes",
         )
-        assert accepted is True
+        assert result.status == SubmitResponseStatus.FULFILLED
 
     submit_task = asyncio.create_task(_submit())
     response = await coordinator.wait_for_response(
@@ -77,6 +77,68 @@ async def test_cross_instance_response_can_be_polled_from_storage() -> None:
     assert prompt.status == "responded"
     assert prompt.response == "yes"
     assert messages[-1].content == {"text": "yes"}
+
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_response_does_not_create_duplicate_message_or_event() -> None:
+    engine = create_async_engine("sqlite+aiosqlite:///:memory:")
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
+
+    session_factory = async_sessionmaker(engine, expire_on_commit=False)
+    conversation_repo = ConversationRepository()
+    prompt_repo = UserPromptRepository()
+    coordinator = UserResponseCoordinator(
+        session_factory=session_factory,
+        prompt_repo=prompt_repo,
+        conversation_repo=conversation_repo,
+    )
+
+    conversation_id = uuid.uuid4()
+    async with session_factory() as session:
+        await conversation_repo.create_conversation(
+            session,
+            conversation_id=conversation_id,
+            title="test",
+        )
+
+    request_id = "req_duplicate"
+    await coordinator.register_prompt(
+        conversation_id=str(conversation_id),
+        request_id=request_id,
+        question="Need approval?",
+    )
+
+    first = await coordinator.submit_response(
+        conversation_id=str(conversation_id),
+        request_id=request_id,
+        response="yes",
+    )
+    second = await coordinator.submit_response(
+        conversation_id=str(conversation_id),
+        request_id=request_id,
+        response="no",
+    )
+
+    async with session_factory() as session:
+        prompt = await prompt_repo.get_prompt(session, request_id=request_id)
+        message_count = await session.scalar(
+            select(func.count()).select_from(MessageModel)
+        )
+        response_event_count = await session.scalar(
+            select(func.count())
+            .select_from(EventModel)
+            .where(EventModel.event_type == "user_response")
+        )
+
+    assert first.status == SubmitResponseStatus.FULFILLED
+    assert second.status == SubmitResponseStatus.ALREADY_RESPONDED
+    assert prompt is not None
+    assert prompt.response == "yes"
+    assert message_count == 1
+    assert response_event_count == 1
 
     await engine.dispose()
 

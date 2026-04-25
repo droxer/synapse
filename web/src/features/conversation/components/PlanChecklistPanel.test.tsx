@@ -29,6 +29,8 @@ jest.mock("@/i18n", () => ({
       const dict: Record<string, string> = {
         "plan.title": "Plan",
         "plan.progress": `${params?.completed ?? 0}/${params?.total ?? 0} complete`,
+        "plan.fallbackActiveName": "规划模式已激活",
+        "plan.fallbackActiveDescription": "正在为此轮准备可见计划。",
       };
       return dict[key] ?? key;
     },
@@ -75,5 +77,24 @@ describe("PlanChecklistPanel", () => {
     expect(html).toContain("opacity-70");
     expect(html).toContain("text-accent-amber");
     expect(html).toContain("status-warn");
+  });
+
+  it("localizes fallback planner step labels when i18n keys are present", () => {
+    const planSteps: PlanStep[] = [
+      {
+        name: "Planner mode active",
+        description: "Preparing a visible plan for this turn.",
+        nameI18nKey: "plan.fallbackActiveName",
+        descriptionI18nKey: "plan.fallbackActiveDescription",
+        executionType: "planner_owned",
+        status: "running",
+      },
+    ];
+
+    const html = renderToStaticMarkup(<PlanChecklistPanel planSteps={planSteps} />);
+
+    expect(html).toContain("规划模式已激活");
+    expect(html).toContain("正在为此轮准备可见计划。");
+    expect(html).not.toContain("Planner mode active");
   });
 });

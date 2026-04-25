@@ -43,6 +43,7 @@ from api.builders import (
     build_agent_system_prompt,
 )
 from api.sse import _create_queue_subscriber, _event_generator
+from api.user_responses import SubmitResponseStatus
 from api.events import AgentEvent, EventEmitter, EventType
 from api.db_subscriber import create_db_subscriber
 from config.settings import get_settings
@@ -1686,6 +1687,7 @@ async def get_conversation_events(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     limit: int = 500,
     offset: int = 0,
+    latest: bool = True,
     session: Any = Depends(get_db_session),
     state: AppState = Depends(get_app_state),
     auth_user: AuthUser | None = Depends(get_current_user),
@@ -1699,12 +1701,20 @@ async def get_conversation_events(
             raise HTTPException(status_code=404, detail="Conversation not found")
         limit = max(1, min(limit, 2000))
         offset = max(0, offset)
-        events = await state.db_repo.get_events(
-            session,
-            conv_uuid,
-            limit=limit,
-            offset=offset,
-        )
+        if latest:
+            events = await state.db_repo.get_latest_events(
+                session,
+                conv_uuid,
+                limit=limit,
+                offset=offset,
+            )
+        else:
+            events = await state.db_repo.get_events(
+                session,
+                conv_uuid,
+                limit=limit,
+                offset=offset,
+            )
         return {
             "events": [
                 {
@@ -1717,6 +1727,7 @@ async def get_conversation_events(
             ],
             "limit": limit,
             "offset": offset,
+            "latest": latest,
         }
 
 
@@ -1761,12 +1772,17 @@ async def respond_to_prompt(
                 status_code=503, detail="Response coordinator unavailable"
             )
 
-        accepted = await coordinator.submit_response(
+        result = await coordinator.submit_response(
             conversation_id=conversation_id,
             request_id=body.request_id,
             response=body.response,
         )
-        if not accepted:
+        if result.status == SubmitResponseStatus.ALREADY_RESPONDED:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Request already answered: {body.request_id}",
+            )
+        if result.status == SubmitResponseStatus.NOT_FOUND:
             raise HTTPException(
                 status_code=404,
                 detail=f"Unknown request: {body.request_id}",

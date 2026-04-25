@@ -456,6 +456,12 @@
   "plan.statusError": "失敗",
   "plan.statusSkipped": "已跳過",
   "plan.statusReplanRequired": "需要重新規劃",
+  "plan.fallbackActiveName": "規劃模式已啟動",
+  "plan.fallbackActiveDescription": "正在為此輪準備可見計畫。",
+  "plan.fallbackInlineName": "規劃器已直接回答，未委派給工作智慧體",
+  "plan.fallbackInlineDescription": "此輪已跳過結構化規劃。",
+  "plan.fallbackErrorName": "規劃器在發布結構化計畫前結束",
+  "plan.fallbackErrorDescription": "規劃模式已啟動，但未建立可見計畫。",
 
   "tools.arg.url": "網址",
   "tools.arg.task": "任務",

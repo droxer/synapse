@@ -43,7 +43,7 @@ export async function fetchEvents(
   conversationId: string,
 ): Promise<ConversationEventsResponse> {
   const res = await fetch(
-    `${API_BASE}/conversations/${conversationId}/events/history`,
+    `${API_BASE}/conversations/${conversationId}/events/history?limit=2000&latest=true`,
   );
 
   if (!res.ok) {

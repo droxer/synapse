@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, type ChangeEvent } from "react";
-import { MessageCircle, Send } from "lucide-react";
+import { CircleHelp, Send } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
 import { FOCUSABLE_SELECTOR } from "@/shared/lib/a11y";
@@ -75,53 +75,59 @@ export function InputPrompt({
   }, [value, onSubmit]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-overlay" aria-hidden="true" />
+    <div className="fixed inset-0 z-50 flex items-end justify-center px-3 pb-3 sm:px-4 sm:pb-5">
+      <div
+        className="absolute inset-0 bg-overlay"
+        aria-hidden="true"
+      />
 
-      {/* Modal */}
       <div
         ref={modalRef}
         role="dialog"
         aria-modal="true"
         aria-labelledby="input-prompt-title"
-        className="relative z-10 mx-4 w-full max-w-xl animate-modal-in"
+        className="surface-overlay relative z-10 w-full max-w-2xl animate-modal-in overflow-hidden p-0"
       >
-          <div className="surface-overlay p-5 sm:p-6">
-          {/* Header */}
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground">
-              <MessageCircle className="h-4 w-4" />
+        <div className="border-l-2 border-l-border-active px-4 py-3.5 sm:px-5 sm:py-4">
+          <div className="mb-2.5 flex items-center gap-2.5">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+              <CircleHelp className="h-4 w-4" />
             </div>
-            <div>
-              <h3 id="input-prompt-title" className="text-base font-semibold text-foreground">
+            <div className="min-w-0">
+              <h3
+                id="input-prompt-title"
+                className="truncate text-sm font-semibold leading-5 text-foreground"
+              >
                 {title ?? t("inputPrompt.title")}
               </h3>
-              <p className="text-xs text-muted-foreground">{t("inputPrompt.subtitle")}</p>
+              <p className="text-xs leading-4 text-muted-foreground">
+                {t("inputPrompt.subtitle")}
+              </p>
             </div>
           </div>
 
-          {/* Question */}
-          <div className="mb-4 rounded-lg border border-border bg-secondary p-4">
-            <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
-              {question}
-            </p>
-          </div>
+          <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+            {question}
+          </p>
 
           {options.length > 0 && (
-            <div className="mb-4 flex flex-col gap-2">
+            <div className="mb-3 grid gap-1.5 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
               {options.map((option, idx) => (
                 <Button
                   key={option.id ?? option.value ?? option.label ?? idx}
                   type="button"
                   variant="outline"
-                  className="h-auto items-start justify-start whitespace-normal px-4 py-3 text-left"
+                  className="h-auto min-h-9 items-start justify-start whitespace-normal rounded-md px-3 py-2 text-left"
                   onClick={() => onSubmit(option.value ?? option.label)}
                 >
-                  <span className="flex flex-col gap-1">
-                    <span className="text-sm font-medium text-foreground">{option.label}</span>
+                  <span className="flex min-w-0 flex-col gap-0.5">
+                    <span className="text-sm font-medium leading-5 text-foreground">
+                      {option.label}
+                    </span>
                     {option.description && (
-                      <span className="text-xs text-muted-foreground">{option.description}</span>
+                      <span className="text-xs leading-4 text-muted-foreground">
+                        {option.description}
+                      </span>
                     )}
                   </span>
                 </Button>
@@ -130,7 +136,7 @@ export function InputPrompt({
           )}
 
           {allowFreeform && (
-            <form onSubmit={handleSubmit} className="flex gap-3">
+            <form onSubmit={handleSubmit} className="flex gap-2">
               <Input
                 ref={inputRef}
                 type="text"
@@ -138,15 +144,16 @@ export function InputPrompt({
                 onChange={(e: ChangeEvent<HTMLInputElement>) => setValue(e.target.value)}
                 placeholder={t("inputPrompt.placeholder")}
                 aria-label={t("inputPrompt.ariaLabel")}
-                className="h-10 flex-1 px-4"
+                className="h-9 flex-1 px-3"
               />
               <Button
                 type="submit"
                 disabled={!value.trim()}
-                className="h-10 gap-2 rounded-lg"
+                size="icon"
+                className="size-9 rounded-md"
+                aria-label={t("inputPrompt.send")}
               >
                 <Send className="h-4 w-4" />
-                {t("inputPrompt.send")}
               </Button>
             </form>
           )}

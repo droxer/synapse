@@ -44,10 +44,13 @@ from api.routes.conversations import (  # noqa: E402
     get_conversation_events,
     get_conversation_messages,
     list_conversations,
+    respond_to_prompt,
     send_message,
 )
 from api.events import EventEmitter  # noqa: E402
+from api.models import UserInputRequest  # noqa: E402
 import api.routes.conversations as conversation_routes  # noqa: E402
+from api.user_responses import SubmitResponseStatus  # noqa: E402
 
 
 # ---------------------------------------------------------------------------
@@ -1447,6 +1450,15 @@ async def test_get_conversation_events_returns_persisted_turn_start() -> None:
             ]
             return matching[offset : offset + limit]
 
+        async def get_latest_events(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            limit: int,
+            offset: int = 0,
+        ) -> list[EventRecord]:
+            return await self.get_events(session, conversation_id, limit, offset)
+
     @asynccontextmanager
     async def _session_factory():
         yield session
@@ -1491,6 +1503,109 @@ async def test_get_conversation_events_returns_persisted_turn_start() -> None:
         "message": "hello",
         "attachments": [{"name": "report.csv", "size": 42, "type": "text/csv"}],
     }
+
+
+@pytest.mark.asyncio
+async def test_get_conversation_events_latest_page_includes_late_pending_ask() -> None:
+    conversation_id = str(uuid.uuid4())
+    conv_uuid = uuid.UUID(conversation_id)
+    session = object()
+    base_time = datetime.now(timezone.utc)
+    events = [
+        EventRecord(
+            id=index + 1,
+            conversation_id=conv_uuid,
+            event_type="tool_call",
+            data={"index": index},
+            iteration=index,
+            timestamp=base_time,
+        )
+        for index in range(520)
+    ]
+    events.append(
+        EventRecord(
+            id=521,
+            conversation_id=conv_uuid,
+            event_type="ask_user",
+            data={"request_id": "req_late", "question": "Still there?"},
+            iteration=521,
+            timestamp=base_time,
+        )
+    )
+
+    class _RecordingRepo:
+        async def get_conversation(
+            self, session: object, conversation_id: uuid.UUID
+        ) -> SimpleNamespace:
+            del session
+            return SimpleNamespace(id=conversation_id, title="Chat")
+
+        async def get_latest_events(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            limit: int,
+            offset: int = 0,
+        ) -> list[EventRecord]:
+            del session
+            matching = [
+                event for event in events if event.conversation_id == conversation_id
+            ]
+            return matching[-(offset + limit) : len(matching) - offset]
+
+        async def get_events(
+            self,
+            session: object,
+            conversation_id: uuid.UUID,
+            limit: int = 500,
+            offset: int = 0,
+        ) -> list[EventRecord]:
+            del session
+            matching = [
+                event for event in events if event.conversation_id == conversation_id
+            ]
+            return matching[offset : offset + limit]
+
+    state = SimpleNamespace(db_repo=_RecordingRepo())
+
+    payload = await get_conversation_events(
+        conversation_id=conversation_id,
+        limit=500,
+        latest=True,
+        session=session,
+        state=state,
+        auth_user=None,
+    )
+
+    assert len(payload["events"]) == 500
+    assert payload["events"][-1]["type"] == "ask_user"
+    assert payload["events"][-1]["data"]["request_id"] == "req_late"
+
+
+@pytest.mark.asyncio
+async def test_respond_to_prompt_returns_conflict_for_answered_prompt() -> None:
+    class _Coordinator:
+        async def submit_response(
+            self,
+            *,
+            conversation_id: str,
+            request_id: str,
+            response: str,
+        ) -> SimpleNamespace:
+            del conversation_id, request_id, response
+            return SimpleNamespace(status=SubmitResponseStatus.ALREADY_RESPONDED)
+
+    state = SimpleNamespace(response_coordinator=_Coordinator(), conversations={})
+
+    with pytest.raises(HTTPException) as exc_info:
+        await respond_to_prompt(
+            UserInputRequest(request_id="req_answered", response="second answer"),
+            conversation_id=str(uuid.uuid4()),
+            state=state,
+            auth_user=None,
+        )
+
+    assert exc_info.value.status_code == 409
 
 
 @pytest.mark.asyncio

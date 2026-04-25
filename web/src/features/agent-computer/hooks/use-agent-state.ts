@@ -163,6 +163,8 @@ function buildPlannerFallbackStep(
     return {
       name: "Planner answered inline without worker delegation",
       description: "Structured planning was skipped for this turn.",
+      nameI18nKey: "plan.fallbackInlineName",
+      descriptionI18nKey: "plan.fallbackInlineDescription",
       executionType: "planner_owned",
       status,
     };
@@ -171,6 +173,8 @@ function buildPlannerFallbackStep(
     return {
       name: "Planner turn ended before publishing a structured plan",
       description: "Planner mode was active, but no visible plan was created.",
+      nameI18nKey: "plan.fallbackErrorName",
+      descriptionI18nKey: "plan.fallbackErrorDescription",
       executionType: "planner_owned",
       status,
     };
@@ -178,6 +182,8 @@ function buildPlannerFallbackStep(
   return {
     name: "Planner mode active",
     description: "Preparing a visible plan for this turn.",
+    nameI18nKey: "plan.fallbackActiveName",
+    descriptionI18nKey: "plan.fallbackActiveDescription",
     executionType: "planner_owned",
     status,
   };

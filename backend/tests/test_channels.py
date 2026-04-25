@@ -13,21 +13,30 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.ext.asyncio import async_sessionmaker
 from starlette.requests import Request
 
 import api.channels.models  # noqa: F401  — register channel ORM models with Base
 from agent.memory.store import PersistentMemoryStore
-from agent.state.models import ConversationModel, MessageModel, UserModel
+from agent.state.models import (
+    ConversationModel,
+    EventModel,
+    MessageModel,
+    UserModel,
+)
+from agent.state.repository import ConversationRepository, UserPromptRepository
 from api.channels.provider import TelegramProvider
 from api.channels.repository import ChannelRepository
 from api.channels.responder import ChannelResponder
 from api.channels.router import ChannelRouter
 from api.channels.schemas import InboundMessage
+from api.db_subscriber import create_db_subscriber
 from api.events import AgentEvent, EventEmitter, EventType
 from api.models import ConversationEntry
 from api.routes import channels as channels_routes
+from api.user_responses import UserResponseCoordinator
 
 
 # ---------------------------------------------------------------------------
@@ -1227,6 +1236,105 @@ class TestChannelRouteMessageHandling:
         assert router.has_pending_prompt(convo_id) is False
         assert before == 0
         assert after == 0
+
+    @pytest.mark.asyncio
+    async def test_pending_prompt_text_response_updates_persisted_prompt(
+        self, repo: ChannelRepository, session: AsyncSession
+    ) -> None:
+        (
+            state,
+            router,
+            provider,
+            entry,
+            message,
+            bot_config_id,
+        ) = await _build_existing_channel_context(repo, session)
+        channels_routes._channel_repo = repo  # noqa: SLF001
+
+        conversation_repo = ConversationRepository()
+        prompt_repo = UserPromptRepository()
+        coordinator = UserResponseCoordinator(
+            session_factory=state.db_session_factory,
+            prompt_repo=prompt_repo,
+            conversation_repo=conversation_repo,
+        )
+        state.response_coordinator = coordinator
+
+        convo_id = uuid.UUID(next(iter(state.conversations.keys())))
+        request_id = "req_persisted_channel"
+        await coordinator.register_prompt(
+            conversation_id=str(convo_id),
+            request_id=request_id,
+            question="Need your answer?",
+        )
+
+        captured: list[str] = []
+
+        def _callback(text: str) -> None:
+            captured.append(text)
+
+        router.register_pending_prompt(convo_id, request_id, _callback)
+        entry.emitter.subscribe(
+            create_db_subscriber(
+                convo_id,
+                conversation_repo,
+                state.db_session_factory,
+                prompt_repo=prompt_repo,
+            )
+        )
+        message = InboundMessage(
+            **{
+                **message.__dict__,
+                "provider_message_id": f"m_{uuid.uuid4().hex[:8]}",
+                "text": "my persisted answer",
+            }
+        )
+
+        await channels_routes._handle_channel_message(  # noqa: SLF001
+            state,
+            router,
+            provider,
+            message,
+            bot_config_id=bot_config_id,
+        )
+
+        async with state.db_session_factory() as check_session:
+            prompt = await prompt_repo.get_prompt(
+                check_session,
+                request_id=request_id,
+            )
+            response_events = (
+                (
+                    await check_session.execute(
+                        select(EventModel).where(
+                            EventModel.event_type == "user_response"
+                        )
+                    )
+                )
+                .scalars()
+                .all()
+            )
+            user_messages = (
+                (
+                    await check_session.execute(
+                        select(MessageModel).where(MessageModel.role == "user")
+                    )
+                )
+                .scalars()
+                .all()
+            )
+
+        assert captured == ["my persisted answer"]
+        assert prompt is not None
+        assert prompt.status == "responded"
+        assert prompt.response == "my persisted answer"
+        assert len(response_events) == 1
+        assert response_events[0].data == {
+            "request_id": request_id,
+            "response": "my persisted answer",
+        }
+        assert len(user_messages) == 1
+        assert user_messages[0].content == {"text": "my persisted answer"}
 
     @pytest.mark.asyncio
     async def test_pending_prompt_non_text_keeps_prompt(
