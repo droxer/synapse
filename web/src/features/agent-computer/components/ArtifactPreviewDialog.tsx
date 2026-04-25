@@ -64,9 +64,9 @@ export function ArtifactPreviewDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <DialogTitle className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
             <span
-              className={`inline-flex h-6 w-6 items-center justify-center rounded ${colors.bg}`}
+              className={`inline-flex h-6 w-6 shrink-0 items-center justify-center rounded ${colors.bg}`}
             >
               <BrandFileTypeIcon
                 name={artifact.name}
@@ -74,14 +74,14 @@ export function ArtifactPreviewDialog({
                 className={`h-3.5 w-3.5 ${colors.icon}`}
               />
             </span>
-            <span className="truncate">{artifact.name}</span>
+            <span className="min-w-0 flex-1 truncate">{artifact.name}</span>
             {ext && (
-              <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
+              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
                 {ext}
               </span>
             )}
             {artifact.size > 0 && (
-              <span className="text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-muted-foreground">
                 {formatFileSize(artifact.size, t)}
               </span>
             )}

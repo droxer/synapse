@@ -56,7 +56,7 @@ export function TokenUsageTab() {
             </div>
 
             {/* Legend */}
-            <div className="flex items-center justify-between text-caption font-mono tabular-nums">
+            <div className="flex flex-col gap-2 text-caption font-mono tabular-nums sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-1.5">
                 <span className="h-2 w-2 rounded-full bg-focus/40" />
                 <span className="text-muted-foreground">{t("profile.inputTokens")}</span>
@@ -74,7 +74,7 @@ export function TokenUsageTab() {
             </div>
 
             {/* Stats row */}
-            <div className="flex items-center gap-4 pt-1 text-caption text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-caption text-muted-foreground">
               <span>
                 {usage.total_requests === 1
                   ? t("preferences.usage.totalModelResponses.one")
@@ -102,9 +102,9 @@ export function TokenUsageTab() {
           </div>
         )}
 
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-border">
           {/* Header */}
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,7.5rem)_minmax(5.5rem,7.5rem)_minmax(6.5rem,8.5rem)_minmax(5.5rem,7rem)] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground">
+          <div className="hidden grid-cols-[minmax(0,1fr)_minmax(5.5rem,7.5rem)_minmax(5.5rem,7.5rem)_minmax(6.5rem,8.5rem)_minmax(5.5rem,7rem)] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground md:grid">
             <span>{t("preferences.usage.taskName")}</span>
             <span className="text-right">{t("profile.inputTokens")}</span>
             <span className="text-right">{t("profile.outputTokens")}</span>
@@ -129,42 +129,49 @@ export function TokenUsageTab() {
               animate="show"
               variants={{ hidden: {}, show: { transition: { staggerChildren: 0.02 } } }}
             >
-              {items.map((item) => (
-                <motion.div
-                  key={item.conversation_id}
-                  variants={listItem}
-                  className={cn(
-                    "grid grid-cols-[minmax(0,1fr)_minmax(5.5rem,7.5rem)_minmax(5.5rem,7.5rem)_minmax(6.5rem,8.5rem)_minmax(5.5rem,7rem)] items-center gap-3 px-4 py-3 text-sm",
-                    "border-t border-border first:border-t-0",
-                    "hover:bg-secondary transition-colors duration-100",
-                  )}
-                >
-                  <span
-                    className="truncate text-sm text-foreground"
-                    title={
-                      item.title?.trim()
-                        ? item.title
-                        : item.conversation_id
-                    }
+              {items.map((item) => {
+                const title = item.title?.trim()
+                  ? item.title
+                  : t("library.untitledTask");
+                const titleTooltip = item.title?.trim()
+                  ? item.title
+                  : item.conversation_id;
+                return (
+                  <motion.div
+                    key={item.conversation_id}
+                    variants={listItem}
+                    className={cn(
+                      "border-t border-border first:border-t-0 transition-colors duration-100 hover:bg-secondary",
+                      "px-4 py-3 text-sm md:grid md:grid-cols-[minmax(0,1fr)_minmax(5.5rem,7.5rem)_minmax(5.5rem,7.5rem)_minmax(6.5rem,8.5rem)_minmax(5.5rem,7rem)] md:items-center md:gap-3",
+                    )}
                   >
-                    {item.title?.trim()
-                      ? item.title
-                      : t("library.untitledTask")}
-                  </span>
-                  <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
-                    {formatTokenCount(item.input_tokens)}
-                  </span>
-                  <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
-                    {formatTokenCount(item.output_tokens)}
-                  </span>
-                  <span className="text-right font-mono text-caption tabular-nums text-muted-foreground">
-                    {item.request_count}
-                  </span>
-                  <span className="text-right text-caption text-muted-foreground">
-                    {formatRelativeTimeFromIso(item.updated_at, locale)}
-                  </span>
-                </motion.div>
-              ))}
+                    <span
+                      className="block min-w-0 truncate text-sm font-medium text-foreground md:font-normal"
+                      title={titleTooltip}
+                    >
+                      {title}
+                    </span>
+                    <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 font-mono text-caption tabular-nums text-muted-foreground sm:grid-cols-4 md:contents md:mt-0">
+                      <span className="flex justify-between gap-2 md:block md:text-right">
+                        <span className="text-muted-foreground-dim md:hidden">{t("profile.inputTokens")}</span>
+                        {formatTokenCount(item.input_tokens)}
+                      </span>
+                      <span className="flex justify-between gap-2 md:block md:text-right">
+                        <span className="text-muted-foreground-dim md:hidden">{t("profile.outputTokens")}</span>
+                        {formatTokenCount(item.output_tokens)}
+                      </span>
+                      <span className="flex justify-between gap-2 md:block md:text-right">
+                        <span className="text-muted-foreground-dim md:hidden">{t("preferences.usage.modelResponses")}</span>
+                        {item.request_count}
+                      </span>
+                      <span className="flex justify-between gap-2 font-sans md:block md:text-right">
+                        <span className="text-muted-foreground-dim md:hidden">{t("preferences.usage.lastActive")}</span>
+                        {formatRelativeTimeFromIso(item.updated_at, locale)}
+                      </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
             </motion.div>
           )}
         </div>

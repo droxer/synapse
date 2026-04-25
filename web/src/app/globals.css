@@ -506,17 +506,27 @@ html:lang(zh-TW) {
   text-shadow: none;
 }
 
-.dark .brand-wordmark {
-  color: var(--color-foreground);
-  text-shadow: 0 0 20px color-mix(in srgb, var(--color-primary), transparent 85%);
-}
-
 @utility pb-safe {
   padding-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 @utility pb-safe-4 {
   padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));
+}
+
+.fine-hover-action {
+  opacity: 1;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .group .fine-hover-action {
+    opacity: 0;
+  }
+
+  .group:hover .fine-hover-action,
+  .group:focus-within .fine-hover-action {
+    opacity: 1;
+  }
 }
 
 /* ─── Prose body color — inherit from parent instead of typography-plugin gray ─── */

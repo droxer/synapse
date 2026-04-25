@@ -33,10 +33,7 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
-          <h1
-            className="heading-display max-w-xl text-center text-foreground"
-            style={{ fontSize: "clamp(1.75rem, 1.2rem + 2.5vw, 2.75rem)" }}
-          >
+          <h1 className="heading-display max-w-xl text-center text-foreground">
             {heading}
           </h1>
           <p className="max-w-lg text-center text-sm text-muted-foreground">

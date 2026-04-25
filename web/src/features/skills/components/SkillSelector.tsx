@@ -61,6 +61,7 @@ export function SkillSelector({
             <PopoverTrigger asChild>
               <button
                 type="button"
+                aria-label={`${t("skills.selector.select")}: ${normalizeSkillName(selectedSkill)}`}
                 className={cn(
                   "flex cursor-pointer items-center gap-1.5 text-xs font-medium outline-none",
                   "focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background rounded",

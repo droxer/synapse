@@ -51,13 +51,13 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
         {/* Screen-reader-only title */}
         <DialogTitle className="sr-only">{t("preferences.title")}</DialogTitle>
 
-        <div className="flex h-[min(90vh,56rem)] min-h-[28rem] w-full min-w-0">
+        <div className="flex h-[min(90vh,56rem)] min-h-[28rem] w-full min-w-0 flex-col md:flex-row">
           {/* Side menu */}
           <nav
-            className="flex w-72 shrink-0 flex-col bg-secondary p-3"
+            className="flex shrink-0 gap-1 overflow-x-auto border-b border-border bg-secondary p-2 md:w-72 md:flex-col md:overflow-x-visible md:border-b-0 md:p-3"
             aria-label={t("preferences.title")}
           >
-            <p className="label-mono px-3 pb-3 pt-4 text-muted-foreground-dim">
+            <p className="label-mono hidden px-3 pb-3 pt-4 text-muted-foreground-dim md:block">
               {t("preferences.title")}
             </p>
             {MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => {
@@ -68,7 +68,7 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   type="button"
                   onClick={() => setActiveId(id)}
                   className={cn(
-                    "relative mb-1 flex items-center gap-3 overflow-hidden rounded-lg px-3 py-2.5 text-sm transition-[color,background-color,border-color] duration-150 ease-out",
+                    "relative flex shrink-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-sm transition-[color,background-color,border-color] duration-150 ease-out md:mb-1 md:w-full md:gap-3 md:py-2.5",
                     "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                     isActive
                       ? "border border-border bg-background text-foreground font-semibold shadow-card"
@@ -77,17 +77,17 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
                   aria-current={isActive ? "page" : undefined}
                 >
                   {isActive && (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 rounded-r-full bg-border-strong" />
+                    <div className="absolute inset-x-2 bottom-0 h-0.5 rounded-t-full bg-border-strong md:inset-x-auto md:bottom-0 md:left-0 md:top-0 md:h-auto md:w-1 md:rounded-r-full" />
                   )}
                   <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                  {t(labelKey)}
+                  <span className="whitespace-nowrap">{t(labelKey)}</span>
                 </button>
               );
             })}
           </nav>
 
           {/* Content panel */}
-          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-auto p-8">
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
             <ActivePanel />
           </div>
         </div>

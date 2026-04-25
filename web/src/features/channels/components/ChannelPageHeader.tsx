@@ -20,13 +20,13 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
   }, []);
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between bg-background px-4">
+    <header className="flex h-12 shrink-0 items-center justify-between gap-3 bg-background px-4">
       {/* Left: title + live badge */}
-      <div className="flex items-center gap-2">
-        <Radio className="h-4 w-4 text-muted-foreground" />
-        <h1 className="text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t("channels.title")}</h1>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Radio className="h-4 w-4 shrink-0 text-muted-foreground" />
+        <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t("channels.title")}</h1>
         {telegramConfigured && (
-          <span className="status-pill status-ok">
+          <span className="status-pill status-ok shrink-0">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
             {t("channels.header.live")}
           </span>
@@ -34,7 +34,7 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
       </div>
 
       {/* Right: settings + search */}
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
             <Button

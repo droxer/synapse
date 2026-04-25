@@ -143,7 +143,7 @@ export default function ChannelsPage() {
 
     return (
       <div className="grid min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden md:grid-cols-[320px_minmax(0,1fr)] md:grid-rows-1">
-        <aside className="flex min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar/40 md:border-r md:border-border">
+        <aside className="flex min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar-bg md:border-r md:border-border">
           <div className="px-4 py-3">
             <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
               Telegram Threads

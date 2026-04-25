@@ -484,7 +484,7 @@ export function SkillsPage() {
                     key={src}
                     type="button"
                     onClick={() => { if (src !== "git") setInstallSource(src); }}
-                    aria-disabled={src === "git"}
+                    disabled={src === "git"}
                     className={cn(
                       "flex-1 rounded-sm px-3 py-1.5 text-xs font-medium transition-colors duration-150",
                       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",

@@ -244,7 +244,7 @@ export function ChannelConversationList({
                 )}
               </button>
 
-              <div className="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100">
+              <div className="fine-hover-action absolute right-2 top-1/2 -translate-y-1/2 transition-opacity">
                 <button
                   type="button"
                   onClick={(e) => handleDeleteClick(e, conv.conversation_id)}

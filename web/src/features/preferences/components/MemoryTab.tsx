@@ -55,9 +55,9 @@ export function MemoryTab() {
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-border overflow-hidden">
+      <div className="overflow-hidden rounded-lg border border-border">
         {/* Header */}
-        <div className="grid grid-cols-[180px_1fr_100px_100px_40px] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground">
+        <div className="hidden grid-cols-[180px_1fr_100px_100px_40px] gap-3 bg-secondary px-4 py-3 label-mono text-muted-foreground md:grid">
           <span>{t("preferences.memory.key")}</span>
           <span>{t("preferences.memory.value")}</span>
           <span>{t("preferences.memory.scope")}</span>
@@ -83,54 +83,102 @@ export function MemoryTab() {
               show: { transition: { staggerChildren: 0.02 } },
             }}
           >
-            {items.map((entry) => (
+            {items.map((entry) => {
+              const scopeLabel = entry.scope === "global"
+                ? t("preferences.memory.global")
+                : t("preferences.memory.conversation");
+              const updatedLabel = formatRelativeTimeFromIso(entry.updated_at, locale);
+              return (
                 <motion.div
                   key={entry.id}
                   variants={listItem}
                   className={cn(
-                    "grid grid-cols-[180px_1fr_100px_100px_40px] items-center gap-3 px-4 py-3 text-sm",
-                    "border-t border-border first:border-t-0",
-                    "hover:bg-secondary transition-colors duration-100",
+                    "border-t border-border first:border-t-0 transition-colors duration-100 hover:bg-secondary",
+                    "px-4 py-3 text-sm",
                   )}
                 >
-                <span
-                  className="truncate font-mono text-caption font-medium text-foreground"
-                  title={entry.key}
-                >
-                  {entry.key}
-                </span>
-                <span
-                  className="truncate text-caption text-muted-foreground"
-                  title={entry.value}
-                >
-                  {truncateValue(entry.value)}
-                </span>
-                <span
-                  className={cn(
-                    "inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
-                    entry.scope === "global"
-                      ? "border border-border bg-muted text-foreground"
-                      : "bg-secondary text-muted-foreground",
-                  )}
-                >
-                  {entry.scope === "global"
-                    ? t("preferences.memory.global")
-                    : t("preferences.memory.conversation")}
-                </span>
-                <span className="text-right text-caption text-muted-foreground">
-                  {formatRelativeTimeFromIso(entry.updated_at, locale)}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                  disabled={deletingId === entry.id}
-                  onClick={() => handleDelete(entry.id)}
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </motion.div>
-            ))}
+                  <div className="md:hidden">
+                    <div className="flex min-w-0 items-start justify-between gap-3">
+                      <span
+                        className="min-w-0 truncate font-mono text-caption font-medium text-foreground"
+                        title={entry.key}
+                      >
+                        {entry.key}
+                      </span>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={`${t("explorer.delete")} ${entry.key}`}
+                        className="h-7 w-7 shrink-0 text-muted-foreground hover:text-destructive"
+                        disabled={deletingId === entry.id}
+                        onClick={() => handleDelete(entry.id)}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
+                    <p
+                      className="mt-2 min-w-0 text-caption leading-relaxed text-muted-foreground"
+                      title={entry.value}
+                    >
+                      {truncateValue(entry.value)}
+                    </p>
+                    <div className="mt-3 flex flex-wrap items-center gap-2">
+                      <span
+                        className={cn(
+                          "inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
+                          entry.scope === "global"
+                            ? "border border-border bg-muted text-foreground"
+                            : "bg-secondary text-muted-foreground",
+                        )}
+                      >
+                        {scopeLabel}
+                      </span>
+                      <span className="font-mono text-micro text-muted-foreground-dim">
+                        {t("preferences.memory.lastUpdated")}: {updatedLabel}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="hidden md:grid md:grid-cols-[180px_1fr_100px_100px_40px] md:items-center md:gap-3">
+                    <span
+                      className="min-w-0 truncate font-mono text-caption font-medium text-foreground"
+                      title={entry.key}
+                    >
+                      {entry.key}
+                    </span>
+                    <p
+                      className="min-w-0 truncate text-caption leading-relaxed text-muted-foreground"
+                      title={entry.value}
+                    >
+                      {truncateValue(entry.value)}
+                    </p>
+                    <span
+                      className={cn(
+                        "inline-flex w-fit items-center rounded-full px-1.5 py-0.5 text-micro font-medium",
+                        entry.scope === "global"
+                          ? "border border-border bg-muted text-foreground"
+                          : "bg-secondary text-muted-foreground",
+                      )}
+                    >
+                      {scopeLabel}
+                    </span>
+                    <span className="text-right text-caption text-muted-foreground">
+                      {updatedLabel}
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`${t("explorer.delete")} ${entry.key}`}
+                      className="h-6 w-6 shrink-0 text-muted-foreground hover:text-destructive"
+                      disabled={deletingId === entry.id}
+                      onClick={() => handleDelete(entry.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </motion.div>
+              );
+            })}
           </motion.div>
         )}
       </div>

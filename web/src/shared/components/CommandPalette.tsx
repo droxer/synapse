@@ -151,10 +151,12 @@ export function CommandPalette({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.12, ease: "easeOut" }}
+            onClick={() => setOpen(false)}
           >
             <Command
               className="surface-overlay w-[calc(100%-1.5rem)] max-w-[40rem] overflow-hidden p-0"
               loop
+              onClick={(event) => event.stopPropagation()}
             >
               {/* Search input */}
               <div className="flex items-center gap-2 border-b border-border px-4">

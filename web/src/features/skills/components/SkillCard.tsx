@@ -64,8 +64,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
               data-skill-interactive="true"
               aria-label={`${t("skills.uninstall")} ${normalizeSkillName(skill.name)}`}
               className={cn(
-                "shrink-0 text-transparent transition-colors",
-                "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
+                "fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
                 "hover:text-destructive hover:bg-destructive/10",
               )}
               onClick={(e) => {

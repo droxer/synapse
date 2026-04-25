@@ -250,7 +250,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
                   size="sm"
                   aria-label={t("chat.planner")}
                   className={cn(
-                    "h-7 gap-1.5 rounded-lg border px-2 text-xs font-medium transition-colors duration-150 data-[state=on]:border-border-active data-[state=on]:bg-primary data-[state=on]:text-primary-foreground data-[state=on]:shadow-sm",
+                    "h-7 gap-1.5 rounded-lg border px-2 text-xs font-medium transition-colors duration-150 data-[state=on]:border-border-active data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
                     usePlanner
                       ? "hover:bg-primary/90 hover:text-primary-foreground"
                       : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground",

@@ -46,5 +46,7 @@ describe("HomeScreen", () => {
     expect(html).toContain("heading-display");
     expect(html).toContain("text-center");
     expect(html).not.toContain("whitespace-nowrap");
+    expect(html).not.toContain("clamp(");
+    expect(html).not.toContain("font-size");
   });
 });

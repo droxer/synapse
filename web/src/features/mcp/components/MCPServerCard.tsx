@@ -69,8 +69,7 @@ export function MCPServerCard({
                   size="icon-xs"
                   aria-label={t("mcp.editServer", { name: server.name })}
                   className={cn(
-                    "shrink-0 text-transparent transition-colors",
-                    "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
+                    "fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
                     "hover:text-foreground hover:bg-muted",
                   )}
                   onClick={() => onEdit(server)}
@@ -89,8 +88,7 @@ export function MCPServerCard({
               size="icon-xs"
               aria-label={`${t("mcp.remove")} ${server.name}`}
               className={cn(
-                "shrink-0 text-transparent transition-colors",
-                "group-hover:text-muted-foreground group-focus-within:text-muted-foreground",
+                "fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
                 "hover:text-destructive hover:bg-destructive/10",
               )}
               onClick={() => onDelete(server.name)}

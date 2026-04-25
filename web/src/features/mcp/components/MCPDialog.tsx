@@ -248,7 +248,7 @@ export function MCPDialog({
                           <Button
                             variant="ghost"
                             size="icon-sm"
-                            className="shrink-0 text-transparent transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                            className="fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity] hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                             onClick={() => startEdit(server)}
                             aria-label={t("mcp.editServer", { name: server.name })}
                           >
@@ -263,7 +263,7 @@ export function MCPDialog({
                     <Button
                       variant="ghost"
                       size="icon-sm"
-                      className="shrink-0 text-transparent transition-colors group-hover:text-muted-foreground group-focus-within:text-muted-foreground hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      className="fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity] hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                       onClick={() => setServerToDelete(server.name)}
                       aria-label={t("mcp.removeServer", { name: server.name })}
                     >
