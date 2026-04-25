@@ -1,6 +1,7 @@
 import NextAuth from "next-auth";
 import Google from "next-auth/providers/google";
 import Credentials from "next-auth/providers/credentials";
+import { authorizeDesktopTokenCredentials } from "@/lib/desktop-auth-credentials";
 
 const BACKEND_URL = process.env.BACKEND_URL ?? "http://127.0.0.1:8000";
 const PROXY_SECRET = process.env.PROXY_SECRET ?? "";
@@ -13,23 +14,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       id: "desktop-token",
       name: "Desktop Token",
       credentials: {
-        email: { type: "text" },
-        name: { type: "text" },
-        image: { type: "text" },
-        googleId: { type: "text" },
+        token: { type: "text" },
       },
       async authorize(credentials) {
-        if (!credentials?.email) return null;
-        const googleId = typeof credentials.googleId === "string" ? credentials.googleId : "";
-        const email = typeof credentials.email === "string" ? credentials.email : "";
-        if (!email) return null;
-        return {
-          id: googleId || email,
-          email,
-          name: typeof credentials.name === "string" ? credentials.name : "",
-          image: typeof credentials.image === "string" ? credentials.image : "",
-          googleId: googleId || undefined,
-        };
+        return authorizeDesktopTokenCredentials(credentials);
       },
     }),
   ],

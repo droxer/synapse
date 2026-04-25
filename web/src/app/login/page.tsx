@@ -60,15 +60,12 @@ function LoginForm() {
           pollingRef.current = null;
 
           const data = await res.json();
-          if (data.status === "complete" && data.user) {
+          if (data.status === "complete" && data.token) {
             // Sign in to the webview's own NextAuth session using
             // the desktop-token credentials provider
             const result = await signIn("desktop-token", {
               redirect: false,
-              email: data.user.email,
-              name: data.user.name,
-              image: data.user.image,
-              googleId: data.user.googleId,
+              token: data.token,
             });
 
             if (result?.error) {

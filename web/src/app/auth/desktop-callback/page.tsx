@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Suspense } from "react";
@@ -18,25 +18,20 @@ function CallbackContent() {
   const { data: session, status } = useSession();
   const searchParams = useSearchParams();
   const nonce = searchParams.get("nonce");
+  const deepLinkHref = nonce
+    ? `synapse://auth/callback?nonce=${encodeURIComponent(nonce)}`
+    : "";
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const handoffStarted = useRef(false);
 
   useEffect(() => {
     if (status !== "authenticated" || !session?.user || !nonce) return;
-
-    const user = session.user as {
-      email?: string;
-      name?: string;
-      image?: string;
-      googleId?: string;
-    };
+    if (handoffStarted.current) return;
+    handoffStarted.current = true;
 
     const payload = {
       nonce,
-      email: user.email ?? "",
-      name: user.name ?? "",
-      image: user.image ?? "",
-      googleId: user.googleId ?? "",
     };
 
     fetch("/api/auth/desktop-token", {
@@ -48,6 +43,7 @@ function CallbackContent() {
         const body = await res.text();
         if (res.ok) {
           setDone(true);
+          window.location.href = deepLinkHref;
         } else {
           setError(`Handoff failed: ${res.status} ${body}`);
         }
@@ -56,7 +52,7 @@ function CallbackContent() {
         console.error("[desktop-callback] Fetch error:", err);
         setError(`Server error: ${err.message}`);
       });
-  }, [session, status, nonce]);
+  }, [deepLinkHref, session, status, nonce]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -76,8 +72,16 @@ function CallbackContent() {
           {done && (
             <>
               <p className="text-sm text-muted-foreground">
-                Sign in successful! Return to the Synapse desktop app.
+                Sign in successful! Opening the Synapse desktop app...
               </p>
+              {deepLinkHref && (
+                <a
+                  className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                  href={deepLinkHref}
+                >
+                  Open desktop app
+                </a>
+              )}
               <p className="text-xs text-muted-foreground-dim">
                 You can close this browser tab.
               </p>

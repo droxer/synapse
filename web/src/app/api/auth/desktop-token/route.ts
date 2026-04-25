@@ -1,44 +1,31 @@
 import { NextResponse } from "next/server";
+import { getAuthenticatedDesktopAuthUser } from "@/lib/desktop-auth-session";
+import {
+  issueDesktopAuthExchangeToken,
+  storeDesktopAuthSession,
+} from "@/lib/desktop-auth-store";
 
 /**
- * In-memory store for desktop auth sessions.
- * Maps nonce → { user data, expiry }.
- * Short-lived (120s) and single-use.
- */
-const pendingSessions = new Map<
-  string,
-  { user: { email: string; name: string; image: string; googleId: string }; expiresAt: number }
->();
-
-// Clean up expired entries periodically
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, value] of pendingSessions) {
-    if (value.expiresAt < now) {
-      pendingSessions.delete(key);
-    }
-  }
-}, 10_000);
-
-/**
- * POST /api/auth/desktop-token
- * Called by the desktop callback page (in the system browser) after
- * successful OAuth. Stores user data under the provided nonce.
+ * Desktop auth handoff endpoint.
  *
- * Body: { nonce, email, name?, image?, googleId? }
+ * The system-browser callback stores the authenticated user under a nonce.
+ * The Tauri webview consumes that nonce and receives an opaque, single-use
+ * exchange token for the NextAuth credentials provider.
  */
 export async function POST(req: Request) {
-  const body = await req.json();
-  const { nonce, email, name, image, googleId } = body;
+  const body = await req.json().catch(() => null);
+  const nonce = typeof body?.nonce === "string" ? body.nonce : "";
 
-  if (!nonce || !email) {
-    return NextResponse.json({ error: "Missing nonce or email" }, { status: 400 });
+  if (!nonce) {
+    return NextResponse.json({ error: "Missing nonce" }, { status: 400 });
   }
 
-  pendingSessions.set(nonce, {
-    user: { email, name: name ?? "", image: image ?? "", googleId: googleId ?? "" },
-    expiresAt: Date.now() + 120_000,
-  });
+  const user = await getAuthenticatedDesktopAuthUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  storeDesktopAuthSession(nonce, user);
 
   return NextResponse.json({ ok: true });
 }
@@ -46,7 +33,7 @@ export async function POST(req: Request) {
 /**
  * GET /api/auth/desktop-token?nonce=xxx
  * Called by the Tauri webview to check if OAuth completed.
- * Returns the user info if available, 404 otherwise.
+ * Returns an opaque exchange token if available, 404 otherwise.
  * Single-use: deletes the entry after successful retrieval.
  */
 export async function GET(req: Request) {
@@ -57,12 +44,10 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Missing nonce" }, { status: 400 });
   }
 
-  const entry = pendingSessions.get(nonce);
-  if (!entry || entry.expiresAt < Date.now()) {
-    pendingSessions.delete(nonce ?? "");
+  const token = issueDesktopAuthExchangeToken(nonce);
+  if (!token) {
     return NextResponse.json({ status: "pending" }, { status: 404 });
   }
 
-  pendingSessions.delete(nonce);
-  return NextResponse.json({ status: "complete", user: entry.user });
+  return NextResponse.json({ status: "complete", token });
 }

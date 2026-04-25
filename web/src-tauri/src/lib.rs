@@ -89,17 +89,15 @@ pub fn run() {
             open_url,
         ])
         .setup(move |app| {
-            if let Ok(cfg) = &cfg {
+            if cfg.is_ok() {
                 let deep_link_handle = app.handle().clone();
-                let deep_link_url = cfg.frontend_url.clone();
 
                 // Handle deep link callbacks (e.g. synapse://auth/callback)
                 app.listen("deep-link://new-url", move |_event: tauri::Event| {
-                    log::info!("Deep link received, reloading webview");
+                    log::info!("Deep link received, focusing webview");
                     if let Some(window) = deep_link_handle.get_webview_window("main") {
-                        let redirect =
-                            format!("window.location.href = '{deep_link_url}/?desktop=1'");
-                        let _ = window.eval(&redirect);
+                        let _ = window.show();
+                        let _ = window.set_focus();
                     }
                 });
             }
@@ -111,15 +109,25 @@ pub fn run() {
                 let outcome = match cfg_for_setup {
                     Ok(cfg) => {
                         let mut manager = sidecar_for_setup.lock().await;
-                        bootstrap_application(&cfg, &mut manager).await
+                        bootstrap_application(&cfg, &mut manager)
+                            .await
+                            .map(|()| cfg.frontend_url)
                     }
                     Err(err) => Err(err),
                 };
 
                 let mut bootstrap = bootstrap_for_setup.lock().await;
                 match outcome {
-                    Ok(()) => {
+                    Ok(frontend_url) => {
                         bootstrap.ready = true;
+                        if let Some(window) = handle.get_webview_window("main") {
+                            let redirect_url =
+                                format!("{}/?desktop=1", frontend_url.trim_end_matches('/'));
+                            let redirect_json = serde_json::to_string(&redirect_url)
+                                .unwrap_or_else(|_| "\"/\"".to_string());
+                            let _ =
+                                window.eval(&format!("window.location.href = {redirect_json};"));
+                        }
                     }
                     Err(err) => {
                         log::error!("Desktop bootstrap failed: {err}");
@@ -150,7 +158,10 @@ pub fn run() {
         .expect("error while running Synapse Desktop");
 }
 
-async fn bootstrap_application(cfg: &AppConfig, manager: &mut SidecarManager) -> Result<(), String> {
+async fn bootstrap_application(
+    cfg: &AppConfig,
+    manager: &mut SidecarManager,
+) -> Result<(), String> {
     ensure_backend_ready(cfg, manager).await?;
     ensure_frontend_ready(cfg, manager).await?;
     Ok(())
@@ -160,7 +171,10 @@ async fn ensure_backend_ready(cfg: &AppConfig, manager: &mut SidecarManager) -> 
     ensure_service_ready(cfg, manager, ServiceKind::Backend).await
 }
 
-async fn ensure_frontend_ready(cfg: &AppConfig, manager: &mut SidecarManager) -> Result<(), String> {
+async fn ensure_frontend_ready(
+    cfg: &AppConfig,
+    manager: &mut SidecarManager,
+) -> Result<(), String> {
     ensure_service_ready(cfg, manager, ServiceKind::Frontend).await
 }
 

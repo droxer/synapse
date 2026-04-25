@@ -100,19 +100,20 @@ The desktop app opens Google OAuth in the **system browser** instead of the embe
 3. A unique **nonce** is generated and the system browser opens via the `open_url` Tauri command (uses the `open` crate)
 4. System browser loads `/login?fromDesktop=1&nonce=xxx` → auto-triggers `signIn("google")`
 5. Google OAuth completes → NextAuth redirects to `/auth/desktop-callback?nonce=xxx`
-6. Callback page reads the NextAuth session, POSTs user data to `/api/auth/desktop-token` keyed by the nonce
-7. Tauri webview polls `/api/auth/desktop-token?nonce=xxx` (1s interval, up to 2 min)
-8. When the token is available, the webview calls `signIn("desktop-token", ...)` to create its own NextAuth session
-9. Webview reloads to `/` with an active session
+6. Callback page POSTs the nonce to `/api/auth/desktop-token`; the route reads the authenticated NextAuth session and stores that user server-side
+7. Callback page opens `synapse://auth/callback?nonce=xxx`, and Tauri focuses the existing desktop window
+8. Tauri webview keeps polling `/api/auth/desktop-token?nonce=xxx` (1s interval, up to 2 min)
+9. When an opaque exchange token is available, the webview calls `signIn("desktop-token", ...)` to create its own NextAuth session
+10. Webview reloads to `/` with an active session
 
 ### Desktop Token Exchange
 
 The token exchange uses an in-memory store on the Next.js server:
 
-- `POST /api/auth/desktop-token` — Store user data under a nonce (called by browser callback page)
-- `GET /api/auth/desktop-token?nonce=xxx` — Retrieve and delete user data (called by Tauri webview)
+- `POST /api/auth/desktop-token` — Store authenticated session user data under a nonce (called by browser callback page)
+- `GET /api/auth/desktop-token?nonce=xxx` — Consume the nonce and return a short-lived exchange token (called by Tauri webview)
 
-Tokens are short-lived (120s) and single-use. A `desktop-token` NextAuth Credentials provider creates a proper JWT session in the webview context.
+Nonce handoffs are short-lived (120s), and exchange tokens are short-lived (60s) and single-use. A `desktop-token` NextAuth Credentials provider validates the exchange token before creating a proper JWT session in the webview context.
 
 ### Desktop Mode Detection
 
@@ -139,13 +140,13 @@ web/
 │   ├── capabilities/
 │   │   └── default.json                # Permissions (shell, deep-link, devtools)
 │   ├── icons/                          # App icons (32, 128, 128@2x, icns, ico)
+│   ├── loader/
+│   │   └── index.html                  # Loading screen (polls until frontend ready)
 │   └── src/
 │       ├── main.rs                     # Entry point
 │       ├── lib.rs                      # Tauri setup, commands (open_url, get_frontend_url)
 │       ├── config.rs                   # Dev/release bootstrap config
 │       └── sidecar.rs                  # Service probes + dev sidecar manager
-├── dist/
-│   └── index.html                      # Loading screen (polls until frontend ready)
 ├── src/
 │   ├── lib/
 │   │   ├── tauri.ts                    # isTauri(), openInSystemBrowser(), getFrontendUrl()

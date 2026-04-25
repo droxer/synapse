@@ -7,6 +7,11 @@ export default auth((req) => {
   const isLoginPage = nextUrl.pathname === "/login";
   const isApiRoute = nextUrl.pathname.startsWith("/api/");
   const isDesktopCallback = nextUrl.pathname === "/auth/desktop-callback";
+  const desktopNonce = nextUrl.searchParams.get("nonce");
+  const isDesktopLogin =
+    isLoginPage &&
+    nextUrl.searchParams.get("fromDesktop") === "1" &&
+    !!desktopNonce;
 
   // Never redirect API routes — let route handlers manage auth
   if (isApiRoute) {
@@ -17,6 +22,19 @@ export default auth((req) => {
   // This page is loaded in the system browser after Google OAuth and
   // triggers a deep link back to the Tauri app.
   if (isDesktopCallback) {
+    return NextResponse.next();
+  }
+
+  // Desktop OAuth starts in the system browser. If that browser already has a
+  // session, skip the normal web-home redirect and perform the desktop handoff.
+  if (isDesktopLogin && isLoggedIn) {
+    const callbackUrl = new URL("/auth/desktop-callback", nextUrl);
+    callbackUrl.searchParams.set("nonce", desktopNonce);
+    return NextResponse.redirect(callbackUrl);
+  }
+
+  // Let unauthenticated desktop browser login auto-trigger Google OAuth.
+  if (isDesktopLogin) {
     return NextResponse.next();
   }
 

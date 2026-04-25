@@ -62,8 +62,8 @@ impl SidecarManager {
             .args(["run", "python", "-m", "api.main"])
             .env("PORT", port.to_string())
             .current_dir(&backend_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .kill_on_drop(true)
             .spawn()
             .map_err(|e| format!("Failed to start backend: {e}"))?;
@@ -88,8 +88,8 @@ impl SidecarManager {
         let child = Command::new("npm")
             .args(["run", "dev", "--", "--port", &port.to_string()])
             .current_dir(&web_dir)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
             .kill_on_drop(true)
             .spawn()
             .map_err(|e| format!("Failed to start frontend: {e}"))?;
@@ -120,8 +120,14 @@ impl SidecarManager {
             .await
             .map_err(|err| format!("Failed to read {} health response: {}", kind.label(), err))?;
 
-        validate_health_response(status, &body, kind)
-            .map_err(|err| format!("{} at {} failed health verification: {}", kind.label(), url, err))
+        validate_health_response(status, &body, kind).map_err(|err| {
+            format!(
+                "{} at {} failed health verification: {}",
+                kind.label(),
+                url,
+                err
+            )
+        })
     }
 
     /// Poll a service-specific health endpoint until it responds with the
@@ -191,11 +197,7 @@ impl Drop for SidecarManager {
 }
 
 pub fn health_url(base_url: &str, kind: ServiceKind) -> String {
-    format!(
-        "{}{}",
-        base_url.trim_end_matches('/'),
-        kind.health_path()
-    )
+    format!("{}{}", base_url.trim_end_matches('/'), kind.health_path())
 }
 
 fn validate_health_response(
@@ -265,8 +267,11 @@ mod tests {
 
     #[test]
     fn rejects_malformed_health_payload() {
-        let result =
-            validate_health_response(StatusCode::OK, r#"{"status":"healthy"}"#, ServiceKind::Frontend);
+        let result = validate_health_response(
+            StatusCode::OK,
+            r#"{"status":"healthy"}"#,
+            ServiceKind::Frontend,
+        );
 
         assert!(result
             .expect_err("expected missing service error")
