@@ -1594,6 +1594,31 @@ describe("deriveAgentState", () => {
     expect(state.agentStatuses[0]?.status).toBe("skipped");
   });
 
+  it("preserves markdown summary from agent_complete", () => {
+    const events: AgentEvent[] = [
+      {
+        type: "agent_spawn",
+        data: { agent_id: "agent-1", name: "researcher", description: "Research docs" },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "agent_complete",
+        data: {
+          agent_id: "agent-1",
+          terminal_state: "complete",
+          summary: "**Done**\n\n| Item | Status |\n| --- | --- |\n| Tools | Checked |",
+        },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    expect(state.agentStatuses[0]?.summary).toContain("| Item | Status |");
+    expect(state.agentStatuses[0]?.summary).toContain("**Done**");
+  });
+
   it("preserves skipped planner step status when a bound worker is skipped", () => {
     const events: AgentEvent[] = [
       {

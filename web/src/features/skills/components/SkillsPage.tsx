@@ -30,6 +30,11 @@ import { SkillCard } from "./SkillCard";
 import { SkillSection } from "./SkillSection";
 import { cn } from "@/shared/lib/utils";
 import { listVariants } from "@/shared/lib/animations";
+import {
+  TOOLING_DROPZONE_CLASSES,
+  TOOLING_SECTION_HEADER_CLASSES,
+  TOOLING_STAT_CARD_CLASSES,
+} from "@/shared/lib/tooling-ui-styles";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
 import {
@@ -167,17 +172,17 @@ export function SkillsPage() {
     return ACCEPTED_FILE_TYPES.some((ext) => file.name.toLowerCase().endsWith(ext));
   }, []);
 
-  const handleDragOver = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setIsDragging(true);
   }, [setIsDragging]);
 
-  const handleDragLeave = useCallback((e: DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = useCallback((e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setIsDragging(false);
   }, [setIsDragging]);
 
-  const handleDrop = useCallback(async (e: DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback(async (e: DragEvent<HTMLButtonElement>) => {
     e.preventDefault();
     setIsDragging(false);
     const items = e.dataTransfer.items;
@@ -271,7 +276,7 @@ export function SkillsPage() {
               </div>
             </div>
             <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem]">
-              <div className="rounded-lg bg-muted/50 px-4 py-3">
+              <div className={TOOLING_STAT_CARD_CLASSES}>
                 <p className="label-mono text-muted-foreground-dim">
                   {t("skills.sectionBuiltIn")}
                 </p>
@@ -282,7 +287,7 @@ export function SkillsPage() {
                   {t("skills.sectionBuiltInDesc")}
                 </p>
               </div>
-              <div className="rounded-lg bg-muted/50 px-4 py-3">
+              <div className={TOOLING_STAT_CARD_CLASSES}>
                 <p className="label-mono text-muted-foreground-dim">
                   {t("skills.sectionInstalled")}
                 </p>
@@ -307,7 +312,7 @@ export function SkillsPage() {
           )}
 
           {/* Section header with search + install */}
-          <div className="flex flex-col gap-3 rounded-lg bg-muted/30 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className={cn(TOOLING_SECTION_HEADER_CLASSES, "flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between")}>
             <div className="min-w-0 flex-1">
               <p className="label-mono text-muted-foreground-dim">
                 {t("skills.agentSkills")}
@@ -525,12 +530,14 @@ export function SkillsPage() {
               {/* Upload drop zone */}
               {installSource === "upload" && (
                 <div className="space-y-1.5">
-                  <div
+                  <button
+                    type="button"
                     onDragOver={handleDragOver}
                     onDragLeave={handleDragLeave}
                     onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
                     className={cn(
-                      "flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed px-4 py-8 transition-colors duration-150",
+                      TOOLING_DROPZONE_CLASSES,
                       isDragging
                         ? "border-border-active bg-secondary"
                         : "border-border hover:border-border-strong hover:bg-secondary",
@@ -543,21 +550,22 @@ export function SkillsPage() {
                     <p className="text-xs text-muted-foreground-dim">
                       {t("skills.dropZoneHint")}
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
+                    <span
                       className="rounded-md border border-border bg-card px-2.5 py-1 text-xs text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
                       {t("chat.attachFile")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => folderInputRef.current?.click()}
-                      className="text-xs text-focus underline-offset-2 hover:underline"
-                    >
-                      {t("skills.chooseFolder")}
-                    </button>
-                  </div>
+                    </span>
+                  </button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => folderInputRef.current?.click()}
+                    className="mx-auto text-focus hover:text-focus"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    {t("skills.chooseFolder")}
+                  </Button>
                   <input
                     ref={fileInputRef}
                     type="file"
@@ -600,6 +608,7 @@ export function SkillsPage() {
                       </span>
                       <button
                         type="button"
+                        aria-label={t("skills.clearSelectedUpload")}
                         onClick={() => {
                           setSelectedFiles(null);
                           setIsFolderUpload(false);

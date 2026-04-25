@@ -102,6 +102,7 @@ describe("AgentComputerPanel typography", () => {
         },
         thinkingText: "Reviewing the latest tool activity entry before rendering the row. ".repeat(4),
         timestamp: 3,
+        agentId: "agent-1",
       },
     ];
 
@@ -120,5 +121,7 @@ describe("AgentComputerPanel typography", () => {
     expect(html).toContain("ml-1 rounded text-sm text-muted-foreground");
     expect(html).toContain("truncate text-micro text-muted-foreground");
     expect(html).toContain("label-mono");
+    expect(html).toContain("data-agent-tool-owner=\"agent-1\"");
+    expect(html).toContain("data-agent-tool-anchor=\"true\"");
   });
 });

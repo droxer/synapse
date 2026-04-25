@@ -5,6 +5,11 @@ import { Trash2, Lightbulb } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { cn } from "@/shared/lib/utils";
 import { ACTIVITY_META_BADGE_CLASSES } from "@/shared/lib/activity-meta-badge";
+import {
+  TOOLING_STATUS_TOGGLE_CLASSES,
+  TOOLING_STATUS_TOGGLE_DISABLED_CLASSES,
+  TOOLING_STATUS_TOGGLE_ENABLED_CLASSES,
+} from "@/shared/lib/tooling-ui-styles";
 import { useTranslation } from "@/i18n";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
 import { SOURCE_STYLE, SOURCE_LABEL_KEY } from "../lib/skill-source-styles";
@@ -64,7 +69,7 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
               data-skill-interactive="true"
               aria-label={`${t("skills.uninstall")} ${normalizeSkillName(skill.name)}`}
               className={cn(
-                "fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
+                "shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
                 "hover:text-destructive hover:bg-destructive/10",
               )}
               onClick={(e) => {
@@ -110,13 +115,12 @@ export function SkillCard({ skill, onDelete, onToggle }: SkillCardProps) {
             data-skill-interactive="true"
             role="switch"
             aria-checked={!isDisabled}
-            aria-label={isDisabled ? t("skills.enable") : t("skills.disable")}
+            aria-label={`${isDisabled ? t("skills.enable") : t("skills.disable")} ${normalizeSkillName(skill.name)}`}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              TOOLING_STATUS_TOGGLE_CLASSES,
               isDisabled
-                ? "border-border bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
-                : "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? TOOLING_STATUS_TOGGLE_DISABLED_CLASSES
+                : TOOLING_STATUS_TOGGLE_ENABLED_CLASSES,
             )}
             onClick={(e) => {
               e.preventDefault();

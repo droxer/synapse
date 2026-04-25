@@ -27,7 +27,7 @@ export function SkillSection({
         <div className="flex items-center gap-2">
           <Icon className="h-3.5 w-3.5 text-muted-foreground" />
           <h3 className="text-sm font-medium text-foreground">{title}</h3>
-          <span className="rounded-full bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
+          <span className="status-pill status-neutral tabular-nums">
             {count}
           </span>
         </div>

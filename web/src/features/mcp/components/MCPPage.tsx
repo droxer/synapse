@@ -28,6 +28,10 @@ import {
 } from "@/shared/components/ui/alert-dialog";
 import { cn } from "@/shared/lib/utils";
 import { listVariants } from "@/shared/lib/animations";
+import {
+  TOOLING_SECTION_HEADER_CLASSES,
+  TOOLING_STAT_CARD_CLASSES,
+} from "@/shared/lib/tooling-ui-styles";
 import { useTranslation } from "@/i18n";
 import { useMCPServers } from "../hooks/use-mcp-servers";
 
@@ -132,7 +136,7 @@ export function MCPPage() {
               </div>
             </div>
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[24rem]">
-              <div className="rounded-lg bg-muted/50 px-4 py-3">
+              <div className={TOOLING_STAT_CARD_CLASSES}>
                 <div className="flex items-center gap-2">
                   <span
                     className={cn(
@@ -149,7 +153,7 @@ export function MCPPage() {
                   <span className="ml-1 text-sm text-muted-foreground">/ {servers.length}</span>
                 </p>
               </div>
-              <div className="rounded-lg bg-muted/50 px-4 py-3">
+              <div className={TOOLING_STAT_CARD_CLASSES}>
                 <div className="flex items-center gap-2">
                   <Globe className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="label-mono text-muted-foreground-dim">HTTP</span>
@@ -158,7 +162,7 @@ export function MCPPage() {
                   {streamableCount}
                 </p>
               </div>
-              <div className="rounded-lg bg-muted/50 px-4 py-3">
+              <div className={TOOLING_STAT_CARD_CLASSES}>
                 <div className="flex items-center gap-2">
                   <Radio className="h-3.5 w-3.5 text-muted-foreground" />
                   <span className="label-mono text-muted-foreground-dim">SSE</span>
@@ -181,7 +185,7 @@ export function MCPPage() {
           )}
 
           {/* Section header with search + add */}
-          <div className="rounded-lg bg-muted/30 px-4 py-4">
+          <div className={TOOLING_SECTION_HEADER_CLASSES}>
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="min-w-0 flex-1">
                 <p className="label-mono text-muted-foreground-dim">

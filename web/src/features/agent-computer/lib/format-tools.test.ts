@@ -1,5 +1,6 @@
 import { describe, expect, it } from "@jest/globals";
 import {
+  EVENT_ROW_BASE_CLASSES,
   getActivityEntryKind,
   getActivityKindVisual,
   getToolCallTone,
@@ -52,5 +53,11 @@ describe("activity visual helpers", () => {
     expect(getToolCallVisualClasses("complete").row).toContain("surface-panel");
     expect(getToolCallVisualClasses("error").row).toContain("destructive");
     expect(getToolCallVisualClasses("running").rowHover).toContain("border-border-strong");
+  });
+
+  it("keeps shared activity rows on the compact rounded-lg rhythm", () => {
+    expect(EVENT_ROW_BASE_CLASSES).toContain("surface-panel");
+    expect(EVENT_ROW_BASE_CLASSES).toContain("rounded-lg");
+    expect(EVENT_ROW_BASE_CLASSES).not.toContain("rounded-xl");
   });
 });

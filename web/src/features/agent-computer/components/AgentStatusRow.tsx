@@ -3,8 +3,10 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Check, CircleCheck, GitFork, CircleX, ChevronRight, ArrowRightLeft, AlertTriangle, Minus } from "lucide-react";
+import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { cn } from "@/shared/lib/utils";
+import { TOOLING_ACTIVITY_ROW_CLASSES } from "@/shared/lib/tooling-ui-styles";
 import { normalizeToolName, normalizeAgentName } from "../lib/tool-constants";
 import { ToolOutputRenderer } from "./ToolOutputRenderer";
 import { ToolArgsDisplay } from "./ToolArgsDisplay";
@@ -13,8 +15,11 @@ import { useTranslation } from "@/i18n";
 import {
   EVENT_LEFT_RAIL_CLASSES,
   EVENT_META_BADGE_CLASSES,
+  OUTPUT_CARD_INNER_CLASSES,
+  PROSE_CLASSES,
   EVENT_ROW_BASE_CLASSES,
   SKILL_TOOL_NAMES,
+  TOOL_OUTPUT_MARKDOWN_CLASSES,
   getToolCallTone,
   getToolCallVisualClasses,
 } from "../lib/format-tools";
@@ -73,6 +78,27 @@ export function AgentStatusRow({
 }: AgentStatusRowProps) {
   const { t } = useTranslation();
   const hasTools = toolCalls && toolCalls.length > 0;
+  const hasSummary = Boolean(agent.summary?.trim());
+  const agentLabel = normalizeAgentName(agent.name || agent.description.split(" → ")[0] || agent.description);
+  const completedToolCount = toolCalls?.filter((tc) => tc.output !== undefined).length ?? 0;
+  const totalToolCount = toolCalls?.length ?? 0;
+  const rawAgentToolProgressLabel = t("a11y.agentToolProgress", {
+    agent: agentLabel,
+    completed: completedToolCount,
+    total: totalToolCount,
+  });
+  const agentToolProgressLabel =
+    rawAgentToolProgressLabel === "a11y.agentToolProgress"
+      ? `${completedToolCount}/${totalToolCount}`
+      : rawAgentToolProgressLabel;
+  const expandAgentToolsLabel = t("a11y.expandAgentTools", {
+    agent: agentLabel,
+    progress: agentToolProgressLabel,
+  });
+  const collapseAgentToolsLabel = t("a11y.collapseAgentTools", {
+    agent: agentLabel,
+    progress: agentToolProgressLabel,
+  });
   const [expanded, setExpanded] = useState(agent.status === "running");
 
   const rowClassName = cn(
@@ -99,12 +125,12 @@ export function AgentStatusRow({
           <span className="block truncate text-sm font-medium text-foreground">
             {agent.description.includes(" → ") ? (
               <>
-                {normalizeAgentName(agent.name || agent.description.split(" → ")[0])}
+                {agentLabel}
                 <ArrowRightLeft className="mx-1 inline h-4 w-4 text-muted-foreground" aria-hidden="true" />
                 {agent.description.split(" → ").slice(1).join(" → ")}
               </>
             ) : (
-              normalizeAgentName(agent.name || agent.description)
+              agentLabel
             )}
           </span>
           <span className="mt-0.5 block font-mono text-micro text-muted-foreground-dim">
@@ -113,7 +139,7 @@ export function AgentStatusRow({
         </div>
         {hasTools && (
           <span className={cn(EVENT_META_BADGE_CLASSES, "font-mono tabular-nums text-muted-foreground-dim")}>
-            {toolCalls.filter((tc) => tc.output !== undefined).length}/{toolCalls.length}
+            {completedToolCount}/{totalToolCount}
           </span>
         )}
         {hasTools && (
@@ -134,7 +160,15 @@ export function AgentStatusRow({
         <button
           type="button"
           onClick={() => setExpanded((prev) => !prev)}
-          aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
+          aria-label={
+            expanded
+              ? collapseAgentToolsLabel === "a11y.collapseAgentTools"
+                ? `${t("a11y.collapse")} ${agentLabel}: ${agentToolProgressLabel}`
+                : collapseAgentToolsLabel
+              : expandAgentToolsLabel === "a11y.expandAgentTools"
+                ? `${t("a11y.expand")} ${agentLabel}: ${agentToolProgressLabel}`
+                : expandAgentToolsLabel
+          }
           aria-expanded={expanded}
           className={rowClassName}
         >
@@ -143,6 +177,21 @@ export function AgentStatusRow({
       ) : (
         <div className={rowClassName}>
           {rowContent}
+        </div>
+      )}
+
+      {hasSummary && (
+        <div className={cn("ml-1.5 mt-1.5", EVENT_LEFT_RAIL_CLASSES)}>
+          <div className={cn(OUTPUT_CARD_INNER_CLASSES, "grid gap-2 sm:grid-cols-[5rem_1fr]")}>
+            <span className="text-micro font-medium text-muted-foreground-dim">
+              {t("computer.agentSummary")}
+            </span>
+            <MarkdownRenderer
+              content={agent.summary ?? ""}
+              className={cn("min-w-0", PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES)}
+              compactCode
+            />
+          </div>
         </div>
       )}
 
@@ -165,7 +214,7 @@ export function AgentStatusRow({
                 return (
                   <div
                     key={tc.id}
-                    className={cn("rounded-xl px-3 py-2 transition-colors duration-150", visual.row, visual.rowHover)}
+                    className={cn(TOOLING_ACTIVITY_ROW_CLASSES, visual.row, visual.rowHover)}
                   >
                     <div className="flex items-start gap-2.5 text-sm">
                       <ToolStatusIcon

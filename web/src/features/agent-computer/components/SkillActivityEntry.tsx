@@ -3,14 +3,21 @@
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Check, CircleX } from "lucide-react";
+import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { cn } from "@/shared/lib/utils";
+import { TOOLING_ACTIVITY_ROW_CLASSES } from "@/shared/lib/tooling-ui-styles";
 import { normalizeSkillName } from "@/features/skills/lib/normalize-skill-name";
 import { SOURCE_STYLE, SOURCE_LABEL_KEY } from "@/features/skills/lib/skill-source-styles";
 import { useSkillsCache } from "@/features/skills/hooks/use-skills-cache";
 import { useTranslation } from "@/i18n";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { ACTIVITY_META_BADGE_CLASSES } from "@/shared/lib/activity-meta-badge";
-import { getToolCallTone, getToolCallVisualClasses } from "../lib/format-tools";
+import {
+  PROSE_CLASSES,
+  TOOL_OUTPUT_MARKDOWN_CLASSES,
+  getToolCallTone,
+  getToolCallVisualClasses,
+} from "../lib/format-tools";
 import { getSkillIcon } from "../lib/tool-visual-icons";
 import type { ToolCallInfo } from "@/shared/types";
 
@@ -36,9 +43,11 @@ function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key
 
   return (
     <div className="mt-1.5">
-      <p className={cn("text-sm leading-relaxed text-destructive", !expanded && "line-clamp-2")}>
-        {expanded ? output : output.slice(0, 200)}
-      </p>
+      <MarkdownRenderer
+        content={expanded ? output : output.slice(0, 200)}
+        className={cn(PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES, "text-destructive", !expanded && "line-clamp-2")}
+        compactCode
+      />
       {isLong && (
         <button
           type="button"
@@ -98,7 +107,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
       className={cn(
-        "rounded-lg px-3 py-2 transition-colors duration-150",
+        TOOLING_ACTIVITY_ROW_CLASSES,
         visual.row,
         visual.rowHover,
       )}

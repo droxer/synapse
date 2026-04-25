@@ -124,6 +124,8 @@ export interface AgentSpawnEventData extends GenericEventData {
 export interface AgentCompleteEventData extends GenericEventData {
   readonly agent_id?: string;
   readonly id?: string;
+  readonly summary?: string;
+  readonly result?: string;
   readonly error?: unknown;
   readonly agent_name?: string;
   readonly terminal_state?: "complete" | "error" | "skipped" | "replan_required";
@@ -353,6 +355,7 @@ export interface AgentStatus {
   readonly agentId: string;
   readonly name: string;
   readonly description: string;
+  readonly summary?: string;
   readonly status: AgentStatusState;
   readonly timestamp: number;
 }

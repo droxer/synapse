@@ -12,6 +12,10 @@ import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { Button } from "@/shared/components/ui/button";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
+import {
+  OUTPUT_SURFACE_HEADER_CLASSES,
+  OUTPUT_SURFACE_ROOT_CLASSES,
+} from "@/shared/components/ui/output-surface";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/shared/lib/utils";
 import type { MCPTransport } from "../lib/parse-mcp-config";
@@ -69,8 +73,8 @@ export function MCPServerForm({
         <ErrorBanner message={error} onDismiss={onDismissError} variant="compact" />
       )}
 
-      <section className="overflow-hidden rounded-lg border border-border bg-background">
-        <div className="flex flex-col gap-3 border-b border-border bg-muted/35 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+      <section className={cn(OUTPUT_SURFACE_ROOT_CLASSES, "mt-0 bg-background")}>
+        <div className={cn(OUTPUT_SURFACE_HEADER_CLASSES, "flex-col gap-3 bg-muted/35 sm:flex-row sm:items-center sm:justify-between")}>
           <div className="flex min-w-0 items-center gap-3">
             <div className="chip-muted flex h-8 w-8 shrink-0 items-center justify-center">
               <FileJson className="h-3.5 w-3.5" />
@@ -105,7 +109,7 @@ export function MCPServerForm({
           value={formSchema}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onFormSchemaChange(e.target.value)}
           onPaste={handleSchemaPaste}
-          className="min-h-[9rem] resize-y rounded-none border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed"
+          className="min-h-[9rem] resize-y rounded-none border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed focus-visible:border-transparent"
           autoFocus
         />
 

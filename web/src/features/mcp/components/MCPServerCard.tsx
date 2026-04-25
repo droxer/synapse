@@ -2,13 +2,17 @@
 
 import { Trash2, Blocks, Radio, Wrench, Globe, Pencil } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
-import { Badge } from "@/shared/components/ui/badge";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/shared/components/ui/tooltip";
 import { cn } from "@/shared/lib/utils";
+import {
+  TOOLING_STATUS_TOGGLE_CLASSES,
+  TOOLING_STATUS_TOGGLE_DISABLED_CLASSES,
+  TOOLING_STATUS_TOGGLE_ENABLED_CLASSES,
+} from "@/shared/lib/tooling-ui-styles";
 import { useTranslation } from "@/i18n";
 import type { MCPServer } from "../api/mcp-api";
 
@@ -51,16 +55,15 @@ export function MCPServerCard({
           )} />
         </div>
         <div className="flex items-center gap-1.5">
-          <Badge
-            variant="secondary"
+          <span
             className={cn(
-              "text-micro font-mono font-medium px-1.5 py-0 shrink-0 transition-opacity duration-200",
+              "status-pill status-neutral chip-xs shrink-0 transition-opacity duration-200",
               isDisabled && "opacity-60",
             )}
           >
             <TransportIcon className="mr-1 h-2.5 w-2.5" />
             {transport.label}
-          </Badge>
+          </span>
           {onEdit && server.editable !== false && (
             <Tooltip>
               <TooltipTrigger asChild>
@@ -69,7 +72,7 @@ export function MCPServerCard({
                   size="icon-xs"
                   aria-label={t("mcp.editServer", { name: server.name })}
                   className={cn(
-                    "fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
+                    "shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
                     "hover:text-foreground hover:bg-muted",
                   )}
                   onClick={() => onEdit(server)}
@@ -88,7 +91,7 @@ export function MCPServerCard({
               size="icon-xs"
               aria-label={`${t("mcp.remove")} ${server.name}`}
               className={cn(
-                "fine-hover-action shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
+                "shrink-0 text-muted-foreground transition-[background-color,color,opacity]",
                 "hover:text-destructive hover:bg-destructive/10",
               )}
               onClick={() => onDelete(server.name)}
@@ -145,13 +148,12 @@ export function MCPServerCard({
             type="button"
             role="switch"
             aria-checked={!isDisabled}
-            aria-label={isDisabled ? t("mcp.enable") : t("mcp.disable")}
+            aria-label={`${isDisabled ? t("mcp.enable") : t("mcp.disable")} ${server.name}`}
             className={cn(
-              "flex shrink-0 items-center gap-1.5 rounded-md border px-2 py-0.5 text-micro font-medium transition-colors duration-150",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              TOOLING_STATUS_TOGGLE_CLASSES,
               isDisabled
-                ? "border-border bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
-                : "border-border bg-muted text-muted-foreground hover:bg-muted hover:text-foreground",
+                ? TOOLING_STATUS_TOGGLE_DISABLED_CLASSES
+                : TOOLING_STATUS_TOGGLE_ENABLED_CLASSES,
             )}
             onClick={() => onToggle(server.name, isDisabled)}
           >

@@ -385,7 +385,13 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                     <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
                   )}
                   <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
-                  <span className="min-w-0 break-words">{result.error ?? result.summary}</span>
+                  <div className="min-w-0 flex-1">
+                    <MarkdownRenderer
+                      content={result.error ?? result.summary}
+                      className={cn(PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES)}
+                      compactCode
+                    />
+                  </div>
                 </div>
               ))}
             </div>
@@ -423,7 +429,11 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                   <div className="mb-0.5 text-micro text-muted-foreground-dim">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
-                  <div className="min-w-0 break-words text-muted-foreground">{msg.message}</div>
+                  <MarkdownRenderer
+                    content={msg.message}
+                    className={cn(PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES)}
+                    compactCode
+                  />
                 </div>
               ))}
             </div>

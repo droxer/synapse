@@ -41,9 +41,11 @@ describe("buildToolCallIndexes", () => {
     expect(indexes.byToolUseId.get("same-id")).toHaveLength(2);
     expect(indexes.countByAgentId.get("agent-1")).toBe(2);
     expect(indexes.countByAgentId.get("agent-2")).toBe(1);
+    expect(indexes.activityByAgentId.get("agent-1")).toEqual({ total: 2, completed: 0 });
+    expect(indexes.activityByAgentId.get("agent-2")).toEqual({ total: 1, completed: 0 });
   });
 
-  it("ignores hidden communication tools in grouped counts", () => {
+  it("tracks completed tools per agent and ignores hidden communication tools", () => {
     const calls: ToolCallInfo[] = [
       {
         id: "tc-1",
@@ -60,12 +62,22 @@ describe("buildToolCallIndexes", () => {
         input: {},
         timestamp: 2,
         agentId: "agent-1",
+        output: "ok",
+      },
+      {
+        id: "tc-3",
+        toolUseId: "pending-id",
+        name: "file_read",
+        input: {},
+        timestamp: 3,
+        agentId: "agent-1",
       },
     ];
 
     const indexes = buildToolCallIndexes(calls);
     expect(indexes.byToolUseId.has("hidden-id")).toBe(false);
-    expect(indexes.countByAgentId.get("agent-1")).toBe(1);
+    expect(indexes.countByAgentId.get("agent-1")).toBe(2);
+    expect(indexes.activityByAgentId.get("agent-1")).toEqual({ total: 2, completed: 1 });
   });
 });
 
@@ -477,6 +489,54 @@ describe("buildSteps runtime phrase mapping", () => {
     expect(steps[1]?.status).toBe("running");
     expect(steps[2]?.title).toBe("Synthesize findings");
     expect(steps[2]?.status).toBe("pending");
+  });
+
+  it("attaches visible tool ownership metadata to worker-backed plan rows", () => {
+    const events = [
+      {
+        type: "plan_created",
+        timestamp: 1,
+        iteration: 0,
+        data: {
+          steps: [
+            { name: "Research topic", description: "Collect sources", execution_type: "parallel_worker" },
+          ],
+        },
+      },
+    ] as unknown as AgentEvent[];
+    const planSteps: PlanStep[] = [
+      {
+        name: "Research topic with a very long label",
+        description: "Collect sources",
+        executionType: "parallel_worker",
+        status: "running",
+        agentId: "agent-1",
+      },
+    ];
+    const toolCalls: ToolCallInfo[] = [
+      {
+        id: "tc-1",
+        toolUseId: "tool-1",
+        name: "web_search",
+        input: { query: "docs" },
+        timestamp: 2,
+        agentId: "agent-1",
+        output: "ok",
+      },
+      {
+        id: "tc-2",
+        toolUseId: "tool-2",
+        name: "file_read",
+        input: { path: "README.md" },
+        timestamp: 3,
+        agentId: "agent-1",
+      },
+    ];
+
+    const steps = buildSteps(events, buildToolCallIndexes(toolCalls), toolCalls, planSteps, t, agentNameMap);
+    expect(steps.find((step) => step.id === "agent-agent-1-plan-0")).toMatchObject({
+      agentToolActivity: { total: 2, completed: 1 },
+    });
   });
 
   it("suppresses duplicate standalone agent rows for worker-backed plan steps", () => {

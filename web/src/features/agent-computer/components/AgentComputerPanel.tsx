@@ -37,6 +37,7 @@ import { AgentStatusRow } from "./AgentStatusRow";
 import { ArtifactFilesPanel } from "./ArtifactFilesPanel";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { cn } from "@/shared/lib/utils";
+import { TOOLING_ACTIVITY_ROW_CLASSES } from "@/shared/lib/tooling-ui-styles";
 import { useTranslation } from "@/i18n";
 import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
 import {
@@ -206,7 +207,7 @@ function ActivityTimelineToolCallRow({
       }}
       transition={{ duration: 0.12, ease: "easeOut" }}
       className={cn(
-        "rounded-lg px-3 py-2 transition-colors duration-150",
+        TOOLING_ACTIVITY_ROW_CLASSES,
         visual.row,
         visual.rowHover,
       )}
@@ -322,6 +323,17 @@ function getBrowserStatusText(tc: ToolCallInfo, t: TFn): string {
   return t("computer.usingTool", { verb: getToolVerb("browser_use", t) });
 }
 
+function highlightedStepTargetsAgent(
+  highlightedStepId: string | null | undefined,
+  agentId: string | null | undefined,
+): boolean {
+  return Boolean(
+    highlightedStepId
+      && agentId
+      && highlightedStepId.startsWith(`agent-${agentId}-`),
+  );
+}
+
 /* ── status icon for terminal-style logs ── */
 function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   const { t } = useTranslation();
@@ -400,6 +412,23 @@ export function AgentComputerPanel({
         `[data-step-id="${highlightedStepId}"]`,
       );
       if (!el && highlightedStepId.startsWith("agent-")) {
+        const agentToolEls = contentRef.current?.querySelectorAll<HTMLElement>("[data-agent-tool-anchor='true']") ?? [];
+        let bestAgentToolMatch: HTMLElement | undefined;
+        let bestAgentToolOwnerLength = -1;
+        for (const candidate of agentToolEls) {
+          const ownerId = candidate.getAttribute("data-agent-tool-owner");
+          if (
+            highlightedStepTargetsAgent(highlightedStepId, ownerId)
+            && ownerId
+            && ownerId.length > bestAgentToolOwnerLength
+          ) {
+            bestAgentToolMatch = candidate;
+            bestAgentToolOwnerLength = ownerId.length;
+          }
+        }
+        el = bestAgentToolMatch;
+      }
+      if (!el && highlightedStepId.startsWith("agent-")) {
         // agentId may contain dashes; row id may be agent-{id}-{timestamp}
         const allStepEls = contentRef.current?.querySelectorAll("[data-step-id]") ?? [];
         for (const candidate of allStepEls) {
@@ -455,6 +484,16 @@ export function AgentComputerPanel({
     const ids = new Set<string>();
     for (const tc of visibleToolCalls) {
       if (tc.agentId) ids.add(tc.agentId);
+    }
+    return ids;
+  }, [visibleToolCalls]);
+
+  const firstToolIdByAgentId = useMemo(() => {
+    const ids = new Map<string, string>();
+    for (const toolCall of visibleToolCalls) {
+      if (toolCall.agentId && !ids.has(toolCall.agentId)) {
+        ids.set(toolCall.agentId, toolCall.id);
+      }
     }
     return ids;
   }, [visibleToolCalls]);
@@ -667,13 +706,22 @@ export function AgentComputerPanel({
                     ? (agentNameMap.get(agentId) || agentId.slice(0, 8))
                     : null;
                   const scopedWrap = Boolean(agentId);
+                  const isFirstAgentTool = Boolean(
+                    agentId && firstToolIdByAgentId.get(agentId) === tc.id,
+                  );
+                  const agentHighlighted = highlightedStepTargetsAgent(activeHighlight, agentId);
 
                   if (SKILL_TOOL_NAMES.has(tc.name)) {
                     return (
                       <div
                         key={tc.id}
-                        className={cn(scopedWrap && "border-l-2 border-border pl-3")}
+                        className={cn(
+                          scopedWrap && "border-l-2 border-border pl-3",
+                          isFirstAgentTool && agentHighlighted && "rounded-lg bg-secondary",
+                        )}
                         data-step-id={`tool-${tc.id}`}
+                        data-agent-tool-owner={agentId || undefined}
+                        data-agent-tool-anchor={isFirstAgentTool ? "true" : undefined}
                       >
                         {agentLabel && (
                           <div className="mb-1 flex items-center gap-1.5 text-micro text-muted-foreground">
@@ -689,8 +737,13 @@ export function AgentComputerPanel({
                   return (
                     <div
                       key={tc.id}
-                      className={cn(scopedWrap && "border-l-2 border-border pl-3")}
+                      className={cn(
+                        scopedWrap && "border-l-2 border-border pl-3",
+                        isFirstAgentTool && agentHighlighted && "rounded-lg bg-secondary",
+                      )}
                       data-step-id={`tool-${tc.id}`}
+                      data-agent-tool-owner={agentId || undefined}
+                      data-agent-tool-anchor={isFirstAgentTool ? "true" : undefined}
                     >
                       {agentLabel && (
                         <div className="mb-1 flex items-center gap-1.5 text-micro text-muted-foreground">

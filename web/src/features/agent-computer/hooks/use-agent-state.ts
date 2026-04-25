@@ -146,6 +146,11 @@ function getTerminalResultText(event: Extract<AgentEvent, { type: "turn_complete
   return String(event.data.result ?? "");
 }
 
+function getAgentCompletionSummary(event: Extract<AgentEvent, { type: "agent_complete" }>): string | undefined {
+  const summary = toDisplayText(event.data.summary ?? event.data.result ?? event.data.error).trim();
+  return summary.length > 0 ? summary : undefined;
+}
+
 function buildPlannerFallbackStep(
   status: PlanStep["status"],
   variant: "active" | "inline" | "error",
@@ -1446,10 +1451,12 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
       const existing = agentMap.get(agentId);
       const terminalState = mapAgentTerminalStatus(event.data.terminal_state);
       const nextStatus = terminalState;
+      const summary = getAgentCompletionSummary(event);
       if (existing) {
         agentMap.set(agentId, {
           ...existing,
           status: nextStatus,
+          ...(summary !== undefined ? { summary } : {}),
         });
       }
       planSteps = applyPlanStepTerminalState(

@@ -21,6 +21,7 @@ import { cn } from "@/shared/lib/utils";
 import { useTranslation } from "@/i18n";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { useStickyBottom } from "@/shared/hooks";
+import { TOOLING_ACTIVITY_ROW_CLASSES } from "@/shared/lib/tooling-ui-styles";
 import type { AgentEvent, AgentStatus, TaskState, ToolCallInfo } from "@/shared/types";
 import type { PlanStep } from "@/shared/types";
 import { computeAgentTaskProgressPercent } from "@/features/agent-computer/lib/agent-task-progress";
@@ -70,8 +71,8 @@ interface TimelineStep {
   /** Raw tool name for category-based icon lookup */
   readonly rawToolName?: string;
   readonly status: TimelineStepStatus;
-  /** Sub-agent row: tool count under this agent (suffix via i18n when > 0) */
-  readonly agentToolCount?: number;
+  /** Sub-agent row: visible tool activity owned by this agent. */
+  readonly agentToolActivity?: AgentToolActivity;
 }
 
 interface StatusVisual {
@@ -85,6 +86,12 @@ interface StatusVisual {
 interface ToolCallIndexes {
   readonly byToolUseId: ReadonlyMap<string, readonly ToolCallInfo[]>;
   readonly countByAgentId: ReadonlyMap<string, number>;
+  readonly activityByAgentId: ReadonlyMap<string, AgentToolActivity>;
+}
+
+interface AgentToolActivity {
+  readonly total: number;
+  readonly completed: number;
 }
 
 const STEP_ICON_FRAME_CLASS = "flex h-5 w-5 shrink-0 items-center justify-center rounded-md";
@@ -107,6 +114,7 @@ const PARSE_LIKE_TOOLS = new Set([
 export function buildToolCallIndexes(toolCalls: readonly ToolCallInfo[]): ToolCallIndexes {
   const byToolUseId = new Map<string, ToolCallInfo[]>();
   const countByAgentId = new Map<string, number>();
+  const activityByAgentId = new Map<string, AgentToolActivity>();
 
   for (const toolCall of toolCalls) {
     if (HIDDEN_ACTIVITY_TOOLS.has(toolCall.name)) {
@@ -121,10 +129,23 @@ export function buildToolCallIndexes(toolCalls: readonly ToolCallInfo[]): ToolCa
 
     if (toolCall.agentId) {
       countByAgentId.set(toolCall.agentId, (countByAgentId.get(toolCall.agentId) ?? 0) + 1);
+      const current = activityByAgentId.get(toolCall.agentId) ?? { total: 0, completed: 0 };
+      activityByAgentId.set(toolCall.agentId, {
+        total: current.total + 1,
+        completed: current.completed + (toolCall.output !== undefined ? 1 : 0),
+      });
     }
   }
 
-  return { byToolUseId, countByAgentId };
+  return { byToolUseId, countByAgentId, activityByAgentId };
+}
+
+function visibleAgentToolActivity(
+  indexes: ToolCallIndexes,
+  agentId: string,
+): AgentToolActivity | undefined {
+  const activity = indexes.activityByAgentId.get(agentId);
+  return activity && activity.total > 0 ? activity : undefined;
 }
 
 function agentDisplayTitle(
@@ -255,17 +276,17 @@ function buildPlanTimelineSteps(
 ): TimelineStep[] {
   return planSteps.map((step, index) => {
     const agentId = step.agentId?.trim();
-    const agentToolCount =
+    const agentToolActivity =
       agentId && agentId.length > 0
-        ? indexes.countByAgentId.get(agentId) ?? 0
-        : 0;
+        ? visibleAgentToolActivity(indexes, agentId)
+        : undefined;
 
     return {
       id: agentId ? `agent-${agentId}-plan-${index}` : `plan-step-${index}`,
       kind: "plan",
       title: (step.nameI18nKey ? t(step.nameI18nKey) : step.name).trim() || `Step ${index + 1}`,
       status: step.status,
-      agentToolCount: agentToolCount > 0 ? agentToolCount : undefined,
+      agentToolActivity,
     };
   });
 }
@@ -538,13 +559,13 @@ export function buildSteps(
         if (matchedAgentIds.has(spawnAgentId)) {
           break;
         }
-        const agentToolCount = indexes.countByAgentId.get(spawnAgentId) ?? 0;
+        const agentToolActivity = visibleAgentToolActivity(indexes, spawnAgentId);
         const data = event.data as Record<string, unknown>;
         steps = [...steps, {
           id: `agent-${spawnAgentId}-${event.timestamp}`,
           kind: "agent",
           title: agentDisplayTitle(data, spawnAgentId, agentNameMap),
-          agentToolCount: agentToolCount > 0 ? agentToolCount : undefined,
+          agentToolActivity,
           status: "running",
         }];
         break;
@@ -555,14 +576,14 @@ export function buildSteps(
         if (matchedAgentIds.has(agentId)) {
           break;
         }
-        const completedToolCount = indexes.countByAgentId.get(agentId) ?? 0;
+        const completedToolActivity = visibleAgentToolActivity(indexes, agentId);
         const newStatus = mapAgentStepStatus(event.data.terminal_state);
         steps = steps.map((s) =>
           s.id.startsWith(`agent-${agentId}-`)
             ? {
               ...s,
               status: newStatus,
-              agentToolCount: completedToolCount > 0 ? completedToolCount : undefined,
+              agentToolActivity: completedToolActivity,
             }
             : s
         );
@@ -669,26 +690,59 @@ function StepTitleLine({
 
 function AgentStepTitleLine({
   step,
-  t,
   mainClass,
 }: {
   readonly step: TimelineStep;
-  readonly t: TFn;
   readonly mainClass: string;
 }): ReactNode {
-  const count = step.agentToolCount;
+  return <span className={mainClass}>{step.title}</span>;
+}
+
+function translateWithFallback(
+  t: TFn,
+  key: string,
+  params: Record<string, string | number>,
+  fallback: string,
+): string {
+  const translated = t(key, params);
+  return translated === key ? fallback : translated;
+}
+
+function AgentToolActivityChip({
+  activity,
+  status,
+  t,
+}: {
+  readonly activity?: AgentToolActivity;
+  readonly status: TimelineStepStatus;
+  readonly t: TFn;
+}): ReactNode {
+  if (!activity || activity.total <= 0) return null;
+  const showProgress = status === "running" && activity.completed < activity.total;
   return (
-    <>
-      <span className={mainClass}>{step.title}</span>
-      {count != null && count > 0 && (
-        <span className="font-normal text-muted-foreground">
-          {" "}
-          {step.status === "running"
-            ? t("progress.agentToolsRunning", { count })
-            : t("progress.agentToolsComplete", { count })}
-        </span>
+    <span
+      className={cn(
+        "status-pill shrink-0 tabular-nums",
+        showProgress ? "status-info" : "status-neutral",
       )}
-    </>
+    >
+      {showProgress
+        ? translateWithFallback(
+          t,
+          "progress.agentToolProgress",
+          {
+            completed: activity.completed,
+            total: activity.total,
+          },
+          `${activity.completed}/${activity.total}`,
+        )
+        : translateWithFallback(
+          t,
+          activity.total === 1 ? "progress.agentToolCount" : "progress.agentToolsCount",
+          { count: activity.total },
+          String(activity.total),
+        )}
+    </span>
   );
 }
 
@@ -1035,7 +1089,8 @@ export function AgentProgressCard({
                     const isClickable = isTimelineStepActionable(step.id);
                     const stepVisual = getStepStatusVisual(step.status);
                     const rowClassName = cn(
-                      "flex items-start gap-2.5 rounded-xl px-3 py-2 transition-colors duration-150",
+                      "flex items-start gap-2.5",
+                      TOOLING_ACTIVITY_ROW_CLASSES,
                       stepVisual.rowBase,
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
@@ -1051,10 +1106,9 @@ export function AgentProgressCard({
                             stepVisual.text,
                           )}
                         >
-                          {step.kind === "agent" || (step.kind === "plan" && step.agentToolCount != null) ? (
+                          {step.kind === "agent" || (step.kind === "plan" && step.agentToolActivity != null) ? (
                             <AgentStepTitleLine
                               step={step}
-                              t={t}
                               mainClass={stepVisual.text}
                             />
                           ) : step.name ? (
@@ -1067,6 +1121,11 @@ export function AgentProgressCard({
                             step.title
                           )}
                         </span>
+                        <AgentToolActivityChip
+                          activity={step.agentToolActivity}
+                          status={step.status}
+                          t={t}
+                        />
                       </>
                     );
                     return isClickable ? (
