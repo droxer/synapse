@@ -394,6 +394,7 @@ export function AgentComputerPanel({
 }: AgentComputerPanelProps) {
   const { t } = useTranslation();
   const contentRef = useRef<HTMLDivElement>(null);
+  const activityContentRef = useRef<HTMLDivElement>(null);
   const [activeTab, setActiveTab] = useState<PanelTab>("activity");
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
@@ -532,7 +533,10 @@ export function AgentComputerPanel({
     return map;
   }, [agentStatuses]);
 
-  useStickyBottom(contentRef, { enabled: activeTab === "activity" });
+  useStickyBottom(contentRef, {
+    enabled: activeTab === "activity",
+    contentRef: activityContentRef,
+  });
   const latestToolCall = visibleToolCalls[visibleToolCalls.length - 1];
   const isRunning = isTaskStateLive(taskState);
 
@@ -685,7 +689,7 @@ export function AgentComputerPanel({
             )}
 
             {/* Unified timeline: tool calls and agent status rows interleaved by timestamp */}
-            <div className="space-y-2">
+            <div ref={activityContentRef} className="space-y-2">
               {timelineItems.map((item) =>
                 item.kind === "agent" ? (
                   <div

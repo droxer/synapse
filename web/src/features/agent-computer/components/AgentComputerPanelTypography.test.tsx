@@ -1,4 +1,4 @@
-import { describe, expect, it, jest } from "@jest/globals";
+import { beforeEach, describe, expect, it, jest } from "@jest/globals";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { HTMLAttributes, ReactNode } from "react";
 
@@ -13,6 +13,8 @@ interface MockSpanProps extends HTMLAttributes<HTMLSpanElement> {
 interface MockNodeProps {
   readonly children?: ReactNode;
 }
+
+const mockUseStickyBottom = jest.fn();
 
 jest.mock("framer-motion", () => ({
   motion: {
@@ -51,7 +53,7 @@ jest.mock("@/i18n", () => ({
 }));
 
 jest.mock("@/shared/hooks", () => ({
-  useStickyBottom: () => undefined,
+  useStickyBottom: (...args: unknown[]) => mockUseStickyBottom(...args),
 }));
 
 jest.mock("./ArtifactFilesPanel", () => ({
@@ -68,6 +70,10 @@ jest.mock("@/shared/components/MarkdownRenderer", () => ({
 const { AgentComputerPanel } = require("./AgentComputerPanel");
 
 describe("AgentComputerPanel typography", () => {
+  beforeEach(() => {
+    mockUseStickyBottom.mockReset();
+  });
+
   it("renders descriptive activity prose at body text size while keeping metadata compact", () => {
     const toolCalls = [
       {
@@ -123,5 +129,12 @@ describe("AgentComputerPanel typography", () => {
     expect(html).toContain("label-mono");
     expect(html).toContain("data-agent-tool-owner=\"agent-1\"");
     expect(html).toContain("data-agent-tool-anchor=\"true\"");
+    expect(mockUseStickyBottom).toHaveBeenCalledWith(
+      expect.any(Object),
+      expect.objectContaining({
+        enabled: true,
+        contentRef: expect.any(Object),
+      }),
+    );
   });
 });

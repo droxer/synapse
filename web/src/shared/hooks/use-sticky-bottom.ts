@@ -11,6 +11,7 @@ export interface UseStickyBottomOptions {
   readonly enabled?: boolean;
   readonly thresholdPx?: number;
   readonly behavior?: ScrollBehavior;
+  readonly contentRef?: React.RefObject<HTMLElement | null>;
 }
 
 /**
@@ -25,7 +26,12 @@ export function useStickyBottom(
   ref: React.RefObject<HTMLElement | null>,
   options: UseStickyBottomOptions = {},
 ): void {
-  const { enabled = true, thresholdPx = DEFAULT_THRESHOLD_PX, behavior = "smooth" } = options;
+  const {
+    enabled = true,
+    thresholdPx = DEFAULT_THRESHOLD_PX,
+    behavior = "smooth",
+    contentRef,
+  } = options;
   const stuckRef = useRef(true);
 
   const distanceFromBottom = useCallback((el: HTMLElement) => {
@@ -48,12 +54,16 @@ export function useStickyBottom(
       el.scrollTo({ top: el.scrollHeight, behavior });
     };
 
-    // Only observe the container element to avoid forced reflows
-    // from observing every child element during streaming.
+    // Observe the scroll container and, when provided, the content wrapper so
+    // late render growth inside the container keeps the latest output visible.
     const ro = new ResizeObserver(() => {
       scrollToBottom();
     });
     ro.observe(el);
+    const contentEl = contentRef?.current;
+    if (contentEl && contentEl !== el) {
+      ro.observe(contentEl);
+    }
 
     // Use a MutationObserver to detect content changes, but throttle
     // the scroll-to-bottom to avoid layout thrashing.
@@ -77,5 +87,5 @@ export function useStickyBottom(
         cancelAnimationFrame(scrollRafId);
       }
     };
-  }, [ref, enabled, thresholdPx, behavior, distanceFromBottom]);
+  }, [ref, contentRef, enabled, thresholdPx, behavior, distanceFromBottom]);
 }
