@@ -139,7 +139,8 @@ Synapse/
 │   │   │   │   ├── activate_skill.py   # Load skill system prompt
 │   │   │   │   ├── ask_user.py         # Prompt user for input
 │   │   │   │   ├── message_user.py     # Send text to user
-│   │   │   │   ├── web_search.py       # Tavily web search
+│   │   │   │   ├── web_search.py       # Tavily-backed web search provider
+│   │   │   │   ├── exa_web_search.py   # Exa-backed web search provider
 │   │   │   │   ├── web_fetch.py        # Fetch web content
 │   │   │   │   ├── image_gen.py        # MiniMax image generation
 │   │   │   │   ├── memory_store.py     # Persist key-value memory
@@ -507,7 +508,9 @@ Required in `backend/.env` (see `backend/.env.example`):
 | Variable | Description |
 |----------|-------------|
 | `ANTHROPIC_API_KEY` | API key for your LLM provider (Anthropic or any compatible provider) |
-| `TAVILY_API_KEY` | Tavily API key for web search |
+| `SEARCH_PROVIDER` | Web search provider: `tavily` or `exa` |
+| `TAVILY_API_KEY` | Tavily API key for web search when `SEARCH_PROVIDER=tavily` |
+| `EXA_API_KEY` | Exa API key for web search when `SEARCH_PROVIDER=exa` |
 
 ### LLM Provider
 

@@ -1,9 +1,11 @@
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TokenCounterStrategy = Literal["weighted", "legacy"]
+SearchProvider = Literal["tavily", "exa"]
 
 
 class Settings(BaseSettings):
@@ -20,8 +22,9 @@ class Settings(BaseSettings):
 
     ANTHROPIC_API_KEY: str
     ANTHROPIC_BASE_URL: str = "https://api.anthropic.com"
-    TAVILY_API_KEY: str
-    EXA_API_KEY: str = ""  # Optional; enables the Exa AI-powered search tool
+    SEARCH_PROVIDER: SearchProvider = "tavily"
+    TAVILY_API_KEY: str = ""
+    EXA_API_KEY: str = ""
     REDIS_URL: str = "redis://localhost:6379"
     DATABASE_URL: str = "sqlite+aiosqlite:///./synapse.db"
     PLANNING_MODEL: str = "claude-sonnet-4-20250514"
@@ -187,6 +190,14 @@ class Settings(BaseSettings):
         "- If something fails, read the error and fix it — do not report failure without "
         "attempting a fix."
     )
+
+    @model_validator(mode="after")
+    def _validate_search_provider_keys(self) -> Self:
+        if self.SEARCH_PROVIDER == "tavily" and not self.TAVILY_API_KEY:
+            raise ValueError("SEARCH_PROVIDER=tavily requires TAVILY_API_KEY")
+        if self.SEARCH_PROVIDER == "exa" and not self.EXA_API_KEY:
+            raise ValueError("SEARCH_PROVIDER=exa requires EXA_API_KEY")
+        return self
 
 
 @lru_cache(maxsize=1)

@@ -68,7 +68,9 @@ cp backend/.env.example backend/.env
 ```bash
 # 必填 — 必须设置
 ANTHROPIC_API_KEY=sk-ant-...
+SEARCH_PROVIDER=tavily
 TAVILY_API_KEY=tvly-...
+# EXA_API_KEY=...                 # SEARCH_PROVIDER=exa 时改用此项
 
 # 可选 — 使用任何 Anthropic 兼容的 LLM 提供者
 # ANTHROPIC_BASE_URL=https://api.anthropic.com   # 默认（Anthropic）
@@ -106,7 +108,8 @@ LITE_MODEL=claude-haiku-4-5-20251001       # 简单子任务模型
 | 密钥 | 获取地址 | 是否必填 |
 |------|---------|---------|
 | `ANTHROPIC_API_KEY` | 你的 LLM 提供者 | 是 |
-| `TAVILY_API_KEY` | [tavily.com](https://tavily.com/) | 是 |
+| `TAVILY_API_KEY` | [tavily.com](https://tavily.com/) | `SEARCH_PROVIDER=tavily` 时是 |
+| `EXA_API_KEY` | [exa.ai](https://exa.ai/) | `SEARCH_PROVIDER=exa` 时是 |
 | `MINIMAX_API_KEY` | [minimaxi.com](https://www.minimaxi.com/) | 否（启用图片生成） |
 | `E2B_API_KEY` | [e2b.dev](https://e2b.dev/) | 否（仅 `SANDBOX_PROVIDER=e2b` 时需要） |
 

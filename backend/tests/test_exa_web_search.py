@@ -20,7 +20,9 @@ def _stub_exa_py(monkeypatch: pytest.MonkeyPatch) -> None:
             self.api_key = api_key
             self.headers: dict[str, str] = {}
 
-        def search_and_contents(self, *args: Any, **kwargs: Any) -> Any:  # pragma: no cover
+        def search_and_contents(
+            self, *args: Any, **kwargs: Any
+        ) -> Any:  # pragma: no cover
             raise NotImplementedError
 
     module.Exa = _StubExa  # type: ignore[attr-defined]
@@ -130,7 +132,9 @@ async def test_exa_search_falls_back_to_summary_then_text(
         monkeypatch,
         _Response(
             [
-                _Result(title="Has summary", url="https://a.test", summary="Key summary"),
+                _Result(
+                    title="Has summary", url="https://a.test", summary="Key summary"
+                ),
                 _Result(title="Has text", url="https://b.test", text="Body text"),
                 _Result(title="Has nothing", url="https://c.test"),
             ]
@@ -245,30 +249,17 @@ def test_exa_search_requires_api_key() -> None:
         ExaWebSearch(api_key="")
 
 
-def test_exa_search_not_registered_when_key_unset(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The base registry should skip ExaWebSearch when EXA_API_KEY is empty."""
-    from agent.tools.registry import ToolRegistry
-
-    captured: list[Any] = []
-
-    original_register = ToolRegistry.register
-
-    def _tracking_register(self: ToolRegistry, tool: Any) -> ToolRegistry:
-        captured.append(tool)
-        return original_register(self, tool)
-
-    monkeypatch.setattr(ToolRegistry, "register", _tracking_register)
-
-    # Build just the local-tool subset that's relevant — we only need to verify the
-    # conditional branch, not construct the entire orchestrator.
+def test_exa_search_default_tool_name() -> None:
     from agent.tools.local.exa_web_search import ExaWebSearch
 
-    class _FakeSettings:
-        EXA_API_KEY = ""
+    tool = ExaWebSearch(api_key="test-key")
 
-    settings = _FakeSettings()
-    registry = ToolRegistry()
-    if settings.EXA_API_KEY:
-        registry = registry.register(ExaWebSearch(api_key=settings.EXA_API_KEY))
+    assert tool.definition().name == "exa_search"
 
-    assert not any(isinstance(t, ExaWebSearch) for t in captured)
+
+def test_exa_search_can_be_exposed_as_web_search() -> None:
+    from agent.tools.local.exa_web_search import ExaWebSearch
+
+    tool = ExaWebSearch(api_key="test-key", tool_name="web_search")
+
+    assert tool.definition().name == "web_search"

@@ -68,7 +68,9 @@ Edit `backend/.env`:
 ```bash
 # Required — you must set these
 ANTHROPIC_API_KEY=sk-ant-...
+SEARCH_PROVIDER=tavily
 TAVILY_API_KEY=tvly-...
+# EXA_API_KEY=...                 # Use instead when SEARCH_PROVIDER=exa
 
 # Optional — use any Anthropic-compatible LLM provider
 # ANTHROPIC_BASE_URL=https://api.anthropic.com   # Default (Anthropic)
@@ -106,7 +108,8 @@ LITE_MODEL=claude-haiku-4-5-20251001       # Model for simple sub-tasks
 | Key | Where to get it | Required |
 |-----|----------------|----------|
 | `ANTHROPIC_API_KEY` | Your LLM provider | Yes |
-| `TAVILY_API_KEY` | [tavily.com](https://tavily.com/) | Yes |
+| `TAVILY_API_KEY` | [tavily.com](https://tavily.com/) | Yes when `SEARCH_PROVIDER=tavily` |
+| `EXA_API_KEY` | [exa.ai](https://exa.ai/) | Yes when `SEARCH_PROVIDER=exa` |
 | `MINIMAX_API_KEY` | [minimaxi.com](https://www.minimaxi.com/) | No (enables image generation) |
 | `E2B_API_KEY` | [e2b.dev](https://e2b.dev/) | No (only if `SANDBOX_PROVIDER=e2b`) |
 

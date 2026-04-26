@@ -90,7 +90,9 @@ def _build_contents(content_mode: str) -> dict[str, Any]:
     )
 
 
-def _extract_content(item: Any, highlights: tuple[str, ...], summary: str | None) -> str:
+def _extract_content(
+    item: Any, highlights: tuple[str, ...], summary: str | None
+) -> str:
     """Pick the best available snippet from an Exa result, with graceful fallback."""
     if highlights:
         return " ... ".join(h for h in highlights if h).strip()
@@ -123,7 +125,7 @@ def _parse_result(item: Any) -> ExaSearchResult:
 class ExaWebSearch(LocalTool):
     """Search the web using the Exa AI-powered search API."""
 
-    def __init__(self, api_key: str) -> None:
+    def __init__(self, api_key: str, *, tool_name: str = "exa_search") -> None:
         if not api_key:
             raise ValueError("Exa API key must not be empty")
         # Import locally so the dependency is only required when the tool is enabled.
@@ -136,10 +138,11 @@ class ExaWebSearch(LocalTool):
         except Exception:  # pragma: no cover - defensive, older SDKs
             logger.debug("exa_integration_header_not_set")
         self._client = client
+        self._tool_name = tool_name
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
-            name="exa_search",
+            name=self._tool_name,
             description=(
                 "Search the web with Exa, an AI-powered neural search engine. "
                 "Supports semantic search, category filtering (company, research paper, "

@@ -167,6 +167,27 @@ def _build_sandbox_provider() -> tuple[SandboxProvider, Any]:
 # ---------------------------------------------------------------------------
 
 
+def _register_web_search_provider(
+    registry: ToolRegistry, settings: Any
+) -> ToolRegistry:
+    """Register exactly one provider-backed web_search tool."""
+    provider = getattr(settings, "SEARCH_PROVIDER", "tavily")
+    if provider == "tavily":
+        api_key = getattr(settings, "TAVILY_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("SEARCH_PROVIDER=tavily but TAVILY_API_KEY is not set")
+        return registry.register(TavilyWebSearch(api_key=api_key))
+    if provider == "exa":
+        api_key = getattr(settings, "EXA_API_KEY", "")
+        if not api_key:
+            raise RuntimeError("SEARCH_PROVIDER=exa but EXA_API_KEY is not set")
+        return registry.register(ExaWebSearch(api_key=api_key, tool_name="web_search"))
+
+    raise ValueError(
+        f"Unknown SEARCH_PROVIDER={provider!r}. Must be 'tavily' or 'exa'."
+    )
+
+
 def _build_base_registry(
     event_emitter: EventEmitter,
     on_complete: Any,
@@ -184,10 +205,7 @@ def _build_base_registry(
 
     registry = ToolRegistry()
     # Local tools
-    registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
-    exa_api_key = getattr(settings, "EXA_API_KEY", "")
-    if exa_api_key:
-        registry = registry.register(ExaWebSearch(api_key=exa_api_key))
+    registry = _register_web_search_provider(registry, settings)
     registry = registry.register(WebFetch())
     registry = registry.register(MessageUser(event_emitter=event_emitter))
     if artifact_manager is not None:
@@ -318,10 +336,7 @@ def _build_planner_registry(
     background_tasks = BackgroundTaskManager(event_emitter)
 
     registry = ToolRegistry()
-    registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
-    exa_api_key = getattr(settings, "EXA_API_KEY", "")
-    if exa_api_key:
-        registry = registry.register(ExaWebSearch(api_key=exa_api_key))
+    registry = _register_web_search_provider(registry, settings)
     registry = registry.register(WebFetch())
     registry = registry.register(MessageUser(event_emitter=event_emitter))
     if artifact_manager is not None:
@@ -375,10 +390,7 @@ def _build_sub_agent_registry_factory(
         memory: dict[str, str] = {}
         background_tasks = BackgroundTaskManager(event_emitter)
         registry = ToolRegistry()
-        registry = registry.register(TavilyWebSearch(api_key=settings.TAVILY_API_KEY))
-        exa_api_key = getattr(settings, "EXA_API_KEY", "")
-        if exa_api_key:
-            registry = registry.register(ExaWebSearch(api_key=exa_api_key))
+        registry = _register_web_search_provider(registry, settings)
         registry = registry.register(WebFetch())
         registry = registry.register(MessageUser(event_emitter=event_emitter))
         registry = registry.register(NotifyUser(event_emitter=event_emitter))

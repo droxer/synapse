@@ -87,7 +87,7 @@ The desktop shell validates:
 
 ### Backend environment
 
-The backend still reads its own `.env` file from `backend/.env`. See `backend/.env.example` for required variables (`ANTHROPIC_API_KEY`, `TAVILY_API_KEY`, etc.).
+The backend still reads its own `.env` file from `backend/.env`. See `backend/.env.example` for required variables (`ANTHROPIC_API_KEY`, `SEARCH_PROVIDER`, and the selected search provider key, etc.).
 
 ## Google OAuth (System Browser)
 

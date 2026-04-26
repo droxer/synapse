@@ -136,7 +136,8 @@ Synapse/
 │   │   │   │   ├── activate_skill.py   # 加载技能系统提示
 │   │   │   │   ├── ask_user.py         # 提示用户输入
 │   │   │   │   ├── message_user.py     # 向用户发送文本
-│   │   │   │   ├── web_search.py       # Tavily 网络搜索
+│   │   │   │   ├── web_search.py       # Tavily 网络搜索提供者
+│   │   │   │   ├── exa_web_search.py   # Exa 网络搜索提供者
 │   │   │   │   ├── web_fetch.py        # 获取网页内容
 │   │   │   │   ├── image_gen.py        # MiniMax 图像生成
 │   │   │   │   ├── memory_store.py     # 持久化键值记忆
@@ -501,7 +502,9 @@ allowed_tools:
 | 变量 | 描述 |
 |------|------|
 | `ANTHROPIC_API_KEY` | LLM 提供者的 API 密钥（Anthropic 或任何兼容提供者） |
-| `TAVILY_API_KEY` | 用于网络搜索的 Tavily API 密钥 |
+| `SEARCH_PROVIDER` | 网络搜索提供者：`tavily` 或 `exa` |
+| `TAVILY_API_KEY` | `SEARCH_PROVIDER=tavily` 时用于网络搜索的 Tavily API 密钥 |
+| `EXA_API_KEY` | `SEARCH_PROVIDER=exa` 时用于网络搜索的 Exa API 密钥 |
 
 ### LLM 提供者
 

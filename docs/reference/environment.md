@@ -5,13 +5,14 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 ## Required (typical)
 
 - `ANTHROPIC_API_KEY`
-- `TAVILY_API_KEY`
+- `SEARCH_PROVIDER` (defaults to `tavily`)
+- `TAVILY_API_KEY` when `SEARCH_PROVIDER=tavily`, or `EXA_API_KEY` when `SEARCH_PROVIDER=exa`
 
 ## Optional (high level)
 
 | Area | Examples |
 | --- | --- |
-| Search | `EXA_API_KEY` — enables the Exa AI-powered `exa_search` tool alongside Tavily |
+| Search | `SEARCH_PROVIDER` — `tavily` or `exa`; exposes the selected provider as the canonical `web_search` tool |
 | Database | `DATABASE_URL` (SQLite default; PostgreSQL in production) |
 | Sandbox | `SANDBOX_PROVIDER` — `boxlite` or `e2b` in the current backend builder |
 | Cache | `REDIS_URL` |
@@ -27,6 +28,7 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 ## Runtime notes
 
 - `SANDBOX_PROVIDER` is resolved in `api/builders.py`. The current builder accepts `boxlite` and `e2b`; a local provider implementation exists in the codebase but is not selected by `_build_sandbox_provider()`.
+- `SEARCH_PROVIDER` is resolved in `api/builders.py`. The builder registers exactly one `web_search` tool: Tavily when set to `tavily`, Exa when set to `exa`.
 - `SKILLS_ENABLED` controls discovery, registry initialization, prompt catalog injection, and activation-tool registration.
 - `THINKING_BUDGET` is passed to the main agent orchestrator and controls provider-native extended thinking when supported.
 - Execution routing uses `EXECUTION_ROUTER_MODEL` or falls back to `COMPLEXITY_CLASSIFIER_MODEL` / `LITE_MODEL`.
