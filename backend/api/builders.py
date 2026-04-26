@@ -52,6 +52,7 @@ from agent.tools.local.memory_list import MemoryList
 from agent.tools.local.memory_recall import MemoryRecall
 from agent.tools.local.memory_store import MemoryStore
 from agent.tools.local.message_user import MessageUser
+from agent.tools.local.markdown_artifact import CreateMarkdownArtifact
 from agent.tools.local.structured_interaction import (
     ConfirmAction,
     RequestApproval,
@@ -189,6 +190,13 @@ def _build_base_registry(
         registry = registry.register(ExaWebSearch(api_key=exa_api_key))
     registry = registry.register(WebFetch())
     registry = registry.register(MessageUser(event_emitter=event_emitter))
+    if artifact_manager is not None:
+        registry = registry.register(
+            CreateMarkdownArtifact(
+                artifact_manager=artifact_manager,
+                event_emitter=event_emitter,
+            )
+        )
     registry = registry.register(AskUser(event_emitter=event_emitter))
     registry = registry.register(TaskComplete(on_complete=on_complete))
     registry = registry.register(RequestUserInput(event_emitter=event_emitter))
@@ -302,6 +310,7 @@ def _build_planner_registry(
     mcp_state: MCPState,
     persistent_store: PersistentMemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
+    artifact_manager: ArtifactManager | None = None,
 ) -> ToolRegistry:
     """Build the planner-only registry without sandbox execution tools."""
     settings = get_settings()
@@ -315,6 +324,13 @@ def _build_planner_registry(
         registry = registry.register(ExaWebSearch(api_key=exa_api_key))
     registry = registry.register(WebFetch())
     registry = registry.register(MessageUser(event_emitter=event_emitter))
+    if artifact_manager is not None:
+        registry = registry.register(
+            CreateMarkdownArtifact(
+                artifact_manager=artifact_manager,
+                event_emitter=event_emitter,
+            )
+        )
     registry = registry.register(AskUser(event_emitter=event_emitter))
     registry = registry.register(TaskComplete(on_complete=on_complete))
     registry = registry.register(RequestUserInput(event_emitter=event_emitter))
@@ -460,6 +476,13 @@ def _build_sub_agent_registry_factory(
 # Orchestrator builders
 # ---------------------------------------------------------------------------
 
+RESULT_DELIVERY_PROMPT_SECTION = """<result_delivery>
+Choose the result surface intentionally:
+- Use normal conversation text for concise answers, direct Q&A, status updates, and short implementation summaries.
+- Use create_markdown_artifact for substantial reports, audits, research results, comparisons, or long structured deliverables that are better reviewed in the artifacts panel.
+- When you create a Markdown artifact, put the complete result in the artifact and keep the conversation response brief: name what was created and mention that it is available in artifacts. Do not duplicate the full artifact content in the conversation.
+</result_delivery>"""
+
 
 def _format_memory_prompt_section(
     memory_entries: list[dict[str, str]],
@@ -486,12 +509,13 @@ def build_agent_system_prompt_sections(
     skill_registry: SkillRegistry | None,
 ) -> tuple[PromptTextBlock, ...]:
     """Assemble system-prompt sections without flattening them."""
-    return build_memory_aware_system_prompt_sections(
+    sections = build_memory_aware_system_prompt_sections(
         base_prompt,
         memory_entries,
         skill_registry,
         settings=get_settings(),
     )
+    return (*sections, PromptTextBlock(text=RESULT_DELIVERY_PROMPT_SECTION))
 
 
 def build_default_agent_system_prompt_sections(
@@ -668,11 +692,13 @@ def _build_planner_orchestrator(
         resolved_mcp_state,
         persistent_store,
         skill_registry,
+        artifact_manager,
     )
     executor = ToolExecutor(
         registry=planner_registry,
         sandbox_provider=sandbox_provider,
         event_emitter=event_emitter,
+        artifact_manager=artifact_manager,
         conversation_id=conversation_id,
     )
 

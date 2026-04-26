@@ -6,6 +6,7 @@ import { useTheme } from "next-themes";
 import { Button } from "@/shared/components/ui/button";
 import { Skeleton } from "@/shared/components/ui/skeleton";
 import { CodeOutput } from "@/shared/components/ui/code-output";
+import { MarkdownRenderer } from "@/shared/components/MarkdownRenderer";
 import { useTranslation } from "@/i18n";
 import {
   fileExtension,
@@ -26,6 +27,10 @@ function isCodeType(ct: string): boolean {
 
 function isTextType(ct: string): boolean {
   return ct === "text/plain" || ct === "text/markdown" || ct === "text/csv";
+}
+
+function isMarkdownType(ct: string, fileName: string): boolean {
+  return ct === "text/markdown" || fileExtension(fileName) === "md";
 }
 
 function isDocxType(ct: string): boolean {
@@ -376,6 +381,16 @@ export function FilePreview({
 
   /* ---- Code / plain text ---- */
   if ((isCodeType(ct) || isTextType(ct)) && content.status === "ready" && content.text != null) {
+    if (isMarkdownType(ct, fileName)) {
+      return (
+        <div className={className}>
+          <div className="rounded-md border border-border bg-background px-4 py-3">
+            <MarkdownRenderer content={content.text} isStreaming={false} />
+          </div>
+        </div>
+      );
+    }
+
     const lang = ext ? EXT_TO_LANG[ext] : undefined;
     return (
       <div className={className}>

@@ -23,6 +23,12 @@ jest.mock("@/shared/components/ui/code-output", () => ({
   CodeOutput: ({ output }: { output: string }) => <pre>{output}</pre>,
 }));
 
+jest.mock("@/shared/components/MarkdownRenderer", () => ({
+  MarkdownRenderer: ({ content }: { content: string }) => (
+    <article data-testid="markdown-preview">{content}</article>
+  ),
+}));
+
 async function renderWithState(
   contentState:
     | { status: "idle" }
@@ -142,5 +148,20 @@ describe("FilePreview", () => {
 
     expect(html).toContain("iframe");
     expect(html).toContain("inline=1");
+  });
+
+  it("renders markdown text through the markdown preview branch", async () => {
+    const html = await renderWithState(
+      { status: "ready", text: "# Report\n\n## Findings\n\n- Done" },
+      {
+        url: "/api/conversations/c1/artifacts/a1",
+        contentType: "text/markdown",
+        fileName: "report.md",
+      },
+    );
+
+    expect(html).toContain("data-testid=\"markdown-preview\"");
+    expect(html).toContain("# Report");
+    expect(html).not.toContain("<pre>");
   });
 });
