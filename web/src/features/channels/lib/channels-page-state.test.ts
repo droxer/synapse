@@ -1,7 +1,9 @@
 import { describe, expect, it } from "@jest/globals";
 import type { ChannelConversation } from "../api/channel-api";
 import {
+  resolveChannelsPane,
   resolveSelectedConversation,
+  shouldShowChannelsHeader,
   sortChannelConversations,
 } from "./channels-page-state";
 
@@ -57,5 +59,41 @@ describe("channels page state helpers", () => {
     expect(
       resolveSelectedConversation(sorted, "conversation-1")?.conversation_id,
     ).toBe("conversation-2");
+  });
+
+  it("keeps desktop on the split pane regardless of mobile chat state", () => {
+    expect(
+      resolveChannelsPane({
+        isMobile: false,
+        mobileChatOpen: false,
+        hasSelectedConversation: true,
+      }),
+    ).toBe("split");
+  });
+
+  it("shows only the thread list on mobile until a selected chat is opened", () => {
+    expect(
+      resolveChannelsPane({
+        isMobile: true,
+        mobileChatOpen: false,
+        hasSelectedConversation: true,
+      }),
+    ).toBe("thread_list");
+  });
+
+  it("shows only the chat pane on mobile after selecting a thread", () => {
+    expect(
+      resolveChannelsPane({
+        isMobile: true,
+        mobileChatOpen: true,
+        hasSelectedConversation: true,
+      }),
+    ).toBe("chat");
+  });
+
+  it("hides the page header only for the mobile chat pane", () => {
+    expect(shouldShowChannelsHeader("chat")).toBe(false);
+    expect(shouldShowChannelsHeader("thread_list")).toBe(true);
+    expect(shouldShowChannelsHeader("split")).toBe(true);
   });
 });

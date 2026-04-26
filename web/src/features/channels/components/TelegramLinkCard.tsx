@@ -6,6 +6,16 @@ import { useTranslation } from "@/i18n";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/shared/components/ui/dialog";
 import { Input } from "@/shared/components/ui/input";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/shared/components/ui/alert-dialog";
+import {
   createLinkToken,
   deleteTelegramBotConfig,
   getChannelStatus,
@@ -80,9 +90,9 @@ interface TelegramConfigModalProps {
   onClose: () => void;
   onBotTokenChange: (value: string) => void;
   onSaveBot: () => void;
-  onDeleteBot: () => void;
   onCreateLinkToken: () => void;
-  onUnlink: () => void;
+  onRequestDeleteBot: () => void;
+  onRequestUnlink: () => void;
   onCopy: () => void;
   onHelpToggle: () => void;
   onStartEditToken: () => void;
@@ -107,9 +117,9 @@ function TelegramConfigModal({
   onClose,
   onBotTokenChange,
   onSaveBot,
-  onDeleteBot,
   onCreateLinkToken,
-  onUnlink,
+  onRequestDeleteBot,
+  onRequestUnlink,
   onCopy,
   onHelpToggle,
   onStartEditToken,
@@ -308,7 +318,7 @@ function TelegramConfigModal({
                 )}
                 <button
                   type="button"
-                  onClick={onDeleteBot}
+                  onClick={onRequestDeleteBot}
                   disabled={actionLoading}
                   className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-destructive hover:bg-secondary hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
                 >
@@ -381,7 +391,7 @@ function TelegramConfigModal({
               </div>
               <button
                 type="button"
-                onClick={onUnlink}
+                onClick={onRequestUnlink}
                 disabled={actionLoading}
                 className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
               >
@@ -411,6 +421,7 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
   const [botTokenInput, setBotTokenInput] = useState("");
   const [isEditingToken, setIsEditingToken] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<"disableBot" | "unlink" | null>(null);
 
   const modalOpen = open !== undefined ? open : isModalOpen;
   const setModalOpen = (val: boolean) => {
@@ -522,11 +533,16 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
   const handleCloseModal = () => {
     setModalOpen(false);
     setError(null);
+    setConfirmAction(null);
     if (isEditingToken) {
       setBotTokenInput("");
       setIsEditingToken(false);
     }
   };
+
+  if (hideCard && !modalOpen) {
+    return null;
+  }
 
   if (loading) {
     return (
@@ -607,15 +623,56 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
           }}
           onBotTokenChange={setBotTokenInput}
           onSaveBot={handleSaveBot}
-          onDeleteBot={handleDeleteBot}
           onCreateLinkToken={handleCreateLinkToken}
-          onUnlink={handleUnlink}
+          onRequestDeleteBot={() => setConfirmAction("disableBot")}
+          onRequestUnlink={() => setConfirmAction("unlink")}
           onCopy={handleCopy}
           onHelpToggle={() => setHelpOpen((prev) => !prev)}
           onStartEditToken={() => setIsEditingToken(true)}
           onCancelEditToken={() => { setBotTokenInput(""); setIsEditingToken(false); }}
         />
       )}
+
+      <AlertDialog
+        open={confirmAction !== null}
+        onOpenChange={(isOpen) => {
+          if (!isOpen) setConfirmAction(null);
+        }}
+      >
+        <AlertDialogContent size="sm">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction === "unlink"
+                ? t("channels.telegram.unlinkConfirmTitle")
+                : t("channels.telegram.disableConfirmTitle")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction === "unlink"
+                ? t("channels.telegram.unlinkConfirmDescription")
+                : t("channels.telegram.disableConfirmDescription")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("channels.telegram.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                const action = confirmAction;
+                setConfirmAction(null);
+                if (action === "unlink") {
+                  void handleUnlink();
+                } else if (action === "disableBot") {
+                  void handleDeleteBot();
+                }
+              }}
+            >
+              {confirmAction === "unlink"
+                ? t("channels.telegram.unlinkChat")
+                : t("channels.telegram.disableBot")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

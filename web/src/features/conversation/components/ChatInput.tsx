@@ -22,10 +22,11 @@ interface ChatInputProps {
     readonly id: number;
     readonly text: string;
   } | null;
+  readonly disabledPlaceholder?: string;
   readonly onContentStateChange?: (hasContent: boolean) => void;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRunning = false, variant = "default", autoFocus = false, draftMessage = null, onContentStateChange }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRunning = false, variant = "default", autoFocus = false, draftMessage = null, disabledPlaceholder, onContentStateChange }: ChatInputProps) {
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
   const [input, setInput] = useState("");
@@ -227,7 +228,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
             onPaste={handlePaste}
-            placeholder={disabled ? t("chat.placeholderWorking") : t("chat.placeholder")}
+            placeholder={disabled ? (disabledPlaceholder ?? t("chat.placeholderWorking")) : t("chat.placeholder")}
             disabled={disabled}
             rows={isWelcome ? 3 : 1}
             autoFocus={autoFocus}

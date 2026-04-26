@@ -11,6 +11,7 @@ import { EmptyState } from "@/shared/components/EmptyState";
 import { AgentProgressCard, AgentComputerPanel } from "@/features/agent-computer";
 import { NON_ARTIFACT_TOOLS } from "@/features/agent-computer/lib/tool-constants";
 import { ChatInput } from "@/features/conversation";
+import { useIsMobile } from "@/shared/hooks/use-media-query";
 import { AssistantLoadingSkeleton } from "./AssistantLoadingSkeleton";
 import { ThinkingBlock } from "./ThinkingBlock";
 import { PlanChecklistPanel } from "./PlanChecklistPanel";
@@ -45,15 +46,18 @@ type ConversationWorkspaceLayoutVariant = "default" | "embedded";
 export function getConversationWorkspaceLayoutClasses(
   layoutVariant: ConversationWorkspaceLayoutVariant,
   panelOpen: boolean,
+  isMobile = false,
 ) {
   return {
     contentWidthClass:
-      layoutVariant === "embedded" && panelOpen
+      panelOpen && isMobile
+        ? "max-w-[56rem]"
+        : layoutVariant === "embedded" && panelOpen
         ? "max-w-[42rem]"
         : panelOpen
           ? "max-w-[46rem]"
           : "max-w-[56rem]",
-    workspaceLayoutClass: panelOpen
+    workspaceLayoutClass: panelOpen && !isMobile
       ? layoutVariant === "embedded"
         ? "grid grid-rows-[minmax(0,1fr)_minmax(18rem,40%)] md:grid-cols-[minmax(0,1fr)_minmax(20rem,36%)] md:grid-rows-1"
         : "grid grid-rows-[minmax(0,1fr)_minmax(20rem,42%)] lg:grid-cols-[minmax(0,1fr)_minmax(22rem,var(--agent-panel-width))] lg:grid-rows-1"
@@ -63,6 +67,18 @@ export function getConversationWorkspaceLayoutClasses(
         ? "border-t md:border-l md:border-t-0"
         : "border-t lg:border-l lg:border-t-0",
   } as const;
+}
+
+export function getAgentComputerPanelClassName(
+  panelBorderClass: string,
+  isMobile: boolean,
+) {
+  return cn(
+    isMobile
+      ? "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
+      : "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-border bg-background",
+    !isMobile && panelBorderClass,
+  );
 }
 
 interface ConversationWorkspaceProps {
@@ -89,6 +105,8 @@ interface ConversationWorkspaceProps {
   onRetry?: () => void;
   isLoadingHistory?: boolean;
   hideTopBar?: boolean;
+  inputDisabled?: boolean;
+  inputDisabledPlaceholder?: string;
 }
 
 // ── Inline image with React-driven error fallback ───────────────────
@@ -296,7 +314,7 @@ export const MessageRow = memo(function MessageRow({
 
             {/* Message action bar — inline, no timestamp */}
             {isLastAssistant && !isStreamingThis && (taskState === "idle" || taskState === "complete") && (
-              <div className="mt-2 flex items-center gap-1 opacity-0 transition-opacity duration-200 ease-out group-hover:opacity-100 group-focus-within:opacity-100">
+              <div className="fine-hover-action mt-2 flex items-center gap-1 transition-opacity duration-200 ease-out">
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Button
@@ -366,9 +384,12 @@ export function ConversationWorkspace({
   onRetry,
   isLoadingHistory = false,
   hideTopBar = false,
+  inputDisabled = false,
+  inputDisabledPlaceholder,
   layoutVariant = "default",
 }: ConversationWorkspaceProps) {
   const { t, locale } = useTranslation();
+  const isMobile = useIsMobile();
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const shouldReduceMotion = useReducedMotion();
   const [panelOpen, setPanelOpen] = useState(false);
@@ -498,7 +519,7 @@ export function ConversationWorkspace({
 
   const messageWidthClass = useMemo(() => panelOpen ? "sm:max-w-[90%]" : "sm:max-w-[85%]", [panelOpen]);
   const { contentWidthClass, workspaceLayoutClass, panelBorderClass } =
-    getConversationWorkspaceLayoutClasses(layoutVariant, panelOpen);
+    getConversationWorkspaceLayoutClasses(layoutVariant, panelOpen, isMobile);
 
   return (
     <MotionConfig reducedMotion="user">
@@ -646,7 +667,8 @@ export function ConversationWorkspace({
                   <div className={cn("mx-auto w-full", contentWidthClass)}>
                     <ChatInput
                       onSendMessage={onSendMessage}
-                      disabled={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
+                      disabled={inputDisabled || (!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning"))}
+                      disabledPlaceholder={inputDisabled ? inputDisabledPlaceholder : undefined}
                       onCancel={onCancel}
                       isAgentRunning={!userCancelled && (isWaitingForAgent || effectiveTaskState === "executing" || effectiveTaskState === "planning")}
                     />
@@ -659,13 +681,18 @@ export function ConversationWorkspace({
                 {panelOpen && (
                   <motion.div
                     key="agent-computer-panel"
-                    className={cn(
-                      "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-border bg-background",
-                      panelBorderClass,
-                    )}
-                    initial={{ opacity: shouldReduceMotion ? 1 : 0, x: shouldReduceMotion ? 0 : 12 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: shouldReduceMotion ? 0 : 12 }}
+                    className={getAgentComputerPanelClassName(panelBorderClass, isMobile)}
+                    initial={{
+                      opacity: shouldReduceMotion ? 1 : 0,
+                      x: !isMobile && !shouldReduceMotion ? 12 : 0,
+                      y: isMobile && !shouldReduceMotion ? 12 : 0,
+                    }}
+                    animate={{ opacity: 1, x: 0, y: 0 }}
+                    exit={{
+                      opacity: 0,
+                      x: !isMobile && !shouldReduceMotion ? 12 : 0,
+                      y: isMobile && !shouldReduceMotion ? 12 : 0,
+                    }}
                     transition={{ duration: shouldReduceMotion ? 0 : 0.25, ease: [0.22, 1, 0.36, 1] }}
                   >
                     {isConnected && threadTasks.length > 0 && (

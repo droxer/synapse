@@ -61,7 +61,7 @@ export function MainLayoutClient({ children }: MainLayoutClientProps) {
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-background md:flex-row">
+    <div className="flex h-dvh min-h-dvh w-full flex-col bg-background md:flex-row">
       <AppSidebar />
 
       {isMobile && (

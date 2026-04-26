@@ -102,6 +102,7 @@ jest.mock("@/features/conversation", () => ({
 const {
   ConversationWorkspace,
   MessageRow,
+  getAgentComputerPanelClassName,
   getConversationWorkspaceLayoutClasses,
 } =
   // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -381,6 +382,30 @@ describe("areMessageRowsEqual", () => {
     expect(html).toContain("inspect this");
     expect(html).toContain("report.csv");
   });
+
+  it("makes completed assistant actions visible on coarse pointers", () => {
+    const assistantMessage: ChatMessage = {
+      ...baseMessage,
+      content: "Ready.",
+    };
+
+    const html = renderToStaticMarkup(createElement(MessageRow, {
+      msg: assistantMessage,
+      isLastAssistant: true,
+      isStreamingThis: false,
+      isThinkingThis: false,
+      messageWidthClass: "sm:max-w-[82%]",
+      embeddedPlanSteps: planSteps,
+      index: 0,
+      conversationId: "c1",
+      taskState: "idle",
+      locale: "en",
+      t: (key: string) => key,
+    }));
+
+    expect(html).toContain("fine-hover-action");
+    expect(html).not.toContain("group-hover:opacity-100");
+  });
 });
 
 describe("getConversationWorkspaceLayoutClasses", () => {
@@ -407,6 +432,30 @@ describe("getConversationWorkspaceLayoutClasses", () => {
       contentWidthClass: "max-w-[56rem]",
       workspaceLayoutClass: "flex flex-col",
     });
+  });
+
+  it("keeps mobile chat full height when the panel is open", () => {
+    const layoutClasses = getConversationWorkspaceLayoutClasses("default", true, true);
+
+    expect(layoutClasses).toMatchObject({
+      contentWidthClass: "max-w-[56rem]",
+      workspaceLayoutClass: "flex flex-col",
+    });
+    expect(layoutClasses.workspaceLayoutClass).not.toContain("grid-rows");
+  });
+});
+
+describe("getAgentComputerPanelClassName", () => {
+  it("keeps the desktop panel in the split layout", () => {
+    expect(getAgentComputerPanelClassName("border-t lg:border-l lg:border-t-0", false)).toBe(
+      "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-border bg-background border-t lg:border-l lg:border-t-0",
+    );
+  });
+
+  it("uses a full-screen panel path on mobile", () => {
+    expect(getAgentComputerPanelClassName("border-t lg:border-l lg:border-t-0", true)).toBe(
+      "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-background",
+    );
   });
 });
 

@@ -182,6 +182,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
   );
 
   const { pendingAsk, handlePromptSubmit, respondError } = usePendingAsk(effectiveEvents, conversationId);
+  const promptDisablesComposer = Boolean(pendingAsk && !pendingAsk.allowFreeform);
 
   const handleSendMessage = useCallback(
     async (message: string, files?: File[], skills?: string[], usePlanner?: boolean) => {
@@ -241,16 +242,41 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
             <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground">
               <MessageCircle className="h-4 w-4" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                {t("inputPrompt.title")}
+                {pendingAsk.title ?? t("inputPrompt.title")}
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
                 {pendingAsk.question}
               </p>
               <p className="mt-1 text-xs text-muted-foreground">
-                {t("inputPrompt.subtitle")}
+                {promptDisablesComposer
+                  ? t("channels.prompt.chooseOption")
+                  : t("inputPrompt.subtitle")}
               </p>
+              {pendingAsk.options.length > 0 && (
+                <div className="mt-3 grid gap-1.5 sm:grid-cols-[repeat(auto-fit,minmax(11rem,1fr))]">
+                  {pendingAsk.options.map((option, idx) => (
+                    <button
+                      key={option.id ?? option.value ?? option.label ?? idx}
+                      type="button"
+                      onClick={() => void handlePromptSubmit(option.value ?? option.label)}
+                      className="flex min-h-10 w-full items-start rounded-md border border-border bg-background px-3 py-2 text-left transition-colors hover:border-border-active hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                    >
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-sm font-medium leading-5 text-foreground">
+                          {option.label}
+                        </span>
+                        {option.description && (
+                          <span className="text-xs leading-4 text-muted-foreground">
+                            {option.description}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )}
               {respondError && (
                 <p className="mt-2 text-xs text-destructive">
                   {respondError}
@@ -284,6 +310,8 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
           onCancel={handleCancel}
           onRetry={handleRetry}
           isLoadingHistory={isLoadingHistory}
+          inputDisabled={promptDisablesComposer}
+          inputDisabledPlaceholder={promptDisablesComposer ? t("channels.prompt.chooseOption") : undefined}
         />
       </div>
     </div>
