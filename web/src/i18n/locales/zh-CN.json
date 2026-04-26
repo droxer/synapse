@@ -1,6 +1,15 @@
 {
   "welcome.heading": "我能为你构建什么？",
   "welcome.subtitle": "描述你的任务，让智能体来完成",
+  "welcome.suggestionsLabel": "推荐起点",
+  "welcome.suggestion.prototype": "原型一个功能",
+  "welcome.suggestion.prototypePrompt": "原型一个聚焦的功能，包含精致 UI、无障碍交互、边界情况和测试。",
+  "welcome.suggestion.improve": "改进此屏幕",
+  "welcome.suggestion.improvePrompt": "从无障碍、交互清晰度、响应式布局和视觉打磨角度改进此屏幕。",
+  "welcome.suggestion.planBuild": "规划构建",
+  "welcome.suggestion.planBuildPrompt": "规划这次构建，包含实现步骤、无障碍检查、测试和验收标准。",
+  "welcome.suggestion.actionHint": "会填入消息框",
+  "welcome.suggestion.addedStatus": "已将提示填入输入框：{label}",
 
   "chat.placeholderWorking": "智能体工作中...",
   "chat.placeholder": "我能帮你构建什么？",
@@ -120,7 +129,7 @@
   "progress.agentToolsComplete": "（{count} 个工具）",
   "progress.agentToolCount": "{count} 个工具",
   "progress.agentToolsCount": "{count} 个工具",
-  "progress.agentToolsProgress": "{completed}/{total} 个工具",
+  "progress.agentToolProgress": "工具进度：{completed}/{total}",
 
   "computer.title": "Synapse 的电脑",
   "computer.closePanel": "关闭面板",
@@ -445,7 +454,7 @@
 
   "a11y.collapse": "收起",
   "a11y.expand": "展开",
-  "a11y.agentToolProgress": "{completed}/{total} 个工具已完成",
+  "a11y.agentToolProgress": "工具进度：{completed}/{total}",
   "a11y.expandAgentTools": "展开 {agent} 的工具：{progress}",
   "a11y.collapseAgentTools": "收起 {agent} 的工具：{progress}",
   "a11y.truncatedChars": "...（还有 {count} 个字符）",

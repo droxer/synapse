@@ -34,7 +34,7 @@
   --color-border-strong: #C7CEDA;
   --color-border-active: #7F8A9B;
   --color-placeholder: #8993A3;
-  --color-muted-foreground-dim: #94A3B8;
+  --color-muted-foreground-dim: #64748B;
 
   --color-accent-emerald: #0E8345;
   --color-accent-amber: #9F6402;
@@ -224,7 +224,7 @@
   --color-border-strong: #C7CEDA;
   --color-border-active: #7F8A9B;
   --color-placeholder: #8993A3;
-  --color-muted-foreground-dim: #94A3B8;
+  --color-muted-foreground-dim: #64748B;
   --color-accent-emerald: #0E8345;
   --color-accent-amber: #9F6402;
   --color-accent-rose: #DE1135;
@@ -299,7 +299,7 @@
   --color-border-strong: #2C3344;
   --color-border-active: #6F7A8D;
   --color-placeholder: #6B7588;
-  --color-muted-foreground-dim: #505B6E;
+  --color-muted-foreground-dim: #7E8899;
   --color-accent-emerald: #5FBE7A;
   --color-accent-amber: #D4A72C;
   --color-accent-rose: #F06468;
@@ -430,6 +430,12 @@ html:lang(zh-TW) {
   color: var(--color-focus);
 }
 
+@utility status-primary {
+  border: 1px solid color-mix(in srgb, var(--color-primary), transparent 70%);
+  background-color: color-mix(in srgb, var(--color-primary), transparent 90%);
+  color: var(--color-primary);
+}
+
 @utility status-ai {
   border: 1px solid var(--color-ai-border);
   background-color: var(--color-ai-surface);
@@ -452,6 +458,13 @@ html:lang(zh-TW) {
   border: 1px solid color-mix(in srgb, var(--color-destructive), transparent 70%);
   background-color: color-mix(in srgb, var(--color-destructive), transparent 90%);
   color: var(--color-destructive);
+}
+
+@utility touch-target {
+  @media (max-width: 47.999rem) {
+    min-height: 2.75rem;
+    min-width: 2.75rem;
+  }
 }
 
 /* Chip size rhythm — apply alongside `chip-muted` (or any color base) to enforce
@@ -488,11 +501,19 @@ html:lang(zh-TW) {
 
 @utility heading-display {
   font-family: var(--font-sans);
-  font-size: var(--text-display);
-  font-weight: 600;
-  line-height: var(--lh-display);
-  letter-spacing: -0.03em;
+  font-size: 2rem;
+  font-weight: 740;
+  line-height: 1.05;
+  letter-spacing: 0;
   text-wrap: balance;
+
+  @media (min-width: 40rem) {
+    font-size: 2.75rem;
+  }
+
+  @media (min-width: 64rem) {
+    font-size: 3.25rem;
+  }
 }
 
 @utility brand-wordmark {

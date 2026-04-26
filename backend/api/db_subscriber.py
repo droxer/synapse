@@ -314,11 +314,11 @@ def create_db_subscriber(
                     await _save_event_record()
 
                 elif event.type == EventType.MESSAGE_USER:
-                    # Transport-only assistant notification. Keep the live SSE
-                    # event, but do not persist it as transcript history:
-                    # the canonical assistant row for web chat comes from the
-                    # terminal TURN_COMPLETE payload, or from TASK_COMPLETE
-                    # only via event replay when no TURN_COMPLETE exists.
+                    # Event-only assistant notification. Keep it out of the
+                    # canonical messages table, but persist the event so
+                    # historical replay can recover planner-visible replies
+                    # that were emitted via the user_message tool.
+                    await _save_event_record()
                     logger.info(
                         "db_message_skipped role=assistant (message_user) "
                         "conversation_id={}",

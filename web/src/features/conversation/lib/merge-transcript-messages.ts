@@ -284,6 +284,43 @@ function findClaimedDuplicateIndex(
   return bestMatch?.index;
 }
 
+function isCoveredByFullerEventAssistant(
+  historyMessage: ChatMessage,
+  eventDerivedMessages: readonly ChatMessage[],
+  minimumIndex: number,
+): boolean {
+  if (historyMessage.role !== "assistant") {
+    return false;
+  }
+  if (minimumIndex < 0) {
+    return false;
+  }
+  const historyContent = normalizeComparableContent(historyMessage.content);
+  if (!historyContent) {
+    return false;
+  }
+
+  for (let i = Math.max(0, minimumIndex + 1); i < eventDerivedMessages.length; i += 1) {
+    const candidate = eventDerivedMessages[i]!;
+    if (candidate.role !== "assistant") {
+      continue;
+    }
+    const candidateContent = normalizeComparableContent(candidate.content);
+    if (candidateContent.length <= historyContent.length * 1.25) {
+      continue;
+    }
+    if (historyMessage.timestamp < candidate.timestamp) {
+      continue;
+    }
+    if (!areNearbyBuckets(historyMessage.timestamp, candidate.timestamp)) {
+      continue;
+    }
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * Merges DB-persisted transcript rows with event-replayed messages.
  *
@@ -365,6 +402,8 @@ export function mergeHistoryWithEventDerivedMessages(
           thinkingEntries: mergedThinkingEntries,
         };
       }
+    } else if (isCoveredByFullerEventAssistant(hm, merged, lastMatchedIndex)) {
+      historyMergeEntries.push({ kind: "matched", index: lastMatchedIndex });
     } else {
       orphans.push(hm);
       historyMergeEntries.push({ kind: "orphan", message: hm });

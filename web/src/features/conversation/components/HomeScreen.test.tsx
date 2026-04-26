@@ -5,8 +5,45 @@ import { renderToStaticMarkup } from "react-dom/server";
 jest.mock("framer-motion", () => ({
   __esModule: true,
   AnimatePresence: ({ children }: { children: React.ReactNode }) => <>{children}</>,
+  useReducedMotion: () => false,
   motion: {
-    div: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+    div: ({
+      children,
+      initial: _initial,
+      animate: _animate,
+      exit: _exit,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLDivElement> & {
+      initial?: unknown;
+      animate?: unknown;
+      exit?: unknown;
+      transition?: unknown;
+    }) => <div {...props}>{children}</div>,
+    section: ({
+      children,
+      initial: _initial,
+      animate: _animate,
+      exit: _exit,
+      transition: _transition,
+      ...props
+    }: React.HTMLAttributes<HTMLElement> & {
+      initial?: unknown;
+      animate?: unknown;
+      exit?: unknown;
+      transition?: unknown;
+    }) => <section {...props}>{children}</section>,
+    button: ({
+      children,
+      whileHover: _whileHover,
+      whileTap: _whileTap,
+      transition: _transition,
+      ...props
+    }: React.ButtonHTMLAttributes<HTMLButtonElement> & {
+      whileHover?: unknown;
+      whileTap?: unknown;
+      transition?: unknown;
+    }) => <button {...props}>{children}</button>,
   },
 }));
 
@@ -27,6 +64,15 @@ jest.mock("@/i18n", () => ({
       const translations: Record<string, string> = {
         "welcome.heading": "What can I build for you?",
         "welcome.subtitle": "Describe your task and let the agent handle the rest",
+        "welcome.suggestionsLabel": "Suggested starting points",
+        "welcome.suggestion.prototype": "Prototype a feature",
+        "welcome.suggestion.prototypePrompt": "Prototype a focused feature with polished UI, accessible interactions, edge cases, and tests.",
+        "welcome.suggestion.improve": "Improve this screen",
+        "welcome.suggestion.improvePrompt": "Improve this screen for accessibility, interaction clarity, responsive layout, and visual polish.",
+        "welcome.suggestion.planBuild": "Plan the build",
+        "welcome.suggestion.planBuildPrompt": "Plan this build with implementation steps, accessibility checks, tests, and acceptance criteria.",
+        "welcome.suggestion.actionHint": "fills the message box",
+        "welcome.suggestion.addedStatus": "Prompt added to composer: {label}",
       };
       return translations[key] ?? key;
     },
@@ -43,6 +89,12 @@ describe("HomeScreen", () => {
     );
 
     expect(html).toContain("What can I build for you?");
+    expect(html).toContain("Suggested starting points");
+    expect(html).toContain("Prototype a feature");
+    expect(html).toContain("Improve this screen");
+    expect(html).toContain("Plan the build");
+    expect(html).toContain("fills the message box");
+    expect(html).toContain("min-h-11");
     expect(html).toContain("heading-display");
     expect(html).toContain("text-center");
     expect(html).not.toContain("whitespace-nowrap");

@@ -28,7 +28,7 @@ jest.mock("@/i18n", () => ({
     t: (key: string, params?: Record<string, string | number>) => {
       const dict: Record<string, string> = {
         "computer.agentSummary": "Summary",
-        "a11y.agentToolProgress": `${params?.completed ?? 0}/${params?.total ?? 0} tools complete`,
+        "a11y.agentToolProgress": `Tool progress: ${params?.completed ?? 0}/${params?.total ?? 0}`,
         "a11y.expandAgentTools": `Expand tools for ${params?.agent ?? ""}: ${params?.progress ?? ""}`,
         "a11y.collapseAgentTools": `Collapse tools for ${params?.agent ?? ""}: ${params?.progress ?? ""}`,
       };
@@ -107,6 +107,6 @@ describe("AgentStatusRow markdown", () => {
 
     const html = renderToStaticMarkup(<AgentStatusRow agent={agent} toolCalls={toolCalls} />);
 
-    expect(html).toContain("aria-label=\"Expand tools for Research Agent: 1/2 tools complete\"");
+    expect(html).toContain("aria-label=\"Expand tools for Research Agent: Tool progress: 1/2\"");
   });
 });

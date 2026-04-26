@@ -125,7 +125,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
+    <main id="main" className="flex min-h-screen items-center justify-center bg-background px-4 py-8">
       <div className="w-full max-w-md">
         <div className="overflow-hidden rounded-xl border border-border bg-card">
           <div className="px-8 py-6 sm:px-9">
@@ -244,7 +244,7 @@ function LoginForm() {
           </div>
         </div>
       </div>
-    </div>
+    </main>
   );
 }
 

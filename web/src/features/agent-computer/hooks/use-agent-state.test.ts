@@ -452,6 +452,68 @@ describe("deriveAgentState", () => {
     expect(assistantMessages[0]?.messageId).toBe("event-turn:1:assistant:0");
   });
 
+  it("keeps a fuller planner llm_response when turn_complete only contains a task summary", () => {
+    const fullReport = [
+      "数据已补齐，现在进入最后的综合分析阶段，输出完整的旗舰手机横评报告。",
+      "",
+      "# 2025 年主流旗舰手机综合对比评测",
+      "",
+      "## 一、参评机型速览",
+      "",
+      "| 机型 | 处理器 | 推荐场景 |",
+      "| --- | --- | --- |",
+      "| vivo X200 Pro | 天玑 9400 | 影像与续航均衡 |",
+      "| iPhone 16 Pro Max | A18 Pro | 视频与生态 |",
+    ].join("\n");
+    const summary = "完成了 2025 年主流旗舰手机综合对比评测，并给出分场景选购推荐和最终榜单排名。";
+    const events: AgentEvent[] = [
+      {
+        type: "turn_start",
+        data: { message: "比较评测各大手机厂商的旗舰手机", orchestrator_mode: "planner" },
+        timestamp: 1,
+        iteration: null,
+      },
+      {
+        type: "llm_response",
+        data: { text: fullReport, stop_reason: "tool_use", tool_call_count: 1 },
+        timestamp: 2,
+        iteration: 7,
+      },
+      {
+        type: "tool_call",
+        data: {
+          tool_id: "tool-task-complete",
+          tool_name: "task_complete",
+          tool_input: { summary },
+        },
+        timestamp: 3,
+        iteration: 7,
+      },
+      {
+        type: "tool_result",
+        data: {
+          tool_id: "tool-task-complete",
+          success: true,
+          output: "Task marked as complete.",
+        },
+        timestamp: 4,
+        iteration: 7,
+      },
+      {
+        type: "turn_complete",
+        data: { result: summary },
+        timestamp: 5,
+        iteration: null,
+      },
+    ];
+
+    const state = deriveAgentState(events);
+    const assistantMessages = state.messages.filter((message) => message.role === "assistant");
+
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe(fullReport);
+  });
+
   it("reuses the partial llm_response bubble when message_user publishes the final answer", () => {
     const events: AgentEvent[] = [
       {

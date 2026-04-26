@@ -7,6 +7,9 @@ export default auth((req) => {
   const isLoginPage = nextUrl.pathname === "/login";
   const isApiRoute = nextUrl.pathname.startsWith("/api/");
   const isDesktopCallback = nextUrl.pathname === "/auth/desktop-callback";
+  const isLocalDesignReview =
+    process.env.NODE_ENV !== "production" &&
+    nextUrl.pathname.startsWith("/design-review");
   const desktopNonce = nextUrl.searchParams.get("nonce");
   const isDesktopLogin =
     isLoginPage &&
@@ -15,6 +18,10 @@ export default auth((req) => {
 
   // Never redirect API routes — let route handlers manage auth
   if (isApiRoute) {
+    return NextResponse.next();
+  }
+
+  if (isLocalDesignReview) {
     return NextResponse.next();
   }
 

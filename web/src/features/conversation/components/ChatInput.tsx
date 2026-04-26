@@ -18,9 +18,14 @@ interface ChatInputProps {
   readonly isAgentRunning?: boolean;
   readonly variant?: "default" | "welcome";
   readonly autoFocus?: boolean;
+  readonly draftMessage?: {
+    readonly id: number;
+    readonly text: string;
+  } | null;
+  readonly onContentStateChange?: (hasContent: boolean) => void;
 }
 
-export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRunning = false, variant = "default", autoFocus = false }: ChatInputProps) {
+export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRunning = false, variant = "default", autoFocus = false, draftMessage = null, onContentStateChange }: ChatInputProps) {
   const { t } = useTranslation();
   const shouldReduceMotion = useReducedMotion();
   const [input, setInput] = useState("");
@@ -48,6 +53,16 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   useEffect(() => {
     resetHeight();
   }, [input, resetHeight]);
+
+  useEffect(() => {
+    if (!draftMessage || disabled) return;
+
+    setInput(draftMessage.text);
+    requestAnimationFrame(() => {
+      resetHeight();
+      textareaRef.current?.focus();
+    });
+  }, [disabled, draftMessage, resetHeight]);
 
   const addFiles = useCallback((fileList: FileList | File[]) => {
     const newFiles: AttachedFile[] = Array.from(fileList).map((file) => ({
@@ -144,6 +159,10 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
   const hasAttachments = attachedFiles.length > 0;
   const isWelcome = variant === "welcome";
 
+  useEffect(() => {
+    onContentStateChange?.(hasContent);
+  }, [hasContent, onContentStateChange]);
+
   return (
     <div className={cn(!isWelcome && "shrink-0 px-4 pb-safe-4 pt-2")}>
       <form
@@ -211,7 +230,7 @@ export function ChatInput({ onSendMessage, disabled = false, onCancel, isAgentRu
             placeholder={disabled ? t("chat.placeholderWorking") : t("chat.placeholder")}
             disabled={disabled}
             rows={isWelcome ? 3 : 1}
-            autoFocus={autoFocus || isWelcome}
+            autoFocus={autoFocus}
             aria-label={t("chat.inputLabel")}
             className={cn(
               "w-full resize-none bg-transparent px-4 pt-3 pb-3 text-sm leading-relaxed text-foreground placeholder:text-muted-foreground outline-none",

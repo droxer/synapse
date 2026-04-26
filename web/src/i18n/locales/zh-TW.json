@@ -1,6 +1,15 @@
 {
   "welcome.heading": "我能為你建構什麼？",
   "welcome.subtitle": "描述你的任務，讓智慧體來完成",
+  "welcome.suggestionsLabel": "建議起點",
+  "welcome.suggestion.prototype": "原型一個功能",
+  "welcome.suggestion.prototypePrompt": "原型一個聚焦的功能，包含精緻 UI、無障礙互動、邊界情況和測試。",
+  "welcome.suggestion.improve": "改進此畫面",
+  "welcome.suggestion.improvePrompt": "從無障礙、互動清晰度、響應式版面和視覺打磨角度改進此畫面。",
+  "welcome.suggestion.planBuild": "規劃建構",
+  "welcome.suggestion.planBuildPrompt": "規劃這次建構，包含實作步驟、無障礙檢查、測試和驗收標準。",
+  "welcome.suggestion.actionHint": "會填入訊息框",
+  "welcome.suggestion.addedStatus": "已將提示填入輸入框：{label}",
 
   "chat.placeholderWorking": "智慧體工作中...",
   "chat.placeholder": "我能幫你建構什麼？",
@@ -120,7 +129,7 @@
   "progress.agentToolsComplete": "（{count} 個工具）",
   "progress.agentToolCount": "{count} 個工具",
   "progress.agentToolsCount": "{count} 個工具",
-  "progress.agentToolsProgress": "{completed}/{total} 個工具",
+  "progress.agentToolProgress": "工具進度：{completed}/{total}",
 
   "computer.title": "Synapse 的電腦",
   "computer.closePanel": "關閉面板",
@@ -444,7 +453,7 @@
 
   "a11y.collapse": "收起",
   "a11y.expand": "展開",
-  "a11y.agentToolProgress": "{completed}/{total} 個工具已完成",
+  "a11y.agentToolProgress": "工具進度：{completed}/{total}",
   "a11y.expandAgentTools": "展開 {agent} 的工具：{progress}",
   "a11y.collapseAgentTools": "收起 {agent} 的工具：{progress}",
   "a11y.truncatedChars": "...（還有 {count} 個字元）",

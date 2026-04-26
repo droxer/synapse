@@ -203,7 +203,7 @@ function ActivityTimelineToolCallRow({
         y: 0,
         backgroundColor: activeHighlight === `tool-${toolCall.id}`
           ? "var(--color-secondary)"
-          : "transparent",
+          : "rgba(0, 0, 0, 0)",
       }}
       transition={{ duration: 0.12, ease: "easeOut" }}
       className={cn(
@@ -778,7 +778,7 @@ export function AgentComputerPanel({
                 isRunning
                   ? "status-info"
                   : taskState === "complete"
-                    ? "status-ok"
+                    ? "status-primary"
                     : taskState === "error"
                       ? "status-error"
                       : "status-neutral",
@@ -787,7 +787,7 @@ export function AgentComputerPanel({
               {isRunning ? (
                 <PulsingDot size="sm" />
               ) : taskState === "complete" ? (
-                <CircleCheck className="h-3 w-3 text-accent-emerald" />
+                <CircleCheck className="h-3 w-3" />
               ) : taskState === "error" ? (
                 <CircleX className="h-3 w-3 text-destructive" />
               ) : null}

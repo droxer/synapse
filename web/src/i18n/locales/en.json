@@ -1,6 +1,15 @@
 {
   "welcome.heading": "What can I build for you?",
   "welcome.subtitle": "Describe your task and let the agent handle the rest",
+  "welcome.suggestionsLabel": "Suggested starting points",
+  "welcome.suggestion.prototype": "Prototype a feature",
+  "welcome.suggestion.prototypePrompt": "Prototype a focused feature with polished UI, accessible interactions, edge cases, and tests.",
+  "welcome.suggestion.improve": "Improve this screen",
+  "welcome.suggestion.improvePrompt": "Improve this screen for accessibility, interaction clarity, responsive layout, and visual polish.",
+  "welcome.suggestion.planBuild": "Plan the build",
+  "welcome.suggestion.planBuildPrompt": "Plan this build with implementation steps, accessibility checks, tests, and acceptance criteria.",
+  "welcome.suggestion.actionHint": "fills the message box",
+  "welcome.suggestion.addedStatus": "Prompt added to composer: {label}",
 
   "chat.placeholderWorking": "Agent is working...",
   "chat.placeholder": "What can I help you build?",
@@ -120,7 +129,7 @@
   "progress.agentToolsComplete": "({count} tools)",
   "progress.agentToolCount": "{count} tool",
   "progress.agentToolsCount": "{count} tools",
-  "progress.agentToolsProgress": "{completed}/{total} tools",
+  "progress.agentToolProgress": "Tool progress: {completed}/{total}",
 
   "computer.title": "Synapse's Computer",
   "computer.closePanel": "Close panel",
@@ -445,7 +454,7 @@
 
   "a11y.collapse": "Collapse",
   "a11y.expand": "Expand",
-  "a11y.agentToolProgress": "{completed}/{total} tools complete",
+  "a11y.agentToolProgress": "Tool progress: {completed}/{total}",
   "a11y.expandAgentTools": "Expand tools for {agent}: {progress}",
   "a11y.collapseAgentTools": "Collapse tools for {agent}: {progress}",
   "a11y.truncatedChars": "... ({count} more chars)",

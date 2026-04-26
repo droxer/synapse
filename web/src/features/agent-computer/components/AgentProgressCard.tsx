@@ -926,7 +926,7 @@ function TaskStateBadge({ state, t }: { readonly state: TaskState; readonly t: T
       );
     case "complete":
       return (
-        <span className="status-pill status-ok">
+        <span className="status-pill status-primary">
           <CircleCheck className="h-3 w-3" />
           {t("progress.stateComplete")}
         </span>

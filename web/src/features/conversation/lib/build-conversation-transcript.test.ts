@@ -337,4 +337,153 @@ describe("buildConversationTranscriptState", () => {
       "assistant:done",
     ]);
   });
+
+  it("replays persisted planner user_message as the final visible answer after refresh", () => {
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: { text: "Use planner mode" },
+              iteration: null,
+              created_at: "2026-04-18T07:14:52.297999Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: {
+          events: [
+            {
+              type: "turn_start",
+              data: { message: "Use planner mode", orchestrator_mode: "planner" },
+              timestamp: "2026-04-18T07:14:52.297999Z",
+              iteration: null,
+            },
+            {
+              type: "message_user",
+              data: { message: "Planner final answer" },
+              timestamp: "2026-04-18T07:14:55.297999Z",
+              iteration: 1,
+            },
+            {
+              type: "turn_complete",
+              data: { result: "" },
+              timestamp: "2026-04-18T07:14:56.297999Z",
+              iteration: 1,
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    const transcript = buildConversationTranscriptState(
+      resolved.messages,
+      resolved.events,
+      [],
+    );
+
+    expect(transcript.effectiveEvents.map((event) => event.type)).toEqual([
+      "turn_start",
+      "message_user",
+      "turn_complete",
+    ]);
+    expect(transcript.messages.map((message) => `${message.role}:${message.content}`)).toEqual([
+      "user:Use planner mode",
+      "assistant:Planner final answer",
+    ]);
+  });
+
+  it("keeps the fuller planner llm_response instead of the persisted terminal summary after refresh", () => {
+    const fullReport = [
+      "数据已补齐，现在进入最后的综合分析阶段，输出完整的旗舰手机横评报告。",
+      "",
+      "# 2025 年主流旗舰手机综合对比评测",
+      "",
+      "## 一、参评机型速览",
+      "",
+      "| 机型 | 处理器 | 推荐场景 |",
+      "| --- | --- | --- |",
+      "| vivo X200 Pro | 天玑 9400 | 影像与续航均衡 |",
+      "| iPhone 16 Pro Max | A18 Pro | 视频与生态 |",
+    ].join("\n");
+    const summary = "完成了 2025 年主流旗舰手机综合对比评测，并给出分场景选购推荐和最终榜单排名。";
+    const resolved = resolveConversationHistoryResults(
+      {
+        status: "fulfilled",
+        value: {
+          conversation_id: "conversation-1",
+          title: "Title",
+          messages: [
+            {
+              id: "message-1",
+              role: "user",
+              content: { text: "比较评测各大手机厂商的旗舰手机" },
+              iteration: null,
+              created_at: "2026-04-26T00:02:17.976975Z",
+            },
+            {
+              id: "message-2",
+              role: "assistant",
+              content: { text: summary },
+              iteration: null,
+              created_at: "2026-04-26T00:06:52.065328Z",
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: {
+          events: [
+            {
+              type: "turn_start",
+              data: {
+                message: "比较评测各大手机厂商的旗舰手机",
+                orchestrator_mode: "planner",
+              },
+              timestamp: "2026-04-26T00:02:17.965972Z",
+              iteration: null,
+            },
+            {
+              type: "llm_response",
+              data: { text: fullReport, stop_reason: "tool_use", tool_call_count: 1 },
+              timestamp: "2026-04-26T00:06:52.032582Z",
+              iteration: 7,
+            },
+            {
+              type: "turn_complete",
+              data: { result: summary, artifact_ids: [] },
+              timestamp: "2026-04-26T00:06:52.036368Z",
+              iteration: null,
+            },
+          ],
+        },
+      },
+      {
+        status: "fulfilled",
+        value: { artifacts: [] },
+      },
+    );
+
+    const transcript = buildConversationTranscriptState(
+      resolved.messages,
+      resolved.events,
+      [],
+    );
+
+    const assistantMessages = transcript.messages.filter((message) => message.role === "assistant");
+    expect(assistantMessages).toHaveLength(1);
+    expect(assistantMessages[0]?.content).toBe(fullReport);
+  });
 });

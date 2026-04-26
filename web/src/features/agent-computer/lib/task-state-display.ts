@@ -6,10 +6,10 @@ export function isTaskStateLive(taskState: TaskState): boolean {
 }
 
 export function getTaskStateProgressIndicatorClass(taskState: TaskState): string {
-  if (taskState === "complete") return "bg-accent-emerald";
+  if (taskState === "complete") return "bg-primary";
   if (taskState === "error") return "bg-destructive";
-  if (taskState === "executing") return "bg-focus";
-  if (taskState === "planning") return "bg-muted-foreground";
+  if (taskState === "executing") return "bg-primary";
+  if (taskState === "planning") return "bg-primary";
   return "bg-muted-foreground";
 }
 

@@ -11,7 +11,7 @@ export const TOOLING_SECTION_HEADER_CLASSES =
   "surface-panel px-4 py-4";
 
 export const TOOLING_STATUS_TOGGLE_CLASSES =
-  "status-pill chip-xs shrink-0 tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+  "touch-target status-pill chip-xs shrink-0 tabular-nums transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
 
 export const TOOLING_STATUS_TOGGLE_ENABLED_CLASSES =
   "status-neutral text-muted-foreground hover:text-foreground";

@@ -119,7 +119,7 @@ async def test_task_complete_is_event_only_and_does_not_persist_message(
     repo.update_conversation.assert_not_called()
 
 
-async def test_message_user_is_transport_only_and_not_persisted(
+async def test_message_user_is_event_only_and_not_persisted_as_message(
     repo, session_factory
 ) -> None:
     conversation_id = uuid.uuid4()
@@ -136,7 +136,14 @@ async def test_message_user_is_transport_only_and_not_persisted(
     await subscriber(event)
 
     repo.save_message.assert_not_called()
-    repo.save_event.assert_not_called()
+    repo.save_event.assert_called_once()
+    _, event_kwargs = repo.save_event.call_args
+    assert event_kwargs["event_type"] == "message_user"
+    assert event_kwargs["data"] == {
+        "message": "Download complete.",
+        "title": "Reminder",
+        "background_task_id": "task-123",
+    }
 
 
 async def test_persists_generic_event(repo, session_factory) -> None:

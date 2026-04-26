@@ -206,6 +206,18 @@ function isDuplicateAssistantText(a: string, b: string): boolean {
   return na.startsWith(nb) || nb.startsWith(na);
 }
 
+function shouldKeepExistingAssistantContent(existing: string, incoming: string): boolean {
+  const normalizedExisting = normalizeAssistantBodyForDeduplication(existing);
+  const normalizedIncoming = normalizeAssistantBodyForDeduplication(incoming);
+  if (!normalizedExisting || !normalizedIncoming) {
+    return false;
+  }
+  if (isDuplicateAssistantText(existing, incoming)) {
+    return false;
+  }
+  return normalizedExisting.length > normalizedIncoming.length;
+}
+
 function findTerminalResultTargetIndex(
   messages: readonly ChatMessage[],
   content: string,
@@ -1126,7 +1138,11 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
             imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
           };
         }
-        if (messageContent.trim().length > 0) {
+        const isMutableAssistant = existingIdx === getCurrentTurnMutableAssistantIndex();
+        if (
+          messageContent.trim().length > 0 &&
+          !(isMutableAssistant && shouldKeepExistingAssistantContent(existing.content, messageContent))
+        ) {
           existing = { ...existing, content: messageContent };
         }
         messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
@@ -1230,7 +1246,11 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
               imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
             };
           }
-          if (content.trim().length > 0) {
+          const isMutableAssistant = existingIdx === getCurrentTurnMutableAssistantIndex();
+          if (
+            content.trim().length > 0 &&
+            !(isMutableAssistant && shouldKeepExistingAssistantContent(existing.content, content))
+          ) {
             existing = { ...existing, content };
           }
           messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);
@@ -1309,7 +1329,11 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
               imageArtifactIds: appendUniqueStrings(existing.imageArtifactIds, pendingImageArtifactIds),
             };
           }
-          if (content.trim().length > 0) {
+          const isMutableAssistant = existingIdx === getCurrentTurnMutableAssistantIndex();
+          if (
+            content.trim().length > 0 &&
+            !(isMutableAssistant && shouldKeepExistingAssistantContent(existing.content, content))
+          ) {
             existing = { ...existing, content };
           }
           messages[existingIdx] = mergePendingThinkingIntoMessage(existing, pendingThinking);

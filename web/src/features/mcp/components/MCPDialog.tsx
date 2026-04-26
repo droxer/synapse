@@ -226,7 +226,7 @@ export function MCPDialog({
                       aria-checked={server.enabled !== false}
                       aria-label={server.enabled !== false ? t("mcp.disable") : t("mcp.enable")}
                       className={cn(
-                        "flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
+                        "touch-target flex shrink-0 items-center gap-1.5 rounded-full px-2 py-0.5 text-micro font-medium transition-colors duration-150",
                         "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
                         server.enabled === false
                           ? "bg-secondary text-muted-foreground-dim hover:bg-secondary hover:text-muted-foreground"
