@@ -14,6 +14,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.memory.safety import validate_memory_text
 
 if TYPE_CHECKING:
     from agent.memory.store import PersistentMemoryStore
@@ -75,7 +76,13 @@ class MemoryList(LocalTool):
 
         # Fallback to in-memory
         prefix = f"{namespace}:"
-        matches = {k: v for k, v in self._store.items() if k.startswith(prefix)}
+        matches = {
+            k: v
+            for k, v in self._store.items()
+            if k.startswith(prefix)
+            and validate_memory_text(k).accepted
+            and validate_memory_text(v).accepted
+        }
         return ToolResult.ok(
             json.dumps(matches, ensure_ascii=False),
             metadata={

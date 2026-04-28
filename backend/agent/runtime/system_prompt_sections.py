@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any
 
 from agent.llm.client import PromptTextBlock, build_system_prompt_blocks
+from agent.memory.safety import validate_memory_text
 from agent.skills.loader import SkillRegistry
 from config.settings import get_settings
 
@@ -47,7 +48,14 @@ def format_memory_prompt_section(
     for entry in memory_entries:
         ns = entry.get("namespace", "default")
         key = entry["key"]
-        value = _truncate_value(entry["value"])
+        raw_value = entry["value"]
+        if not (
+            validate_memory_text(ns).accepted
+            and validate_memory_text(key).accepted
+            and validate_memory_text(raw_value).accepted
+        ):
+            continue
+        value = _truncate_value(raw_value)
         line = f"- [{ns}] {key}: {value}" if ns != "default" else f"- {key}: {value}"
 
         candidate_lines = [*lines, line, closing_tag]

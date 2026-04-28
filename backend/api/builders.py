@@ -28,6 +28,7 @@ from agent.runtime.system_prompt_sections import (
 )
 from agent.runtime.sub_agent_manager import SubAgentManager
 from agent.memory.store import PersistentMemoryStore
+from agent.memory.safety import validate_memory_text
 from agent.sandbox.base import SandboxProvider
 from agent.skills.loader import SkillRegistry as SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -574,6 +575,12 @@ def format_verified_facts_prompt_section(
         key = fact.get("key", "")
         value = fact.get("value", "")
         if not key or not value:
+            continue
+        if not (
+            validate_memory_text(ns).accepted
+            and validate_memory_text(key).accepted
+            and validate_memory_text(value).accepted
+        ):
             continue
         line = f"- [{ns}] {key}: {value}"
         candidate_lines = [*lines, line, closing_tag]

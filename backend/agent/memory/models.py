@@ -46,6 +46,15 @@ class MemoryEntry(Base):
         Index("ix_memory_ns_key", "namespace", "key"),
         Index("ix_memory_conversation", "conversation_id"),
         Index("ix_memory_user", "user_id"),
+        Index(
+            "ux_memory_entries_user_namespace_key",
+            "user_id",
+            "namespace",
+            "key",
+            unique=True,
+            postgresql_where=text("user_id IS NOT NULL"),
+            sqlite_where=text("user_id IS NOT NULL"),
+        ),
     )
 
 

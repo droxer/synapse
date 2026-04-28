@@ -5,6 +5,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from agent.memory.safety import validate_memory_text
+
 _ALLOWED_NAMESPACES = {"profile", "preferences", "constraints", "decisions"}
 _SENSITIVE_PATTERNS = (
     re.compile(r"api[_-]?key", re.IGNORECASE),
@@ -56,6 +58,12 @@ def validate_fact_candidate(
         return ValidationResult(accepted=False, reason="empty_key_or_value")
     if candidate.confidence < threshold:
         return ValidationResult(accepted=False, reason="low_confidence")
+    key_safety = validate_memory_text(key, field="key")
+    if not key_safety.accepted:
+        return ValidationResult(accepted=False, reason=key_safety.reason)
+    value_safety = validate_memory_text(value, field="value")
+    if not value_safety.accepted:
+        return ValidationResult(accepted=False, reason=value_safety.reason)
     if any(pattern.search(key) for pattern in _SENSITIVE_PATTERNS):
         return ValidationResult(accepted=False, reason="sensitive")
     if any(pattern.search(value) for pattern in _SENSITIVE_PATTERNS):

@@ -12,6 +12,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.memory.safety import ensure_memory_text_safe
 
 if TYPE_CHECKING:
     from agent.memory.store import PersistentMemoryStore
@@ -64,10 +65,14 @@ class MemoryStore(LocalTool):
         value: str = kwargs.get("value", "")
         namespace: str = kwargs.get("namespace", "default")
 
-        if not key.strip():
-            return ToolResult.fail("Key must not be empty")
-        if not value:
-            return ToolResult.fail("Value must not be empty")
+        try:
+            namespace = ensure_memory_text_safe(
+                namespace or "default", field="namespace"
+            )
+            key = ensure_memory_text_safe(key, field="key")
+            value = ensure_memory_text_safe(value, field="value")
+        except ValueError as exc:
+            return ToolResult.fail(str(exc))
 
         if self._persistent is not None and self._persistent.is_available:
             try:

@@ -411,9 +411,12 @@ class Observer:
             if tail_n >= len(rest) and not middle:
                 return self._shrink_dialogue_candidate(candidate, system_prompt)
 
-            tail_n = max(2, tail_n // 2)
-            if tail_n > len(rest):
-                tail_n = len(rest)
+            next_tail_n = max(2, tail_n // 2)
+            if next_tail_n > len(rest):
+                next_tail_n = len(rest)
+            if next_tail_n == tail_n:
+                return self._shrink_dialogue_candidate(candidate, system_prompt)
+            tail_n = next_tail_n
 
         return self._shrink_dialogue_candidate(candidate, system_prompt)
 
@@ -749,6 +752,19 @@ def _flatten_content(content: Any) -> str:
     return str(content)
 
 
+def _replace_nested_image_blocks(content: list[Any]) -> tuple[list[Any], bool]:
+    """Replace image blocks inside a tool result content list."""
+    updated: list[Any] = []
+    changed = False
+    for block in content:
+        if isinstance(block, dict) and block.get("type") == "image":
+            updated.append({**block, "source": _SCREENSHOT_PLACEHOLDER})
+            changed = True
+        else:
+            updated.append(block)
+    return updated, changed
+
+
 def _compact_anchor_message(message: dict[str, Any]) -> dict[str, Any] | None:
     """Return a smaller copy of the preserved anchor message.
 
@@ -1034,6 +1050,12 @@ def _truncate_tool_result(
     if not isinstance(content, (str, list)):
         return block
 
+    working_block = block
+    if isinstance(content, list):
+        content, changed = _replace_nested_image_blocks(content)
+        if changed:
+            working_block = {**block, "content": content}
+
     text = _flatten_content(content) if isinstance(content, list) else content
     if preview_chars is None or result_chars is None:
         from config.settings import get_settings
@@ -1051,10 +1073,10 @@ def _truncate_tool_result(
         )
 
     if isinstance(text, str) and len(text) <= preview_chars:
-        return block
+        return working_block
 
     return _structured_tool_result(
-        block,
+        working_block,
         tool_use_map=tool_use_map,
         preview_chars=preview_chars,
         result_chars=result_chars,

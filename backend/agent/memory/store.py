@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import uuid
+import re
 from datetime import datetime, timezone
 
 from sqlalchemy import and_, desc, func, or_, select, update
@@ -12,14 +13,94 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from agent.memory.facts import normalize_fact_key
 from agent.memory.models import MemoryEntry
 from agent.memory.models import MemoryFactEntry, MemoryFactIngestion
+from agent.memory.safety import ensure_memory_text_safe, validate_memory_text
 
+_MEMORY_UPSERT_RETRIES = 3
 _FACT_UPSERT_RETRIES = 3
+_TOKEN_RE = re.compile(r"[a-z0-9][a-z0-9_.+-]*")
+_STOP_WORDS = {
+    "a",
+    "about",
+    "am",
+    "an",
+    "are",
+    "did",
+    "do",
+    "for",
+    "i",
+    "in",
+    "is",
+    "it",
+    "me",
+    "my",
+    "of",
+    "on",
+    "the",
+    "to",
+    "what",
+    "when",
+    "where",
+    "who",
+}
+_TERM_ALIASES = {
+    "prefer": {"preference", "preferences", "preferred"},
+    "preferred": {"prefer", "preference", "preferences"},
+    "preference": {"prefer", "preferred", "preferences"},
+    "preferences": {"prefer", "preferred", "preference"},
+    "tz": {"timezone"},
+}
 
 
 def _is_unique_violation(error: IntegrityError) -> bool:
     """Best-effort cross-database unique-conflict detection."""
     message = str(getattr(error, "orig", error)).lower()
     return "unique" in message or "duplicate" in message
+
+
+def _query_terms(text: str) -> set[str]:
+    terms = {
+        term for term in _TOKEN_RE.findall(text.lower()) if term not in _STOP_WORDS
+    }
+    expanded = set(terms)
+    for term in terms:
+        expanded.update(_TERM_ALIASES.get(term, ()))
+    return expanded
+
+
+def _memory_score(query_terms: set[str], *, key: str, value: str) -> int:
+    if not query_terms:
+        return 0
+    key_text = key.lower()
+    value_text = value.lower()
+    score = 0
+    for term in query_terms:
+        if (
+            term == key_text
+            or key_text.endswith(f".{term}")
+            or key_text.endswith(f"_{term}")
+        ):
+            score += 8
+        elif term in key_text:
+            score += 4
+        if term in value_text:
+            score += 2
+    return score
+
+
+def _memory_match_condition(
+    model: type[MemoryEntry] | type[MemoryFactEntry],
+    terms: set[str],
+):
+    conditions = []
+    for term in terms:
+        like = f"%{term}%"
+        conditions.append(func.lower(model.key).like(like))
+        conditions.append(func.lower(model.value).like(like))
+    return or_(*conditions)
+
+
+def _is_safe_memory_row(*values: str) -> bool:
+    return all(validate_memory_text(value).accepted for value in values if value)
 
 
 class PersistentMemoryStore:
@@ -53,43 +134,67 @@ class PersistentMemoryStore:
 
     async def store(self, key: str, value: str, namespace: str = "default") -> None:
         """Store or update a key-value pair scoped to the current user."""
-        if not key.strip():
-            raise ValueError("Key must not be empty")
-        if not value:
-            raise ValueError("Value must not be empty")
+        normalized_namespace = ensure_memory_text_safe(
+            namespace or "default", field="namespace"
+        )
+        normalized_key = ensure_memory_text_safe(key, field="key")
+        normalized_value = ensure_memory_text_safe(value, field="value")
 
         user_id = self._require_user_id()
 
-        async with self._session_factory() as session:
-            stmt = select(MemoryEntry).where(
-                MemoryEntry.namespace == namespace,
-                MemoryEntry.key == key,
-                MemoryEntry.user_id == user_id,
-            )
-            result = await session.execute(stmt)
-            existing = result.scalar_one_or_none()
-
-            if existing is not None:
-                await session.execute(
-                    update(MemoryEntry)
+        for attempt in range(_MEMORY_UPSERT_RETRIES):
+            async with self._session_factory() as session:
+                stmt = (
+                    select(MemoryEntry)
                     .where(
+                        MemoryEntry.namespace == normalized_namespace,
+                        MemoryEntry.key == normalized_key,
                         MemoryEntry.user_id == user_id,
-                        MemoryEntry.namespace == namespace,
-                        MemoryEntry.key == key,
                     )
-                    .values(value=value, conversation_id=self._conversation_id)
+                    .order_by(
+                        MemoryEntry.updated_at.desc(),
+                        MemoryEntry.created_at.desc(),
+                        MemoryEntry.id.desc(),
+                    )
                 )
-            else:
-                entry = MemoryEntry(
-                    namespace=namespace,
-                    key=key,
-                    value=value,
-                    user_id=user_id,
-                    conversation_id=self._conversation_id,
-                )
-                session.add(entry)
+                result = await session.execute(stmt)
+                existing = result.scalars().first()
 
-            await session.commit()
+                if existing is not None:
+                    await session.execute(
+                        update(MemoryEntry)
+                        .where(
+                            MemoryEntry.user_id == user_id,
+                            MemoryEntry.namespace == normalized_namespace,
+                            MemoryEntry.key == normalized_key,
+                        )
+                        .values(
+                            value=normalized_value,
+                            conversation_id=self._conversation_id,
+                        )
+                    )
+                else:
+                    entry = MemoryEntry(
+                        namespace=normalized_namespace,
+                        key=normalized_key,
+                        value=normalized_value,
+                        user_id=user_id,
+                        conversation_id=self._conversation_id,
+                    )
+                    session.add(entry)
+
+                try:
+                    await session.commit()
+                    return
+                except IntegrityError as exc:
+                    await session.rollback()
+                    if attempt < _MEMORY_UPSERT_RETRIES - 1 and _is_unique_violation(
+                        exc
+                    ):
+                        continue
+                    raise
+
+        raise RuntimeError("memory entry upsert retries exhausted")
 
     async def recall(
         self, query: str, namespace: str = "default", limit: int = 20
@@ -104,34 +209,50 @@ class PersistentMemoryStore:
         if self._user_id is None:
             return []
 
-        query_lower = f"%{query.lower()}%"
+        terms = _query_terms(query)
+        if not terms:
+            return []
         async with self._session_factory() as session:
             stmt = (
                 select(MemoryEntry)
                 .where(
                     MemoryEntry.namespace == namespace,
                     MemoryEntry.user_id == self._user_id,
-                    or_(
-                        func.lower(MemoryEntry.key).like(query_lower),
-                        func.lower(MemoryEntry.value).like(query_lower),
-                    ),
+                    _memory_match_condition(MemoryEntry, terms),
                 )
                 .order_by(MemoryEntry.updated_at.desc())
-                .limit(limit)
             )
             result = await session.execute(stmt)
             entries = result.scalars().all()
 
+            ranked = []
+            for entry in entries:
+                if not _is_safe_memory_row(entry.namespace, entry.key, entry.value):
+                    continue
+                score = _memory_score(terms, key=entry.key, value=entry.value)
+                if score <= 0:
+                    continue
+                ranked.append((score, entry))
+            ranked.sort(
+                key=lambda item: (
+                    item[0],
+                    item[1].updated_at or datetime.min.replace(tzinfo=timezone.utc),
+                ),
+                reverse=True,
+            )
+
             return [
                 {
-                    "namespace": e.namespace,
-                    "key": e.key,
-                    "value": e.value,
-                    "conversation_id": str(e.conversation_id)
-                    if e.conversation_id
+                    "namespace": entry.namespace,
+                    "key": entry.key,
+                    "value": entry.value,
+                    "conversation_id": str(entry.conversation_id)
+                    if entry.conversation_id
                     else None,
+                    "score": str(score),
+                    "source": "memory_entries",
                 }
-                for e in entries
+                for score, entry in ranked[:limit]
             ]
 
     async def list_entries(
@@ -164,6 +285,7 @@ class PersistentMemoryStore:
                     else None,
                 }
                 for e in entries
+                if _is_safe_memory_row(e.namespace, e.key, e.value)
             ]
 
     async def load_all(self, limit: int = 100) -> list[dict[str, str]]:
@@ -191,6 +313,7 @@ class PersistentMemoryStore:
                     "value": e.value,
                 }
                 for e in entries
+                if _is_safe_memory_row(e.namespace, e.key, e.value)
             ]
 
     async def mark_fact_ingestion_seen(
@@ -234,9 +357,18 @@ class PersistentMemoryStore:
         if not namespace.strip() or not key.strip() or not value.strip():
             return None
 
-        normalized_ns = namespace.strip().lower()
-        normalized_key = normalize_fact_key(normalized_ns, key)
-        normalized_value = value.strip()
+        try:
+            normalized_ns = ensure_memory_text_safe(
+                namespace.strip().lower(),
+                field="namespace",
+            )
+            normalized_key = ensure_memory_text_safe(
+                normalize_fact_key(normalized_ns, key),
+                field="key",
+            )
+            normalized_value = ensure_memory_text_safe(value, field="value")
+        except ValueError:
+            return None
 
         for attempt in range(_FACT_UPSERT_RETRIES):
             now = datetime.now(timezone.utc)
@@ -335,6 +467,7 @@ class PersistentMemoryStore:
                     "confidence": f"{row.confidence:.2f}",
                 }
                 for row in rows
+                if _is_safe_memory_row(row.namespace, row.key, row.value)
             ]
 
     async def retrieve_relevant_facts(
@@ -347,20 +480,14 @@ class PersistentMemoryStore:
         if self._user_id is None:
             return []
 
-        query_text = (query or "").strip().lower()
+        terms = _query_terms(query or "")
         async with self._session_factory() as session:
             base_conditions = [
                 MemoryFactEntry.user_id == self._user_id,
                 MemoryFactEntry.status == "active",
             ]
-            if query_text:
-                like = f"%{query_text}%"
-                base_conditions.append(
-                    or_(
-                        func.lower(MemoryFactEntry.key).like(like),
-                        func.lower(MemoryFactEntry.value).like(like),
-                    )
-                )
+            if terms:
+                base_conditions.append(_memory_match_condition(MemoryFactEntry, terms))
 
             stmt = (
                 select(MemoryFactEntry)
@@ -368,18 +495,37 @@ class PersistentMemoryStore:
                 .order_by(
                     desc(MemoryFactEntry.updated_at), desc(MemoryFactEntry.confidence)
                 )
-                .limit(limit)
             )
+            if not terms:
+                stmt = stmt.limit(max(limit * 8, 50))
             result = await session.execute(stmt)
             rows = result.scalars().all()
+            ranked = []
+            for row in rows:
+                if not _is_safe_memory_row(row.namespace, row.key, row.value):
+                    continue
+                score = _memory_score(terms, key=row.key, value=row.value)
+                if terms and score <= 0:
+                    continue
+                ranked.append((score, row))
+            ranked.sort(
+                key=lambda item: (
+                    item[0],
+                    item[1].confidence,
+                    item[1].updated_at or datetime.min.replace(tzinfo=timezone.utc),
+                ),
+                reverse=True,
+            )
             return [
                 {
                     "namespace": row.namespace,
                     "key": row.key,
                     "value": row.value,
                     "confidence": f"{row.confidence:.2f}",
+                    "score": str(score),
+                    "source": "memory_facts",
                 }
-                for row in rows
+                for score, row in ranked[:limit]
             ]
 
     async def forget_fact(self, key: str) -> bool:

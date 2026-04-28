@@ -317,6 +317,28 @@ class TestTruncateToolResult:
         block = {"type": "tool_result", "content": [{"text": "short"}]}
         assert _truncate_tool_result(block) is block
 
+    def test_list_content_short_replaces_nested_image(self) -> None:
+        block = {
+            "type": "tool_result",
+            "content": [
+                {"type": "text", "text": "short"},
+                {
+                    "type": "image",
+                    "source": {
+                        "type": "base64",
+                        "media_type": "image/png",
+                        "data": "a" * 20_000,
+                    },
+                },
+            ],
+        }
+
+        result = _truncate_tool_result(block)
+
+        assert result is not block
+        assert "a" * 20_000 not in str(result)
+        assert result["content"][1]["source"] == "[screenshot captured]"
+
     def test_list_content_long_truncated(self) -> None:
         block = {"type": "tool_result", "content": [{"text": "y" * 1500}]}
         result = _truncate_tool_result(block)
@@ -771,6 +793,33 @@ class TestDialogueCompaction:
         assert _estimate_tokens(out) <= 180
         assert out[0]["role"] == "user"
         assert "original task truncated" in str(out[0]["content"])
+
+    @pytest.mark.asyncio
+    async def test_dialogue_compaction_does_not_repeat_min_tail_summary(
+        self,
+    ) -> None:
+        client = SimpleNamespace(
+            create_message=AsyncMock(return_value=SimpleNamespace(text="summary")),
+        )
+        msgs = (
+            _user_msg("anchor"),
+            _assistant_msg("old answer " * 100),
+            _user_msg("middle question " * 100),
+            _assistant_msg("middle answer " * 100),
+            _user_msg("tail question " * 1000),
+            _assistant_msg("tail answer " * 1000),
+        )
+        obs = Observer(
+            token_budget=300,
+            max_full_dialogue_turns=1,
+            claude_client=client,
+            summary_model="claude-haiku-test",
+        )
+
+        out = await obs.compact(msgs, "")
+
+        assert len(out) <= 3
+        assert client.create_message.await_count == 1
 
 
 class TestCompactionSummaryForPersistence:

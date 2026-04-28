@@ -14,6 +14,7 @@ from agent.tools.base import (
     ToolDefinition,
     ToolResult,
 )
+from agent.memory.safety import validate_memory_text
 
 if TYPE_CHECKING:
     from agent.memory.store import PersistentMemoryStore
@@ -88,6 +89,8 @@ class MemoryRecall(LocalTool):
             for k, v in self._store.items()
             if k.startswith(prefix)
             and (query_lower in k.lower() or query_lower in v.lower())
+            and validate_memory_text(k).accepted
+            and validate_memory_text(v).accepted
         }
         return ToolResult.ok(
             json.dumps(matches, ensure_ascii=False),

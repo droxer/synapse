@@ -41,6 +41,7 @@ from api.builders import (
     _build_orchestrator,
     _build_planner_orchestrator,
     build_agent_system_prompt,
+    format_verified_facts_prompt_section,
 )
 from api.sse import _create_queue_subscriber, _event_generator
 from api.user_responses import SubmitResponseStatus
@@ -926,6 +927,54 @@ async def _reconstruct_conversation(
     return entry
 
 
+def _has_verified_facts_section(runtime_prompt_sections: tuple[str, ...]) -> bool:
+    return any(
+        "<verified_user_facts>" in section for section in runtime_prompt_sections
+    )
+
+
+async def _append_relevant_fact_prompt_sections(
+    state: AppState,
+    conversation_id: str,
+    message: str,
+    runtime_prompt_sections: tuple[str, ...],
+) -> tuple[str, ...]:
+    """Add bounded verified facts for web/planner turns when available."""
+    if not message.strip() or _has_verified_facts_section(runtime_prompt_sections):
+        return runtime_prompt_sections
+
+    try:
+        conv_uuid = uuid.UUID(conversation_id)
+        async with state.db_session_factory() as session:
+            convo = await state.db_repo.get_conversation(session, conv_uuid)
+        if convo is None or convo.user_id is None:
+            return runtime_prompt_sections
+
+        settings = get_settings()
+        persistent_store = PersistentMemoryStore(
+            session_factory=state.db_session_factory,
+            user_id=convo.user_id,
+            conversation_id=conv_uuid,
+        )
+        facts = await persistent_store.retrieve_relevant_facts(
+            query=message,
+            limit=settings.MEMORY_FACT_TOP_K,
+        )
+        section = format_verified_facts_prompt_section(
+            facts,
+            token_cap_chars=settings.MEMORY_FACT_PROMPT_TOKEN_CAP,
+        )
+        if section:
+            return (*runtime_prompt_sections, section)
+    except Exception:
+        logger.opt(exception=True).warning(
+            "memory_fact_retrieval_failed conversation_id={}",
+            conversation_id,
+        )
+
+    return runtime_prompt_sections
+
+
 async def _run_turn(
     state: AppState,
     conversation_id: str,
@@ -959,6 +1008,12 @@ async def _run_turn(
         # NOTE: file upload to sandbox is now handled inside
         # orchestrator.run() — after skill matching — so that files
         # land in the correct sandbox template (e.g. data_science).
+        runtime_prompt_sections = await _append_relevant_fact_prompt_sections(
+            state,
+            conversation_id,
+            message,
+            runtime_prompt_sections,
+        )
 
         logger.info("turn_started conversation_id={}", conversation_id)
         result = await orchestrator.run(
