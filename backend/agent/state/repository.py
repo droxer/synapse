@@ -146,6 +146,10 @@ def _to_agent_run(model: AgentRunModel) -> AgentRunRecord:
         status=model.status,
         result=model.result,
         created_at=model.created_at,
+        updated_at=model.updated_at,
+        api_key_hash=model.api_key_hash,
+        idempotency_key=model.idempotency_key,
+        error=model.error,
     )
 
 
@@ -577,6 +581,106 @@ class ConversationRepository:
             )
 
         return records, total
+
+    async def create_agent_run(
+        self,
+        session: AsyncSession,
+        *,
+        conversation_id: uuid.UUID,
+        config: dict,
+        status: str = "queued",
+        run_id: uuid.UUID | None = None,
+        api_key_hash: str | None = None,
+        idempotency_key: str | None = None,
+    ) -> AgentRunRecord:
+        model = AgentRunModel(
+            id=run_id or uuid.uuid4(),
+            conversation_id=conversation_id,
+            api_key_hash=api_key_hash,
+            idempotency_key=idempotency_key,
+            config=config,
+            status=status,
+            result=None,
+            error=None,
+        )
+        session.add(model)
+        await session.flush()
+        await session.refresh(model)
+        await session.commit()
+        return _to_agent_run(model)
+
+    async def get_agent_run(
+        self,
+        session: AsyncSession,
+        run_id: uuid.UUID,
+        *,
+        api_key_hash: str | None = None,
+    ) -> AgentRunRecord | None:
+        stmt = select(AgentRunModel).where(AgentRunModel.id == run_id)
+        if api_key_hash is not None:
+            stmt = stmt.where(AgentRunModel.api_key_hash == api_key_hash)
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_agent_run(model) if model else None
+
+    async def get_agent_run_by_idempotency(
+        self,
+        session: AsyncSession,
+        *,
+        api_key_hash: str,
+        idempotency_key: str,
+    ) -> AgentRunRecord | None:
+        stmt = select(AgentRunModel).where(
+            AgentRunModel.api_key_hash == api_key_hash,
+            AgentRunModel.idempotency_key == idempotency_key,
+        )
+        result = await session.execute(stmt)
+        model = result.scalar_one_or_none()
+        return _to_agent_run(model) if model else None
+
+    async def conversation_has_agent_run_for_api_key(
+        self,
+        session: AsyncSession,
+        *,
+        conversation_id: uuid.UUID,
+        api_key_hash: str,
+    ) -> bool:
+        stmt = (
+            select(AgentRunModel.id)
+            .where(
+                AgentRunModel.conversation_id == conversation_id,
+                AgentRunModel.api_key_hash == api_key_hash,
+            )
+            .limit(1)
+        )
+        result = await session.execute(stmt)
+        return result.scalar_one_or_none() is not None
+
+    async def update_agent_run(
+        self,
+        session: AsyncSession,
+        run_id: uuid.UUID,
+        *,
+        status: str | None = None,
+        result: dict | None = None,
+        error: dict | None = None,
+    ) -> AgentRunRecord | None:
+        stmt = select(AgentRunModel).where(AgentRunModel.id == run_id)
+        query_result = await session.execute(stmt)
+        model = query_result.scalar_one_or_none()
+        if model is None:
+            return None
+        if status is not None:
+            model.status = status
+        if result is not None:
+            model.result = result
+        if error is not None:
+            model.error = error
+        model.updated_at = datetime.now(timezone.utc)
+        await session.flush()
+        await session.refresh(model)
+        await session.commit()
+        return _to_agent_run(model)
 
 
 class UserPromptRepository:

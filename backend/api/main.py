@@ -7,9 +7,16 @@ from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exception_handlers import (
+    http_exception_handler,
+    request_validation_exception_handler,
+)
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from loguru import logger
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from agent.artifacts.storage import create_storage_backend
 from agent.llm.client import AnthropicClient
@@ -42,6 +49,7 @@ from api.routes import (
     skill_files,
     skills,
     usage,
+    v1,
 )
 from config.settings import get_settings
 
@@ -182,6 +190,45 @@ def _create_app() -> FastAPI:
 
     application = FastAPI(title="Synapse", version="0.1.0", lifespan=_lifespan)
 
+    @application.exception_handler(StarletteHTTPException)
+    async def _http_exception_handler(
+        request: Request,
+        exc: StarletteHTTPException,
+    ) -> JSONResponse:
+        if request.url.path.startswith("/v1/"):
+            detail = exc.detail
+            if isinstance(detail, dict) and "error" in detail:
+                return JSONResponse(status_code=exc.status_code, content=detail)
+            return JSONResponse(
+                status_code=exc.status_code,
+                content={
+                    "error": {
+                        "code": "http_error",
+                        "message": str(detail),
+                        "details": None,
+                    }
+                },
+            )
+        return await http_exception_handler(request, exc)
+
+    @application.exception_handler(RequestValidationError)
+    async def _validation_exception_handler(
+        request: Request,
+        exc: RequestValidationError,
+    ) -> JSONResponse:
+        if request.url.path.startswith("/v1/"):
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": {
+                        "code": "validation_error",
+                        "message": "Request validation failed.",
+                        "details": exc.errors(),
+                    }
+                },
+            )
+        return await request_validation_exception_handler(request, exc)
+
     # Store AppState for dependency injection
     application.state.app_state = app_state
 
@@ -207,6 +254,7 @@ def _create_app() -> FastAPI:
     application.include_router(usage.router)
     application.include_router(memory.router)
     application.include_router(channels.router)
+    application.include_router(v1.router)
 
     return application
 

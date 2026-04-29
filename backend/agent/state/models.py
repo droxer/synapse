@@ -221,17 +221,31 @@ class SkillModel(Base):
 
 class AgentRunModel(Base):
     __tablename__ = "agent_runs"
-    __table_args__ = (Index("ix_agent_runs_conversation", "conversation_id"),)
+    __table_args__ = (
+        Index("ix_agent_runs_conversation", "conversation_id"),
+        Index(
+            "ix_agent_runs_api_idempotency",
+            "api_key_hash",
+            "idempotency_key",
+            unique=True,
+        ),
+    )
 
     id: Mapped[uuid.UUID] = mapped_column(Uuid, primary_key=True, default=uuid.uuid4)
     conversation_id: Mapped[uuid.UUID] = mapped_column(
         Uuid, ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False
     )
+    api_key_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    idempotency_key: Mapped[str | None] = mapped_column(String(128), nullable=True)
     config: Mapped[dict] = mapped_column(JSON, nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False)
     result: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, default=_utcnow
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=_utcnow, onupdate=_utcnow
     )
 
     conversation: Mapped[ConversationModel] = relationship(back_populates="agent_runs")

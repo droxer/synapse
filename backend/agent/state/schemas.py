@@ -133,6 +133,10 @@ class AgentRunRecord:
     status: str
     result: dict[str, Any] | None
     created_at: datetime
+    updated_at: datetime | None = None
+    api_key_hash: str | None = None
+    idempotency_key: str | None = None
+    error: dict[str, Any] | None = None
 
 
 @dataclass(frozen=True)

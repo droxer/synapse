@@ -22,7 +22,7 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 | Memory | `INITIAL_CONVERSATION_MEMORY_LIMIT`, `MEMORY_PROMPT_ENTRY_MAX_CHARS`, `MEMORY_PROMPT_MAX_CHARS` |
 | Compaction | Global `COMPACT_*` defaults plus optional runtime overrides such as `COMPACT_CHANNEL_TOKEN_BUDGET` and `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS`; see `config/settings.py` |
 | Agent limits | `MAX_ITERATIONS`, `MAX_AGENT_ITERATIONS`, `MAX_CONCURRENT_AGENTS`, `MAX_TOTAL_AGENTS`, `AGENT_TIMEOUT_SECONDS`, `AGENT_GLOBAL_TOKEN_BUDGET` |
-| Auth | `AUTH_REQUIRED`, `PROXY_SECRET` |
+| Auth | `AUTH_REQUIRED`, `PROXY_SECRET`, `INTEGRATION_API_KEYS` for `/v1` server-to-server bearer tokens |
 | Channels | `CHANNELS_ENABLED`, `CHANNELS_WEBHOOK_BASE_URL` |
 
 ## Runtime notes

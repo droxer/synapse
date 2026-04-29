@@ -393,6 +393,7 @@ async def _bootstrap_and_run_initial_turn(
     idempotency_key: str | None,
     user_id: uuid.UUID | None = None,
     turn_locale: str | None = None,
+    extra_turn_metadata: dict[str, Any] | None = None,
 ) -> str:
     bootstrap_started_at = time.perf_counter()
     conv_uuid = uuid.UUID(conversation_id)
@@ -460,6 +461,7 @@ async def _bootstrap_and_run_initial_turn(
             "execution_rationale": execution_rationale,
             "explicit_planner": explicit_planner is True,
             **({"locale": turn_locale} if turn_locale else {}),
+            **(extra_turn_metadata or {}),
         }
 
         result = await _run_turn(

@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     MINIMAX_API_KEY: str = ""
     MINIMAX_API_HOST: str = "https://api.minimaxi.com"  # or https://api.minimax.io
     API_KEY: str = ""  # Optional API key for authentication; empty = allow all
+    INTEGRATION_API_KEYS: str = (
+        ""  # Comma-separated bearer tokens for /v1 integration API
+    )
     STORAGE_PROVIDER: str = "local"  # "local" or "r2"
     STORAGE_DIR: str = "./artifacts"  # Local storage directory
     # Cloudflare R2 (required when STORAGE_PROVIDER=r2)
