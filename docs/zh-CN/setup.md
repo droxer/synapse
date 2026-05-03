@@ -98,10 +98,12 @@ Synapse 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。设置 `ANTH
 你还可以自定义不同任务使用的模型：
 
 ```bash
-PLANNING_MODEL=claude-sonnet-4-20250514    # 任务规划模型
-TASK_MODEL=claude-sonnet-4-20250514        # 任务执行模型
+PLANNING_MODEL=claude-sonnet-4-6           # 任务规划模型
+TASK_MODEL=claude-sonnet-4-6               # 任务执行模型
 LITE_MODEL=claude-haiku-4-5-20251001       # 简单子任务模型
 ```
+
+模型 ID 与提供者相关，必须匹配 `ANTHROPIC_BASE_URL`。默认值应使用仍处于活跃状态的稳定模型 ID，避免使用已弃用模型。
 
 ### API 密钥
 

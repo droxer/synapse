@@ -19,6 +19,7 @@ from agent.llm.client import (
     PromptTextBlock,
     render_system_prompt,
 )
+from agent.mcp.bridge import mcp_server_tag
 from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from agent.llm.image import MiniMaxImageClient
 from agent.runtime.orchestrator import AgentOrchestrator
@@ -189,6 +190,45 @@ def _register_web_search_provider(
     )
 
 
+def _visible_mcp_server_keys(
+    mcp_state: MCPState,
+    user_id: Any | None,
+) -> set[str]:
+    """Return MCP server keys visible to the current conversation."""
+    return set(mcp_state.configs_for_user(user_id))
+
+
+def _mcp_registry_for_user(
+    mcp_state: MCPState,
+    user_id: Any | None,
+) -> ToolRegistry | None:
+    """Return only bridged MCP tools visible to the current conversation."""
+    if mcp_state.registry is None:
+        return None
+
+    server_tags = {
+        mcp_server_tag(server_key)
+        for server_key in _visible_mcp_server_keys(mcp_state, user_id)
+    }
+    return mcp_state.registry.filter_by_names_or_tags(set(), server_tags)
+
+
+def _register_visible_mcp_tools(
+    registry: ToolRegistry,
+    mcp_state: MCPState,
+    user_id: Any | None,
+) -> ToolRegistry:
+    """Register MCP bridged and helper tools scoped to the current user."""
+    visible_mcp_registry = _mcp_registry_for_user(mcp_state, user_id)
+    if visible_mcp_registry is not None:
+        registry = registry.merge(visible_mcp_registry)
+    registry = registry.register(MCPListResources(mcp_state, user_id=user_id))
+    registry = registry.register(MCPReadResource(mcp_state, user_id=user_id))
+    registry = registry.register(MCPListPrompts(mcp_state, user_id=user_id))
+    registry = registry.register(MCPGetPrompt(mcp_state, user_id=user_id))
+    return registry
+
+
 def _build_base_registry(
     event_emitter: EventEmitter,
     on_complete: Any,
@@ -198,6 +238,7 @@ def _build_base_registry(
     artifact_manager: ArtifactManager | None = None,
     persistent_store: PersistentMemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
+    mcp_user_id: Any | None = None,
 ) -> ToolRegistry:
     """Build the shared tool registry with all standard tools registered."""
     settings = get_settings()
@@ -308,13 +349,7 @@ def _build_base_registry(
     registry = registry.register(PreviewStart())
     registry = registry.register(PreviewStop())
 
-    # Merge MCP tools if available
-    if mcp_state.registry is not None:
-        registry = registry.merge(mcp_state.registry)
-    registry = registry.register(MCPListResources(mcp_state))
-    registry = registry.register(MCPReadResource(mcp_state))
-    registry = registry.register(MCPListPrompts(mcp_state))
-    registry = registry.register(MCPGetPrompt(mcp_state))
+    registry = _register_visible_mcp_tools(registry, mcp_state, mcp_user_id)
 
     # Register activate_skill tool if skills are enabled
     if skill_registry is not None and settings.SKILLS_ENABLED:
@@ -330,6 +365,7 @@ def _build_planner_registry(
     persistent_store: PersistentMemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
     artifact_manager: ArtifactManager | None = None,
+    mcp_user_id: Any | None = None,
 ) -> ToolRegistry:
     """Build the planner-only registry without sandbox execution tools."""
     settings = get_settings()
@@ -366,10 +402,7 @@ def _build_planner_registry(
     registry = registry.register(
         MemoryList(store=memory, persistent_store=persistent_store)
     )
-    registry = registry.register(MCPListResources(mcp_state))
-    registry = registry.register(MCPReadResource(mcp_state))
-    registry = registry.register(MCPListPrompts(mcp_state))
-    registry = registry.register(MCPGetPrompt(mcp_state))
+    registry = _register_visible_mcp_tools(registry, mcp_state, mcp_user_id)
 
     if skill_registry is not None and settings.SKILLS_ENABLED:
         registry = registry.register(ActivateSkill(skill_registry=skill_registry))
@@ -383,6 +416,7 @@ def _build_sub_agent_registry_factory(
     mcp_state: MCPState,
     persistent_store: PersistentMemoryStore | None = None,
     skill_registry: SkillRegistry | None = None,
+    mcp_user_id: Any | None = None,
 ) -> Callable[[], ToolRegistry]:
     """Factory that produces fully-populated registries for sub-agents (C1 fix)."""
 
@@ -469,13 +503,7 @@ def _build_sub_agent_registry_factory(
         registry = registry.register(PreviewStart())
         registry = registry.register(PreviewStop())
 
-        # Merge MCP tools if available
-        if mcp_state.registry is not None:
-            registry = registry.merge(mcp_state.registry)
-        registry = registry.register(MCPListResources(mcp_state))
-        registry = registry.register(MCPReadResource(mcp_state))
-        registry = registry.register(MCPListPrompts(mcp_state))
-        registry = registry.register(MCPGetPrompt(mcp_state))
+        registry = _register_visible_mcp_tools(registry, mcp_state, mcp_user_id)
 
         if skill_registry is not None and settings.SKILLS_ENABLED:
             registry = registry.register(ActivateSkill(skill_registry=skill_registry))
@@ -605,6 +633,7 @@ def _build_orchestrator(
     conversation_id: str | None = None,
     compaction_runtime: CompactionRuntimeKind = "web_conversation",
     compaction_profile: CompactionProfile | None = None,
+    mcp_user_id: Any | None = None,
 ) -> tuple[AgentOrchestrator, ToolExecutor]:
     """Build an AgentOrchestrator using a callback holder to avoid two-phase construction."""
     settings = get_settings()
@@ -625,6 +654,7 @@ def _build_orchestrator(
         artifact_manager,
         persistent_store,
         skill_registry,
+        mcp_user_id,
     )
     executor = ToolExecutor(
         registry=registry,
@@ -669,6 +699,7 @@ def _build_planner_orchestrator(
     initial_messages: tuple[dict[str, Any], ...] = (),
     compaction_runtime: CompactionRuntimeKind = "planner",
     compaction_profile: CompactionProfile | None = None,
+    mcp_user_id: Any | None = None,
 ) -> tuple[PlannerOrchestrator, ToolExecutor]:
     """Build a PlannerOrchestrator with properly wired sub-agent registries."""
     settings = get_settings()
@@ -688,6 +719,7 @@ def _build_planner_orchestrator(
             resolved_mcp_state,
             persistent_store,
             skill_registry if settings.SKILLS_ENABLED else None,
+            mcp_user_id,
         ),
         tool_executor_factory=lambda reg: ToolExecutor(
             registry=reg,
@@ -712,6 +744,7 @@ def _build_planner_orchestrator(
         persistent_store,
         skill_registry,
         artifact_manager,
+        mcp_user_id,
     )
     executor = ToolExecutor(
         registry=planner_registry,

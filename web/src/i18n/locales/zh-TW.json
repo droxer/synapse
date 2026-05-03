@@ -160,6 +160,14 @@
   "computer.desktopAction": "桌面：{action}",
   "computer.takingScreenshot": "正在截取桌面截圖",
 
+  "preview.tab": "預覽",
+  "preview.title": "沙盒預覽",
+  "preview.frameTitle": "互動式沙盒預覽",
+  "preview.reload": "重新載入預覽",
+  "preview.open": "在新分頁開啟預覽",
+  "preview.inactive": "沒有活動中的預覽。",
+  "preview.noUrl": "預覽已啟動，但未提供 URL。",
+
   "artifacts.noFiles": "尚未產生檔案",
   "artifacts.fileCount": "已產生 {count} 個檔案",
   "artifacts.filesCount": "已產生 {count} 個檔案",

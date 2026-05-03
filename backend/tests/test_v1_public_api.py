@@ -81,7 +81,7 @@ def test_openapi_exposes_v1_agent_run_schema() -> None:
 async def test_v1_auth_requires_configured_api_key(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    monkeypatch.setenv("INTEGRATION_API_KEYS", "secret-one,secret-two")
+    monkeypatch.setenv("API_KEYS", "secret-one,secret-two")
     get_settings.cache_clear()
 
     auth = await v1.require_integration_api_key("Bearer secret-two")
@@ -158,7 +158,11 @@ async def test_create_agent_run_reuses_persisted_idempotency_key(
 def test_public_event_payload_maps_internal_events() -> None:
     payload = v1._public_event_payload(
         event_type="tool_call",
-        data={"tool_name": "web_search", "tool_call_id": "call_1"},
+        data={
+            "tool_name": "web_search",
+            "tool_id": "call_1",
+            "tool_input": {"query": "docs"},
+        },
         timestamp=123.0,
         iteration=2,
         run_id="run_1",
@@ -169,10 +173,72 @@ def test_public_event_payload_maps_internal_events() -> None:
         "event_type": "tool.started",
         "run_id": "run_1",
         "conversation_id": "conv_1",
-        "data": {"tool_name": "web_search", "tool_call_id": "call_1"},
+        "data": {
+            "tool_name": "web_search",
+            "tool_call_id": "call_1",
+            "tool_input": {"query": "docs"},
+            "category": "tool",
+        },
         "timestamp": 123.0,
         "iteration": 2,
     }
+
+
+def test_public_event_payload_maps_reasoning_skills_and_mcp_tools() -> None:
+    reasoning = v1._public_event_payload(
+        event_type="thinking",
+        data={"thinking": "Inspect the code."},
+        timestamp=123.0,
+        iteration=1,
+        run_id="run_1",
+        conversation_id="conv_1",
+    )
+    skill = v1._public_event_payload(
+        event_type="skill_activated",
+        data={"name": "frontend-design", "source": "auto"},
+        timestamp=124.0,
+        iteration=1,
+        run_id="run_1",
+        conversation_id="conv_1",
+    )
+    mcp_tool = v1._public_event_payload(
+        event_type="tool_call",
+        data={
+            "tool_name": "docs__lookup",
+            "tool_id": "tool_1",
+            "tool_input": {"query": "api"},
+        },
+        timestamp=125.0,
+        iteration=1,
+        run_id="run_1",
+        conversation_id="conv_1",
+    )
+    mcp_tool_completed = v1._public_event_payload(
+        event_type="tool_result",
+        data={
+            "tool_name": "docs__lookup",
+            "tool_id": "tool_1",
+            "success": True,
+            "result": "ok",
+        },
+        timestamp=126.0,
+        iteration=1,
+        run_id="run_1",
+        conversation_id="conv_1",
+    )
+
+    assert reasoning is not None
+    assert reasoning["event_type"] == "reasoning"
+    assert reasoning["data"]["text"] == "Inspect the code."
+    assert skill is not None
+    assert skill["event_type"] == "skill.activated"
+    assert skill["data"]["name"] == "frontend-design"
+    assert mcp_tool is not None
+    assert mcp_tool["event_type"] == "tool.started"
+    assert mcp_tool["data"]["category"] == "mcp"
+    assert mcp_tool_completed is not None
+    assert mcp_tool_completed["event_type"] == "tool.completed"
+    assert mcp_tool_completed["data"]["category"] == "mcp"
 
 
 @pytest.mark.asyncio
@@ -784,3 +850,144 @@ async def test_v1_input_required_event_and_response_endpoint(
     assert emitted[-1].type == EventType.USER_RESPONSE
     assert "req_1" not in state.conversations[str(convo.id)].pending_callbacks
     await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_agent_run_rejects_other_api_key(tmp_path) -> None:
+    state, engine, session_factory = await _make_state(tmp_path)
+    repo = state.db_repo
+    api_hash = v1._hash_api_key("secret")
+    async with session_factory() as session:
+        convo = await repo.create_conversation(session, title="test")
+    async with session_factory() as session:
+        run = await repo.create_agent_run(
+            session,
+            conversation_id=convo.id,
+            api_key_hash=api_hash,
+            status="running",
+            config={},
+        )
+
+    async with session_factory() as session:
+        with pytest.raises(HTTPException) as exc_info:
+            await v1.cancel_agent_run(
+                str(run.id),
+                session=session,
+                state=state,
+                auth=v1.IntegrationAuth(api_key_hash=v1._hash_api_key("other")),
+            )
+
+    assert exc_info.value.status_code == 404
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_agent_run_noops_for_terminal_run(tmp_path) -> None:
+    state, engine, session_factory = await _make_state(tmp_path)
+    repo = state.db_repo
+    api_hash = v1._hash_api_key("secret")
+    async with session_factory() as session:
+        convo = await repo.create_conversation(session, title="test")
+    async with session_factory() as session:
+        run = await repo.create_agent_run(
+            session,
+            conversation_id=convo.id,
+            api_key_hash=api_hash,
+            status="completed",
+            config={},
+        )
+        await repo.update_agent_run(session, run.id, result={"message": "done"})
+
+    async with session_factory() as session:
+        response = await v1.cancel_agent_run(
+            str(run.id),
+            session=session,
+            state=state,
+            auth=v1.IntegrationAuth(api_key_hash=api_hash),
+        )
+
+    assert response == {"status": "already_terminal"}
+    async with session_factory() as session:
+        fresh = await repo.get_agent_run(session, run.id)
+    assert fresh is not None
+    assert fresh.status == "completed"
+    await engine.dispose()
+
+
+@pytest.mark.asyncio
+async def test_cancel_agent_run_signals_active_turn_and_marks_cancelled(
+    tmp_path,
+) -> None:
+    state, engine, session_factory = await _make_state(tmp_path)
+    repo = state.db_repo
+    api_hash = v1._hash_api_key("secret")
+    async with session_factory() as session:
+        convo = await repo.create_conversation(session, title="test")
+    async with session_factory() as session:
+        run = await repo.create_agent_run(
+            session,
+            conversation_id=convo.id,
+            api_key_hash=api_hash,
+            status="running",
+            config={},
+        )
+
+    turn_task = asyncio.create_task(asyncio.sleep(10))
+
+    class CancellableOrchestrator:
+        cancelled = False
+
+        def cancel(self) -> None:
+            self.cancelled = True
+            turn_task.cancel()
+
+    orchestrator = CancellableOrchestrator()
+    state.conversations[str(convo.id)] = ConversationEntry(
+        emitter=EventEmitter(conversation_id=str(convo.id)),
+        event_queue=asyncio.Queue(),
+        orchestrator=orchestrator,
+        executor=object(),
+        pending_callbacks={},
+        orchestrator_mode=ORCHESTRATOR_AGENT,
+    )
+    state.conversations[str(convo.id)].turn_task = turn_task
+
+    async with session_factory() as session:
+        response = await v1.cancel_agent_run(
+            str(run.id),
+            session=session,
+            state=state,
+            auth=v1.IntegrationAuth(api_key_hash=api_hash),
+        )
+
+    assert response == {"status": "cancelling"}
+    assert orchestrator.cancelled is True
+    with contextlib.suppress(asyncio.CancelledError):
+        await turn_task
+
+    for _ in range(20):
+        async with session_factory() as session:
+            fresh = await repo.get_agent_run(session, run.id)
+        if fresh is not None and fresh.status == "cancelled":
+            break
+        await asyncio.sleep(0.01)
+
+    assert fresh is not None
+    assert fresh.status == "cancelled"
+    assert fresh.error == {"code": "cancelled", "message": "Run was cancelled."}
+    await engine.dispose()
+
+
+def test_public_event_payload_maps_turn_cancelled_to_cancelled_run() -> None:
+    payload = v1._public_event_payload(
+        event_type="turn_cancelled",
+        data={"result": "Turn was cancelled."},
+        timestamp=123.0,
+        iteration=None,
+        run_id="run_1",
+        conversation_id="conv_1",
+    )
+
+    assert payload is not None
+    assert payload["event_type"] == "run.cancelled"
+    assert payload["data"]["error"]["code"] == "cancelled"

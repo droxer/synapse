@@ -10,11 +10,39 @@ from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolRe
 from api.models import MCPState
 
 
-def _resolve_client(mcp_state: MCPState, server: str) -> tuple[str, MCPClient] | None:
-    client = mcp_state.clients.get(server)
+def _visible_client_items(
+    mcp_state: MCPState,
+    user_id: Any | None,
+) -> list[tuple[str, MCPClient]]:
+    visible_keys = set(mcp_state.configs_for_user(user_id))
+    return [
+        (key, client)
+        for key, client in mcp_state.clients.items()
+        if key in visible_keys
+    ]
+
+
+def _resolve_client(
+    mcp_state: MCPState,
+    server: str,
+    user_id: Any | None,
+) -> tuple[str, MCPClient] | None:
+    visible_clients = dict(_visible_client_items(mcp_state, user_id))
+
+    if ":" in server and server in visible_clients:
+        return server, visible_clients[server]
+
+    if user_id is not None:
+        user_server_key = mcp_state.user_key(user_id, server)
+        client = visible_clients.get(user_server_key)
+        if client is not None:
+            return user_server_key, client
+
+    client = visible_clients.get(server)
     if client is not None:
         return server, client
-    for key, existing in mcp_state.clients.items():
+
+    for key, existing in visible_clients.items():
         if key.split(":", 1)[-1] == server:
             return key, existing
     return None
@@ -23,8 +51,9 @@ def _resolve_client(mcp_state: MCPState, server: str) -> tuple[str, MCPClient] |
 class MCPListResources(LocalTool):
     """List resources available on one or more MCP servers."""
 
-    def __init__(self, mcp_state: MCPState) -> None:
+    def __init__(self, mcp_state: MCPState, user_id: Any | None = None) -> None:
         self._mcp_state = mcp_state
+        self._user_id = user_id
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -48,12 +77,12 @@ class MCPListResources(LocalTool):
     async def execute(self, **kwargs: Any) -> ToolResult:
         server = str(kwargs.get("server", "")).strip()
         if server:
-            resolved = _resolve_client(self._mcp_state, server)
+            resolved = _resolve_client(self._mcp_state, server, self._user_id)
             if resolved is None:
                 return ToolResult.fail(f"Unknown MCP server: {server}")
             targets = [resolved]
         else:
-            targets = list(self._mcp_state.clients.items())
+            targets = _visible_client_items(self._mcp_state, self._user_id)
 
         resources: list[dict[str, Any]] = []
         templates: list[dict[str, Any]] = []
@@ -91,8 +120,9 @@ class MCPListResources(LocalTool):
 class MCPReadResource(LocalTool):
     """Read a specific MCP resource."""
 
-    def __init__(self, mcp_state: MCPState) -> None:
+    def __init__(self, mcp_state: MCPState, user_id: Any | None = None) -> None:
         self._mcp_state = mcp_state
+        self._user_id = user_id
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -117,7 +147,7 @@ class MCPReadResource(LocalTool):
         uri = str(kwargs.get("uri", "")).strip()
         if not server or not uri:
             return ToolResult.fail("server and uri must not be empty")
-        resolved = _resolve_client(self._mcp_state, server)
+        resolved = _resolve_client(self._mcp_state, server, self._user_id)
         if resolved is None:
             return ToolResult.fail(f"Unknown MCP server: {server}")
         server_key, client = resolved
@@ -131,8 +161,9 @@ class MCPReadResource(LocalTool):
 class MCPListPrompts(LocalTool):
     """List prompts available on one or more MCP servers."""
 
-    def __init__(self, mcp_state: MCPState) -> None:
+    def __init__(self, mcp_state: MCPState, user_id: Any | None = None) -> None:
         self._mcp_state = mcp_state
+        self._user_id = user_id
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -156,12 +187,12 @@ class MCPListPrompts(LocalTool):
     async def execute(self, **kwargs: Any) -> ToolResult:
         server = str(kwargs.get("server", "")).strip()
         if server:
-            resolved = _resolve_client(self._mcp_state, server)
+            resolved = _resolve_client(self._mcp_state, server, self._user_id)
             if resolved is None:
                 return ToolResult.fail(f"Unknown MCP server: {server}")
             targets = [resolved]
         else:
-            targets = list(self._mcp_state.clients.items())
+            targets = _visible_client_items(self._mcp_state, self._user_id)
 
         prompts: list[dict[str, Any]] = []
         for server_key, client in targets:
@@ -194,8 +225,9 @@ class MCPListPrompts(LocalTool):
 class MCPGetPrompt(LocalTool):
     """Retrieve a specific MCP prompt."""
 
-    def __init__(self, mcp_state: MCPState) -> None:
+    def __init__(self, mcp_state: MCPState, user_id: Any | None = None) -> None:
         self._mcp_state = mcp_state
+        self._user_id = user_id
 
     def definition(self) -> ToolDefinition:
         return ToolDefinition(
@@ -225,7 +257,7 @@ class MCPGetPrompt(LocalTool):
         arguments = kwargs.get("arguments", {})
         if not server or not name:
             return ToolResult.fail("server and name must not be empty")
-        resolved = _resolve_client(self._mcp_state, server)
+        resolved = _resolve_client(self._mcp_state, server, self._user_id)
         if resolved is None:
             return ToolResult.fail(f"Unknown MCP server: {server}")
         server_key, client = resolved

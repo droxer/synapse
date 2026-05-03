@@ -146,6 +146,7 @@ class AgentOrchestrator:
         ) = None
         self._processed_skill_activation_tool_ids: set[str] = set()
         self._current_turn_start_index = len(initial_messages)
+        self._current_turn_base_messages = initial_messages
 
     async def on_task_complete(self, summary: str) -> None:
         """Callback for the task_complete tool."""
@@ -174,6 +175,16 @@ class AgentOrchestrator:
             completed=False,
             error=None,
         )
+
+    def _current_turn_messages_for_cancel(self) -> tuple[dict[str, Any], ...]:
+        """Return the current-turn suffix only when history was not compacted."""
+        base_messages = self._current_turn_base_messages
+        if (
+            len(self._state.messages) >= len(base_messages)
+            and self._state.messages[: len(base_messages)] == base_messages
+        ):
+            return self._state.messages[len(base_messages) :]
+        return ()
 
     def _requested_skill_name_from_tool_call(
         self, tool_call_name: str, tool_input: dict[str, Any]
@@ -367,6 +378,7 @@ class AgentOrchestrator:
         self._pending_mid_turn_update = None
         self._processed_skill_activation_tool_ids = set()
         self._current_turn_start_index = len(self._state.messages)
+        self._current_turn_base_messages = self._state.messages
 
         # Append user message to existing state (preserves conversation history)
         self._task_complete_summary = None
@@ -519,9 +531,7 @@ class AgentOrchestrator:
 
         if self._cancel_event.is_set():
             self._cancel_event.clear()
-            current_turn_messages = self._state.messages[
-                self._current_turn_start_index :
-            ]
+            current_turn_messages = self._current_turn_messages_for_cancel()
             final_text = extract_final_text_from_messages(current_turn_messages)
             await self._emitter.emit(
                 EventType.TURN_CANCELLED,
@@ -530,7 +540,7 @@ class AgentOrchestrator:
             # Reset so the orchestrator can accept new turns
             self._state = replace(
                 self._state,
-                messages=self._state.messages[: self._current_turn_start_index],
+                messages=self._current_turn_base_messages,
                 completed=False,
                 error=None,
             )
@@ -602,6 +612,9 @@ class AgentOrchestrator:
                 break
 
         if not activated_name:
+            return None
+
+        if tool_id is not None and tool_id in self._processed_skill_activation_tool_ids:
             return None
 
         if tool_id is not None and tool_use_had_error_result(

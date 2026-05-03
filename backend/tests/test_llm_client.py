@@ -147,4 +147,4 @@ def test_anthropic_client_uses_httpx_client_without_env_proxies(monkeypatch) -> 
     client = AnthropicClient(api_key="test-key")
 
     assert "http_client" not in captured
-    assert client.default_model == "claude-sonnet-4-20250514"
+    assert client.default_model == "claude-sonnet-4-6"

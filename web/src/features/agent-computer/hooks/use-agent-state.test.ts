@@ -3,6 +3,56 @@ import { deriveAgentState, stabilizeDerivedAgentState } from "./use-agent-state"
 import type { AgentEvent } from "../../../shared/types";
 
 describe("deriveAgentState", () => {
+  it("tracks the latest active sandbox preview session", () => {
+    const state = deriveAgentState([
+      {
+        type: "preview_available",
+        data: {
+          url: "/api/conversations/c1/preview/",
+          port: 3001,
+          directory: "/workspace/app",
+        },
+        timestamp: 1,
+        iteration: 1,
+      },
+    ]);
+
+    expect(state.previewSession).toEqual({
+      url: "/api/conversations/c1/preview/",
+      port: 3001,
+      directory: "/workspace/app",
+      active: true,
+    });
+  });
+
+  it("marks sandbox preview inactive when preview stops", () => {
+    const state = deriveAgentState([
+      {
+        type: "preview_available",
+        data: {
+          url: "/api/conversations/c1/preview/",
+          port: 3001,
+          directory: "/workspace/app",
+        },
+        timestamp: 1,
+        iteration: 1,
+      },
+      {
+        type: "preview_stopped",
+        data: { port: 3001 },
+        timestamp: 2,
+        iteration: 1,
+      },
+    ]);
+
+    expect(state.previewSession).toEqual({
+      url: "/api/conversations/c1/preview/",
+      port: 3001,
+      directory: "/workspace/app",
+      active: false,
+    });
+  });
+
   it("strips inline redacted_thinking blocks from llm_response text into thinkingContent", () => {
     const events: AgentEvent[] = [
       {

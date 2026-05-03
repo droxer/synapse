@@ -9,6 +9,7 @@ export type {
   ToolCallInfo,
   BrowserMetadata,
   ComputerUseMetadata,
+  PreviewSession,
   ArtifactInfo,
   AgentStatusState,
   AgentStatus,

@@ -18,6 +18,7 @@ from agent.mcp.client import (
     MCPResourceTemplateSchema,
     _extract_text_content,
 )
+from agent.mcp.config import MCPServerConfig
 from agent.mcp.sse_client import MCPSSEClient
 from agent.tools.local.mcp_resources import (
     MCPGetPrompt,
@@ -28,6 +29,9 @@ from agent.tools.local.mcp_resources import (
 
 
 class _FakeResourceClient:
+    def __init__(self, label: str = "") -> None:
+        self._label = label
+
     async def connect(self) -> None:
         return None
 
@@ -57,8 +61,9 @@ class _FakeResourceClient:
         )
 
     async def read_resource(self, uri: str) -> MCPResourceReadResult:
+        prefix = f"{self._label}:" if self._label else ""
         return MCPResourceReadResult(
-            content=f"read:{uri}",
+            content=f"{prefix}read:{uri}",
             mime_type="text/plain",
         )
 
@@ -83,7 +88,8 @@ class _FakeResourceClient:
         name: str,
         arguments: dict[str, Any] | None = None,
     ) -> MCPPromptResult:
-        return MCPPromptResult(content=f"prompt:{name}:{arguments or {}}")
+        prefix = f"{self._label}:" if self._label else ""
+        return MCPPromptResult(content=f"{prefix}prompt:{name}:{arguments or {}}")
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> Any:
         raise AssertionError(f"Unexpected MCP tool call: {name} {arguments}")
@@ -200,15 +206,28 @@ async def test_http_client_supports_resources_and_prompts() -> None:
 
 @pytest.mark.asyncio
 async def test_mcp_resource_tools_resolve_namespaced_servers() -> None:
-    state = MCPState(clients={"user-1:docs": _FakeResourceClient()})
+    state = MCPState(
+        clients={"user-1:docs": _FakeResourceClient()},
+        configs={
+            "user-1:docs": MCPServerConfig(
+                name="docs",
+                transport="streamablehttp",
+                url="https://example.com/user-1-docs",
+            )
+        },
+    )
 
-    resources_result = await MCPListResources(state).execute(server="docs")
-    read_result = await MCPReadResource(state).execute(
+    resources_result = await MCPListResources(state, user_id="user-1").execute(
+        server="docs"
+    )
+    read_result = await MCPReadResource(state, user_id="user-1").execute(
         server="docs",
         uri="file://guide.txt",
     )
-    prompts_result = await MCPListPrompts(state).execute(server="docs")
-    prompt_result = await MCPGetPrompt(state).execute(
+    prompts_result = await MCPListPrompts(state, user_id="user-1").execute(
+        server="docs"
+    )
+    prompt_result = await MCPGetPrompt(state, user_id="user-1").execute(
         server="docs",
         name="summary",
         arguments={"topic": "roadmap"},
@@ -270,3 +289,87 @@ async def test_mcp_resource_tools_resolve_namespaced_servers() -> None:
         "server": "user-1:docs",
         "name": "summary",
     }
+
+
+@pytest.mark.asyncio
+async def test_mcp_resource_tools_scope_visible_clients_and_prefer_current_user() -> (
+    None
+):
+    state = MCPState(
+        clients={
+            "docs": _FakeResourceClient("global"),
+            "user-1:docs": _FakeResourceClient("user-1"),
+            "user-2:docs": _FakeResourceClient("user-2"),
+        },
+        configs={
+            "docs": MCPServerConfig(
+                name="docs",
+                transport="streamablehttp",
+                url="https://example.com/global-docs",
+            ),
+            "user-1:docs": MCPServerConfig(
+                name="docs",
+                transport="streamablehttp",
+                url="https://example.com/user-1-docs",
+            ),
+            "user-2:docs": MCPServerConfig(
+                name="docs",
+                transport="streamablehttp",
+                url="https://example.com/user-2-docs",
+            ),
+        },
+    )
+
+    resources_result = await MCPListResources(state, user_id="user-1").execute()
+    resources_payload = json.loads(resources_result.output)
+    visible_servers = {
+        resource["server"] for resource in resources_payload["resources"]
+    }
+    read_result = await MCPReadResource(state, user_id="user-1").execute(
+        server="docs",
+        uri="file://guide.txt",
+    )
+    prompts_result = await MCPListPrompts(state, user_id="user-1").execute()
+    prompts_payload = json.loads(prompts_result.output)
+    visible_prompt_servers = {prompt["server"] for prompt in prompts_payload["prompts"]}
+    prompt_result = await MCPGetPrompt(state, user_id="user-1").execute(
+        server="docs",
+        name="summary",
+    )
+    peer_result = await MCPReadResource(state, user_id="user-1").execute(
+        server="user-2:docs",
+        uri="file://guide.txt",
+    )
+    peer_prompt_result = await MCPGetPrompt(state, user_id="user-1").execute(
+        server="user-2:docs",
+        name="summary",
+    )
+    anonymous_result = await MCPReadResource(state).execute(
+        server="user-1:docs",
+        uri="file://guide.txt",
+    )
+    anonymous_prompt_result = await MCPGetPrompt(state).execute(
+        server="user-1:docs",
+        name="summary",
+    )
+
+    assert resources_result.success
+    assert visible_servers == {"docs", "user-1:docs"}
+    assert read_result.success
+    assert read_result.output == "user-1:read:file://guide.txt"
+    assert prompts_result.success
+    assert visible_prompt_servers == {"docs", "user-1:docs"}
+    assert prompt_result.success
+    assert prompt_result.output == "user-1:prompt:summary:{}"
+    assert not peer_result.success
+    assert peer_result.error is not None
+    assert "Unknown MCP server" in peer_result.error
+    assert not peer_prompt_result.success
+    assert peer_prompt_result.error is not None
+    assert "Unknown MCP server" in peer_prompt_result.error
+    assert not anonymous_result.success
+    assert anonymous_result.error is not None
+    assert "Unknown MCP server" in anonymous_result.error
+    assert not anonymous_prompt_result.success
+    assert anonymous_prompt_result.error is not None
+    assert "Unknown MCP server" in anonymous_prompt_result.error

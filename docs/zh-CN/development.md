@@ -45,7 +45,7 @@ make evals EVAL_ARGS="--backend live"                   # 使用真实 Claude AP
 make evals EVAL_ARGS="--case web_search_basic"          # 按 id 运行单个用例
 make evals EVAL_ARGS="--tags agent"                     # 按标签过滤（agent、skill、handoff 等）
 make evals EVAL_ARGS="--output report.json"             # 输出 JSON 报告
-make evals EVAL_ARGS="--judge-model claude-sonnet-4-20250514"  # 自定义 LLM 评判模型
+make evals EVAL_ARGS="--judge-model claude-sonnet-4-6"  # 自定义 LLM 评判模型
 ```
 
 或通过 uv 直接运行：
@@ -513,8 +513,8 @@ Synapse 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。通过 `ANTH
 | 变量 | 默认值 | 描述 |
 |------|--------|------|
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | LLM API 基础地址 — 修改此项以使用其他提供者（如 OpenRouter、Bedrock 或任何 Anthropic 兼容代理） |
-| `PLANNING_MODEL` | `claude-sonnet-4-20250514` | 用于任务规划的模型 |
-| `TASK_MODEL` | `claude-sonnet-4-20250514` | 用于任务执行的模型 |
+| `PLANNING_MODEL` | `claude-sonnet-4-6` | 用于任务规划的模型 |
+| `TASK_MODEL` | `claude-sonnet-4-6` | 用于任务执行的模型 |
 | `LITE_MODEL` | `claude-haiku-4-5-20251001` | 用于简单子任务的模型 |
 | `THINKING_BUDGET` | `10000` | 扩展思考的 token 预算（`0` = 禁用） |
 | `COMPACT_TOKEN_BUDGET` | `150000` | 触发上下文压缩的估算 token 阈值 |
@@ -524,6 +524,10 @@ Synapse 支持任何提供 Anthropic 兼容 API 的 LLM 提供者。通过 `ANTH
 | `COMPACT_FALLBACK_RESULT_CHARS` | `1000` | 分层压缩降级中结果预览的字符上限 |
 | `COMPACT_SUMMARY_MODEL` | （使用 `LITE_MODEL`） | 暖层摘要使用的模型 |
 | `SKILL_SELECTOR_MODEL` | （使用 `LITE_MODEL`） | LLM 驱动技能选择（第 2 层）使用的模型 |
+| `COMPLEXITY_CLASSIFIER_MODEL` | （使用 `LITE_MODEL`） | 任务复杂度分类使用的模型 |
+| `EXECUTION_ROUTER_MODEL` | （使用 `COMPLEXITY_CLASSIFIER_MODEL` 或 `LITE_MODEL`） | 执行形态路由使用的模型 |
+
+模型 ID 与提供者相关，必须匹配 `ANTHROPIC_BASE_URL`。默认值应使用仍处于活跃状态的稳定模型 ID，避免使用已弃用模型。
 
 ### 可选
 

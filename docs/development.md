@@ -45,7 +45,7 @@ make evals EVAL_ARGS="--backend live"                   # Run against real Claud
 make evals EVAL_ARGS="--case web_search_basic"          # Run single case by id
 make evals EVAL_ARGS="--tags agent"                     # Filter by tags (agent, skill, handoff, etc.)
 make evals EVAL_ARGS="--output report.json"             # Write JSON report
-make evals EVAL_ARGS="--judge-model claude-sonnet-4-20250514"  # Custom LLM judge model
+make evals EVAL_ARGS="--judge-model claude-sonnet-4-6"  # Custom LLM judge model
 ```
 
 Or run directly via uv:
@@ -519,8 +519,8 @@ Synapse works with any LLM provider that exposes an Anthropic-compatible API. Co
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `ANTHROPIC_BASE_URL` | `https://api.anthropic.com` | LLM API base URL — change to use alternative providers (e.g. OpenRouter, Bedrock, or any Anthropic-compatible proxy) |
-| `PLANNING_MODEL` | `claude-sonnet-4-20250514` | Model for task planning |
-| `TASK_MODEL` | `claude-sonnet-4-20250514` | Model for task execution |
+| `PLANNING_MODEL` | `claude-sonnet-4-6` | Model for task planning |
+| `TASK_MODEL` | `claude-sonnet-4-6` | Model for task execution |
 | `LITE_MODEL` | `claude-haiku-4-5-20251001` | Model for simple sub-tasks |
 | `THINKING_BUDGET` | `10000` | Extended thinking token budget (`0` = disabled) |
 | `COMPACT_TOKEN_BUDGET` | `150000` | Estimated token threshold to trigger context compaction |
@@ -531,6 +531,10 @@ Synapse works with any LLM provider that exposes an Anthropic-compatible API. Co
 | `COMPACT_SUMMARY_MODEL` | (uses `LITE_MODEL`) | Model for warm-tier summarisation of older interactions |
 | `COMPACT_<PROFILE>_*` | — | Optional runtime-specific compaction overrides for `WEB`, `CHANNEL`, `PLANNER`, `TASK_AGENT`; unset values inherit the global `COMPACT_*` defaults |
 | `SKILL_SELECTOR_MODEL` | (uses `LITE_MODEL`) | Model for LLM-driven skill selection (tier 2 of 3) |
+| `COMPLEXITY_CLASSIFIER_MODEL` | (uses `LITE_MODEL`) | Model for task complexity classification |
+| `EXECUTION_ROUTER_MODEL` | (uses `COMPLEXITY_CLASSIFIER_MODEL` or `LITE_MODEL`) | Model for execution-shape routing |
+
+Model IDs are provider-specific and must match `ANTHROPIC_BASE_URL`. Keep defaults on active, stable model IDs and avoid deprecated model IDs.
 
 ### Optional
 

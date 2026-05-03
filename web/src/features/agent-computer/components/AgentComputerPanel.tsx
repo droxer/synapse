@@ -13,6 +13,9 @@ import {
   Clock,
   MessageSquare,
   Activity,
+  RefreshCw,
+  ExternalLink,
+  PanelTop,
 } from "lucide-react";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
@@ -46,7 +49,7 @@ import {
 } from "@/features/agent-computer/lib/task-state-display";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { useStickyBottom } from "@/shared/hooks";
-import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo } from "@/shared/types";
+import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo, PreviewSession } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
 function getToolVerb(name: string, t: TFn): string {
@@ -370,14 +373,106 @@ function StatusIcon({ tc }: { readonly tc: ToolCallInfo }) {
   );
 }
 
-type PanelTab = "activity" | "files";
-const PANEL_TABS: readonly PanelTab[] = ["activity", "files"];
+type PanelTab = "activity" | "files" | "preview";
+
+export function SandboxPreviewPanel({ previewSession }: { readonly previewSession: PreviewSession | null }) {
+  const { t } = useTranslation();
+  const [frameKey, setFrameKey] = useState(0);
+  const url = previewSession?.active ? previewSession.url : undefined;
+  const hostLabel = previewSession?.port ? `:${previewSession.port}` : previewSession?.directory;
+
+  const handleReload = useCallback(() => {
+    setFrameKey((value) => value + 1);
+  }, []);
+
+  const handleOpen = useCallback(() => {
+    if (!url) return;
+    window.open(url, "_blank", "noopener,noreferrer");
+  }, [url]);
+
+  if (!previewSession?.active) {
+    return (
+      <EmptyState
+        icon={PanelTop}
+        description={t("preview.inactive")}
+        className="h-full"
+      />
+    );
+  }
+
+  return (
+    <div className="flex h-full min-h-0 flex-col bg-background">
+      <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <PanelTop className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+            <span className="truncate text-sm font-medium text-foreground">
+              {t("preview.title")}
+            </span>
+            {hostLabel && (
+              <span className="status-pill status-neutral shrink-0 font-mono text-micro">
+                {hostLabel}
+              </span>
+            )}
+          </div>
+          {previewSession.directory && (
+            <p className="mt-0.5 truncate font-mono text-micro text-muted-foreground">
+              {previewSession.directory}
+            </p>
+          )}
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={t("preview.reload")}
+          onClick={handleReload}
+          disabled={!url}
+          className="shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <RefreshCw className="h-4 w-4" />
+        </Button>
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-xs"
+          aria-label={t("preview.open")}
+          onClick={handleOpen}
+          disabled={!url}
+          className="shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground"
+        >
+          <ExternalLink className="h-4 w-4" />
+        </Button>
+      </div>
+
+      {url ? (
+        <div className="min-h-0 flex-1 bg-muted p-2">
+          <iframe
+            key={frameKey}
+            src={url}
+            title={t("preview.frameTitle")}
+            className="h-full min-h-[18rem] w-full rounded-md border border-border bg-background"
+            referrerPolicy="no-referrer"
+            sandbox="allow-downloads allow-forms allow-modals allow-popups allow-scripts"
+          />
+        </div>
+      ) : (
+        <EmptyState
+          icon={PanelTop}
+          description={t("preview.noUrl")}
+          className="h-full"
+        />
+      )}
+    </div>
+  );
+}
 
 interface AgentComputerPanelProps {
   conversationId: string | null;
   toolCalls: readonly ToolCallInfo[];
   agentStatuses: readonly AgentStatus[];
   artifacts: readonly ArtifactInfo[];
+  previewSession?: PreviewSession | null;
   taskState: TaskState;
   highlightedStepId?: string | null;
   onClose?: () => void;
@@ -388,6 +483,7 @@ export function AgentComputerPanel({
   toolCalls,
   agentStatuses,
   artifacts,
+  previewSession = null,
   taskState,
   highlightedStepId,
   onClose,
@@ -398,6 +494,27 @@ export function AgentComputerPanel({
   const [activeTab, setActiveTab] = useState<PanelTab>("activity");
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
+  const previousPreviewKeyRef = useRef<string | null>(null);
+  const panelTabs = useMemo<readonly PanelTab[]>(
+    () => (previewSession?.active ? ["activity", "preview", "files"] : ["activity", "files"]),
+    [previewSession?.active],
+  );
+
+  useEffect(() => {
+    if (activeTab === "preview" && !previewSession?.active) {
+      setActiveTab("activity");
+    }
+  }, [activeTab, previewSession?.active]);
+
+  useEffect(() => {
+    const previewKey = previewSession?.active
+      ? `${previewSession.url ?? ""}:${previewSession.port ?? ""}:${previewSession.directory ?? ""}`
+      : null;
+    if (previewKey && previewKey !== previousPreviewKeyRef.current) {
+      setActiveTab("preview");
+    }
+    previousPreviewKeyRef.current = previewKey;
+  }, [previewSession?.active, previewSession?.directory, previewSession?.port, previewSession?.url]);
 
   // Scroll to highlighted step and flash it
   useEffect(() => {
@@ -458,13 +575,13 @@ export function AgentComputerPanel({
       if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
       e.preventDefault();
 
-      const currentIndex = PANEL_TABS.indexOf(activeTab);
+      const currentIndex = panelTabs.indexOf(activeTab);
       const nextIndex =
         e.key === "ArrowRight"
-          ? (currentIndex + 1) % PANEL_TABS.length
-          : (currentIndex - 1 + PANEL_TABS.length) % PANEL_TABS.length;
+          ? (currentIndex + 1) % panelTabs.length
+          : (currentIndex - 1 + panelTabs.length) % panelTabs.length;
 
-      const nextTab = PANEL_TABS[nextIndex];
+      const nextTab = panelTabs[nextIndex] ?? "activity";
       setActiveTab(nextTab);
 
       const nextButton = tabListRef.current?.querySelector<HTMLElement>(
@@ -472,7 +589,7 @@ export function AgentComputerPanel({
       );
       nextButton?.focus();
     },
-    [activeTab],
+    [activeTab, panelTabs],
   );
 
   const visibleToolCalls = useMemo(
@@ -623,6 +740,28 @@ export function AgentComputerPanel({
             {t("computer.activity")}
             {activeTab === "activity" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
           </button>
+          {previewSession?.active && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "preview"}
+              aria-controls="panel-preview"
+              id="tab-preview"
+              tabIndex={activeTab === "preview" ? 0 : -1}
+              onClick={() => setActiveTab("preview")}
+              className={cn(
+                "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                activeTab === "preview"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <PanelTop className="h-4 w-4" aria-hidden="true" />
+              {t("preview.tab")}
+              {activeTab === "preview" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
+            </button>
+          )}
           <button
             type="button"
             role="tab"
@@ -660,6 +799,13 @@ export function AgentComputerPanel({
       {activeTab === "files" && (
         <div id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="flex-1 overflow-y-auto">
           <ArtifactFilesPanel artifacts={artifacts} conversationId={conversationId} />
+        </div>
+      )}
+
+      {/* ── Preview tab ── */}
+      {activeTab === "preview" && previewSession?.active && (
+        <div id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" className="min-h-0 flex-1">
+          <SandboxPreviewPanel previewSession={previewSession} />
         </div>
       )}
 

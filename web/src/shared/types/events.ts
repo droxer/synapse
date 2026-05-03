@@ -300,6 +300,13 @@ export interface ComputerUseMetadata {
   readonly amount?: number;
 }
 
+export interface PreviewSession {
+  readonly url?: string;
+  readonly port?: number;
+  readonly directory?: string;
+  readonly active: boolean;
+}
+
 export interface ToolCallInfo {
   /** Stable unique id for React keys and UI (monotonic per conversation timeline). */
   readonly id: string;

@@ -23,6 +23,7 @@ export function ConversationView() {
     agentStatuses,
     planSteps,
     artifacts,
+    previewSession,
     taskState,
     currentThinkingEntries,
     isStreaming,
@@ -132,6 +133,7 @@ export function ConversationView() {
               agentStatuses={agentStatuses}
               planSteps={planSteps}
               artifacts={artifacts}
+              previewSession={previewSession}
               taskState={taskState}
               currentThinkingEntries={currentThinkingEntries}
               isStreaming={isStreaming}

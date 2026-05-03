@@ -15,6 +15,7 @@ import pytest
 from fastapi import HTTPException
 
 from api.auth import AuthUser
+from api.builders import _mcp_registry_for_user
 from api.models import MCPServerCreateRequest, MCPServerUpdateRequest, MCPState
 from api.routes import mcp as mcp_routes
 from agent.mcp import repository as mcp_repository
@@ -247,6 +248,68 @@ class TestMCPBridgedTool:
         defn_b = MCPBridgedTool(schema_b, client=None).definition()  # type: ignore[arg-type]
 
         assert defn_a.name != defn_b.name
+
+    def test_builder_mcp_registry_scopes_tools_by_visible_server(self) -> None:
+        schema = MCPToolSchema(
+            name="search",
+            description="Search",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="shared",
+        )
+        registry = ToolRegistry()
+        registry = registry.register(
+            MCPBridgedTool(
+                schema,
+                client=None,  # type: ignore[arg-type]
+                server_key="global",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                schema,
+                client=None,  # type: ignore[arg-type]
+                server_key="user-a:shared",
+            )
+        )
+        registry = registry.register(
+            MCPBridgedTool(
+                schema,
+                client=None,  # type: ignore[arg-type]
+                server_key="user-b:shared",
+            )
+        )
+        state = MCPState(
+            registry=registry,
+            configs={
+                "global": MCPServerConfig(
+                    name="global",
+                    transport="streamablehttp",
+                    url="https://example.com/global",
+                ),
+                "user-a:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://example.com/user-a",
+                ),
+                "user-b:shared": MCPServerConfig(
+                    name="shared",
+                    transport="streamablehttp",
+                    url="https://example.com/user-b",
+                ),
+            },
+        )
+
+        filtered = _mcp_registry_for_user(state, "user-a")
+        assert filtered is not None
+        tool_tags = {
+            tag
+            for definition in filtered.list_tools()
+            for tag in (definition.tags or ())
+        }
+
+        assert "mcp_server:global" in tool_tags
+        assert "mcp_server:user-a:shared" in tool_tags
+        assert "mcp_server:user-b:shared" not in tool_tags
 
     @pytest.mark.asyncio
     async def test_execute_success(self) -> None:

@@ -100,6 +100,8 @@ class PreviewStart(SandboxTool):
         preview_url: str | None = None
         if conversation_id:
             preview_url = f"/api/conversations/{conversation_id}/preview/"
+            if port != 8080:
+                preview_url = f"{preview_url}?_port={port}"
 
         # Emit preview available event
         if event_emitter is not None:

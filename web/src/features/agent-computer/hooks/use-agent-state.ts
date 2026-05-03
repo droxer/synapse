@@ -43,6 +43,7 @@ import type {
   TaskState,
   AgentStatus,
   PlanStep,
+  PreviewSession,
   MessageAttachmentMetadata,
 } from "@/shared/types";
 
@@ -98,6 +99,7 @@ export interface DerivedAgentState {
   readonly isStreaming: boolean;
   readonly assistantPhase: AssistantPhase;
   readonly artifacts: readonly ArtifactInfo[];
+  readonly previewSession: PreviewSession | null;
 }
 
 function toThinkingEntry(event: AgentEvent): ThinkingEntry | null {
@@ -393,6 +395,21 @@ function computerUseMetadataEqual(
   );
 }
 
+function previewSessionEqual(
+  a: PreviewSession | null | undefined,
+  b: PreviewSession | null | undefined,
+): boolean {
+  if (a === b) return true;
+  if (!a && !b) return true;
+  if (!a || !b) return false;
+  return (
+    a.url === b.url &&
+    a.port === b.port &&
+    a.directory === b.directory &&
+    a.active === b.active
+  );
+}
+
 function messagesEqualValue(a: ChatMessage, b: ChatMessage): boolean {
   return (
     a.messageId === b.messageId &&
@@ -486,6 +503,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
   const skillToolNames = new Set(["activate_skill", "load_skill"]);
   let isDeepResearchTurn = false;
   let pendingDeepResearchVisibleParts: string[] = [];
+  let previewSession: PreviewSession | null = null;
 
   const nextAssistantMessageId = () =>
     `${currentTurnId}:assistant:${assistantMessageSequence}`;
@@ -1549,6 +1567,46 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
           status: step.execution_type === "planner_owned" ? "running" : "pending",
         }));
       }
+    } else if (event.type === "preview_available") {
+      const url =
+        typeof event.data.url === "string" && event.data.url.trim().length > 0
+          ? event.data.url
+          : undefined;
+      const directory =
+        typeof event.data.directory === "string" && event.data.directory.trim().length > 0
+          ? event.data.directory
+          : undefined;
+      const port =
+        typeof event.data.port === "number" && Number.isFinite(event.data.port)
+          ? event.data.port
+          : undefined;
+      previewSession = {
+        ...(url !== undefined ? { url } : {}),
+        ...(port !== undefined ? { port } : {}),
+        ...(directory !== undefined ? { directory } : {}),
+        active: true,
+      };
+    } else if (event.type === "preview_stopped") {
+      const previousPreview = previewSession as PreviewSession | null;
+      if (previousPreview !== null) {
+        const stoppedPort: number | undefined =
+          typeof event.data.port === "number" && Number.isFinite(event.data.port)
+            ? event.data.port
+            : previousPreview.port;
+        previewSession = {
+          ...(previousPreview.url !== undefined ? { url: previousPreview.url } : {}),
+          ...(stoppedPort !== undefined ? { port: stoppedPort } : {}),
+          ...(previousPreview.directory !== undefined ? { directory: previousPreview.directory } : {}),
+          active: false,
+        };
+      } else {
+        previewSession = {
+          ...(typeof event.data.port === "number" && Number.isFinite(event.data.port)
+            ? { port: event.data.port }
+            : {}),
+          active: false,
+        };
+      }
     }
   }
 
@@ -1610,6 +1668,7 @@ export function deriveAgentState(events: readonly AgentEvent[]): DerivedAgentSta
     isStreaming,
     assistantPhase,
     artifacts,
+    previewSession,
   };
 }
 
@@ -1709,5 +1768,8 @@ export function stabilizeDerivedAgentState(
         ? prev.assistantPhase
         : next.assistantPhase,
     artifacts: shallowArrayEqual(prev.artifacts, next.artifacts) ? prev.artifacts : next.artifacts,
+    previewSession: previewSessionEqual(prev.previewSession, next.previewSession)
+      ? prev.previewSession
+      : next.previewSession,
   };
 }

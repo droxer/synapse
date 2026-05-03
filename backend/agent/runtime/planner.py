@@ -345,6 +345,7 @@ class PlannerOrchestrator:
         ) = None
         self._processed_skill_activation_tool_ids: set[str] = set()
         self._current_turn_start_index = len(initial_messages)
+        self._current_turn_base_messages = initial_messages
         self._explicit_planner_requested = False
         self._explicit_planner_requires_plan = False
         self._explicit_planner_requires_worker = False
@@ -378,6 +379,16 @@ class PlannerOrchestrator:
             completed=False,
             error=None,
         )
+
+    def _current_turn_messages_for_cancel(self) -> tuple[dict[str, Any], ...]:
+        """Return the current-turn suffix only when history was not compacted."""
+        base_messages = self._current_turn_base_messages
+        if (
+            len(self._state.messages) >= len(base_messages)
+            and self._state.messages[: len(base_messages)] == base_messages
+        ):
+            return self._state.messages[len(base_messages) :]
+        return ()
 
     def _requested_skill_name_from_tool_call(
         self, tool_call_name: str, tool_input: dict[str, Any]
@@ -543,6 +554,7 @@ class PlannerOrchestrator:
         self._pending_mid_turn_update = None
         self._processed_skill_activation_tool_ids = set()
         self._current_turn_start_index = len(self._state.messages)
+        self._current_turn_base_messages = self._state.messages
         explicit_planner = bool((turn_metadata or {}).get("explicit_planner"))
         self._explicit_planner_requested = explicit_planner
         self._explicit_planner_requires_plan = (
@@ -850,6 +862,9 @@ class PlannerOrchestrator:
         if not activated_name:
             return None
 
+        if tool_id is not None and tool_id in self._processed_skill_activation_tool_ids:
+            return None
+
         if tool_id is not None and tool_use_had_error_result(
             list(self._state.messages),
             tool_id,
@@ -991,7 +1006,7 @@ class PlannerOrchestrator:
         """Emit final event and return the result text."""
         if self._cancel_event.is_set():
             self._cancel_event.clear()
-            current_turn_messages = state.messages[self._current_turn_start_index :]
+            current_turn_messages = self._current_turn_messages_for_cancel()
             final_text = extract_final_text_from_messages(current_turn_messages)
             await self._emitter.emit(
                 EventType.TURN_CANCELLED,
@@ -999,7 +1014,7 @@ class PlannerOrchestrator:
             )
             self._state = replace(
                 self._state,
-                messages=self._state.messages[: self._current_turn_start_index],
+                messages=self._current_turn_base_messages,
                 completed=False,
                 error=None,
             )

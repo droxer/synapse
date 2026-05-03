@@ -310,9 +310,10 @@ async def _prepare_conversation_runtime(
     )
     skill_task = asyncio.create_task(_build_user_skill_registry(state, user_id))
     mcp_enabled = user_id is not None and state.mcp_state is not None
+    mcp_restore_task: asyncio.Task[None] | None = None
 
     if mcp_enabled:
-        asyncio.create_task(
+        mcp_restore_task = asyncio.create_task(
             _restore_mcp_servers_background(
                 state.mcp_state,
                 state.db_session_factory,
@@ -321,10 +322,17 @@ async def _prepare_conversation_runtime(
             )
         )
 
-    memory_entries, user_skill_registry = await asyncio.gather(
-        memory_task,
-        skill_task,
-    )
+    if mcp_restore_task is None:
+        memory_entries, user_skill_registry = await asyncio.gather(
+            memory_task,
+            skill_task,
+        )
+    else:
+        memory_entries, user_skill_registry, _ = await asyncio.gather(
+            memory_task,
+            skill_task,
+            mcp_restore_task,
+        )
     logger.info(
         "conversation_runtime_inputs_ready id={} mode={} duration_ms={} memory_entries={} memory_limit={} skill_registry={} mcp_restore_enabled={}",
         conversation_id,
@@ -336,7 +344,7 @@ async def _prepare_conversation_runtime(
         mcp_enabled,
     )
     if mcp_enabled:
-        logger.info("conversation_runtime_mcp_restore_scheduled id={}", conversation_id)
+        logger.info("conversation_runtime_mcp_restore_completed id={}", conversation_id)
 
     if mode == ORCHESTRATOR_PLANNER:
         orchestrator_executor = _build_planner_orchestrator(
@@ -349,6 +357,7 @@ async def _prepare_conversation_runtime(
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
             conversation_id=conversation_id,
+            mcp_user_id=user_id,
         )
     else:
         orchestrator_executor = _build_orchestrator(
@@ -361,6 +370,7 @@ async def _prepare_conversation_runtime(
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
             conversation_id=conversation_id,
+            mcp_user_id=user_id,
         )
 
     logger.info(
@@ -861,6 +871,13 @@ async def _reconstruct_conversation(
 
     # Build a user-scoped skill registry for this conversation's owner
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
+    if convo.user_id is not None and state.mcp_state is not None:
+        await _restore_mcp_servers_background(
+            state.mcp_state,
+            state.db_session_factory,
+            conversation_id=conversation_id,
+            user_id=convo.user_id,
+        )
     initial_messages = await _load_initial_messages_for_conversation(
         state,
         convo,
@@ -881,6 +898,7 @@ async def _reconstruct_conversation(
             conversation_id=conversation_id,
             initial_messages=tuple(initial_messages),
             compaction_profile=compaction_profile,
+            mcp_user_id=convo.user_id,
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -895,6 +913,7 @@ async def _reconstruct_conversation(
             memory_entries=memory_entries,
             conversation_id=conversation_id,
             compaction_profile=compaction_profile,
+            mcp_user_id=convo.user_id,
         )
 
     entry = ConversationEntry(
@@ -1613,6 +1632,7 @@ async def send_message(
                                 memory_entries=memory_entries,
                                 conversation_id=conversation_id,
                                 initial_messages=tuple(initial_messages),
+                                mcp_user_id=convo.user_id,
                             )
                         else:
                             orchestrator, executor = _build_orchestrator(
@@ -1626,6 +1646,7 @@ async def send_message(
                                 skill_registry=user_skill_registry,
                                 memory_entries=memory_entries,
                                 conversation_id=conversation_id,
+                                mcp_user_id=convo.user_id,
                             )
                         entry.orchestrator = orchestrator
                         entry.executor = executor

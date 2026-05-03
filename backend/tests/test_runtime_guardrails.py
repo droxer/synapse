@@ -225,6 +225,32 @@ class _RecordingSequenceClient(_SequenceClient):
         return await super().create_message_stream(**kwargs)
 
 
+class _CurrentTurnCompactingObserver:
+    def __init__(self) -> None:
+        self.profile = SimpleNamespace(name="test_compaction", memory_flush=False)
+        self._compacted = False
+
+    def should_compact(
+        self,
+        messages: tuple[dict[str, Any], ...],
+        prompt: str,
+    ) -> bool:
+        del prompt
+        return bool(messages) and not self._compacted
+
+    async def compact(
+        self,
+        messages: tuple[dict[str, Any], ...],
+        prompt: str,
+    ) -> tuple[dict[str, Any], ...]:
+        del prompt
+        self._compacted = True
+        return (
+            {"role": "assistant", "content": "compacted prior context"},
+            messages[-1],
+        )
+
+
 class _FakeSession:
     def __init__(self) -> None:
         self.files: set[str] = set()
@@ -983,6 +1009,85 @@ async def test_orchestrator_cancel_does_not_return_stale_text_or_keep_cancelled_
 
 
 @pytest.mark.asyncio
+async def test_orchestrator_cancel_after_compaction_restores_pre_turn_messages() -> (
+    None
+):
+    started = asyncio.Event()
+    release = asyncio.Event()
+    base_messages = (
+        {"role": "user", "content": "kept prior"},
+        {"role": "assistant", "content": "kept answer"},
+    )
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(ToolCall(id="tool-1", name="blocker", input={}),),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = ToolRegistry().register(_BlockingPlannerTool(started, release))
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        system_prompt="test",
+        observer=_CurrentTurnCompactingObserver(),  # type: ignore[arg-type]
+        initial_messages=base_messages,
+    )
+
+    run_task = asyncio.create_task(orchestrator.run("cancel me"))
+    await started.wait()
+    orchestrator.cancel()
+    release.set()
+    cancelled = await run_task
+
+    assert cancelled == ""
+    assert orchestrator._state.messages == base_messages
+    assert orchestrator.get_last_user_message() == "kept prior"
+
+
+@pytest.mark.asyncio
+async def test_planner_cancel_after_compaction_restores_pre_turn_messages() -> None:
+    started = asyncio.Event()
+    release = asyncio.Event()
+    base_messages = (
+        {"role": "user", "content": "kept prior"},
+        {"role": "assistant", "content": "kept answer"},
+    )
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(ToolCall(id="tool-1", name="blocker", input={}),),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = ToolRegistry().register(_BlockingPlannerTool(started, release))
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        observer=_CurrentTurnCompactingObserver(),  # type: ignore[arg-type]
+        initial_messages=base_messages,
+    )
+
+    run_task = asyncio.create_task(planner.run("cancel me"))
+    await started.wait()
+    planner.cancel()
+    release.set()
+    cancelled = await run_task
+
+    assert cancelled == ""
+    assert planner._state.messages == base_messages
+    assert planner.get_last_user_message() == "kept prior"
+
+
+@pytest.mark.asyncio
 async def test_orchestrator_skill_alias_triggers_mid_turn_skill_enforcement() -> None:
     client = _SequenceClient(
         LLMResponse(
@@ -1078,6 +1183,61 @@ async def test_orchestrator_blocks_same_batch_tool_after_skill_activation() -> N
     )
     assert blocked_result.data["success"] is False
     assert "not allowed" in str(blocked_result.data["output"]).lower()
+
+
+@pytest.mark.asyncio
+async def test_orchestrator_redundant_skill_activation_emits_once() -> None:
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    orchestrator = AgentOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=emitter,
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    result = await orchestrator.run("help me")
+    skill_sources = [
+        event.data.get("source")
+        for event in events
+        if event.type == EventType.SKILL_ACTIVATED
+        and event.data.get("name") == "deep-research"
+    ]
+
+    assert result == "done"
+    assert skill_sources == ["mid_turn"]
 
 
 @pytest.mark.asyncio
@@ -1288,6 +1448,62 @@ async def test_planner_applies_mid_turn_skill_activation_constraints() -> None:
         "plan_create",
         "web_search",
     }
+
+
+@pytest.mark.asyncio
+async def test_planner_redundant_skill_activation_emits_once() -> None:
+    events: list[Any] = []
+    emitter = EventEmitter()
+
+    async def _capture(event: Any) -> None:
+        events.append(event)
+
+    emitter.subscribe(_capture)
+    client = _SequenceClient(
+        LLMResponse(
+            text="",
+            tool_calls=(
+                ToolCall(
+                    id="tool-1",
+                    name="activate_skill",
+                    input={"name": "deep-research"},
+                ),
+            ),
+            stop_reason="tool_use",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        ),
+    )
+    registry = (
+        ToolRegistry()
+        .register(_FakeWebSearchTool())
+        .register(ActivateSkill(skill_registry=_build_skill_registry()))
+    )
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=emitter,
+        sub_agent_manager=AsyncMock(),
+        system_prompt="test",
+        skill_registry=_build_skill_registry(),
+    )
+
+    result = await planner.run("help me")
+    skill_sources = [
+        event.data.get("source")
+        for event in events
+        if event.type == EventType.SKILL_ACTIVATED
+        and event.data.get("name") == "deep-research"
+    ]
+
+    assert result == "done"
+    assert skill_sources == ["mid_turn"]
 
 
 @pytest.mark.asyncio

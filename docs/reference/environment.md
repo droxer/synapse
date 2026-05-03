@@ -18,11 +18,11 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 | Cache | `REDIS_URL` |
 | Artifacts | `STORAGE_PROVIDER` — `local` / `r2` |
 | Skills | `SKILLS_ENABLED`, `SKILL_SELECTOR_MODEL`, registry URLs |
-| Model / thinking | `LITE_MODEL`, `THINKING_BUDGET` |
+| Model / thinking | `PLANNING_MODEL`, `TASK_MODEL`, `LITE_MODEL`, `THINKING_BUDGET` |
 | Memory | `INITIAL_CONVERSATION_MEMORY_LIMIT`, `MEMORY_PROMPT_ENTRY_MAX_CHARS`, `MEMORY_PROMPT_MAX_CHARS` |
 | Compaction | Global `COMPACT_*` defaults plus optional runtime overrides such as `COMPACT_CHANNEL_TOKEN_BUDGET` and `COMPACT_TASK_AGENT_DIALOGUE_FALLBACK_CHARS`; see `config/settings.py` |
 | Agent limits | `MAX_ITERATIONS`, `MAX_AGENT_ITERATIONS`, `MAX_CONCURRENT_AGENTS`, `MAX_TOTAL_AGENTS`, `AGENT_TIMEOUT_SECONDS`, `AGENT_GLOBAL_TOKEN_BUDGET` |
-| Auth | `AUTH_REQUIRED`, `PROXY_SECRET`, `INTEGRATION_API_KEYS` for `/v1` server-to-server bearer tokens |
+| Auth | `AUTH_REQUIRED`, `PROXY_SECRET`, `API_KEYS` for `/v1` server-to-server bearer tokens |
 | Channels | `CHANNELS_ENABLED`, `CHANNELS_WEBHOOK_BASE_URL` |
 
 ## Runtime notes
@@ -30,6 +30,8 @@ Configure the backend via **`backend/.env`**. See **`backend/.env.example`** for
 - `SANDBOX_PROVIDER` is resolved in `api/builders.py`. The current builder accepts `boxlite` and `e2b`; a local provider implementation exists in the codebase but is not selected by `_build_sandbox_provider()`.
 - `SEARCH_PROVIDER` is resolved in `api/builders.py`. The builder registers exactly one `web_search` tool: Tavily when set to `tavily`, Exa when set to `exa`.
 - `SKILLS_ENABLED` controls discovery, registry initialization, prompt catalog injection, and activation-tool registration.
+- Model IDs are provider-specific and must match `ANTHROPIC_BASE_URL`; keep defaults on active, stable model IDs and avoid deprecated model IDs.
+- Empty model overrides fall back to cheaper defaults: `COMPACT_SUMMARY_MODEL`, `SKILL_SELECTOR_MODEL`, and `COMPLEXITY_CLASSIFIER_MODEL` use `LITE_MODEL`.
 - `THINKING_BUDGET` is passed to the main agent orchestrator and controls provider-native extended thinking when supported.
 - Execution routing uses `EXECUTION_ROUTER_MODEL` or falls back to `COMPLEXITY_CLASSIFIER_MODEL` / `LITE_MODEL`.
 - Runtime-specific compaction overrides are available for `WEB`, `CHANNEL`, `PLANNER`, and `TASK_AGENT` profiles.

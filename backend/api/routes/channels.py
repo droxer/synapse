@@ -312,6 +312,7 @@ async def _handle_channel_message(
                 skill_registry=user_skill_registry,
                 memory_entries=memory_entries,
                 compaction_runtime="channel_conversation",
+                mcp_user_id=user_id,
             )
 
             entry = ConversationEntry(

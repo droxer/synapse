@@ -160,6 +160,14 @@
   "computer.desktopAction": "Desktop: {action}",
   "computer.takingScreenshot": "Taking desktop screenshot",
 
+  "preview.tab": "Preview",
+  "preview.title": "Sandbox preview",
+  "preview.frameTitle": "Interactive sandbox preview",
+  "preview.reload": "Reload preview",
+  "preview.open": "Open preview in new tab",
+  "preview.inactive": "No active preview.",
+  "preview.noUrl": "Preview started, but no URL was provided.",
+
   "artifacts.noFiles": "No files generated yet",
   "artifacts.fileCount": "{count} file generated",
   "artifacts.filesCount": "{count} files generated",

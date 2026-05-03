@@ -1045,12 +1045,13 @@ async def _noop_session_factory():
 
 
 @pytest.mark.asyncio
-async def test_prepare_conversation_runtime_schedules_mcp_restore_without_blocking(
+async def test_prepare_conversation_runtime_restores_mcp_before_build(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     order: list[str] = []
     restored_registry = object()
     mcp_state = MCPState()
+    user_id = uuid.uuid4()
 
     class _FakePersistentStore:
         def __init__(self, *args, **kwargs) -> None:
@@ -1073,20 +1074,18 @@ async def test_prepare_conversation_runtime_schedules_mcp_restore_without_blocki
         await asyncio.sleep(0.05)
         state.registry = restored_registry  # type: ignore[assignment]
         order.append("restore")
-        restore_done.set()
 
     async def _fake_skill_registry(state: object, user_id: uuid.UUID) -> None:
         del state, user_id
         await asyncio.sleep(0)
         order.append("skills")
 
-    restore_done = asyncio.Event()
-
     def _fake_build_orchestrator(*args, **kwargs) -> tuple[object, object]:
         del args
         order.append("build")
-        assert "restore" not in order
+        assert "restore" in order
         assert kwargs["mcp_state"] is mcp_state
+        assert kwargs["mcp_user_id"] == user_id
         return object(), object()
 
     state = SimpleNamespace(
@@ -1125,14 +1124,13 @@ async def test_prepare_conversation_runtime_schedules_mcp_restore_without_blocki
         state,
         conversation_id=str(uuid.uuid4()),
         conv_uuid=uuid.uuid4(),
-        user_id=uuid.uuid4(),
+        user_id=user_id,
         mode=ORCHESTRATOR_AGENT,
         emitter=EventEmitter(),
     )
 
     assert order[-1] == "build"
-    await asyncio.wait_for(restore_done.wait(), timeout=1)
-    assert order[-1] == "restore"
+    assert "restore" in order
 
 
 def _build_state_with_entry(

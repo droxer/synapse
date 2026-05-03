@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import shlex
 from typing import Any
 
 from loguru import logger
@@ -74,7 +75,40 @@ async def main():
     try:
         from browser_use import Agent, Browser, ChatAnthropic
 
-        llm = ChatAnthropic(
+        def _is_tool_choice_thinking_error(exc: Exception) -> bool:
+            message = str(exc).lower()
+            return "tool_choice" in message and "thinking mode" in message
+
+        class _MessagesWithoutRequiredToolChoiceFallback:
+            def __init__(self, messages):
+                self._messages = messages
+
+            def __getattr__(self, name):
+                return getattr(self._messages, name)
+
+            async def create(self, *args, **kwargs):
+                try:
+                    return await self._messages.create(*args, **kwargs)
+                except Exception as exc:
+                    if not kwargs.get("tool_choice") or not _is_tool_choice_thinking_error(exc):
+                        raise
+                    retry_kwargs = dict(kwargs)
+                    retry_kwargs.pop("tool_choice", None)
+                    return await self._messages.create(*args, **retry_kwargs)
+
+        class _ClientWithoutRequiredToolChoiceFallback:
+            def __init__(self, client):
+                self._client = client
+                self.messages = _MessagesWithoutRequiredToolChoiceFallback(client.messages)
+
+            def __getattr__(self, name):
+                return getattr(self._client, name)
+
+        class SynapseChatAnthropic(ChatAnthropic):
+            def get_client(self):
+                return _ClientWithoutRequiredToolChoiceFallback(super().get_client())
+
+        llm = SynapseChatAnthropic(
             model=config["model"],
             timeout=120,
         )
@@ -96,6 +130,7 @@ async def main():
             max_steps=config.get("max_steps", 50),
             max_failures=config.get("max_failures", 5),
             use_vision=True,
+            use_thinking=False,
         )
 
         history = await agent.run()
@@ -177,7 +212,7 @@ class BrowserUse(SandboxTool):
     def __init__(
         self,
         anthropic_api_key: str,
-        model: str = "claude-sonnet-4-20250514",
+        model: str = "claude-sonnet-4-6",
         anthropic_base_url: str = "",
         max_failures: int = _DEFAULT_MAX_FAILURES,
     ) -> None:
@@ -270,11 +305,14 @@ class BrowserUse(SandboxTool):
             return ToolResult.fail(f"Failed to write browser agent files: {exc}")
 
         # Build env-var based command (API key never touches disk)
-        env_prefix = f"ANTHROPIC_API_KEY={self._anthropic_api_key}"
+        env_prefix = f"ANTHROPIC_API_KEY={shlex.quote(self._anthropic_api_key)}"
         if self._anthropic_base_url:
-            env_prefix += f" ANTHROPIC_BASE_URL={self._anthropic_base_url}"
+            env_prefix += f" ANTHROPIC_BASE_URL={shlex.quote(self._anthropic_base_url)}"
         config_json = json.dumps(config)
-        cmd = f"{env_prefix} BROWSER_USE_CONFIG='{config_json}' python3 {_SCRIPT_PATH}"
+        cmd = (
+            f"{env_prefix} BROWSER_USE_CONFIG={shlex.quote(config_json)} "
+            f"python3 {_SCRIPT_PATH}"
+        )
 
         # Execute the browser-use agent (long timeout for multi-step tasks)
         try:

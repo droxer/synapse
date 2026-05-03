@@ -39,6 +39,7 @@ import type {
   AgentStatus,
   PlanStep,
   ThinkingEntry,
+  PreviewSession,
 } from "@/shared/types";
 
 type ConversationWorkspaceLayoutVariant = "default" | "embedded";
@@ -91,6 +92,7 @@ interface ConversationWorkspaceProps {
   agentStatuses: readonly AgentStatus[];
   planSteps: readonly PlanStep[];
   artifacts: readonly ArtifactInfo[];
+  previewSession?: PreviewSession | null;
   taskState: TaskState;
   currentThinkingEntries: readonly ThinkingEntry[];
   isStreaming: boolean;
@@ -370,6 +372,7 @@ export function ConversationWorkspace({
   agentStatuses,
   planSteps,
   artifacts,
+  previewSession = null,
   taskState,
   currentThinkingEntries,
   isStreaming,
@@ -439,6 +442,12 @@ export function ConversationWorkspace({
       setPanelOpen(true);
     }
   }, [hasArtifacts]);
+
+  useEffect(() => {
+    if (previewSession?.active) {
+      setPanelOpen(true);
+    }
+  }, [previewSession?.active]);
 
   const handleProgressCardClick = useCallback(() => {
     setPanelOpen((prev) => !prev);
@@ -708,6 +717,7 @@ export function ConversationWorkspace({
                         toolCalls={toolCalls}
                         agentStatuses={agentStatuses}
                         artifacts={artifacts}
+                        previewSession={previewSession}
                         taskState={effectiveTaskState}
                         highlightedStepId={highlightedStepId}
                         onClose={() => setPanelOpen(false)}

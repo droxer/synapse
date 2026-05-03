@@ -306,7 +306,7 @@ async def list_servers(
             mcp_state, state.db_session_factory, user_id=user_id
         )
 
-    visible = mcp_state.configs_for_user(user_id) if user_id else mcp_state.configs
+    visible = mcp_state.configs_for_user(user_id)
     servers = [
         _build_server_response(
             mcp_state,

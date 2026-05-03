@@ -27,8 +27,8 @@ class Settings(BaseSettings):
     EXA_API_KEY: str = ""
     REDIS_URL: str = "redis://localhost:6379"
     DATABASE_URL: str = "sqlite+aiosqlite:///./synapse.db"
-    PLANNING_MODEL: str = "claude-sonnet-4-20250514"
-    TASK_MODEL: str = "claude-sonnet-4-20250514"
+    PLANNING_MODEL: str = "claude-sonnet-4-6"
+    TASK_MODEL: str = "claude-sonnet-4-6"
     LITE_MODEL: str = "claude-haiku-4-5-20251001"
     MAX_ITERATIONS: int = 50
     MAX_CONCURRENT_AGENTS: int = 5
@@ -47,9 +47,7 @@ class Settings(BaseSettings):
     MINIMAX_API_KEY: str = ""
     MINIMAX_API_HOST: str = "https://api.minimaxi.com"  # or https://api.minimax.io
     API_KEY: str = ""  # Optional API key for authentication; empty = allow all
-    INTEGRATION_API_KEYS: str = (
-        ""  # Comma-separated bearer tokens for /v1 integration API
-    )
+    API_KEYS: str = ""  # Comma-separated bearer tokens for /v1 integration API
     STORAGE_PROVIDER: str = "local"  # "local" or "r2"
     STORAGE_DIR: str = "./artifacts"  # Local storage directory
     # Cloudflare R2 (required when STORAGE_PROVIDER=r2)

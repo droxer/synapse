@@ -98,10 +98,12 @@ Synapse works with any LLM provider that exposes an Anthropic-compatible API. Se
 You can also customize which models are used for different tasks:
 
 ```bash
-PLANNING_MODEL=claude-sonnet-4-20250514    # Model for task planning
-TASK_MODEL=claude-sonnet-4-20250514        # Model for task execution
+PLANNING_MODEL=claude-sonnet-4-6           # Model for task planning
+TASK_MODEL=claude-sonnet-4-6               # Model for task execution
 LITE_MODEL=claude-haiku-4-5-20251001       # Model for simple sub-tasks
 ```
+
+Model IDs are provider-specific and must match `ANTHROPIC_BASE_URL`. Keep defaults on active, stable model IDs and avoid deprecated model IDs.
 
 ### API Keys
 

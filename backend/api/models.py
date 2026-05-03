@@ -154,8 +154,11 @@ class MCPState:
         """Build a namespaced key for a per-user MCP server."""
         return f"{user_id}:{name}"
 
-    def configs_for_user(self, user_id: Any) -> dict[str, MCPServerConfig]:
+    def configs_for_user(self, user_id: Any | None) -> dict[str, MCPServerConfig]:
         """Return configs visible to a user (global + user-owned)."""
+        if user_id is None:
+            return {key: cfg for key, cfg in self.configs.items() if ":" not in key}
+
         prefix = f"{user_id}:"
         result: dict[str, MCPServerConfig] = {}
         for key, cfg in self.configs.items():

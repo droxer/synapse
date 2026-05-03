@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import base64
 import os
 import shlex
 import uuid
 from typing import Any
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
@@ -27,6 +29,10 @@ _UUID_PATTERN = r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
 
 # Default port for sandbox preview proxy
 _DEFAULT_PREVIEW_PORT = 8080
+_PREVIEW_HEADERS_START = "__SYNAPSE_PREVIEW_HEADERS_START__"
+_PREVIEW_HEADERS_END = "__SYNAPSE_PREVIEW_HEADERS_END__"
+_PREVIEW_BODY_START = "__SYNAPSE_PREVIEW_BODY_START__"
+_PREVIEW_BODY_END = "__SYNAPSE_PREVIEW_BODY_END__"
 
 
 class BulkDeleteRequest(BaseModel):
@@ -214,8 +220,11 @@ async def proxy_preview(
     conversation_id: str = Path(..., pattern=_UUID_PATTERN),
     path: str = "",
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> StreamingResponse:
     """Proxy requests to a preview server running in the conversation's sandbox."""
+    await _verify_conversation_ownership(state, conversation_id, auth_user)
+
     entry = state.conversations.get(conversation_id)
     if entry is None:
         raise HTTPException(status_code=404, detail="Unknown conversation")
@@ -224,25 +233,76 @@ async def proxy_preview(
             status_code=503, detail="Conversation runtime is still starting"
         )
 
-    # Get the sandbox session from the executor (try "default" first, then any active session)
     sessions = entry.executor._sandbox_sessions
-    sandbox_session = sessions.get("default") or next(iter(sessions.values()), None)
-    if sandbox_session is None:
-        raise HTTPException(status_code=503, detail="No sandbox session active")
-
-    # Default preview port
     port = _DEFAULT_PREVIEW_PORT
-    # Try to extract port from query params
     port_param = request.query_params.get("_port")
     if port_param and port_param.isdigit():
         port = int(port_param)
+    if port < 1024 or port > 65535:
+        raise HTTPException(
+            status_code=400,
+            detail="Preview port must be between 1024 and 65535",
+        )
 
-    # Use curl inside the sandbox to fetch the content
+    sandbox_session = await _select_preview_sandbox_session(sessions, port)
+    if sandbox_session is None:
+        raise HTTPException(status_code=503, detail="No sandbox session active")
+
+    query_items = [
+        (key, value)
+        for key, value in request.query_params.multi_items()
+        if key != "_port"
+    ]
+    query = urlencode(query_items, doseq=True)
+
     method = request.method
     url = f"http://localhost:{port}/{path}"
+    if query:
+        url = f"{url}?{query}"
 
-    curl_cmd = f"curl -s -i -X {shlex.quote(method)} {shlex.quote(url)}"
-    result = await sandbox_session.exec(curl_cmd, timeout=15)
+    headers: list[str] = []
+    content_type = request.headers.get("content-type")
+    if content_type:
+        headers.extend(["-H", f"content-type: {content_type}"])
+
+    body = await request.body()
+    response_id = uuid.uuid4().hex
+    headers_path = f"/tmp/synapse_preview_{response_id}.headers"
+    body_path = f"/tmp/synapse_preview_{response_id}.body"
+    curl_parts = [
+        "curl",
+        "-sS",
+        "-D",
+        headers_path,
+        "-o",
+        body_path,
+        "-X",
+        method,
+    ]
+    curl_parts.extend(headers)
+    if body:
+        curl_parts.append("--data-binary @-")
+    curl_parts.append(url)
+    curl_cmd = " ".join(shlex.quote(part) for part in curl_parts)
+    if body:
+        encoded_body = base64.b64encode(body).decode("ascii")
+        curl_cmd = f"printf %s {shlex.quote(encoded_body)} | base64 -d | {curl_cmd}"
+
+    quoted_headers_path = shlex.quote(headers_path)
+    quoted_body_path = shlex.quote(body_path)
+    command = (
+        f"rm -f {quoted_headers_path} {quoted_body_path}; "
+        f"{curl_cmd}; curl_status=$?; "
+        f"printf '\\n{_PREVIEW_HEADERS_START}\\n'; "
+        f"cat {quoted_headers_path} 2>/dev/null; "
+        f"printf '\\n{_PREVIEW_HEADERS_END}\\n{_PREVIEW_BODY_START}\\n'; "
+        f"base64 < {quoted_body_path} 2>/dev/null; "
+        f"printf '\\n{_PREVIEW_BODY_END}\\n'; "
+        f"rm -f {quoted_headers_path} {quoted_body_path}; "
+        "exit $curl_status"
+    )
+
+    result = await sandbox_session.exec(command, timeout=15)
 
     if result.exit_code != 0:
         raise HTTPException(
@@ -250,30 +310,94 @@ async def proxy_preview(
             detail=(f"Preview proxy failed: {result.stderr or 'connection refused'}"),
         )
 
-    # Parse the HTTP response from curl -i output
-    output = result.stdout
-    header_end = output.find("\r\n\r\n")
-    if header_end == -1:
-        header_end = output.find("\n\n")
-
-    if header_end == -1:
-        # No headers found, return raw output
-        return StreamingResponse(
-            iter([output.encode()]),
-            media_type="text/html",
+    headers_raw = _extract_preview_section(
+        result.stdout, _PREVIEW_HEADERS_START, _PREVIEW_HEADERS_END
+    )
+    body_encoded = _extract_preview_section(
+        result.stdout, _PREVIEW_BODY_START, _PREVIEW_BODY_END
+    )
+    if headers_raw is None or body_encoded is None:
+        raise HTTPException(
+            status_code=502,
+            detail="Preview proxy returned an invalid response",
         )
 
-    headers_raw = output[:header_end]
-    body = output[header_end:].lstrip("\r\n")
+    try:
+        response_body = base64.b64decode(body_encoded.strip())
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail="Preview proxy returned an invalid response body",
+        ) from exc
 
-    # Extract content-type from headers
+    response_status = 200
+    response_headers: dict[str, str] = {}
     content_type = "text/html"
+    proxy_base = f"/api/conversations/{conversation_id}/preview"
+
+    def _proxy_location(location: str) -> str:
+        localhost_prefix = f"http://localhost:{port}"
+        if location.startswith(localhost_prefix):
+            location = location[len(localhost_prefix) :] or "/"
+        if location.startswith("/") and not location.startswith("//"):
+            location = f"{proxy_base}{location}"
+        if port != _DEFAULT_PREVIEW_PORT and location.startswith(proxy_base):
+            separator = "&" if "?" in location else "?"
+            if "_port=" not in location:
+                location = f"{location}{separator}_port={port}"
+        return location
+
+    first_line = headers_raw.splitlines()[0] if headers_raw.splitlines() else ""
+    parts = first_line.split()
+    if len(parts) >= 2 and parts[1].isdigit():
+        response_status = int(parts[1])
+
     for line in headers_raw.split("\n"):
-        if line.lower().startswith("content-type:"):
-            content_type = line.split(":", 1)[1].strip()
-            break
+        name, sep, value = line.partition(":")
+        if not sep:
+            continue
+        header_name = name.strip().lower()
+        header_value = value.strip()
+        if header_name == "content-type":
+            content_type = header_value
+        elif header_name == "location":
+            response_headers["location"] = _proxy_location(header_value)
 
     return StreamingResponse(
-        iter([body.encode()]),
+        iter([response_body]),
         media_type=content_type,
+        status_code=response_status,
+        headers=response_headers,
     )
+
+
+async def _select_preview_sandbox_session(
+    sessions: dict[str, Any],
+    port: int,
+) -> Any | None:
+    """Prefer the sandbox session with a live preview server on the requested port."""
+    if not sessions:
+        return None
+    if len(sessions) == 1:
+        return next(iter(sessions.values()))
+
+    probe_cmd = f"curl -sS -m 1 -o /dev/null {shlex.quote(f'http://localhost:{port}/')}"
+    for session in sessions.values():
+        result = await session.exec(probe_cmd, timeout=3)
+        if result.exit_code == 0:
+            return session
+
+    return sessions.get("default") or next(iter(sessions.values()))
+
+
+def _extract_preview_section(
+    output: str, start_marker: str, end_marker: str
+) -> str | None:
+    start_index = output.find(start_marker)
+    if start_index == -1:
+        return None
+    start_index += len(start_marker)
+    end_index = output.find(end_marker, start_index)
+    if end_index == -1:
+        return None
+    return output[start_index:end_index].strip("\r\n")

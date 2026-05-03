@@ -20,6 +20,7 @@ import type {
   TaskState,
   AgentStatus,
   PlanStep,
+  PreviewSession,
 } from "@/shared/types";
 
 export interface ConversationStateValue {
@@ -39,6 +40,7 @@ export interface ConversationStateValue {
   readonly isStreaming: boolean;
   readonly assistantPhase: AssistantPhase;
   readonly artifacts: readonly ArtifactInfo[];
+  readonly previewSession: PreviewSession | null;
   readonly allMessages: readonly ChatMessage[];
   readonly pendingSelectedSkills: readonly PendingSelectedSkill[];
   readonly explicitPlannerPending: boolean;
@@ -141,6 +143,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       currentThinkingEntries,
       isStreaming,
       assistantPhase: rawAssistantPhase,
+      previewSession,
     },
   } = useConversationTranscript(
     historyMessages,
@@ -245,6 +248,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       isStreaming: effectiveIsStreaming,
       assistantPhase,
       artifacts,
+      previewSession,
       allMessages,
       pendingSelectedSkills,
       explicitPlannerPending,
@@ -260,7 +264,7 @@ export function ConversationProvider({ children }: ConversationProviderProps) {
       effectiveToolCalls, effectiveTaskState, agentStatuses, planSteps,
       currentIteration, reasoningSteps, thinkingContent, thinkingDurationMs,
       currentThinkingEntries, effectiveIsStreaming, assistantPhase, artifacts,
-      allMessages, pendingSelectedSkills, effectiveIsWaitingForAgent, effectiveUserCancelled,
+      previewSession, allMessages, pendingSelectedSkills, effectiveIsWaitingForAgent, effectiveUserCancelled,
       explicitPlannerPending, createError, pendingAsk, respondError, isLoadingHistory,
     ],
   );

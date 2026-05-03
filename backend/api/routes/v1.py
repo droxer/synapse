@@ -170,9 +170,7 @@ def _hash_api_key(api_key: str) -> str:
 
 def _configured_api_keys() -> tuple[str, ...]:
     settings = get_settings()
-    return tuple(
-        key.strip() for key in settings.INTEGRATION_API_KEYS.split(",") if key.strip()
-    )
+    return tuple(key.strip() for key in settings.API_KEYS.split(",") if key.strip())
 
 
 def _public_error(
@@ -352,6 +350,20 @@ async def _mark_run_failed(
         )
 
 
+async def _mark_run_cancelled(
+    state: AppState,
+    run_id: uuid.UUID,
+    message: str = "Run was cancelled.",
+) -> None:
+    async with state.db_session_factory() as session:
+        await state.db_repo.update_agent_run(
+            session,
+            run_id,
+            status="cancelled",
+            error={"code": "cancelled", "message": message},
+        )
+
+
 async def _run_public_initial_turn(
     state: AppState,
     *,
@@ -380,7 +392,7 @@ async def _run_public_initial_turn(
         )
         await _mark_run_finished(state, run_id, result)
     except asyncio.CancelledError:
-        await _mark_run_failed(state, run_id, "Run was cancelled.", code="cancelled")
+        await _mark_run_cancelled(state, run_id)
         raise
     except Exception:
         await _mark_run_failed(state, run_id, "An internal error occurred.")
@@ -446,6 +458,7 @@ async def _switch_runtime_if_needed(
             memory_entries=memory_entries,
             conversation_id=conversation_id,
             initial_messages=tuple(initial_messages),
+            mcp_user_id=convo.user_id,
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -459,6 +472,7 @@ async def _switch_runtime_if_needed(
             skill_registry=user_skill_registry,
             memory_entries=memory_entries,
             conversation_id=conversation_id,
+            mcp_user_id=convo.user_id,
         )
     entry.orchestrator = orchestrator
     entry.executor = executor
@@ -534,7 +548,7 @@ async def _run_public_followup_turn(
         )
         await _mark_run_finished(state, run_id, result)
     except asyncio.CancelledError:
-        await _mark_run_failed(state, run_id, "Run was cancelled.", code="cancelled")
+        await _mark_run_cancelled(state, run_id)
         raise
     except Exception:
         await _mark_run_failed(state, run_id, "An internal error occurred.")
@@ -543,13 +557,18 @@ async def _run_public_followup_turn(
 def _map_public_event_type(event_type: str) -> str | None:
     mapping = {
         EventType.TURN_START.value: "run.started",
+        EventType.THINKING.value: "reasoning",
         EventType.TEXT_DELTA.value: "message.delta",
         EventType.TOOL_CALL.value: "tool.started",
         EventType.TOOL_RESULT.value: "tool.completed",
+        EventType.SKILL_ACTIVATED.value: "skill.activated",
+        EventType.SKILL_SETUP_FAILED.value: "skill.failed",
+        EventType.SKILL_DEPENDENCY_FAILED.value: "skill.failed",
+        EventType.PLAN_CREATED.value: "plan.created",
         EventType.TURN_COMPLETE.value: "run.completed",
         EventType.TASK_COMPLETE.value: "run.completed",
         EventType.TASK_ERROR.value: "run.failed",
-        EventType.TURN_CANCELLED.value: "run.failed",
+        EventType.TURN_CANCELLED.value: "run.cancelled",
         EventType.ARTIFACT_CREATED.value: "artifact.created",
         EventType.ASK_USER.value: "input.required",
         EventType.USER_RESPONSE.value: "input.submitted",
@@ -572,19 +591,58 @@ def _public_event_payload(
     public_data: dict[str, Any]
     if public_type == "run.started":
         public_data = {"message": data.get("message", "")}
+    elif public_type == "reasoning":
+        public_data = {
+            "text": data.get("thinking")
+            or data.get("text")
+            or data.get("content")
+            or "",
+            "duration_ms": data.get("duration_ms"),
+        }
     elif public_type == "message.delta":
         public_data = {"delta": data.get("delta", "")}
     elif public_type == "tool.started":
+        tool_name = data.get("tool_name") or data.get("name")
         public_data = {
-            "tool_name": data.get("tool_name") or data.get("name"),
-            "tool_call_id": data.get("tool_call_id") or data.get("id"),
+            "tool_name": tool_name,
+            "tool_call_id": data.get("tool_call_id")
+            or data.get("tool_id")
+            or data.get("id"),
+            "tool_input": data.get("tool_input")
+            or data.get("input")
+            or data.get("arguments")
+            or {},
+            "category": _public_tool_category(str(tool_name or "")),
         }
     elif public_type == "tool.completed":
+        tool_name = data.get("tool_name") or data.get("name")
         public_data = {
-            "tool_name": data.get("tool_name") or data.get("name"),
-            "tool_call_id": data.get("tool_call_id") or data.get("id"),
+            "tool_name": tool_name,
+            "tool_call_id": data.get("tool_call_id")
+            or data.get("tool_id")
+            or data.get("id"),
             "success": data.get("success"),
+            "output_preview": _public_preview(data.get("output") or data.get("result")),
+            "artifact_ids": list(data.get("artifact_ids") or ()),
+            "content_type": data.get("content_type"),
+            "category": _public_tool_category(str(tool_name or "")),
         }
+    elif public_type == "skill.activated":
+        public_data = {
+            "name": data.get("name"),
+            "source": data.get("source"),
+        }
+    elif public_type == "skill.failed":
+        public_data = {
+            "name": data.get("name"),
+            "phase": data.get("phase"),
+            "error": data.get("error"),
+            "source": data.get("source"),
+            "manager": data.get("manager"),
+            "packages": data.get("packages"),
+        }
+    elif public_type == "plan.created":
+        public_data = {"steps": list(data.get("steps") or ())}
     elif public_type == "artifact.created":
         public_data = {
             "artifact_id": data.get("artifact_id"),
@@ -607,11 +665,18 @@ def _public_event_payload(
             "request_id": data.get("request_id") or data.get("_request_id"),
             "response": data.get("response", ""),
         }
-    elif public_type == "run.failed":
+    elif public_type in {"run.failed", "run.cancelled"}:
         public_data = {
             "error": {
-                "code": data.get("code") or "agent_error",
-                "message": data.get("error") or data.get("result") or "Run failed.",
+                "code": data.get("code")
+                or ("cancelled" if public_type == "run.cancelled" else "agent_error"),
+                "message": data.get("error")
+                or data.get("result")
+                or (
+                    "Run was cancelled."
+                    if public_type == "run.cancelled"
+                    else "Run failed."
+                ),
                 "retryable": data.get("retryable"),
             }
         }
@@ -630,6 +695,31 @@ def _public_event_payload(
         else timestamp,
         "iteration": iteration,
     }
+
+
+def _public_tool_category(tool_name: str) -> str:
+    if "__" in tool_name or tool_name.startswith("mcp_"):
+        return "mcp"
+    if tool_name in {"activate_skill"}:
+        return "skill"
+    if tool_name.startswith("agent_") or tool_name in {"spawn_agent", "wait_agent"}:
+        return "agent"
+    return "tool"
+
+
+def _public_preview(value: Any, *, max_chars: int = 1200) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        text = value
+    else:
+        try:
+            text = json.dumps(value, ensure_ascii=False, default=str)
+        except TypeError:
+            text = str(value)
+    if len(text) <= max_chars:
+        return text
+    return text[: max_chars - 1] + "…"
 
 
 def _sse(public_event: dict[str, Any]) -> str:
@@ -854,7 +944,11 @@ async def _public_event_generator(
             if payload is None:
                 continue
             yield _stream_chunk(payload, stream_format=stream_format)
-            if payload["event_type"] in {"run.completed", "run.failed"}:
+            if payload["event_type"] in {
+                "run.completed",
+                "run.failed",
+                "run.cancelled",
+            }:
                 yield _done_chunk(stream_format=stream_format)
                 return
     finally:
@@ -1236,6 +1330,67 @@ async def stream_agent_run_events(
             "X-Accel-Buffering": "no",
         },
     )
+
+
+@router.post(
+    "/agent-runs/{run_id}/cancel",
+    responses={
+        200: {"content": {"application/json": {}}},
+        401: {"model": V1ErrorResponse},
+        404: {"model": V1ErrorResponse},
+    },
+)
+async def cancel_agent_run(
+    run_id: str = Path(..., pattern=_UUID_PATTERN),
+    session: Any = Depends(get_db_session),
+    state: AppState = Depends(get_app_state),
+    auth: IntegrationAuth = Depends(require_v1_rate_limit),
+) -> dict[str, str]:
+    record = await state.db_repo.get_agent_run(
+        session,
+        uuid.UUID(run_id),
+        api_key_hash=auth.api_key_hash,
+    )
+    if record is None:
+        raise _public_error(404, "not_found", "Run not found.")
+    if record.status in _TERMINAL_STATUSES:
+        return {"status": "already_terminal"}
+
+    conversation_id = str(record.conversation_id)
+    entry = state.conversations.get(conversation_id)
+    if entry is None:
+        await _mark_run_cancelled(state, record.id)
+        return {"status": "no_active_run"}
+
+    async with entry.lock:
+        turn_task = entry.turn_task
+        if turn_task is None or turn_task.done():
+            await _mark_run_cancelled(state, record.id)
+            return {"status": "no_active_run"}
+
+        orchestrator = entry.orchestrator
+        if orchestrator is not None and hasattr(orchestrator, "cancel"):
+            orchestrator.cancel()  # type: ignore[union-attr]
+
+    async def _force_cancel_after_timeout() -> None:
+        try:
+            await asyncio.wait_for(asyncio.shield(turn_task), timeout=5.0)
+        except (asyncio.TimeoutError, asyncio.CancelledError):
+            turn_task.cancel()
+            try:
+                await turn_task
+            except (asyncio.CancelledError, Exception):
+                pass
+        latest = await _latest_run_record(
+            state,
+            record.id,
+            api_key_hash=auth.api_key_hash,
+        )
+        if latest is not None and latest.status not in _TERMINAL_STATUSES:
+            await _mark_run_cancelled(state, record.id)
+
+    asyncio.create_task(_force_cancel_after_timeout())
+    return {"status": "cancelling"}
 
 
 def _artifact_response(record: Any) -> ArtifactResponse:

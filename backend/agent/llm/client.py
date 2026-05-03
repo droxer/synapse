@@ -301,7 +301,7 @@ class AnthropicClient:
     def __init__(
         self,
         api_key: str,
-        default_model: str = "claude-sonnet-4-20250514",
+        default_model: str = "claude-sonnet-4-6",
         max_tokens: int = 4096,
         base_url: str | None = None,
     ) -> None:
