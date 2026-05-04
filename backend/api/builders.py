@@ -17,19 +17,21 @@ from agent.context.profiles import (
 from agent.llm.client import (
     AnthropicClient,
     PromptTextBlock,
+    build_system_prompt_blocks,
     render_system_prompt,
 )
-from agent.mcp.bridge import mcp_server_tag
-from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from agent.llm.image import MiniMaxImageClient
+from agent.memory.safety import validate_memory_text
+from agent.memory.store import PersistentMemoryStore
+from agent.mcp.bridge import mcp_server_tag
 from agent.runtime.orchestrator import AgentOrchestrator
-from agent.runtime.planner import PlannerOrchestrator
+from agent.runtime.planner import PLANNER_SYSTEM_PROMPT, PlannerOrchestrator
+from agent.runtime.prompting import PromptAssembly
 from agent.runtime.system_prompt_sections import (
     build_memory_aware_system_prompt_sections,
+    format_memory_prompt_section,
 )
 from agent.runtime.sub_agent_manager import SubAgentManager
-from agent.memory.store import PersistentMemoryStore
-from agent.memory.safety import validate_memory_text
 from agent.sandbox.base import SandboxProvider
 from agent.skills.loader import SkillRegistry as SkillRegistry
 from agent.tools.executor import ToolExecutor
@@ -529,8 +531,6 @@ def _format_memory_prompt_section(
     memory_entries: list[dict[str, str]],
 ) -> str:
     """Format memory entries as a system prompt section."""
-    from agent.runtime.system_prompt_sections import format_memory_prompt_section
-
     return format_memory_prompt_section(memory_entries, settings=get_settings())
 
 
@@ -559,6 +559,39 @@ def build_agent_system_prompt_sections(
     return (*sections, PromptTextBlock(text=RESULT_DELIVERY_PROMPT_SECTION))
 
 
+def build_agent_prompt_assembly(
+    base_prompt: str,
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> PromptAssembly:
+    """Assemble cache-aware prompt sections with user memory kept volatile."""
+    settings = get_settings()
+    stable_sections = build_memory_aware_system_prompt_sections(
+        base_prompt,
+        None,
+        skill_registry,
+        settings=settings,
+    )
+    memory_section = format_memory_prompt_section(
+        memory_entries or [],
+        settings=settings,
+    )
+    if memory_section:
+        return PromptAssembly(
+            stable_sections=stable_sections,
+            volatile_sections=build_system_prompt_blocks(
+                memory_section,
+                RESULT_DELIVERY_PROMPT_SECTION,
+            ),
+        )
+    return PromptAssembly(
+        stable_sections=(
+            *stable_sections,
+            PromptTextBlock(text=RESULT_DELIVERY_PROMPT_SECTION),
+        ),
+    )
+
+
 def build_default_agent_system_prompt_sections(
     memory_entries: list[dict[str, str]] | None,
     skill_registry: SkillRegistry | None,
@@ -578,6 +611,31 @@ def build_planner_system_prompt_sections(
 ) -> tuple[PromptTextBlock, ...]:
     """Assemble planner system-prompt sections."""
     return build_agent_system_prompt_sections(
+        PLANNER_SYSTEM_PROMPT,
+        memory_entries,
+        skill_registry,
+    )
+
+
+def build_default_agent_prompt_assembly(
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> PromptAssembly:
+    """Assemble default agent prompt sections with cache boundaries."""
+    settings = get_settings()
+    return build_agent_prompt_assembly(
+        settings.DEFAULT_SYSTEM_PROMPT,
+        memory_entries,
+        skill_registry,
+    )
+
+
+def build_planner_prompt_assembly(
+    memory_entries: list[dict[str, str]] | None,
+    skill_registry: SkillRegistry | None,
+) -> PromptAssembly:
+    """Assemble planner prompt sections with cache boundaries."""
+    return build_agent_prompt_assembly(
         PLANNER_SYSTEM_PROMPT,
         memory_entries,
         skill_registry,
@@ -664,9 +722,7 @@ def _build_orchestrator(
         conversation_id=conversation_id,
     )
 
-    system_prompt = render_system_prompt(
-        build_default_agent_system_prompt_sections(memory_entries, skill_registry)
-    )
+    system_prompt = build_default_agent_prompt_assembly(memory_entries, skill_registry)
 
     orchestrator = AgentOrchestrator(
         claude_client=claude_client,
@@ -754,9 +810,7 @@ def _build_planner_orchestrator(
         conversation_id=conversation_id,
     )
 
-    planner_prompt = render_system_prompt(
-        build_planner_system_prompt_sections(memory_entries, skill_registry)
-    )
+    planner_prompt = build_planner_prompt_assembly(memory_entries, skill_registry)
 
     orchestrator = PlannerOrchestrator(
         claude_client=claude_client,

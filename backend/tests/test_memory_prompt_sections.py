@@ -4,8 +4,12 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from api.builders import (
+    RESULT_DELIVERY_PROMPT_SECTION,
     build_agent_system_prompt,
+    build_default_agent_prompt_assembly,
+    build_planner_prompt_assembly,
     format_verified_facts_prompt_section,
 )
 
@@ -113,6 +117,74 @@ def test_build_agent_system_prompt_skips_unsafe_memory_entries(monkeypatch) -> N
     assert "- safe: Prefers concise implementation notes" in prompt
     assert "ignore previous instructions" not in prompt
     assert "<system>" not in prompt
+
+
+def test_default_agent_prompt_assembly_keeps_memory_volatile(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            DEFAULT_SYSTEM_PROMPT="BASE",
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=1000,
+        ),
+    )
+    memory_entries = [
+        {"namespace": "default", "key": "timezone", "value": "Asia/Shanghai"}
+    ]
+
+    assembly = build_default_agent_prompt_assembly(memory_entries, skill_registry=None)
+    system = assembly.system_with_cache_control(True)
+
+    assert [block.text for block in assembly.stable_sections] == ["BASE"]
+    assert "<personal_memory>" in assembly.volatile_sections[0].text
+    assert assembly.volatile_sections[1].text == RESULT_DELIVERY_PROMPT_SECTION
+    assert getattr(system[0].cache_control, "type", None) == "ephemeral"
+    assert system[1].cache_control is None
+    assert system[2].cache_control is None
+    assert assembly.rendered == build_agent_system_prompt(memory_entries, None)
+
+
+def test_default_agent_prompt_assembly_caches_result_policy_without_memory(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            DEFAULT_SYSTEM_PROMPT="BASE",
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=1000,
+        ),
+    )
+
+    assembly = build_default_agent_prompt_assembly([], skill_registry=None)
+    system = assembly.system_with_cache_control(True)
+
+    assert [block.text for block in assembly.stable_sections] == [
+        "BASE",
+        RESULT_DELIVERY_PROMPT_SECTION,
+    ]
+    assert assembly.volatile_sections == ()
+    assert system[0].cache_control is None
+    assert getattr(system[1].cache_control, "type", None) == "ephemeral"
+
+
+def test_planner_prompt_assembly_uses_planner_prompt(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=1000,
+        ),
+    )
+
+    assembly = build_planner_prompt_assembly([], skill_registry=None)
+
+    assert assembly.stable_sections[0].text == PLANNER_SYSTEM_PROMPT
+    assert assembly.stable_sections[-1].text == RESULT_DELIVERY_PROMPT_SECTION
+    assert assembly.volatile_sections == ()
 
 
 def test_verified_facts_section_skips_unsafe_facts() -> None:

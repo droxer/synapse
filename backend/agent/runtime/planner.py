@@ -29,6 +29,7 @@ from agent.runtime.helpers import (
 from agent.context.compaction import Observer, compaction_summary_for_persistence
 from agent.runtime.skill_install import install_skill_dependencies_for_turn
 from agent.runtime.orchestrator import AgentState
+from agent.runtime.prompting import PromptAssembly
 from agent.runtime.skill_runtime import split_allowed_tools
 from agent.runtime.skill_setup import (
     build_skill_prompt_content,
@@ -36,7 +37,6 @@ from agent.runtime.skill_setup import (
     prepare_skill_for_turn,
     tool_use_had_error_result,
 )
-from agent.runtime.prompting import PromptAssembly
 from agent.runtime.skill_selector import select_skill_for_message
 from agent.runtime.task_runner import TaskAgentConfig
 from agent.runtime.turn_attachments import (
@@ -277,13 +277,23 @@ class PlannerOrchestrator:
         max_iterations: int = 30,
         observer: Observer | None = None,
         compaction_profile: CompactionProfile | None = None,
-        system_prompt: str = "",
+        system_prompt: SystemPrompt | PromptAssembly = "",
         skill_registry: SkillRegistry | None = None,
         initial_messages: tuple[dict[str, Any], ...] = (),
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations must be at least 1")
         settings = get_settings()
+        system_source: SystemPrompt | PromptAssembly = (
+            system_prompt or PLANNER_SYSTEM_PROMPT
+        )
+        base_prompt_assembly = (
+            system_source
+            if isinstance(system_source, PromptAssembly)
+            else PromptAssembly.from_system(system_source)
+        )
+        if not base_prompt_assembly.rendered.strip():
+            raise ValueError("system_prompt must not be empty")
 
         self._client = claude_client
         self._sub_agent_manager = sub_agent_manager
@@ -304,10 +314,11 @@ class PlannerOrchestrator:
         )
         self._task_complete_summary: str | None = None
         self._cancel_event = asyncio.Event()
-        self._system_prompt = system_prompt or PLANNER_SYSTEM_PROMPT
+        self._base_prompt_assembly = base_prompt_assembly
+        self._system_prompt = base_prompt_assembly.system
         self._skill_registry = skill_registry
         self._auto_injected_skill: str | None = None
-        self._turn_prompt_assembly = PromptAssembly.from_system(self._system_prompt)
+        self._turn_prompt_assembly = base_prompt_assembly
         self._planner_state = PlannerState()
 
         # Register meta-tools into the provided registry
@@ -566,7 +577,7 @@ class PlannerOrchestrator:
         self._explicit_policy_reminder = None
 
         cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
-        prompt_assembly = PromptAssembly.from_system(self._system_prompt)
+        prompt_assembly = self._base_prompt_assembly
         if runtime_prompt_sections:
             dynamic = tuple(s for s in runtime_prompt_sections if s)
             if dynamic:

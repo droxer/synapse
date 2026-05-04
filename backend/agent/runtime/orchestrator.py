@@ -97,7 +97,7 @@ class AgentOrchestrator:
         tool_registry: ToolRegistry,
         tool_executor: ToolExecutor,
         event_emitter: EventEmitter,
-        system_prompt: str,
+        system_prompt: SystemPrompt | PromptAssembly,
         max_iterations: int = 50,
         observer: Observer | None = None,
         compaction_profile: CompactionProfile | None = None,
@@ -106,14 +106,20 @@ class AgentOrchestrator:
         skill_registry: SkillRegistry | None = None,
         persistent_store: PersistentMemoryStore | None = None,
     ) -> None:
-        if not system_prompt:
+        base_prompt_assembly = (
+            system_prompt
+            if isinstance(system_prompt, PromptAssembly)
+            else PromptAssembly.from_system(system_prompt)
+        )
+        if not base_prompt_assembly.rendered.strip():
             raise ValueError("system_prompt must not be empty")
         settings = get_settings()
         self._client = claude_client
         self._base_registry = tool_registry
         self._executor = tool_executor
         self._emitter = event_emitter
-        self._system_prompt = system_prompt
+        self._base_prompt_assembly = base_prompt_assembly
+        self._system_prompt = base_prompt_assembly.system
         self._max_iterations = max_iterations
         resolved_profile = compaction_profile or resolve_compaction_profile(
             settings, "web_conversation"
@@ -139,7 +145,7 @@ class AgentOrchestrator:
         self._last_tool_batch_signature: str | None = None
         self._identical_tool_batch_count: int = 0
         self._turn_artifact_ids: list[str] = []
-        self._turn_prompt_assembly = PromptAssembly.from_system(system_prompt)
+        self._turn_prompt_assembly = base_prompt_assembly
         self._turn_unfiltered_registry = tool_registry
         self._pending_mid_turn_update: (
             tuple[PromptAssembly, ToolRegistry, list[dict[str, Any]]] | None
@@ -385,7 +391,7 @@ class AgentOrchestrator:
 
         # Auto-match skill for this turn via shared selector
         cache_prompt = getattr(get_settings(), "PROMPT_CACHE_ENABLED", False)
-        prompt_assembly = PromptAssembly.from_system(self._system_prompt)
+        prompt_assembly = self._base_prompt_assembly
         if runtime_prompt_sections:
             dynamic_sections = tuple(
                 section for section in runtime_prompt_sections if section

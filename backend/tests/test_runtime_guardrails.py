@@ -28,7 +28,11 @@ from agent.tools.base import ExecutionContext, LocalTool, ToolDefinition, ToolRe
 from agent.tools.executor import ToolExecutor
 from agent.tools.local.activate_skill import ActivateSkill
 from agent.tools.registry import ToolRegistry
-from api.builders import _build_planner_registry
+from api.builders import (
+    _build_planner_registry,
+    build_default_agent_prompt_assembly,
+    build_planner_prompt_assembly,
+)
 from api.events import EventEmitter, EventType
 from api.models import FileAttachment, MCPState
 
@@ -1259,7 +1263,6 @@ async def test_orchestrator_mid_turn_skill_activation_preserves_runtime_prompt_s
             STUCK_LOOP_TOOL_REPEAT_THRESHOLD=0,
         ),
     )
-
     captured_system_prompts: list[str] = []
 
     class _PromptRecordingClient(_SequenceClient):
@@ -1342,6 +1345,15 @@ async def test_orchestrator_emits_cache_controls_on_stable_prompt_and_tools(
             STUCK_LOOP_TOOL_REPEAT_THRESHOLD=0,
         ),
     )
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            DEFAULT_SYSTEM_PROMPT="base system",
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=1000,
+        ),
+    )
 
     captured_requests: list[dict[str, Any]] = []
 
@@ -1372,7 +1384,10 @@ async def test_orchestrator_emits_cache_controls_on_stable_prompt_and_tools(
         tool_registry=registry,
         tool_executor=ToolExecutor(registry=registry),
         event_emitter=EventEmitter(),
-        system_prompt="base system",
+        system_prompt=build_default_agent_prompt_assembly(
+            [{"namespace": "default", "key": "timezone", "value": "Asia/Shanghai"}],
+            None,
+        ),
     )
 
     result = await orchestrator.run(
@@ -1388,9 +1403,87 @@ async def test_orchestrator_emits_cache_controls_on_stable_prompt_and_tools(
     system_blocks = first["system"]
     assert isinstance(system_blocks, tuple)
     assert getattr(system_blocks[0].cache_control, "type", None) == "ephemeral"
+    memory_block = next(
+        block for block in system_blocks if "<personal_memory>" in block.text
+    )
+    assert memory_block.cache_control is None
     assert system_blocks[-1].text.startswith("<verified_user_facts>")
     assert system_blocks[-1].cache_control is None
     assert first["tools"][-1]["cache_control"] == {"type": "ephemeral"}
+
+
+@pytest.mark.asyncio
+async def test_planner_accepts_builder_prompt_assembly_with_volatile_memory(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "agent.runtime.planner.get_settings",
+        lambda: SimpleNamespace(
+            COMPACT_TOKEN_BUDGET=150_000,
+            COMPACT_TOKEN_COUNTER="weighted",
+            COMPACT_FULL_INTERACTIONS=5,
+            COMPACT_FALLBACK_PREVIEW_CHARS=500,
+            COMPACT_FALLBACK_RESULT_CHARS=1000,
+            COMPACT_SUMMARY_MODEL="",
+            COMPACT_FULL_DIALOGUE_TURNS=5,
+            COMPACT_DIALOGUE_FALLBACK_CHARS=12_000,
+            COMPACT_CONTEXT_SUMMARY_MAX_CHARS=32_000,
+            COMPACT_RECONSTRUCT_TAIL_MESSAGES=80,
+            COMPACT_MEMORY_FLUSH=False,
+            PLANNING_MODEL="claude-planner-test",
+            LITE_MODEL="claude-lite-test",
+            SKILL_SELECTOR_MODEL="",
+            PROMPT_CACHE_ENABLED=True,
+        ),
+    )
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=1000,
+        ),
+    )
+
+    captured_requests: list[dict[str, Any]] = []
+
+    class _PlannerCacheRecordingClient(_SequenceClient):
+        async def create_message_stream(self, **kwargs: Any) -> LLMResponse:
+            captured_requests.append(kwargs)
+            return await super().create_message_stream(**kwargs)
+
+    client = _PlannerCacheRecordingClient(
+        LLMResponse(
+            text="done",
+            tool_calls=(),
+            stop_reason="end_turn",
+            usage=TokenUsage(input_tokens=1, output_tokens=1),
+        )
+    )
+    registry = ToolRegistry()
+    planner = PlannerOrchestrator(
+        claude_client=client,  # type: ignore[arg-type]
+        tool_registry=registry,
+        tool_executor=ToolExecutor(registry=registry),
+        event_emitter=EventEmitter(),
+        sub_agent_manager=SimpleNamespace(cleanup=AsyncMock()),
+        system_prompt=build_planner_prompt_assembly(
+            [{"namespace": "default", "key": "timezone", "value": "Asia/Shanghai"}],
+            None,
+        ),
+    )
+
+    result = await planner.run("help me")
+
+    assert result == "done"
+    assert captured_requests
+    system_blocks = captured_requests[0]["system"]
+    assert isinstance(system_blocks, tuple)
+    assert getattr(system_blocks[0].cache_control, "type", None) == "ephemeral"
+    memory_block = next(
+        block for block in system_blocks if "<personal_memory>" in block.text
+    )
+    assert memory_block.cache_control is None
 
 
 @pytest.mark.asyncio
