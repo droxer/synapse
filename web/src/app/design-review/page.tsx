@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { Bot } from "lucide-react";
 
 const themePreviews = [
   {
@@ -21,12 +22,17 @@ export default function DesignReviewPage() {
   return (
     <main id="main" className="min-h-screen bg-background text-foreground">
       <section className="border-b border-border px-4 py-4 sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <p className="label-mono text-muted-foreground-dim">Local visual fixture</p>
-          <h1 className="text-2xl font-semibold tracking-tight">Frontend design review</h1>
-          <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
-            Development-only authenticated UI fixture with side-by-side light and dark theme previews.
-          </p>
+        <div className="mx-auto flex max-w-7xl items-start gap-3">
+          <div className="chip-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-lg">
+            <Bot className="h-5 w-5 text-muted-foreground" />
+          </div>
+          <div className="min-w-0">
+            <p className="label-mono text-muted-foreground-dim">Local visual fixture</p>
+            <h1 className="mt-2 text-2xl font-semibold tracking-tight">Frontend design review</h1>
+            <p className="mt-1 max-w-3xl text-sm text-muted-foreground">
+              Development-only authenticated UI fixture with side-by-side light and dark theme previews.
+            </p>
+          </div>
         </div>
       </section>
 

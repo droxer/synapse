@@ -243,7 +243,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
               <MessageCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+              <p className="label-mono text-muted-foreground">
                 {pendingAsk.title ?? t("inputPrompt.title")}
               </p>
               <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">

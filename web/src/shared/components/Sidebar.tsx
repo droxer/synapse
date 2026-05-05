@@ -304,6 +304,7 @@ export function Sidebar({
                 "group/new flex w-full items-center gap-2 rounded-lg px-2.5 py-2",
                 "transition-colors duration-200 ease-out",
                 "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                isMobile && "min-h-11",
                 activePath === "/" && !activeTaskId
                   ? "bg-sidebar-active text-foreground"
                   : "text-foreground hover:bg-sidebar-hover",
@@ -320,6 +321,7 @@ export function Sidebar({
               aria-label={t("sidebar.channels")}
               className={cn(
                 "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                isMobile && "min-h-11",
                 activePath === "/channels"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -337,6 +339,7 @@ export function Sidebar({
               aria-label={t("sidebar.library")}
               className={cn(
                 "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                isMobile && "min-h-11",
                 activePath === "/library"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -355,6 +358,7 @@ export function Sidebar({
               aria-label={t("sidebar.skills")}
               className={cn(
                 "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                isMobile && "min-h-11",
                 activePath === "/skills"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -372,6 +376,7 @@ export function Sidebar({
               aria-label={t("sidebar.mcp")}
               className={cn(
                 "group flex items-center gap-2 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                isMobile && "min-h-11",
                 activePath === "/mcp"
                   ? "bg-sidebar-active text-foreground"
                   : "text-sidebar-foreground-muted hover:bg-sidebar-hover hover:text-foreground",
@@ -459,6 +464,7 @@ export function Sidebar({
                       "transition-colors duration-200 ease-out",
                       "hover:bg-sidebar-hover",
                       "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                      isMobile && "min-h-11",
                       isActive && "bg-sidebar-active",
                     )}
                   >
@@ -477,10 +483,10 @@ export function Sidebar({
                       <span
                         title={t("sidebar.planTask")}
                         className={cn(
-                          "inline-flex shrink-0 items-center gap-1 rounded-md border px-1.5 py-0.5 text-[0.65rem] font-medium leading-none",
+                          "status-pill shrink-0",
                           isActive
-                            ? "border-border-active bg-primary text-primary-foreground"
-                            : "border-border bg-secondary text-foreground",
+                            ? "status-primary"
+                            : "status-ai",
                         )}
                       >
                         <GitFork className="h-3 w-3" />

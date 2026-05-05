@@ -572,6 +572,8 @@
   "a11y.htmlOutput": "HTML 输出",
   "a11y.opensNewTab": "（在新标签页中打开）",
   "a11y.home": "首页",
+  "a11y.navigation": "导航",
+  "a11y.openNavigationMenu": "打开导航菜单",
 
   "chat.inputLabel": "向智能体发送消息",
 

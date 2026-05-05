@@ -457,7 +457,7 @@ export function FilePreview({
               key={slide.index}
               className="overflow-hidden rounded-lg border border-border bg-card"
             >
-              <div className="border-b border-border px-3 py-2 text-xs font-medium uppercase tracking-[0.14em] text-muted-foreground">
+              <div className="border-b border-border px-3 py-2 label-mono text-muted-foreground">
                 {`Slide ${slide.index}`}
               </div>
               <img

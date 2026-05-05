@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sun, Moon, Monitor, Check } from "lucide-react";
+import { Sun, Moon, Monitor } from "lucide-react";
 import { useTheme } from "next-themes";
+import { SegmentedControl } from "@/shared/components/SegmentedControl";
 import { useUserPreferences } from "@/shared/hooks/use-user-preferences";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/shared/lib/utils";
@@ -25,19 +26,19 @@ function ThemePreview({ variant }: { readonly variant: ThemeValue }) {
     ? "bg-secondary"
     : variant === "light"
       ? "bg-background"
-      : "bg-gradient-to-r from-background to-secondary";
+      : "bg-muted";
 
   const barColor = variant === "dark"
     ? "bg-muted-foreground"
     : variant === "light"
       ? "bg-border-strong"
-      : "bg-gradient-to-r from-border-strong to-muted-foreground";
+      : "bg-border-active";
 
   const dotColor = variant === "dark"
     ? "bg-muted-foreground-dim"
     : variant === "light"
       ? "bg-border"
-      : "bg-gradient-to-r from-border to-muted-foreground-dim";
+      : "bg-muted-foreground-dim";
 
   return (
     <div className={cn("h-20 w-full rounded-md border border-border overflow-hidden", bg)}>
@@ -67,6 +68,8 @@ export function ThemeTab() {
   }, []);
 
   const currentTheme = mounted ? (theme as ThemeValue) ?? "dark" : "dark";
+  const selectedOption = THEME_OPTIONS.find((option) => option.value === currentTheme) ?? THEME_OPTIONS[2];
+  const SelectedIcon = selectedOption.icon;
 
   const handleSelect = (value: ThemeValue) => {
     setTheme(value);
@@ -84,41 +87,30 @@ export function ThemeTab() {
         </p>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        {THEME_OPTIONS.map(({ value, icon: Icon, labelKey, descKey }) => {
-          const isActive = currentTheme === value;
-          return (
-            <button
-              key={value}
-              type="button"
-              onClick={() => handleSelect(value)}
-              className={cn(
-                "relative flex flex-col items-start rounded-lg border p-3 text-left transition-[color,background-color,border-color] duration-150 ease-out",
-                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                "hover:border-border-strong",
-                isActive
-                  ? "border-border-strong bg-muted"
-                  : "border-border bg-card",
-              )}
-            >
-              {isActive && (
-                <div className="absolute right-2 top-2 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background">
-                  <Check className="h-3 w-3 text-foreground" />
-                </div>
-              )}
-              <ThemePreview variant={value} />
-              <div className="mt-3 flex items-center gap-1.5">
-                <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-sm font-medium text-foreground">
-                  {t(labelKey)}
-                </span>
-              </div>
-              <p className="mt-0.5 text-xs text-muted-foreground">
-                {t(descKey)}
-              </p>
-            </button>
-          );
-        })}
+      <SegmentedControl<ThemeValue>
+        ariaLabel={t("preferences.theme.title")}
+        value={currentTheme}
+        onValueChange={handleSelect}
+        className="w-full"
+        optionClassName="flex-1"
+        options={THEME_OPTIONS.map(({ value, icon: Icon, labelKey }) => ({
+          value,
+          label: t(labelKey),
+          icon: <Icon className="h-3.5 w-3.5" />,
+        }))}
+      />
+
+      <div className="surface-panel p-3">
+        <ThemePreview variant={currentTheme} />
+        <div className="mt-3 flex items-center gap-1.5">
+          <SelectedIcon className="h-3.5 w-3.5 text-muted-foreground" />
+          <span className="text-sm font-medium text-foreground">
+            {t(selectedOption.labelKey)}
+          </span>
+        </div>
+        <p className="mt-0.5 text-xs text-muted-foreground">
+          {t(selectedOption.descKey)}
+        </p>
       </div>
     </div>
   );

@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Bot, FileText, Settings2 } from "lucide-react";
 import { ConversationWorkspace } from "@/features/conversation/components/ConversationWorkspace";
 import { ArtifactFilesPanel } from "@/features/agent-computer";
+import { ProductPageHeader, ProductStatCard } from "@/shared/components/ProductPage";
 import { Button } from "@/shared/components/ui/button";
 import { Progress } from "@/shared/components/ui/progress";
 import { cn } from "@/shared/lib/utils";
@@ -211,16 +212,14 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
 
   return (
     <main id="main" className="min-h-screen bg-background text-foreground">
-      <section className="border-b border-border px-4 py-4 sm:px-6">
-        <div className="mx-auto flex max-w-6xl flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div>
-            <p className="label-mono text-muted-foreground-dim">Local visual fixture</p>
-            <h1 className="text-2xl font-semibold tracking-tight">Frontend design review: {themeLabel}</h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              Development-only route for reviewing authenticated Synapse UI states without OAuth.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <ProductPageHeader
+        className="border-b border-border py-4"
+        icon={<Bot className="h-5 w-5 text-muted-foreground" />}
+        eyebrow="Local visual fixture"
+        title={`Frontend design review: ${themeLabel}`}
+        description="Development-only route for reviewing authenticated Synapse UI states without OAuth."
+        actions={
+          <>
             <Button type="button" size="sm">
               <Bot className="h-4 w-4" />
               Primary action
@@ -229,9 +228,9 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
               <Settings2 className="h-4 w-4" />
               Secondary
             </Button>
-          </div>
-        </div>
-      </section>
+          </>
+        }
+      />
 
       <section className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <div className="h-[min(48rem,calc(100vh-9rem))] min-h-[34rem] overflow-hidden rounded-lg border border-border bg-background">
@@ -271,6 +270,12 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
               </div>
             </div>
           </div>
+
+          <ProductStatCard
+            label="Fixture coverage"
+            value="2 themes"
+            description="Conversation, progress, DONE state, artifact panel, and token states."
+          />
 
           <div className="h-[22rem] overflow-hidden rounded-lg border border-border">
             <ArtifactFilesPanel artifacts={artifacts} conversationId={null} />

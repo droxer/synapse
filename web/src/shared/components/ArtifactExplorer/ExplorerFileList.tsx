@@ -208,7 +208,7 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
     );
   }
 
-  // Default — large icon placeholder with subtle gradient
+  // Default — large icon placeholder.
   return (
     <div className={`h-36 overflow-hidden ${bg} flex items-center justify-center relative`}>
       <BrandFileTypeIcon
@@ -216,7 +216,6 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
         contentType={item.contentType}
         className={`h-14 w-14 ${iconColor} opacity-20`}
       />
-      <div className="absolute inset-0 bg-gradient-to-br from-transparent via-transparent to-black/5" />
     </div>
   );
 }

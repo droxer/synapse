@@ -74,10 +74,33 @@ check \
   "No gradient heading utility usage." \
   "gradient-heading"
 
-# 7) No diffuse non-overlay shadows in product UI.
+# 7) Typography should use named Tailwind/token utilities, not one-off values.
+check \
+  "No arbitrary font-size utilities in product UI." \
+  "text-\\[(10px|11px|12px|13px|14px|15px|0\\.[0-9]+rem|1\\.[0-9]+rem)\\]"
+
+check \
+  "No arbitrary letter-spacing utilities in product UI." \
+  "tracking-\\[[^]]+\\]"
+
+# 8) Decorative Tailwind gradient/blur utilities are not part of the standard flat product surface.
+check \
+  "No decorative Tailwind gradient background utilities in product UI." \
+  "\\bbg-gradient-to-[a-z]+\\b"
+
+check \
+  "No decorative blur utilities in product UI." \
+  "\\bblur-(xl|2xl|3xl)\\b"
+
+# 9) No diffuse non-overlay shadows in product UI.
 check \
   "No custom card-lift shadow token usage in product UI." \
   "shadow-\\[var\\(--shadow-(card|card-hover|primary-glow)"
+
+check \
+  "No standard surface shadow-card utility usage in product UI." \
+  "\\bshadow-card\\b" \
+  --glob "!**/app/globals.css"
 
 check \
   "No raw elevated shadow utility usage in product UI." \

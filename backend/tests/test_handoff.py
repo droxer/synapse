@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from agent.llm.client import render_system_prompt
 from agent.memory.store import PersistentMemoryStore
 from agent.runtime.sub_agent_manager import (
     AgentWaitCancelled,
@@ -687,7 +688,17 @@ class TestSubAgentSpawnLimits:
             memory_entries=[{"key": "timezone", "value": "UTC"}],
         )
 
-        system_prompt = str(captured_planner_kwargs["system_prompt"])
+        captured_prompt = captured_planner_kwargs["system_prompt"]
+        rendered = getattr(captured_prompt, "rendered", None)
+        if isinstance(rendered, str):
+            system_prompt = rendered
+        else:
+            try:
+                system_prompt = render_system_prompt(  # type: ignore[arg-type]
+                    captured_prompt
+                )
+            except TypeError:
+                system_prompt = str(captured_prompt)
         assert PLANNER_SYSTEM_PROMPT in system_prompt
         assert "timezone: UTC" in system_prompt
 

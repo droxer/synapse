@@ -1001,7 +1001,7 @@ export function AgentProgressCard({
   return (
     <motion.div
       lang="en"
-      className="surface-panel overflow-hidden border-border shadow-card"
+      className="surface-panel overflow-hidden border-border"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
@@ -1017,7 +1017,7 @@ export function AgentProgressCard({
             type="button"
             aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
             onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-            className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="touch-target flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             <Monitor className="h-3.5 w-3.5" />
           </button>

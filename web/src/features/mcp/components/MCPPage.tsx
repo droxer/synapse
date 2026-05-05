@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { ProductPageHeader, ProductSectionHeader, ProductStatCard } from "@/shared/components/ProductPage";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { MCPServerCard } from "./MCPServerCard";
 import { MCPAddServerDialog } from "./MCPAddServerDialog";
@@ -28,10 +29,6 @@ import {
 } from "@/shared/components/ui/alert-dialog";
 import { cn } from "@/shared/lib/utils";
 import { listVariants } from "@/shared/lib/animations";
-import {
-  TOOLING_SECTION_HEADER_CLASSES,
-  TOOLING_STAT_CARD_CLASSES,
-} from "@/shared/lib/tooling-ui-styles";
 import { useTranslation } from "@/i18n";
 import { useMCPServers } from "../hooks/use-mcp-servers";
 
@@ -111,70 +108,45 @@ export function MCPPage() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
-      <motion.div
-        className="shrink-0 px-6 py-6"
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.12, ease: "easeOut" }}
-      >
-        <div className="mx-auto max-w-6xl space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="chip-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-lg">
-                <Blocks className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="label-mono text-muted-foreground-dim">
-                  {t("mcp.mcpServers")}
-                </p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
-                  {t("mcp.title")}
-                </h1>
-                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  {t("mcp.subtitle")}
-                </p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 lg:min-w-[24rem]">
-              <div className={TOOLING_STAT_CARD_CLASSES}>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "h-2 w-2 rounded-full",
-                      connectedCount > 0 ? "bg-accent-emerald" : "bg-border-strong",
-                    )}
-                  />
-                  <span className="label-mono text-muted-foreground-dim">
-                    {t("topbar.connected")}
-                  </span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+      <ProductPageHeader
+        className="py-6"
+        icon={<Blocks className="h-5 w-5 text-muted-foreground" />}
+        eyebrow={t("mcp.mcpServers")}
+        title={t("mcp.title")}
+        description={t("mcp.subtitle")}
+        statsClassName="grid-cols-1 sm:grid-cols-3 lg:min-w-[24rem]"
+        stats={
+          <>
+            <ProductStatCard
+              label={t("topbar.connected")}
+              icon={
+                <span
+                  className={cn(
+                    "block h-2 w-2 rounded-full",
+                    connectedCount > 0 ? "bg-accent-emerald" : "bg-border-strong",
+                  )}
+                />
+              }
+              value={
+                <>
                   {connectedCount}
                   <span className="ml-1 text-sm text-muted-foreground">/ {servers.length}</span>
-                </p>
-              </div>
-              <div className={TOOLING_STAT_CARD_CLASSES}>
-                <div className="flex items-center gap-2">
-                  <Globe className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="label-mono text-muted-foreground-dim">HTTP</span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {streamableCount}
-                </p>
-              </div>
-              <div className={TOOLING_STAT_CARD_CLASSES}>
-                <div className="flex items-center gap-2">
-                  <Radio className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span className="label-mono text-muted-foreground-dim">SSE</span>
-                </div>
-                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {sseCount}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+                </>
+              }
+            />
+            <ProductStatCard
+              label="HTTP"
+              icon={<Globe className="h-3.5 w-3.5" />}
+              value={streamableCount}
+            />
+            <ProductStatCard
+              label="SSE"
+              icon={<Radio className="h-3.5 w-3.5" />}
+              value={sseCount}
+            />
+          </>
+        }
+      />
 
       {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-6">
@@ -185,19 +157,15 @@ export function MCPPage() {
           )}
 
           {/* Section header with search + add */}
-          <div className={TOOLING_SECTION_HEADER_CLASSES}>
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="min-w-0 flex-1">
-                <p className="label-mono text-muted-foreground-dim">
-                  {t("mcp.mcpServers")}
-                </p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  {servers.length > 0
-                    ? `${connectedCount}/${servers.length} ${t("topbar.connected")}`
-                    : t("mcp.subtitle")}
-                </p>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <ProductSectionHeader
+            eyebrow={t("mcp.mcpServers")}
+            description={
+              servers.length > 0
+                ? `${connectedCount}/${servers.length} ${t("topbar.connected")}`
+                : t("mcp.subtitle")
+            }
+            actions={
+              <>
                 {servers.length > 3 && (
                   <SearchInput
                     value={filter}
@@ -214,9 +182,9 @@ export function MCPPage() {
                   <Plus className="mr-1.5 h-3.5 w-3.5" />
                   {t("mcp.addServer")}
                 </Button>
-              </div>
-            </div>
-          </div>
+              </>
+            }
+          />
 
           {/* ── Server grid ── */}
           {loading && servers.length === 0 ? (

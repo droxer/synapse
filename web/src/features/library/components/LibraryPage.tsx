@@ -1,12 +1,12 @@
 "use client";
 
 import { useMemo, useState, useCallback, useEffect, useRef } from "react";
-import { motion } from "framer-motion";
 import { Library, LayoutGrid, List } from "lucide-react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { ProductPageHeader, ProductSectionHeader } from "@/shared/components/ProductPage";
 import { SearchInput } from "@/shared/components/SearchInput";
+import { SegmentedControl } from "@/shared/components/SegmentedControl";
 import { Button } from "@/shared/components/ui/button";
-import { cn } from "@/shared/lib/utils";
 import { ArtifactExplorer } from "@/shared/components/ArtifactExplorer";
 import { GRID_COLS_CLASS } from "@/shared/components/ArtifactExplorer/ExplorerFileList";
 import { useTranslation } from "@/i18n";
@@ -115,73 +115,40 @@ export function LibraryPage() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <motion.div
-        className="shrink-0 px-6 py-5"
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.12, ease: "easeOut" }}
-      >
-        <div className="mx-auto max-w-6xl space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="chip-muted flex h-11 w-11 shrink-0 items-center justify-center rounded-lg">
-                <Library aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div>
-                <p className="label-mono text-muted-foreground-dim">
-                  {t("library.title")}
-                </p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
-                  {t("library.title")}
-                </h1>
-                {isLoading && !statsLine ? (
-                  <div className="mt-2 h-3 w-40 skeleton-shimmer rounded" />
-                ) : statsLine ? (
-                  <p className="mt-1 text-sm text-muted-foreground">{statsLine}</p>
-                ) : (
-                  <p className="mt-1 text-sm text-muted-foreground">{t("library.subtitle")}</p>
-                )}
-              </div>
-            </div>
-            {(groups.length > 0 || filter) ? (
-              <div className="flex items-center gap-1 rounded-lg bg-muted/50 p-1">
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  aria-label={t("library.viewGrid")}
-                  aria-pressed={viewMode === "grid"}
-                  onClick={() => handleSetViewMode("grid")}
-                  className={cn(viewMode !== "grid" && "text-muted-foreground hover:text-foreground")}
-                >
-                  <LayoutGrid aria-hidden="true" className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  aria-label={t("library.viewList")}
-                  aria-pressed={viewMode === "list"}
-                  onClick={() => handleSetViewMode("list")}
-                  className={cn(viewMode !== "list" && "text-muted-foreground hover:text-foreground")}
-                >
-                  <List aria-hidden="true" className="h-4 w-4" />
-                </Button>
-              </div>
-            ) : null}
-          </div>
-          {(groups.length > 0 || filter) ? (
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <SearchInput
-                value={filter}
-                onChange={setFilter}
-                placeholder={t("library.filterPlaceholder")}
-                clearLabel={t("library.clearFilter")}
-              />
-            </div>
-          ) : null}
-        </div>
-      </motion.div>
+      <ProductPageHeader
+        className="py-5"
+        icon={<Library aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
+        eyebrow={t("library.title")}
+        title={t("library.title")}
+        description={
+          isLoading && !statsLine ? (
+            <div className="h-3 w-40 skeleton-shimmer rounded" />
+          ) : (
+            statsLine ?? t("library.subtitle")
+          )
+        }
+        actions={
+          groups.length > 0 || filter ? (
+            <SegmentedControl<ViewMode>
+              ariaLabel={t("library.title")}
+              value={viewMode}
+              onValueChange={handleSetViewMode}
+              options={[
+                {
+                  value: "grid",
+                  label: t("library.viewGrid"),
+                  icon: <LayoutGrid aria-hidden="true" className="h-4 w-4" />,
+                },
+                {
+                  value: "list",
+                  label: t("library.viewList"),
+                  icon: <List aria-hidden="true" className="h-4 w-4" />,
+                },
+              ]}
+            />
+          ) : null
+        }
+      />
 
       {/* Content */}
       <div className="flex flex-1 flex-col overflow-hidden px-4 py-6 sm:px-6">
@@ -193,6 +160,21 @@ export function LibraryPage() {
               setDismissedAt(Date.now());
             }} />
           )}
+
+          {(groups.length > 0 || filter) ? (
+            <ProductSectionHeader
+              eyebrow={t("library.title")}
+              description={statsLine ?? t("library.subtitle")}
+              actions={
+                <SearchInput
+                  value={filter}
+                  onChange={setFilter}
+                  placeholder={t("library.filterPlaceholder")}
+                  clearLabel={t("library.clearFilter")}
+                />
+              }
+            />
+          ) : null}
 
           {/* Loading state */}
           {isLoading && groups.length === 0 ? (

@@ -144,7 +144,7 @@ function LoginForm() {
 
               <div className="space-y-2">
                 <p className="label-mono text-muted-foreground-dim">Account Access</p>
-                <h1 className="text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
+                <h1 className="text-2xl font-semibold tracking-tight text-foreground">
                   Welcome to Synapse
                 </h1>
                 <p className="text-sm text-muted-foreground">

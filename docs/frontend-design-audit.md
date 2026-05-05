@@ -1,12 +1,12 @@
 # Frontend Design Audit
 
-Date: 2026-04-26
+Date: 2026-05-05
 
-Framework: `ui-ux-pro-max` whole-app review for a dense, professional, flat SaaS/tool UI.
+Framework: `frontend-design` whole-app review for a dense, professional, flat developer-tool UI aligned to `docs/design.md`.
 
 ## Summary
 
-No P0 blocking issue was found. The original high-impact findings were accessibility and interaction fundamentals: the global skip link did not work on the login route, several icon-only controls were below mobile touch-target guidance, and the dim foreground token did not meet contrast expectations where it is used as readable text. These issues have now been fixed. The agent progress and task-level DONE state use primary color, while the product logo remains a separate identity token.
+No P0 blocking issue was found. The previous high-impact accessibility issues remain fixed: the login skip link has a main target, compact icon controls have mobile hit-target coverage, and readable semantic text tokens meet AA contrast. This pass tightened `docs/design.md` alignment further by removing standard-surface `shadow-card` usage, replacing decorative artifact gradients/blur with flat token-led previews, localizing mobile navigation labels, adding an automated WCAG contrast audit, and migrating high-traffic page headers/toggles to shared product primitives.
 
 ## Resolution Status
 
@@ -15,19 +15,28 @@ No P0 blocking issue was found. The original high-impact findings were accessibi
 - Fixed: `--color-muted-foreground-dim` now contrasts at 4.76:1 in light mode and 5.43:1 in dark mode against the app backgrounds.
 - Fixed: shared progress motion now uses `duration-200`.
 - Fixed: development builds now expose `/design-review`, a local authenticated-state visual fixture with both light and dark previews that bypasses OAuth only outside production.
+- Fixed: standard product surfaces no longer use `shadow-card`; the design-token audit now blocks future `shadow-card` utility usage outside `globals.css`.
+- Fixed: artifact and theme preview surfaces no longer use decorative blur or gradient overlays where flat token-led structure is sufficient.
+- Fixed: mobile navigation drawer and hamburger controls use localized accessible labels.
+- Added: `npm run audit:wcag` verifies contrast for key semantic text, status, and action-token pairs in light and dark themes.
+- Added: shared `ProductPageHeader`, `ProductSectionHeader`, `ProductStatCard`, and `SegmentedControl` primitives now cover Skills, MCP, Library, preferences, artifact panel toggles, and the design-review fixture.
+- Added: the design-token audit now blocks arbitrary font-size/letter-spacing utilities and decorative Tailwind gradient/blur utilities in product UI.
 
 ## Review Coverage
 
-- Static checks: design-token guardrail, lint, typecheck, targeted searches for raw palette usage, long transitions, arbitrary z-index, hardcoded color exceptions, small controls, and reduced-motion support.
-- Visual browser check: `http://localhost:3000` redirected to `/login?callbackUrl=%2F`; login was inspected directly, and the new development-only `/design-review` fixture was inspected in the in-app browser for representative authenticated chat, agent-computer, DONE, progress, and artifact states in both light and dark themes.
+- Static checks: design-token guardrail, WCAG contrast audit, lint, typecheck, focused `SegmentedControl` contract test, targeted searches for raw palette usage, non-overlay shadows, decorative blur/gradients, arbitrary typography drift, small controls, and reduced-motion support.
+- Visual/browser status: previous pass inspected `/login` and `/design-review` in-browser. In this pass, the in-app browser backend was unavailable, so `/design-review`, `/design-review/preview/light`, and `/design-review/preview/dark` were verified by local HTTP route checks against the running dev server.
 - Static-code review: authenticated surfaces are gated by NextAuth, so skills, MCP, library, channels, command palette, sidebar, preferences, and additional artifact views were reviewed from source rather than live authenticated screenshots.
 - Baseline: flat design, semantic tokens, minimal shadow, Lucide/Radix primitives, visible focus states, keyboard and screen-reader support, responsive layouts at 375/768/1024/1440.
 
 ## Automated Checks
 
 - `npm run audit:design-tokens`: passed.
+- `npm run audit:wcag`: passed.
 - `npm run lint`: passed.
 - `npm run typecheck`: passed.
+- `npm test`: passed, 64 suites / 404 tests.
+- Route checks: `/design-review`, `/design-review/preview/light`, and `/design-review/preview/dark` returned 200 OK on the local dev server.
 - Shell startup emitted local `thefuck` and `starship` permission warnings before commands; the project commands completed successfully.
 
 ## Findings
@@ -92,12 +101,49 @@ Remediation: Completed for the first pass with a development-only `/design-revie
 
 Suggested verification: A reviewer can open deterministic URLs locally and capture screenshots at 375/768/1024/1440 without third-party auth.
 
+### P2 - Standard Product Surfaces Drifted Toward Elevated/Decorative Treatment
+
+Affected surfaces: markdown code blocks, agent progress card, preferences tabs, artifact previews, theme previews, file thumbnails, and pending ask error feedback.
+
+Evidence: Standard product surfaces now avoid `shadow-card`; `web/scripts/audit-design-tokens.sh` blocks future `shadow-card` utility usage outside `globals.css`. Artifact previews in [web/src/features/agent-computer/components/ArtifactFilesPanel.tsx](../web/src/features/agent-computer/components/ArtifactFilesPanel.tsx) and file thumbnails in [web/src/shared/components/ArtifactExplorer/ExplorerFileList.tsx](../web/src/shared/components/ArtifactExplorer/ExplorerFileList.tsx) now use flat token-led structure instead of decorative blur/gradient overlays.
+
+Impact: The removed effects were subtle, but they conflicted with the canonical flat surface contract in `docs/design.md`, making dense tool panels feel less consistent across light and dark themes.
+
+Remediation: Completed by reserving elevation for overlays, keeping standard surfaces border-led, and migrating ad-hoc "new"/section labels to `status-pill` and `label-mono` utilities.
+
+Suggested verification: Run `npm run audit:design-tokens` and inspect artifact, markdown, preferences, and progress surfaces in light and dark previews.
+
+### P2 - Repeated Page Headers And Toggles Had Local Layout Drift
+
+Affected surfaces: Skills, MCP, Library, preferences, artifact panel controls, and design-review fixture.
+
+Evidence: Shared primitives in [web/src/shared/components/ProductPage.tsx](../web/src/shared/components/ProductPage.tsx) and [web/src/shared/components/SegmentedControl.tsx](../web/src/shared/components/SegmentedControl.tsx) now define the product page header rhythm, section header rhythm, stat cards, and pressed segmented controls. Skills, MCP, Library, Theme preferences, artifact panel view toggles, preferences navigation, and the design-review harness now use those primitives instead of locally assembled variants.
+
+Impact: The previous implementations were individually close to the design system, but their spacing, icon chips, stat text, and toggle behavior drifted across pages. That made the app feel less clear, especially on mobile where headers, searches, and view controls wrap differently.
+
+Remediation: Completed by centralizing the page primitives and migrating the highest-drift product surfaces. The segmented control uses visible labels, `aria-pressed`, shared focus rings, and `touch-target` coverage for coarse pointers.
+
+Suggested verification: Inspect Skills, MCP, Library, preferences, artifact panel, `/design-review`, and the light/dark preview routes at 375, 390, 768, 1024, and 1440px. Confirm headers wrap predictably and segmented controls remain usable on coarse pointers.
+
+### P2 - Mobile Navigation Labels Were Not Localized
+
+Affected surfaces: mobile app shell and mobile drawer.
+
+Evidence: [web/src/app/(main)/_components/MainLayoutClient.tsx](../web/src/app/%28main%29/_components/MainLayoutClient.tsx) now uses `a11y.openNavigationMenu`, and [web/src/shared/components/MobileDrawer.tsx](../web/src/shared/components/MobileDrawer.tsx) now uses `a11y.navigation`.
+
+Impact: Screen-reader labels remained understandable in English, but they bypassed the existing i18n contract for Chinese locales.
+
+Remediation: Completed by adding localized labels in English, Simplified Chinese, and Traditional Chinese.
+
+Suggested verification: Switch locales and inspect accessible names for the hamburger trigger and drawer dialog.
+
 ## Positive Findings
 
 - The design-token guardrail passed and already prevents raw palette classes, blur/glass regressions, diffuse shadows, hardcoded hex outside approved exceptions, and translucent shell surfaces.
 - The app uses local fonts and `next/font`, avoiding web-font render blocking.
 - Radix primitives are used for most complex controls, which helps keyboard and screen-reader behavior.
 - Motion is largely wrapped in `MotionConfig reducedMotion="user"` and a global reduced-motion CSS rule.
+- A local WCAG contrast audit now gives repeatable evidence for the core readable token pairs in both themes.
 - The recent task progress/DONE update is correct: task progress and task-level completion use `primary`; error stays destructive.
 - Product logo colors should stay separate from task/status colors. [web/src/shared/components/Logo.tsx](../web/src/shared/components/Logo.tsx) explicitly models the logo as strict monochrome identity lockups, so it should continue using `--logo-bg` and `--logo-glyph`.
 
@@ -108,12 +154,21 @@ Suggested verification: A reviewer can open deterministic URLs locally and captu
 3. Done: rebalance `--color-muted-foreground-dim` for accessible contrast.
 4. Done: reduce shared progress transition duration from 500ms to 200ms.
 5. Done: add a deterministic authenticated visual review harness at `/design-review` so future design audits can inspect core app states in light and dark themes without Google OAuth.
+6. Done: remove standard-surface `shadow-card` usage and add a guardrail to prevent it from returning.
+7. Done: flatten artifact/theme preview decoration and migrate visible metadata chips/headings to shared token utilities.
+8. Done: localize mobile navigation accessible labels.
+9. Done: add `npm run audit:wcag` for light/dark semantic contrast checks.
+10. Done: add shared product page/header/stat and segmented-control primitives, then migrate the highest-drift product surfaces.
+11. Done: extend `audit-design-tokens` to catch arbitrary typography and decorative gradient/blur utilities.
 
 ## Verification Criteria
 
 - `npm run audit:design-tokens`, `npm run lint`, and `npm run typecheck` all pass.
+- `npm run audit:wcag` passes and reports AA contrast for foreground, muted, dim, primary, destructive, success, and warning token pairs in both themes.
 - `/login` exposes a working skip-link target and main landmark.
 - At 375px, icon-only controls that remain visible have at least 44x44px hit areas.
 - Light and dark dim text tokens meet the intended contrast threshold, with exceptions limited to decorative glyphs.
 - Shared progress animation is no longer longer than 300ms.
 - Representative authenticated surfaces can be visually inspected locally in light and dark themes without relying on third-party login.
+- Standard surfaces remain flat and border-led; elevation is limited to overlays.
+- Shared page headers, section headers, stat cards, and segmented controls remain the default for new product surfaces.

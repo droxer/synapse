@@ -7,7 +7,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { cn } from "@/shared/lib/utils";
+import { SegmentedControl } from "@/shared/components/SegmentedControl";
 import { useTranslation } from "@/i18n";
 import { TokenUsageTab } from "./components/TokenUsageTab";
 import { ThemeTab } from "./components/ThemeTab";
@@ -60,30 +60,20 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
             <p className="label-mono hidden px-3 pb-3 pt-4 text-muted-foreground-dim md:block">
               {t("preferences.title")}
             </p>
-            {MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => {
-              const isActive = id === activeId;
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setActiveId(id)}
-                  className={cn(
-                    "relative flex shrink-0 items-center gap-2 overflow-hidden rounded-lg px-3 py-2 text-sm transition-[color,background-color,border-color] duration-150 ease-out md:mb-1 md:w-full md:gap-3 md:py-2.5",
-                    "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-                    isActive
-                      ? "border border-border bg-background text-foreground font-semibold shadow-card"
-                      : "border border-transparent text-muted-foreground hover:bg-background hover:text-foreground",
-                  )}
-                  aria-current={isActive ? "page" : undefined}
-                >
-                  {isActive && (
-                    <div className="absolute inset-x-2 bottom-0 h-0.5 rounded-t-full bg-border-strong md:inset-x-auto md:bottom-0 md:left-0 md:top-0 md:h-auto md:w-1 md:rounded-r-full" />
-                  )}
-                  <Icon className={cn("h-4 w-4 shrink-0", isActive ? "text-foreground" : "text-muted-foreground")} />
-                  <span className="whitespace-nowrap">{t(labelKey)}</span>
-                </button>
-              );
-            })}
+            <SegmentedControl
+              ariaLabel={t("preferences.title")}
+              value={activeId}
+              onValueChange={setActiveId}
+              className="w-full min-w-max border-0 bg-transparent p-0 md:min-w-0 md:flex-col md:items-stretch"
+              optionClassName="shrink-0 justify-start md:w-full md:justify-start"
+              selectedOptionClassName="bg-background text-foreground"
+              inactiveOptionClassName="hover:bg-background"
+              options={MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => ({
+                value: id,
+                label: t(labelKey),
+                icon: <Icon className="h-4 w-4" />,
+              }))}
+            />
           </nav>
 
           {/* Content panel */}

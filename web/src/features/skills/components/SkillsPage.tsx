@@ -5,6 +5,7 @@ import { motion } from "framer-motion";
 import { Lightbulb, Plus, Package, Globe, X, Upload, FileText, FolderOpen, Search } from "lucide-react";
 import { EmptyState } from "@/shared/components/EmptyState";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
+import { ProductPageHeader, ProductSectionHeader, ProductStatCard } from "@/shared/components/ProductPage";
 import { SearchInput } from "@/shared/components/SearchInput";
 import { Button } from "@/shared/components/ui/button";
 import { Input } from "@/shared/components/ui/input";
@@ -32,8 +33,6 @@ import { cn } from "@/shared/lib/utils";
 import { listVariants } from "@/shared/lib/animations";
 import {
   TOOLING_DROPZONE_CLASSES,
-  TOOLING_SECTION_HEADER_CLASSES,
-  TOOLING_STAT_CARD_CLASSES,
 } from "@/shared/lib/tooling-ui-styles";
 import { useSkillsCache } from "../hooks/use-skills-cache";
 import { normalizeSkillName } from "../lib/normalize-skill-name";
@@ -251,57 +250,26 @@ export function SkillsPage() {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* ── Header ── */}
-      <motion.div
-        className="shrink-0 px-4 py-5 sm:px-6"
-        initial={{ opacity: 0, y: -4 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.12, ease: "easeOut" }}
-      >
-        <div className="mx-auto max-w-6xl space-y-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div className="flex items-start gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-secondary">
-                <Lightbulb aria-hidden="true" className="h-5 w-5 text-muted-foreground" />
-              </div>
-              <div className="min-w-0">
-                <p className="label-mono text-muted-foreground-dim">
-                  {t("skills.agentSkills")}
-                </p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground sm:text-[1.9rem]">
-                  {t("skills.title")}
-                </h1>
-                <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                  {t("skills.subtitle")}
-                </p>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-2 lg:min-w-[22rem]">
-              <div className={TOOLING_STAT_CARD_CLASSES}>
-                <p className="label-mono text-muted-foreground-dim">
-                  {t("skills.sectionBuiltIn")}
-                </p>
-                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {bundledSkills.length}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("skills.sectionBuiltInDesc")}
-                </p>
-              </div>
-              <div className={TOOLING_STAT_CARD_CLASSES}>
-                <p className="label-mono text-muted-foreground-dim">
-                  {t("skills.sectionInstalled")}
-                </p>
-                <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
-                  {installedSkills.length}
-                </p>
-                <p className="mt-1 text-xs text-muted-foreground">
-                  {t("skills.sectionInstalledDesc")}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </motion.div>
+      <ProductPageHeader
+        icon={<Lightbulb aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
+        eyebrow={t("skills.agentSkills")}
+        title={t("skills.title")}
+        description={t("skills.subtitle")}
+        stats={
+          <>
+            <ProductStatCard
+              label={t("skills.sectionBuiltIn")}
+              value={bundledSkills.length}
+              description={t("skills.sectionBuiltInDesc")}
+            />
+            <ProductStatCard
+              label={t("skills.sectionInstalled")}
+              value={installedSkills.length}
+              description={t("skills.sectionInstalledDesc")}
+            />
+          </>
+        }
+      />
 
       {/* ── Content ── */}
       <div className="flex-1 overflow-y-auto px-4 pb-6 pt-4 sm:px-6">
@@ -312,34 +280,30 @@ export function SkillsPage() {
           )}
 
           {/* Section header with search + install */}
-          <div className={cn(TOOLING_SECTION_HEADER_CLASSES, "flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between")}>
-            <div className="min-w-0 flex-1">
-              <p className="label-mono text-muted-foreground-dim">
-                {t("skills.agentSkills")}
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {t("skills.subtitle")}
-              </p>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-              {skills.length > 3 && (
-                <SearchInput
-                  value={filter}
-                  onChange={setFilter}
-                  placeholder={t("skills.filterPlaceholder")}
-                  clearLabel={t("skills.clearFilter")}
-                />
-              )}
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowForm(true)}
-              >
-                <Plus className="mr-1.5 h-3.5 w-3.5" />
-                {t("skills.installSkill")}
-              </Button>
-            </div>
-          </div>
+          <ProductSectionHeader
+            eyebrow={t("skills.agentSkills")}
+            description={t("skills.subtitle")}
+            actions={
+              <>
+                {skills.length > 3 && (
+                  <SearchInput
+                    value={filter}
+                    onChange={setFilter}
+                    placeholder={t("skills.filterPlaceholder")}
+                    clearLabel={t("skills.clearFilter")}
+                  />
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowForm(true)}
+                >
+                  <Plus className="mr-1.5 h-3.5 w-3.5" />
+                  {t("skills.installSkill")}
+                </Button>
+              </>
+            }
+          />
 
           {/* ── Skill grid ── */}
           {isLoading && skills.length === 0 ? (

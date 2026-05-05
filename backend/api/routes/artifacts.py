@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import base64
 import os
+import posixpath
 import shlex
 import uuid
 from typing import Any
-from urllib.parse import urlencode
+from urllib.parse import urlencode, urlsplit, urlunsplit
 
 from fastapi import APIRouter, Depends, HTTPException, Path, Request
 from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
@@ -341,10 +342,36 @@ async def proxy_preview(
             location = location[len(localhost_prefix) :] or "/"
         if location.startswith("/") and not location.startswith("//"):
             location = f"{proxy_base}{location}"
+        elif location and not location.startswith("#"):
+            parsed = urlsplit(location)
+            if not parsed.scheme and not parsed.netloc:
+                normalized_path = posixpath.normpath(f"/{parsed.path}")
+                if normalized_path == ".":
+                    normalized_path = "/"
+                location = urlunsplit(
+                    (
+                        "",
+                        "",
+                        f"{proxy_base}{normalized_path}",
+                        parsed.query,
+                        parsed.fragment,
+                    )
+                )
         if port != _DEFAULT_PREVIEW_PORT and location.startswith(proxy_base):
-            separator = "&" if "?" in location else "?"
-            if "_port=" not in location:
-                location = f"{location}{separator}_port={port}"
+            parsed = urlsplit(location)
+            if "_port=" not in parsed.query:
+                query = (
+                    f"{parsed.query}&_port={port}" if parsed.query else f"_port={port}"
+                )
+                location = urlunsplit(
+                    (
+                        parsed.scheme,
+                        parsed.netloc,
+                        parsed.path,
+                        query,
+                        parsed.fragment,
+                    )
+                )
         return location
 
     first_line = headers_raw.splitlines()[0] if headers_raw.splitlines() else ""

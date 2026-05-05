@@ -11,3 +11,5 @@ export { Sidebar } from "./Sidebar";
 export { TopBar } from "./TopBar";
 export { CommandPalette } from "./CommandPalette";
 export { SearchInput } from "./SearchInput";
+export { ProductPageHeader, ProductSectionHeader, ProductStatCard } from "./ProductPage";
+export { SegmentedControl } from "./SegmentedControl";

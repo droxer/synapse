@@ -572,6 +572,8 @@
   "a11y.htmlOutput": "HTML output",
   "a11y.opensNewTab": "(opens in new tab)",
   "a11y.home": "Home",
+  "a11y.navigation": "Navigation",
+  "a11y.openNavigationMenu": "Open navigation menu",
 
   "chat.inputLabel": "Message to agent",
 

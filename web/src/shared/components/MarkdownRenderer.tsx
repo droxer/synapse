@@ -76,7 +76,7 @@ function PreComponent({ children }: { children: ReactNode }) {
   const codeString = useMemo(() => extractText(children), [children]);
 
   return (
-    <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose shadow-card">
+    <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose">
       <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
         <span>{language}</span>
         <CopyButton text={codeString} />
@@ -312,7 +312,7 @@ function renderLightweightTail(content: string, className?: string): ReactNode {
       elements.push(
         <div
           key={`code-${i}`}
-          className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose shadow-card"
+          className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose"
         >
           <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
             <span>{language}</span>

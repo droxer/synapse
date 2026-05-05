@@ -171,7 +171,7 @@ export default function ChannelsPage() {
   const renderThreadList = () => (
     <aside className="flex w-full min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar-bg md:w-auto md:border-r md:border-border">
       <div className="px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-muted-foreground">
+        <p className="label-mono text-muted-foreground">
           {t("channels.list.title")}
         </p>
       </div>

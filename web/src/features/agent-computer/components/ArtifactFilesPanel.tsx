@@ -17,6 +17,7 @@ import { ArtifactPreviewDialog } from "@/features/agent-computer/components/Arti
 import { formatFileSize, fileCategoryColor, fileCategory } from "@/features/agent-computer/lib/artifact-helpers";
 import { BrandFileTypeIcon } from "@/shared/components/file-type-icons/BrandFileTypeIcon";
 import { buildArtifactUrl } from "@/shared/components/ArtifactExplorer/artifactExplorerUtils";
+import { SegmentedControl } from "@/shared/components/SegmentedControl";
 import { Button } from "@/shared/components/ui/button";
 import {
   AlertDialog,
@@ -87,21 +88,19 @@ function PreviewVisual({ artifact, conversationId }: {
 
   return (
     <div className={cn("relative flex h-36 items-end overflow-hidden rounded-xl border border-border px-4 py-3", bg)}>
-      <div className="absolute inset-x-0 top-0 h-16 bg-gradient-to-b from-background/30 to-transparent" />
-      <div className="absolute -right-3 -top-4 h-20 w-20 rounded-full bg-background blur-2xl" />
       <BrandFileTypeIcon
         name={artifact.name}
         contentType={artifact.contentType}
         className={cn("absolute right-4 top-4 h-10 w-10 opacity-15", icon)}
       />
       <div className="relative space-y-1">
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+        <p className="label-mono text-muted-foreground">
           {artifact.contentType.startsWith("image/") ? "Image" : artifact.contentType === "text/html" ? "HTML" : "Preview"}
         </p>
-        <div className="flex flex-col gap-1 opacity-70">
-          <span className="h-1.5 w-28 rounded-full bg-current/25" />
-          <span className="h-1.5 w-16 rounded-full bg-current/15" />
-          <span className="h-1.5 w-20 rounded-full bg-current/10" />
+        <div className="flex flex-col gap-1">
+          <span className="h-1.5 w-28 rounded-sm bg-border-strong" />
+          <span className="h-1.5 w-16 rounded-sm bg-border" />
+          <span className="h-1.5 w-20 rounded-sm bg-border" />
         </div>
       </div>
     </div>
@@ -202,7 +201,7 @@ function RecentArtifactCard({
           <div className="flex items-center gap-2">
             <p className="truncate text-sm font-medium text-foreground">{artifact.name}</p>
             {isFresh ? (
-              <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-accent-emerald">
+              <span className="status-pill status-ok">
                 {t("artifacts.new")}
               </span>
             ) : null}
@@ -457,7 +456,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
         <div className="surface-panel rounded-xl p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+              <div className="flex items-center gap-2 label-mono text-muted-foreground">
                 <Layers3 className="h-3.5 w-3.5" />
                 <span>{t("artifacts.recentOutputs")}</span>
               </div>
@@ -468,60 +467,40 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
                     : t("artifacts.filesCount", { count: normalizedArtifacts.length })}
                 </span>
                 {freshArtifactIds.size > 0 ? (
-                  <span className="rounded-full bg-muted px-2.5 py-1 text-xs font-medium text-accent-emerald">
+                  <span className="status-pill status-ok">
                     {t("artifacts.newSinceOpen", { count: freshArtifactIds.size })}
                   </span>
                 ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="inline-flex rounded-xl border border-border bg-background p-1">
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={viewMode === "grid" ? "secondary" : "ghost"}
-                  aria-label={t("library.viewGrid")}
-                  aria-pressed={viewMode === "grid"}
-                  onClick={() => handleSetViewMode("grid")}
-                  className={cn(viewMode !== "grid" && "text-muted-foreground hover:text-foreground")}
-                >
-                  <LayoutGrid aria-hidden="true" className="h-4 w-4" />
-                </Button>
-                <Button
-                  type="button"
-                  size="icon-sm"
-                  variant={viewMode === "list" ? "secondary" : "ghost"}
-                  aria-label={t("library.viewList")}
-                  aria-pressed={viewMode === "list"}
-                  onClick={() => handleSetViewMode("list")}
-                  className={cn(viewMode !== "list" && "text-muted-foreground hover:text-foreground")}
-                >
-                  <List aria-hidden="true" className="h-4 w-4" />
-                </Button>
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <SegmentedControl<ViewMode>
+                ariaLabel={t("library.title")}
+                value={viewMode}
+                onValueChange={handleSetViewMode}
+                options={[
+                  {
+                    value: "grid",
+                    label: t("library.viewGrid"),
+                    icon: <LayoutGrid aria-hidden="true" className="h-4 w-4" />,
+                  },
+                  {
+                    value: "list",
+                    label: t("library.viewList"),
+                    icon: <List aria-hidden="true" className="h-4 w-4" />,
+                  },
+                ]}
+              />
               {canBrowseByPath ? (
-                <div className="inline-flex rounded-xl border border-border bg-background p-1">
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm transition-colors",
-                    view === "recent" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                  onClick={() => setView("recent")}
-                >
-                  {t("artifacts.recentOutputs")}
-                </button>
-                <button
-                  type="button"
-                  className={cn(
-                    "rounded-lg px-3 py-1.5 text-sm transition-colors",
-                    view === "path" ? "bg-secondary text-secondary-foreground" : "text-muted-foreground hover:text-foreground",
-                  )}
-                  onClick={() => setView("path")}
-                >
-                  {t("artifacts.browseByPath")}
-                </button>
-                </div>
+                <SegmentedControl<PanelView>
+                  ariaLabel={t("artifacts.recentOutputs")}
+                  value={view}
+                  onValueChange={setView}
+                  options={[
+                    { value: "recent", label: t("artifacts.recentOutputs") },
+                    { value: "path", label: t("artifacts.browseByPath") },
+                  ]}
+                />
               ) : null}
             </div>
           </div>
@@ -531,7 +510,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
           <div className="mt-4 space-y-5">
             {previewable.length > 0 ? (
               <section className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="flex items-center gap-2 label-mono text-muted-foreground">
                   <Clock3 className="h-3.5 w-3.5" />
                   <span>{t("artifacts.previewReady")}</span>
                 </div>
@@ -568,7 +547,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
             {compact.length > 0 ? (
               <section className="space-y-3">
-                <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-[0.16em] text-muted-foreground">
+                <div className="flex items-center gap-2 label-mono text-muted-foreground">
                   <FolderOpen className="h-3.5 w-3.5" />
                   <span>{t("artifacts.otherOutputs")}</span>
                 </div>

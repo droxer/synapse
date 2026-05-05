@@ -104,6 +104,7 @@ export function TopBar({
       <Button
         type="button"
         onClick={handleOpenCommandPalette}
+        aria-label={t("topbar.search")}
         variant="ghost"
         size="sm"
         className="shrink-0 gap-2 rounded-md border border-border bg-card text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground"

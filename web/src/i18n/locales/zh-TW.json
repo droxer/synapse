@@ -571,6 +571,8 @@
   "a11y.htmlOutput": "HTML 輸出",
   "a11y.opensNewTab": "（在新分頁中開啟）",
   "a11y.home": "首頁",
+  "a11y.navigation": "導覽",
+  "a11y.openNavigationMenu": "開啟導覽選單",
 
   "chat.inputLabel": "向智慧體傳送訊息",
 

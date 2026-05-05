@@ -3,6 +3,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { FOCUSABLE_SELECTOR } from "@/shared/lib/a11y";
+import { useTranslation } from "@/i18n";
 
 interface MobileDrawerProps {
   readonly open: boolean;
@@ -11,6 +12,7 @@ interface MobileDrawerProps {
 }
 
 export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
+  const { t } = useTranslation();
   const drawerRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<Element | null>(null);
 
@@ -85,7 +87,7 @@ export function MobileDrawer({ open, onClose, children }: MobileDrawerProps) {
             ref={drawerRef}
             role="dialog"
             aria-modal="true"
-            aria-label="Navigation"
+            aria-label={t("a11y.navigation")}
             className="fixed inset-y-0 left-0 z-50 w-64 max-w-[85vw] touch-manipulation overscroll-contain overflow-y-auto border-r border-border bg-sidebar-bg"
             initial={{ x: "-100%" }}
             animate={{ x: 0 }}

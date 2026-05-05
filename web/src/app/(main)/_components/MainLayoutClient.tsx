@@ -9,12 +9,14 @@ import { useConversationRouteSync } from "@/features/conversation/hooks/use-conv
 import { getConversationPath } from "@/features/conversation/lib/routes";
 import { useIsMobile } from "@/shared/hooks/use-media-query";
 import { useAppStore } from "@/shared/stores";
+import { useTranslation } from "@/i18n";
 
 interface MainLayoutClientProps {
   readonly children: React.ReactNode;
 }
 
 export function MainLayoutClient({ children }: MainLayoutClientProps) {
+  const { t } = useTranslation();
   const router = useRouter();
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -69,7 +71,7 @@ export function MainLayoutClient({ children }: MainLayoutClientProps) {
           <button
             type="button"
             onClick={openSidebar}
-            aria-label="Open navigation menu"
+            aria-label={t("a11y.openNavigationMenu")}
             className="flex h-10 w-10 min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
           >
             <Menu className="h-5 w-5" />

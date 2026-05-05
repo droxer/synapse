@@ -299,6 +299,50 @@ async def test_preview_proxy_rewrites_redirect_location_to_proxy() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("location", "expected"),
+    (
+        (
+            "done",
+            "/api/conversations/11111111-1111-1111-1111-111111111111/preview/done?_port=3001",
+        ),
+        (
+            "./done?ok=1",
+            "/api/conversations/11111111-1111-1111-1111-111111111111/preview/done?ok=1&_port=3001",
+        ),
+    ),
+)
+@pytest.mark.asyncio
+async def test_preview_proxy_rewrites_relative_redirect_locations_with_custom_port(
+    location: str,
+    expected: str,
+) -> None:
+    session = _FakePreviewSession(
+        stdout=_preview_stdout(
+            f"HTTP/1.1 302 Found\r\nlocation: {location}\r\ncontent-type: text/plain\r\n"
+        )
+    )
+    conversation_id = "11111111-1111-1111-1111-111111111111"
+    state = SimpleNamespace(
+        conversations={
+            conversation_id: SimpleNamespace(
+                executor=SimpleNamespace(_sandbox_sessions={"default": session})
+            )
+        }
+    )
+
+    response = await proxy_preview(
+        _request("/preview/submit?_port=3001"),
+        conversation_id=conversation_id,
+        path="submit",
+        state=state,
+        auth_user=None,
+    )
+
+    assert response.status_code == 302
+    assert response.headers["location"] == expected
+
+
 @pytest.mark.asyncio
 async def test_preview_proxy_reports_missing_conversation_and_session() -> None:
     conversation_id = "11111111-1111-1111-1111-111111111111"
