@@ -27,7 +27,7 @@ dependencies = [
 ]
 
 [project.scripts]
-synapse-cli = "public_api_cli:main"
+synapse-cli = "cli.main:main"
 
 [dependency-groups]
 dev = [
