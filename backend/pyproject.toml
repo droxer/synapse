@@ -26,6 +26,9 @@ dependencies = [
     "python-multipart>=0.0.22",
 ]
 
+[project.scripts]
+synapse-cli = "public_api_cli:main"
+
 [dependency-groups]
 dev = [
     "pre-commit>=4.5.1",
