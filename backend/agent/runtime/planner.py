@@ -5,11 +5,12 @@ from __future__ import annotations
 import asyncio
 import re
 from dataclasses import replace
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
 from loguru import logger
 
 from agent.context.profiles import CompactionProfile, resolve_compaction_profile
+from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.llm.client import (
     AnthropicClient,
     LLMResponse,
@@ -54,6 +55,9 @@ from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter, EventType
 from api.models import serialize_attachment_metadata
 from config.settings import get_settings
+
+if TYPE_CHECKING:
+    from agent.memory.store import PersistentMemoryStore
 
 PLANNER_SYSTEM_PROMPT = """You are a planning agent that decomposes complex tasks into sub-tasks.
 
@@ -280,6 +284,7 @@ class PlannerOrchestrator:
         system_prompt: SystemPrompt | PromptAssembly = "",
         skill_registry: SkillRegistry | None = None,
         initial_messages: tuple[dict[str, Any], ...] = (),
+        persistent_store: PersistentMemoryStore | None = None,
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations must be at least 1")
@@ -317,6 +322,7 @@ class PlannerOrchestrator:
         self._base_prompt_assembly = base_prompt_assembly
         self._system_prompt = base_prompt_assembly.system
         self._skill_registry = skill_registry
+        self._persistent_store = persistent_store
         self._auto_injected_skill: str | None = None
         self._turn_prompt_assembly = base_prompt_assembly
         self._planner_state = PlannerState()
@@ -747,6 +753,14 @@ class PlannerOrchestrator:
 
         # Compact history before the LLM call if needed
         if self._observer.should_compact(state.messages, effective_prompt):
+            if (
+                self._compaction_profile.memory_flush
+                and self._persistent_store is not None
+            ):
+                await flush_heuristic_facts_from_messages(
+                    self._persistent_store,
+                    state.messages,
+                )
             compacted = await self._observer.compact(state.messages, effective_prompt)
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,

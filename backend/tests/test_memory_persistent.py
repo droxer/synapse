@@ -15,6 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.memory.facts import FactCandidate, validate_fact_candidate
+from agent.memory.heuristic_extract import extract_fact_candidates
 from agent.memory.models import MemoryEntry, MemoryFactEntry, MemoryFactIngestion
 from agent.memory.store import PersistentMemoryStore
 from agent.state.models import Base, UserModel
@@ -75,6 +76,37 @@ class TestMemoryStoreBackcompat:
         description = MemoryStore(store={}).definition().description
         assert "persistent user-scoped storage when available" in description
         assert "current runtime" in description
+
+
+class TestHeuristicFactExtraction:
+    def test_timezone_assertion_with_my_prefix(self) -> None:
+        candidates = extract_fact_candidates("my timezone is UTC+8")
+
+        assert len(candidates) == 1
+        assert candidates[0].key == "profile.timezone"
+        assert candidates[0].value == "UTC+8"
+
+    def test_timezone_assertion_without_my_prefix(self) -> None:
+        candidates = extract_fact_candidates("timezone is Asia/Shanghai")
+
+        assert len(candidates) == 1
+        assert candidates[0].key == "profile.timezone"
+        assert candidates[0].value == "Asia/Shanghai"
+
+    def test_timezone_question_does_not_extract_fact(self) -> None:
+        candidates = extract_fact_candidates("what is my timezone?")
+
+        assert candidates == ()
+
+    def test_embedded_timezone_question_does_not_extract_fact(self) -> None:
+        candidates = extract_fact_candidates("do you know what my timezone is?")
+
+        assert candidates == ()
+
+    def test_uncertain_timezone_statement_does_not_extract_fact(self) -> None:
+        candidates = extract_fact_candidates("my timezone is UTC+8?")
+
+        assert candidates == ()
 
 
 class TestMemoryRecallBackcompat:

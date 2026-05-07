@@ -1,7 +1,7 @@
 from functools import lru_cache
 from typing import Literal, Self
 
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 TokenCounterStrategy = Literal["weighted", "legacy"]
@@ -191,6 +191,26 @@ class Settings(BaseSettings):
         "- If something fails, read the error and fix it — do not report failure without "
         "attempting a fix."
     )
+
+    @field_validator(
+        "COMPACT_SUMMARY_MODEL",
+        "COMPACT_WEB_SUMMARY_MODEL",
+        "COMPACT_CHANNEL_SUMMARY_MODEL",
+        "COMPACT_PLANNER_SUMMARY_MODEL",
+        "COMPACT_TASK_AGENT_SUMMARY_MODEL",
+        "SKILL_SELECTOR_MODEL",
+        "COMPLEXITY_CLASSIFIER_MODEL",
+        "EXECUTION_ROUTER_MODEL",
+        mode="before",
+    )
+    @classmethod
+    def _normalize_optional_model_override(cls, value: object) -> object:
+        if not isinstance(value, str):
+            return value
+        stripped = value.strip()
+        if stripped.startswith("#"):
+            return ""
+        return stripped
 
     @model_validator(mode="after")
     def _validate_search_provider_keys(self) -> Self:

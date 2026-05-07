@@ -9,6 +9,15 @@ from agent.memory.safety import validate_memory_text
 from agent.skills.loader import SkillRegistry
 from config.settings import get_settings
 
+MEMORY_TOOL_PROMPT_SECTION = (
+    "<memory_tool_policy>\n"
+    "When the user explicitly asks you to remember, save, store, or update a "
+    "durable preference, profile detail, constraint, or long-lived project "
+    "fact, call memory_store before acknowledging it. Do not use memory_store "
+    "for transient facts, secrets, credentials, or one-off task details.\n"
+    "</memory_tool_policy>"
+)
+
 
 def format_memory_prompt_section(
     memory_entries: list[dict[str, str]],
@@ -98,6 +107,7 @@ def build_memory_aware_system_prompt_sections(
         catalog_section = skill_registry.catalog_prompt_section()
         if catalog_section:
             sections.append(catalog_section)
+    sections.append(MEMORY_TOOL_PROMPT_SECTION)
     memory_section = format_memory_prompt_section(
         memory_entries or [],
         settings=effective_settings,

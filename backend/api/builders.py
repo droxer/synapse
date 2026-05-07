@@ -823,6 +823,7 @@ def _build_planner_orchestrator(
         system_prompt=planner_prompt,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
         initial_messages=initial_messages,
+        persistent_store=persistent_store,
     )
     callback_holder.set(orchestrator.on_task_complete)
 

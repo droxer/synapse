@@ -26,12 +26,9 @@ dependencies = [
     "python-multipart>=0.0.22",
 ]
 
-[project.scripts]
-synapse-cli = "cli.main:main"
-
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["agent*", "api*", "cli*", "config*", "evals*"]
+include = ["agent*", "api*", "config*", "evals*"]
 exclude = ["tests*", "*.tests*", "artifacts*", "migrations*"]
 
 [dependency-groups]

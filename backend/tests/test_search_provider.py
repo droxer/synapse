@@ -120,6 +120,16 @@ def test_settings_allows_exa_without_tavily_key() -> None:
     assert settings.TAVILY_API_KEY == ""
 
 
+def test_settings_treats_comment_only_model_override_as_empty() -> None:
+    settings = Settings(
+        ANTHROPIC_API_KEY="anthropic-key",
+        TAVILY_API_KEY="tavily-key",
+        EXECUTION_ROUTER_MODEL="# Empty = use COMPLEXITY_CLASSIFIER_MODEL or LITE_MODEL",
+    )
+
+    assert settings.EXECUTION_ROUTER_MODEL == ""
+
+
 def test_settings_requires_selected_provider_key() -> None:
     with pytest.raises(
         ValueError, match="SEARCH_PROVIDER=tavily requires TAVILY_API_KEY"

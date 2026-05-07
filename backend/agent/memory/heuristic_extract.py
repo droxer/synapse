@@ -2,7 +2,14 @@
 
 from __future__ import annotations
 
+import re
+
 from agent.memory.facts import FactCandidate
+
+_TIMEZONE_ASSERTION_RE = re.compile(
+    r"^(?:my\s+)?time\s*zone\s+is\s+(?P<value>.+)$",
+    re.IGNORECASE,
+)
 
 
 def extract_fact_candidates(text: str) -> tuple[FactCandidate, ...]:
@@ -14,9 +21,10 @@ def extract_fact_candidates(text: str) -> tuple[FactCandidate, ...]:
     lower = normalized.lower()
     candidates: list[FactCandidate] = []
 
-    if "timezone" in lower and " is " in lower:
-        value = normalized.split(" is ", 1)[-1].strip()
-        if value:
+    timezone_match = _TIMEZONE_ASSERTION_RE.match(normalized)
+    if timezone_match:
+        value = timezone_match.group("value").strip()
+        if value and "?" not in value:
             candidates.append(
                 FactCandidate(
                     namespace="profile",

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from agent.runtime.system_prompt_sections import MEMORY_TOOL_PROMPT_SECTION
 from agent.runtime.planner import PLANNER_SYSTEM_PROMPT
 from api.builders import (
     RESULT_DELIVERY_PROMPT_SECTION,
@@ -71,6 +72,25 @@ def test_build_agent_system_prompt_caps_memory_value_and_total(monkeypatch) -> N
     assert len(prompt[start:end]) <= 260
 
 
+def test_build_agent_system_prompt_includes_memory_tool_policy_without_memory(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        "api.builders.get_settings",
+        lambda: SimpleNamespace(
+            DEFAULT_SYSTEM_PROMPT="BASE",
+            SKILLS_ENABLED=False,
+            MEMORY_PROMPT_ENTRY_MAX_CHARS=300,
+            MEMORY_PROMPT_MAX_CHARS=1000,
+        ),
+    )
+
+    prompt = build_agent_system_prompt([], skill_registry=None)
+
+    assert MEMORY_TOOL_PROMPT_SECTION in prompt
+    assert "<personal_memory>" not in prompt
+
+
 def test_build_agent_system_prompt_caps_single_memory_value(monkeypatch) -> None:
     monkeypatch.setattr(
         "api.builders.get_settings",
@@ -136,12 +156,16 @@ def test_default_agent_prompt_assembly_keeps_memory_volatile(monkeypatch) -> Non
     assembly = build_default_agent_prompt_assembly(memory_entries, skill_registry=None)
     system = assembly.system_with_cache_control(True)
 
-    assert [block.text for block in assembly.stable_sections] == ["BASE"]
+    assert [block.text for block in assembly.stable_sections] == [
+        "BASE",
+        MEMORY_TOOL_PROMPT_SECTION,
+    ]
     assert "<personal_memory>" in assembly.volatile_sections[0].text
     assert assembly.volatile_sections[1].text == RESULT_DELIVERY_PROMPT_SECTION
-    assert getattr(system[0].cache_control, "type", None) == "ephemeral"
-    assert system[1].cache_control is None
+    assert system[0].cache_control is None
+    assert getattr(system[1].cache_control, "type", None) == "ephemeral"
     assert system[2].cache_control is None
+    assert system[3].cache_control is None
     assert assembly.rendered == build_agent_system_prompt(memory_entries, None)
 
 
@@ -163,11 +187,13 @@ def test_default_agent_prompt_assembly_caches_result_policy_without_memory(
 
     assert [block.text for block in assembly.stable_sections] == [
         "BASE",
+        MEMORY_TOOL_PROMPT_SECTION,
         RESULT_DELIVERY_PROMPT_SECTION,
     ]
     assert assembly.volatile_sections == ()
     assert system[0].cache_control is None
-    assert getattr(system[1].cache_control, "type", None) == "ephemeral"
+    assert system[1].cache_control is None
+    assert getattr(system[2].cache_control, "type", None) == "ephemeral"
 
 
 def test_planner_prompt_assembly_uses_planner_prompt(monkeypatch) -> None:
@@ -183,6 +209,7 @@ def test_planner_prompt_assembly_uses_planner_prompt(monkeypatch) -> None:
     assembly = build_planner_prompt_assembly([], skill_registry=None)
 
     assert assembly.stable_sections[0].text == PLANNER_SYSTEM_PROMPT
+    assert assembly.stable_sections[1].text == MEMORY_TOOL_PROMPT_SECTION
     assert assembly.stable_sections[-1].text == RESULT_DELIVERY_PROMPT_SECTION
     assert assembly.volatile_sections == ()
 
