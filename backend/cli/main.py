@@ -28,15 +28,23 @@ class PublicApiClient:
         path: str,
         *,
         json_body: dict[str, Any] | None = None,
-        stream: bool = False,
+        idempotency_key: str | None = None,
     ) -> httpx.Response:
-        async with httpx.AsyncClient(timeout=self._timeout) as client:
-            response = await client.request(
-                method,
-                f"{self._base_url}{path}",
-                headers=self._headers,
-                json=json_body,
-            )
+        url = f"{self._base_url}{path}"
+        headers = dict(self._headers)
+        if idempotency_key:
+            headers["Idempotency-Key"] = idempotency_key
+        try:
+            async with httpx.AsyncClient(timeout=self._timeout) as client:
+                response = await client.request(
+                    method,
+                    url,
+                    headers=headers,
+                    json=json_body,
+                )
+        except httpx.RequestError as exc:
+            _print_transport_error(exc, url)
+            raise SystemExit(1) from exc
         if response.status_code >= 400:
             _print_error(response)
             raise SystemExit(1)
@@ -48,6 +56,7 @@ class PublicApiClient:
         *,
         skills: list[str],
         use_planner: bool | None,
+        idempotency_key: str | None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "message": message,
@@ -56,7 +65,12 @@ class PublicApiClient:
         }
         if use_planner is not None:
             body["use_planner"] = use_planner
-        response = await self._request("POST", "/v1/agent-runs", json_body=body)
+        response = await self._request(
+            "POST",
+            "/v1/agent-runs",
+            json_body=body,
+            idempotency_key=idempotency_key,
+        )
         return response.json()
 
     async def create_message(
@@ -66,6 +80,7 @@ class PublicApiClient:
         *,
         skills: list[str],
         use_planner: bool | None,
+        idempotency_key: str | None,
     ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "message": message,
@@ -78,6 +93,7 @@ class PublicApiClient:
             "POST",
             f"/v1/conversations/{conversation_id}/messages",
             json_body=body,
+            idempotency_key=idempotency_key,
         )
         return response.json()
 
@@ -102,6 +118,20 @@ def _print_error(response: httpx.Response) -> None:
             {
                 "status_code": response.status_code,
                 "error": payload,
+            },
+            indent=2,
+        ),
+        file=sys.stderr,
+    )
+
+
+def _print_transport_error(exc: httpx.RequestError, url: str) -> None:
+    print(
+        json.dumps(
+            {
+                "error": "request_failed",
+                "message": str(exc),
+                "url": url,
             },
             indent=2,
         ),
@@ -140,12 +170,20 @@ def _build_parser() -> argparse.ArgumentParser:
     run_cmd.add_argument("message", help="User message")
     run_cmd.add_argument("--skills", help="Comma-separated skill names")
     run_cmd.add_argument("--planner", action="store_true", help="Use planner mode")
+    run_cmd.add_argument(
+        "--idempotency-key",
+        help="Stable key used to safely retry this run creation request",
+    )
 
     msg_cmd = sub.add_parser("message", help="Post a follow-up message")
     msg_cmd.add_argument("conversation_id", help="Conversation UUID")
     msg_cmd.add_argument("message", help="User message")
     msg_cmd.add_argument("--skills", help="Comma-separated skill names")
     msg_cmd.add_argument("--planner", action="store_true", help="Use planner mode")
+    msg_cmd.add_argument(
+        "--idempotency-key",
+        help="Stable key used to safely retry this message request",
+    )
 
     status_cmd = sub.add_parser("status", help="Get run status")
     status_cmd.add_argument("run_id", help="Run UUID")
@@ -184,6 +222,7 @@ async def _run(args: argparse.Namespace) -> int:
             args.message,
             skills=_parse_skills(args.skills),
             use_planner=True if args.planner else None,
+            idempotency_key=args.idempotency_key,
         )
         print(json.dumps(payload, indent=2))
         return 0
@@ -195,6 +234,7 @@ async def _run(args: argparse.Namespace) -> int:
             args.message,
             skills=_parse_skills(args.skills),
             use_planner=True if args.planner else None,
+            idempotency_key=args.idempotency_key,
         )
         print(json.dumps(payload, indent=2))
         return 0

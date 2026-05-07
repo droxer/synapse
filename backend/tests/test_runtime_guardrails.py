@@ -45,6 +45,24 @@ class _SequenceExecutor:
         return self._results.pop(0)
 
 
+class _ParallelCancelExecutor:
+    def __init__(self) -> None:
+        self.slow_started = asyncio.Event()
+        self.slow_cancelled = False
+
+    async def execute(self, name: str, tool_input: dict[str, object]) -> ToolResult:
+        del tool_input
+        if name == "web_search":
+            return ToolResult.ok("fast")
+        self.slow_started.set()
+        try:
+            await asyncio.sleep(3600)
+        except asyncio.CancelledError:
+            self.slow_cancelled = True
+            raise
+        return ToolResult.ok("slow")
+
+
 @pytest.mark.asyncio
 async def test_process_tool_calls_marks_remaining_calls_skipped_on_early_stop() -> None:
     state = AgentState(iteration=1).add_message(
@@ -99,6 +117,52 @@ async def test_process_tool_calls_marks_remaining_calls_skipped_on_early_stop() 
     )
     assert content[2]["tool_use_id"] == "tool-3"
     assert content[2]["is_error"] is True
+
+
+@pytest.mark.asyncio
+async def test_parallel_tool_calls_cancel_pending_work(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "agent.runtime.helpers.get_settings",
+        lambda: SimpleNamespace(PARALLEL_SAFE_TOOLS_ENABLED=True),
+    )
+    cancel_event = asyncio.Event()
+    executor = _ParallelCancelExecutor()
+    emitted: list[Any] = []
+    emitter = EventEmitter()
+
+    async def capture(event: Any) -> None:
+        emitted.append(event)
+
+    emitter.subscribe(capture)
+    run_task = asyncio.create_task(
+        process_tool_calls(
+            state=AgentState(iteration=1),
+            tool_calls=(
+                ToolCall(id="tool-1", name="web_search", input={"query": "alpha"}),
+                ToolCall(id="tool-2", name="memory_list", input={}),
+            ),
+            executor=executor,  # type: ignore[arg-type]
+            emitter=emitter,
+            cancel_check=cancel_event.is_set,
+        )
+    )
+
+    await executor.slow_started.wait()
+    cancel_event.set()
+    result = await asyncio.wait_for(run_task, timeout=1)
+
+    content = result.state.messages[-1]["content"]
+    assert result.processed_count == 1
+    assert content[0]["tool_use_id"] == "tool-1"
+    assert content[1]["tool_use_id"] == "tool-2"
+    assert content[1]["is_error"] is True
+    assert "cancelled" in content[1]["content"][0]["text"]
+    assert executor.slow_cancelled is True
+    tool_results = [event for event in emitted if event.type == EventType.TOOL_RESULT]
+    assert [event.data["tool_id"] for event in tool_results] == ["tool-1", "tool-2"]
+    assert tool_results[1].data["success"] is False
 
 
 def test_parallel_safe_tool_batch_accepts_memory_search() -> None:

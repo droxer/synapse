@@ -6,13 +6,18 @@ import os
 import subprocess
 import tempfile
 import unittest.mock
+import uuid
 import zipfile
 from pathlib import Path
-from types import MappingProxyType
+from types import MappingProxyType, SimpleNamespace
 
+from fastapi import HTTPException
 import pytest
 
+from api.routes import skill_files, skills as skill_routes
+from api.skill_scope import build_user_skill_registry
 from agent.runtime.skill_setup import _iter_skill_files, categorize_skill_resources
+from agent.state.repository import SkillRepository
 from agent.skills.models import (
     SkillCatalogEntry,
     SkillContent,
@@ -462,6 +467,178 @@ def _make_skill(
     )
 
 
+class _SessionFactory:
+    def __init__(self, session) -> None:
+        self._session = session
+
+    async def __aenter__(self):
+        return self._session
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+    def __call__(self):
+        return self
+
+
+def _write_skill_dir(root: Path, name: str, instructions: str) -> Path:
+    skill_dir = root / name
+    skill_dir.mkdir(parents=True)
+    (skill_dir / "SKILL.md").write_text(
+        f"---\nname: {name}\ndescription: {name} description\n---\n{instructions}",
+        encoding="utf-8",
+    )
+    return skill_dir
+
+
+class TestSkillScoping:
+    @pytest.mark.asyncio
+    async def test_user_scoped_registry_loads_same_skill_name_from_user_path(
+        self,
+        session,
+        tmp_path: Path,
+    ) -> None:
+        user_a = uuid.uuid4()
+        user_b = uuid.uuid4()
+        repo = SkillRepository()
+        skill_a = _write_skill_dir(tmp_path / "a", "private-skill", "A instructions")
+        skill_b = _write_skill_dir(tmp_path / "b", "private-skill", "B instructions")
+        bundled = _make_skill("deep-research", "Deep research")
+        state = SimpleNamespace(
+            skill_registry=SkillRegistry((bundled,)),
+            skill_repo=repo,
+            db_session_factory=_SessionFactory(session),
+        )
+        await repo.sync_shared_skills(
+            session,
+            [
+                (
+                    bundled.metadata.name,
+                    bundled.metadata.description,
+                    bundled.source_type,
+                    str(bundled.directory_path),
+                )
+            ],
+        )
+        await repo.sync_user_skills(
+            session,
+            user_a,
+            [("private-skill", "A", "user", str(skill_a))],
+        )
+        await repo.sync_user_skills(
+            session,
+            user_b,
+            [("private-skill", "B", "user", str(skill_b))],
+        )
+
+        registry_a = await build_user_skill_registry(state, user_a)
+        registry_b = await build_user_skill_registry(state, user_b)
+
+        assert registry_a is not None
+        assert registry_b is not None
+        assert registry_a.find_by_name("private-skill").instructions == "A instructions"
+        assert registry_b.find_by_name("private-skill").instructions == "B instructions"
+
+    @pytest.mark.asyncio
+    async def test_skill_detail_hides_other_users_skill(
+        self,
+        session,
+        tmp_path: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        user_a = uuid.uuid4()
+        user_b = uuid.uuid4()
+        repo = SkillRepository()
+        skill_a = _write_skill_dir(tmp_path / "a", "private-skill", "A instructions")
+        state = SimpleNamespace(
+            skill_registry=SkillRegistry(()),
+            skill_repo=repo,
+            db_session_factory=_SessionFactory(session),
+        )
+        await repo.sync_user_skills(
+            session,
+            user_a,
+            [("private-skill", "A", "user", str(skill_a))],
+        )
+        monkeypatch.setattr(
+            skill_routes,
+            "_resolve_user_id",
+            unittest.mock.AsyncMock(return_value=user_b),
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await skill_routes.get_skill("private-skill", state, None)
+
+        assert exc_info.value.status_code == 404
+
+    @pytest.mark.asyncio
+    async def test_toggling_bundled_skill_creates_user_override(
+        self,
+        session,
+    ) -> None:
+        user_a = uuid.uuid4()
+        user_b = uuid.uuid4()
+        repo = SkillRepository()
+        await repo.sync_shared_skills(
+            session,
+            [("deep-research", "Deep research", "bundled", "/tmp/deep-research")],
+        )
+
+        user_record = await repo.set_enabled(
+            session,
+            "deep-research",
+            False,
+            user_id=user_a,
+        )
+        user_a_records = await repo.list_skills(session, user_id=user_a)
+        user_b_records = await repo.list_skills(session, user_id=user_b)
+
+        assert user_record is not None
+        assert user_record.user_id == user_a
+        assert {record.name: record.enabled for record in user_a_records}[
+            "deep-research"
+        ] is False
+        assert {record.name: record.enabled for record in user_b_records}[
+            "deep-research"
+        ] is True
+
+    @pytest.mark.asyncio
+    async def test_skill_file_rejects_sibling_prefix_traversal(
+        self,
+        tmp_path: Path,
+    ) -> None:
+        skill_dir = _write_skill_dir(tmp_path, "skill", "instructions")
+        sibling = tmp_path / "skill-extra"
+        sibling.mkdir()
+        (sibling / "secret.txt").write_text("secret", encoding="utf-8")
+        state = SimpleNamespace(
+            skill_registry=SkillRegistry(
+                (
+                    SkillContent(
+                        metadata=SkillMetadata(
+                            name="skill",
+                            description="skill description",
+                        ),
+                        instructions="instructions",
+                        directory_path=skill_dir,
+                        source_type="bundled",
+                    ),
+                )
+            ),
+            skill_repo=None,
+        )
+
+        with pytest.raises(HTTPException) as exc_info:
+            await skill_files.get_skill_file(
+                "skill",
+                "../skill-extra/secret.txt",
+                state,
+                None,
+            )
+
+        assert exc_info.value.status_code == 403
+
+
 class TestSkillRegistry:
     def test_find_by_name(self) -> None:
         skill = _make_skill("test")
@@ -854,6 +1031,63 @@ class TestZipSlipPrevention:
             assert os.path.isfile(os.path.join(extract_dir, "skill", "SKILL.md"))
 
 
+class _FakeSkillHTTPResponse:
+    def __init__(
+        self,
+        *,
+        url: str,
+        body: bytes = b"",
+        status_code: int = 200,
+        headers: dict[str, str] | None = None,
+    ) -> None:
+        self.url = url
+        self._body = body
+        self.status_code = status_code
+        self.headers = headers or {}
+        self.is_redirect = status_code in {301, 302, 303, 307, 308}
+
+    def raise_for_status(self) -> None:
+        if self.status_code >= 400:
+            raise RuntimeError(f"HTTP error {self.status_code}")
+
+    async def aiter_bytes(self):
+        yield self._body
+
+
+class _FakeSkillStream:
+    def __init__(self, response: _FakeSkillHTTPResponse) -> None:
+        self._response = response
+
+    async def __aenter__(self) -> _FakeSkillHTTPResponse:
+        return self._response
+
+    async def __aexit__(self, exc_type, exc, tb) -> bool:
+        return False
+
+
+def _patch_skill_dns(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    default_address: str = "93.184.216.34",
+    by_host: dict[str, str] | None = None,
+) -> None:
+    from agent.skills import installer as skill_installer
+
+    def fake_getaddrinfo(host: str, *args, **kwargs):
+        address = (by_host or {}).get(host, default_address)
+        return [
+            (
+                skill_installer.socket.AF_INET,
+                skill_installer.socket.SOCK_STREAM,
+                0,
+                "",
+                (address, 443),
+            )
+        ]
+
+    monkeypatch.setattr(skill_installer.socket, "getaddrinfo", fake_getaddrinfo)
+
+
 class TestSSRFPrevention:
     """Verify that internal/private URLs are blocked."""
 
@@ -904,6 +1138,99 @@ class TestSSRFPrevention:
                 mock_stream.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_install_from_url_blocks_resolved_internal_host_before_request(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from unittest.mock import patch
+
+        from agent.skills.installer import SkillInstaller
+
+        _patch_skill_dns(monkeypatch, default_address="127.0.0.2")
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+            with patch(
+                "agent.skills.installer.httpx.AsyncClient.stream",
+                side_effect=AssertionError("network should not be reached"),
+            ) as mock_stream:
+                with pytest.raises(ValueError, match="blocked internal address"):
+                    await installer.install_from_url("https://public.example/SKILL.md")
+                mock_stream.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_install_from_url_validates_redirect_before_following(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from agent.skills.installer import SkillInstaller
+
+        _patch_skill_dns(
+            monkeypatch,
+            by_host={
+                "public.example": "93.184.216.34",
+                "internal.example": "127.0.0.2",
+            },
+        )
+        requested_urls: list[str] = []
+
+        def fake_stream(self, method, url, **kwargs):
+            del self, method, kwargs
+            requested_urls.append(url)
+            return _FakeSkillStream(
+                _FakeSkillHTTPResponse(
+                    url=url,
+                    status_code=302,
+                    headers={"location": "https://internal.example/SKILL.md"},
+                )
+            )
+
+        monkeypatch.setattr(
+            "agent.skills.installer.httpx.AsyncClient.stream",
+            fake_stream,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+            with pytest.raises(ValueError, match="blocked internal address"):
+                await installer.install_from_url("https://public.example/SKILL.md")
+
+        assert requested_urls == ["https://public.example/SKILL.md"]
+
+    @pytest.mark.asyncio
+    async def test_install_from_url_allows_public_resolved_host(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from agent.skills.installer import SkillInstaller
+
+        _patch_skill_dns(monkeypatch)
+
+        def fake_stream(self, method, url, **kwargs):
+            del self, method, kwargs
+            return _FakeSkillStream(
+                _FakeSkillHTTPResponse(
+                    url=url,
+                    body=(
+                        b"---\n"
+                        b"name: downloaded-skill\n"
+                        b"description: Downloaded\n"
+                        b"---\n"
+                        b"Use the downloaded skill."
+                    ),
+                    headers={"content-type": "text/plain"},
+                )
+            )
+
+        monkeypatch.setattr(
+            "agent.skills.installer.httpx.AsyncClient.stream",
+            fake_stream,
+        )
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+            skill = await installer.install_from_url("https://public.example/SKILL.md")
+
+        assert skill.metadata.name == "downloaded-skill"
+
+    @pytest.mark.asyncio
     async def test_install_from_git_blocks_internal_host_before_clone(self) -> None:
         from unittest.mock import patch
 
@@ -919,16 +1246,40 @@ class TestSSRFPrevention:
                     await installer.install_from_git("https://localhost/repo.git")
                 mock_run.assert_not_called()
 
+    @pytest.mark.asyncio
+    async def test_install_from_git_blocks_resolved_internal_host_before_clone(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from unittest.mock import patch
+
+        from agent.skills.installer import SkillInstaller
+
+        _patch_skill_dns(monkeypatch, default_address="127.0.0.2")
+        with tempfile.TemporaryDirectory() as tmp:
+            installer = SkillInstaller(install_dir=tmp)
+            with patch(
+                "agent.skills.installer.subprocess.run",
+                side_effect=AssertionError("git clone should not be reached"),
+            ) as mock_run:
+                with pytest.raises(ValueError, match="blocked internal address"):
+                    await installer.install_from_git("https://public.example/repo.git")
+                mock_run.assert_not_called()
+
 
 class TestGitOptionInjection:
     """Verify git clone uses -- separator to prevent option injection."""
 
     @pytest.mark.asyncio
-    async def test_git_clone_uses_separator(self) -> None:
+    async def test_git_clone_uses_separator(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         """The git clone command should include '--' before the URL."""
         from unittest.mock import patch
         from agent.skills.installer import SkillInstaller
 
+        _patch_skill_dns(monkeypatch)
         with tempfile.TemporaryDirectory() as tmp:
             installer = SkillInstaller(install_dir=tmp)
 
@@ -941,6 +1292,7 @@ class TestGitOptionInjection:
 
                 # Verify '--' is in the command before the URL
                 call_args = mock_run.call_args[0][0]
+                assert call_args[:3] == ["git", "-c", "http.followRedirects=false"]
                 assert "--" in call_args
                 url_idx = call_args.index("https://example.com/repo.git")
                 sep_idx = call_args.index("--")
@@ -951,10 +1303,14 @@ class TestGitNotFound:
     """Verify clear error message when git is not installed."""
 
     @pytest.mark.asyncio
-    async def test_git_not_found_error(self) -> None:
+    async def test_git_not_found_error(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
         from unittest.mock import patch
         from agent.skills.installer import SkillInstaller
 
+        _patch_skill_dns(monkeypatch)
         with tempfile.TemporaryDirectory() as tmp:
             installer = SkillInstaller(install_dir=tmp)
 

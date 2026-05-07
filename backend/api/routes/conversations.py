@@ -43,6 +43,7 @@ from api.builders import (
     build_agent_system_prompt,
     format_verified_facts_prompt_section,
 )
+from api.skill_scope import build_user_skill_registry
 from api.sse import _create_queue_subscriber, _event_generator
 from api.user_responses import SubmitResponseStatus
 from api.events import AgentEvent, EventEmitter, EventType
@@ -227,22 +228,7 @@ async def _build_user_skill_registry(
     the global in-memory registry to only those names.  Falls back to
     the full registry when the DB skill repo is unavailable.
     """
-    global_registry = getattr(state, "skill_registry", None)
-    if global_registry is None:
-        return None
-
-    skill_repo = getattr(state, "skill_repo", None)
-    if skill_repo is None:
-        return global_registry
-
-    async with state.db_session_factory() as session:
-        db_records = await skill_repo.list_skills(session, user_id=user_id)
-
-    if not db_records:
-        return global_registry
-
-    visible_names = {r.name for r in db_records if r.enabled}
-    return global_registry.filter_by_names(visible_names)
+    return await build_user_skill_registry(state, user_id)
 
 
 def _entry_runtime_ready(entry: ConversationEntry) -> bool:

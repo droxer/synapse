@@ -324,10 +324,42 @@ async def process_tool_calls(
             )
         await asyncio.gather(*emit_tasks)
 
-        exec_tasks = [executor.execute(tc.name, tc.input) for tc in tool_calls]
-        parallel_results = await asyncio.gather(*exec_tasks)
+        exec_tasks = [
+            asyncio.create_task(executor.execute(tc.name, tc.input))
+            for tc in tool_calls
+        ]
+        cancelled = False
+        if cancel_check is not None:
+            pending = set(exec_tasks)
+            while pending:
+                _, pending = await asyncio.wait(
+                    pending,
+                    timeout=0.05,
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if cancel_check() and pending:
+                    cancelled = True
+                    for task in pending:
+                        task.cancel()
+                    await asyncio.gather(*pending, return_exceptions=True)
+                    break
+        else:
+            await asyncio.gather(*exec_tasks)
 
-        for tc, result in zip(tool_calls, parallel_results, strict=True):
+        for tc, task in zip(tool_calls, exec_tasks, strict=True):
+            if cancelled and (not task.done() or task.cancelled()):
+                tool_results.append(
+                    await _emit_skipped_tool_result(
+                        state,
+                        tc,
+                        emitter,
+                        "Tool call skipped because the turn was cancelled.",
+                        agent_id,
+                    )
+                )
+                continue
+
+            result = task.result()
             processed_count += 1
             output = (
                 result.output if result.success else (result.error or "Unknown error")

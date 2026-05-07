@@ -28,6 +28,8 @@ async def list_mcp_servers(
     )
     if user_id is not None:
         stmt = stmt.where(MCPServerModel.user_id == user_id)
+    else:
+        stmt = stmt.where(MCPServerModel.user_id.is_(None))
     stmt = stmt.order_by(MCPServerModel.created_at)
     result = await session.execute(stmt)
     rows = result.scalars().all()

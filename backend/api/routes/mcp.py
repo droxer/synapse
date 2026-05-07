@@ -103,10 +103,9 @@ def _create_client_for_config(cfg: MCPServerConfig) -> MCPClient:
 
 def _validate_mcp_url(url: str) -> None:
     """Validate a user-provided MCP URL."""
-    from agent.skills.installer import _validate_https_url, _validate_not_internal
+    from agent.skills.installer import _validate_public_https_url
 
-    _validate_https_url(url)
-    _validate_not_internal(url)
+    _validate_public_https_url(url)
 
 
 def _config_from_request(

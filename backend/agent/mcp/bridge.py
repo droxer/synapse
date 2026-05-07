@@ -15,10 +15,14 @@ def mcp_server_tag(server_key: str) -> str:
     return f"mcp_server:{server_key}"
 
 
-def _sanitize_tool_part(value: str) -> str:
+def _sanitize_tool_part(value: str, *, collision_safe: bool = False) -> str:
     """Normalize a tool-name fragment to ASCII-safe characters."""
     sanitized = re.sub(r"[^A-Za-z0-9_-]+", "_", value).strip("_")
-    return sanitized or "mcp"
+    sanitized = sanitized or "mcp"
+    if collision_safe and sanitized != value:
+        digest = hashlib.sha1(value.encode("utf-8")).hexdigest()[:10]
+        return f"{sanitized}_{digest}"
+    return sanitized
 
 
 def _tool_prefix(server_name: str, server_key: str) -> str:
@@ -52,7 +56,7 @@ class MCPBridgedTool(LocalTool):
     def definition(self) -> ToolDefinition:
         prefixed_name = (
             f"{_tool_prefix(self._schema.server_name, self._server_key)}"
-            f"__{_sanitize_tool_part(self._schema.name)}"
+            f"__{_sanitize_tool_part(self._schema.name, collision_safe=True)}"
         )
         return ToolDefinition(
             name=prefixed_name,

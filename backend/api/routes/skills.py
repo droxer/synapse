@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import os
 import shutil
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile
@@ -18,6 +19,7 @@ from agent.state.repository import SkillRepository
 from api.auth import AuthUser, common_dependencies, get_current_user
 from api.dependencies import AppState, get_app_state, get_db_session
 from api.routes.conversations import _resolve_user_id
+from api.skill_scope import build_user_skill_registry, visible_skill_or_404
 
 router = APIRouter(prefix="/skills", dependencies=common_dependencies)
 
@@ -88,6 +90,17 @@ def _get_skill_registry(state: AppState) -> SkillRegistry:
     return registry
 
 
+def _installer_for_user(
+    installer: SkillInstaller,
+    user_id: Any | None,
+) -> SkillInstaller:
+    """Return a user-scoped installer when an authenticated user is present."""
+    if user_id is None:
+        return installer
+    base_dir = Path(installer.install_dir).parent / "user-skills" / str(user_id)
+    return SkillInstaller(str(base_dir))
+
+
 async def _sync_skill_to_db(
     state: AppState,
     session: Any,
@@ -156,10 +169,15 @@ async def list_skills(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """GET /skills — list bundled + current user's skills with DB metadata."""
-    registry = _get_skill_registry(state)
-    skill_repo = _get_skill_repo(state)
-
     user_id = await _resolve_user_id(auth_user, state)
+    registry = await build_user_skill_registry(
+        state,
+        user_id,
+        include_disabled=True,
+    )
+    if registry is None:
+        raise HTTPException(status_code=503, detail="Skills system not initialized")
+    skill_repo = _get_skill_repo(state)
 
     # Lazily sync user-installed skills from disk to database on first list
     if skill_repo is not None and user_id is not None:
@@ -237,13 +255,11 @@ async def search_registry(
 async def get_skill(
     name: str,
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """GET /skills/{name} — get full skill detail."""
-    registry = _get_skill_registry(state)
-
-    skill = registry.find_by_name(name)
-    if skill is None:
-        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+    user_id = await _resolve_user_id(auth_user, state)
+    skill = await visible_skill_or_404(state, name=name, user_id=user_id)
 
     return SkillResponse(
         name=skill.metadata.name,
@@ -280,7 +296,9 @@ async def install_skill(
 
     When only ``url`` is provided, the source type is auto-detected.
     """
-    installer = _get_skill_installer(state)
+    base_installer = _get_skill_installer(state)
+    user_id = await _resolve_user_id(auth_user, state)
+    installer = _installer_for_user(base_installer, user_id)
 
     # Auto-detect source from URL when not explicitly provided
     source = request.source
@@ -332,10 +350,12 @@ async def install_skill(
     except RuntimeError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
 
-    # Update the live registry under lock to prevent concurrent overwrites
-    async with _registry_lock:
-        registry = _get_skill_registry(state)
-        state.skill_registry = registry.add_skill(skill)
+    # Anonymous/development installs remain process-global. Authenticated
+    # user installs are loaded from their DB source_path into scoped registries.
+    if user_id is None:
+        async with _registry_lock:
+            registry = _get_skill_registry(state)
+            state.skill_registry = registry.add_skill(skill)
 
     logger.info("Installed skill '{}' from {}", skill.metadata.name, source)
 
@@ -358,7 +378,9 @@ async def upload_skill(
     auth_user: AuthUser | None = Depends(get_current_user),
 ) -> dict[str, Any]:
     """POST /skills/upload — install a skill from uploaded files (zip, SKILL.md, or folder)."""
-    installer = _get_skill_installer(state)
+    base_installer = _get_skill_installer(state)
+    user_id = await _resolve_user_id(auth_user, state)
+    installer = _installer_for_user(base_installer, user_id)
 
     if not files:
         raise HTTPException(status_code=400, detail="No files uploaded")
@@ -375,9 +397,10 @@ async def upload_skill(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-    async with _registry_lock:
-        registry = _get_skill_registry(state)
-        state.skill_registry = registry.add_skill(skill)
+    if user_id is None:
+        async with _registry_lock:
+            registry = _get_skill_registry(state)
+            state.skill_registry = registry.add_skill(skill)
 
     logger.info("Installed skill '{}' from upload", skill.metadata.name)
 
@@ -402,17 +425,24 @@ async def uninstall_skill(
     """DELETE /skills/{name} — uninstall a user-installed skill."""
     from agent.skills.installer import _sanitize_name
 
-    registry = _get_skill_registry(state)
     installer = _get_skill_installer(state)
+    user_id = await _resolve_user_id(auth_user, state)
+    scoped_registry = await build_user_skill_registry(
+        state,
+        user_id,
+        include_disabled=True,
+    )
+    if scoped_registry is None:
+        raise HTTPException(status_code=503, detail="Skills system not initialized")
 
     # Check if skill exists by exact name match first
-    skill = registry.find_by_name(name)
+    skill = scoped_registry.find_by_name(name)
 
     if skill is None:
         # Try to find by sanitized directory name match
         # (directory name may differ from metadata name due to sanitization)
         sanitized_input = _sanitize_name(name)
-        for s in registry.all_skills():
+        for s in scoped_registry.all_skills():
             if _sanitize_name(s.metadata.name) == sanitized_input:
                 skill = s
                 break
@@ -420,35 +450,29 @@ async def uninstall_skill(
     if skill is None:
         raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
 
-    # Don't allow uninstalling bundled skills
-    if skill.source_type == "bundled":
-        raise HTTPException(status_code=403, detail="Cannot uninstall bundled skills")
+    # Only user-installed skills are removable from the API.
+    if skill.source_type != "user":
+        raise HTTPException(
+            status_code=403, detail="Cannot uninstall shared or project skills"
+        )
 
     # Use the actual skill name from metadata for removal
     skill_name = skill.metadata.name
 
-    # Handle project skills differently - they are in the project directory
-    if skill.source_type == "project":
+    if user_id is not None:
         skill_dir = str(skill.directory_path)
-        dir_exists = os.path.isdir(skill_dir)
-        if dir_exists:
+        if os.path.isdir(skill_dir):
             shutil.rmtree(skill_dir)
-            removed = True
-        else:
-            # Directory already gone, but we should still clean up registry/DB
-            removed = True
     else:
         removed = installer.uninstall(skill_name)
         # If directory doesn't exist but skill is in registry, still clean up
         if not removed:
-            removed = True
+            logger.warning("skill_directory_missing_on_uninstall name={}", skill_name)
 
-    # removed should always be True at this point since we found the skill in registry
-    # and either removed the directory or it was already gone
-
-    async with _registry_lock:
-        registry = _get_skill_registry(state)
-        state.skill_registry = registry.remove_skill(skill_name)
+    if user_id is None:
+        async with _registry_lock:
+            registry = _get_skill_registry(state)
+            state.skill_registry = registry.remove_skill(skill_name)
 
     # Remove from database
     await _remove_skill_from_db(state, session, auth_user, skill_name)

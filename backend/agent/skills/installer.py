@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import os
+import ipaddress
 import shutil
+import socket
 import subprocess
 import tempfile
 import zipfile
 from dataclasses import dataclass, replace
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 from loguru import logger
@@ -19,6 +21,7 @@ from agent.skills.parser import parse_skill_md
 
 _MAX_DOWNLOAD_SIZE = 10 * 1024 * 1024  # 10 MB
 _GIT_TIMEOUT = 30  # seconds
+_MAX_REDIRECTS = 5
 
 
 @dataclass(frozen=True)
@@ -79,14 +82,23 @@ class SkillInstaller:
         ValueError for invalid URLs or missing SKILL.md.
         RuntimeError for git clone failures.
         """
-        _validate_https_url(repo_url)
-        _validate_not_internal(repo_url)
+        _validate_public_https_url(repo_url)
 
         with tempfile.TemporaryDirectory() as tmp_dir:
             clone_dir = os.path.join(tmp_dir, "repo")
             try:
                 subprocess.run(
-                    ["git", "clone", "--depth", "1", "--", repo_url, clone_dir],
+                    [
+                        "git",
+                        "-c",
+                        "http.followRedirects=false",
+                        "clone",
+                        "--depth",
+                        "1",
+                        "--",
+                        repo_url,
+                        clone_dir,
+                    ],
                     check=True,
                     capture_output=True,
                     timeout=_GIT_TIMEOUT,
@@ -124,29 +136,43 @@ class SkillInstaller:
         ValueError for invalid URLs or content.
         RuntimeError for download failures.
         """
-        _validate_https_url(url)
-        _validate_not_internal(url)
+        current_url = url
+        _validate_public_https_url(current_url)
 
-        timeout = httpx.Timeout(connect=10.0, read=30.0, pool=10.0)
+        timeout = httpx.Timeout(connect=10.0, read=30.0, write=30.0, pool=10.0)
         async with httpx.AsyncClient(timeout=timeout) as client:
-            # Use streaming to avoid OOM on large responses
-            async with client.stream("GET", url, follow_redirects=True) as response:
-                # SSRF: validate the final URL after redirects
-                final_url = str(response.url)
-                _validate_https_url(final_url)
-                _validate_not_internal(final_url)
+            response_headers: httpx.Headers | None = None
+            for _ in range(_MAX_REDIRECTS + 1):
+                # Use streaming to avoid OOM on large responses. Redirects are
+                # followed manually so every Location is validated before use.
+                async with client.stream(
+                    "GET",
+                    current_url,
+                    follow_redirects=False,
+                ) as response:
+                    if response.is_redirect:
+                        location = response.headers.get("location")
+                        if not location:
+                            raise ValueError("Redirect response missing Location")
+                        current_url = urljoin(str(response.url), location)
+                        _validate_public_https_url(current_url)
+                        continue
 
-                response.raise_for_status()
+                    response.raise_for_status()
+                    response_headers = response.headers
 
-                chunks: list[bytes] = []
-                total = 0
-                async for chunk in response.aiter_bytes():
-                    total += len(chunk)
-                    if total > _MAX_DOWNLOAD_SIZE:
-                        raise ValueError(
-                            f"Download too large: >{_MAX_DOWNLOAD_SIZE} bytes"
-                        )
-                    chunks.append(chunk)
+                    chunks: list[bytes] = []
+                    total = 0
+                    async for chunk in response.aiter_bytes():
+                        total += len(chunk)
+                        if total > _MAX_DOWNLOAD_SIZE:
+                            raise ValueError(
+                                f"Download too large: >{_MAX_DOWNLOAD_SIZE} bytes"
+                            )
+                        chunks.append(chunk)
+                    break
+            else:
+                raise ValueError(f"Too many redirects (>{_MAX_REDIRECTS})")
 
             content = b"".join(chunks)
 
@@ -156,7 +182,9 @@ class SkillInstaller:
 
         # Content-type validation for non-zip downloads
         if not is_zip:
-            content_type = response.headers.get("content-type", "")
+            content_type = (
+                response_headers.get("content-type", "") if response_headers else ""
+            )
             if content_type and not content_type.startswith(
                 ("text/", "application/octet-stream")
             ):
@@ -346,34 +374,68 @@ def _validate_not_internal(url: str) -> None:
     if hostname in _BLOCKED_HOSTS:
         raise ValueError(f"URL points to a blocked internal host: {hostname}")
 
-    # Block IPv4 private ranges (10.x, 172.16-31.x, 192.168.x)
-    if hostname.startswith(("10.", "192.168.")):
+    try:
+        address = ipaddress.ip_address(hostname)
+    except ValueError:
+        return
+
+    if address.version == 6 and address.ipv4_mapped is not None:
+        address = address.ipv4_mapped
+
+    if address.is_loopback or address.is_link_local or address.is_unspecified:
+        raise ValueError(f"URL points to a blocked internal host: {hostname}")
+    if address.is_private:
         raise ValueError(f"URL points to a private IP address: {hostname}")
-    if hostname.startswith("172."):
-        parts = hostname.split(".")
-        if len(parts) >= 2 and parts[1].isdigit():
-            second_octet = int(parts[1])
-            if 16 <= second_octet <= 31:
-                raise ValueError(f"URL points to a private IP address: {hostname}")
+    if address.is_multicast or address.is_reserved or not address.is_global:
+        raise ValueError(f"URL points to a blocked internal host: {hostname}")
 
-    # Block RFC 6598 shared address space (100.64.0.0/10)
-    if hostname.startswith("100."):
-        parts = hostname.split(".")
-        if len(parts) >= 2 and parts[1].isdigit():
-            second_octet = int(parts[1])
-            if 64 <= second_octet <= 127:
-                raise ValueError(f"URL points to a shared address space IP: {hostname}")
 
-    # Block IPv6 loopback/link-local/unique-local
-    ipv6_blocked_prefixes = (
-        "::1",  # loopback
-        "fe80:",  # link-local
-        "fc",  # unique local fc00::/7
-        "fd",  # unique local fd00::/7
-        "::ffff:",  # IPv4-mapped (::ffff:10.x, ::ffff:127.x, etc.)
+def _validate_public_https_url(url: str) -> None:
+    """Validate that *url* is HTTPS and resolves only to public addresses."""
+    _validate_https_url(url)
+    _validate_not_internal(url)
+    _validate_resolved_host_not_internal(url)
+
+
+def _validate_resolved_host_not_internal(url: str) -> None:
+    """Resolve a URL host and reject non-public resolved addresses."""
+    parsed = urlparse(url)
+    hostname = parsed.hostname
+    if not hostname:
+        raise ValueError("Invalid URL: no host specified")
+    try:
+        addresses = {
+            item[4][0]
+            for item in socket.getaddrinfo(
+                hostname,
+                parsed.port or 443,
+                type=socket.SOCK_STREAM,
+            )
+        }
+    except socket.gaierror as exc:
+        raise ValueError(f"Could not resolve URL host: {hostname}") from exc
+
+    for address in addresses:
+        if _is_blocked_address(address):
+            raise ValueError(
+                f"URL host resolves to a blocked internal address: {address}"
+            )
+
+
+def _is_blocked_address(address: str) -> bool:
+    """Return True for IP addresses that should never be backend targets."""
+    ip = ipaddress.ip_address(address.split("%", 1)[0])
+    if ip.version == 6 and ip.ipv4_mapped is not None:
+        ip = ip.ipv4_mapped
+    return (
+        ip.is_loopback
+        or ip.is_link_local
+        or ip.is_private
+        or ip.is_multicast
+        or ip.is_reserved
+        or ip.is_unspecified
+        or not ip.is_global
     )
-    if any(hostname.startswith(p) for p in ipv6_blocked_prefixes):
-        raise ValueError(f"URL points to a blocked IPv6 address: {hostname}")
 
 
 def _safe_extract_zip(archive_path: str, extract_dir: str) -> None:

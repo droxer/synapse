@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 import types
+import uuid
 from contextlib import asynccontextmanager
 from types import SimpleNamespace
 from typing import Any
@@ -27,6 +28,7 @@ from agent.mcp.client import (
 from agent.mcp.config import MCPServerConfig
 from agent.mcp.sse_client import MCPSSEClient, _StreamableNotSupported
 from agent.mcp.bridge import MCPBridgedTool
+from agent.skills import installer as skill_installer
 from agent.tools.base import ExecutionContext
 from agent.tools.registry import ToolRegistry
 
@@ -248,6 +250,29 @@ class TestMCPBridgedTool:
         defn_b = MCPBridgedTool(schema_b, client=None).definition()  # type: ignore[arg-type]
 
         assert defn_a.name != defn_b.name
+
+    def test_definition_avoids_same_server_tool_name_sanitization_collisions(
+        self,
+    ) -> None:
+        schema_a = MCPToolSchema(
+            name="foo/bar",
+            description="First",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="docs",
+        )
+        schema_b = MCPToolSchema(
+            name="foo.bar",
+            description="Second",
+            input_schema=types.MappingProxyType({"type": "object", "properties": {}}),
+            server_name="docs",
+        )
+
+        registry = ToolRegistry()
+        registry = registry.register(MCPBridgedTool(schema_a, client=None))  # type: ignore[arg-type]
+        registry = registry.register(MCPBridgedTool(schema_b, client=None))  # type: ignore[arg-type]
+
+        names = {tool.name for tool in registry.list_tools()}
+        assert len(names) == 2
 
     def test_builder_mcp_registry_scopes_tools_by_visible_server(self) -> None:
         schema = MCPToolSchema(
@@ -601,6 +626,37 @@ class TestMCPRepository:
         assert loaded[0].transport == "streamablehttp"
         assert dict(loaded[0].headers) == {"Authorization": "Bearer token"}
 
+    @pytest.mark.asyncio
+    async def test_list_without_user_returns_only_global_servers(
+        self,
+        session: Any,
+    ) -> None:
+        user_id = uuid.uuid4()
+        await mcp_repository.save_mcp_server(
+            session,
+            MCPServerConfig(
+                name="global",
+                transport="streamablehttp",
+                url="https://global.example/mcp",
+            ),
+            user_id=None,
+        )
+        await mcp_repository.save_mcp_server(
+            session,
+            MCPServerConfig(
+                name="user-owned",
+                transport="streamablehttp",
+                url="https://user.example/mcp",
+            ),
+            user_id=user_id,
+        )
+
+        global_servers = await mcp_repository.list_mcp_servers(session)
+        user_servers = await mcp_repository.list_mcp_servers(session, user_id=user_id)
+
+        assert [server.name for server in global_servers] == ["global"]
+        assert [server.name for server in user_servers] == ["user-owned"]
+
 
 # ---------------------------------------------------------------------------
 # Registry merge
@@ -684,6 +740,22 @@ def _app_state(mcp_state: MCPState) -> SimpleNamespace:
 
 
 class TestMCPRoutes:
+    @pytest.fixture(autouse=True)
+    def _patch_public_dns(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setattr(
+            skill_installer.socket,
+            "getaddrinfo",
+            lambda *args, **kwargs: [
+                (
+                    skill_installer.socket.AF_INET,
+                    skill_installer.socket.SOCK_STREAM,
+                    0,
+                    "",
+                    ("93.184.216.34", 443),
+                )
+            ],
+        )
+
     @pytest.mark.asyncio
     async def test_restore_persisted_servers_concurrent_restore_closes_losing_client(
         self, monkeypatch: pytest.MonkeyPatch
@@ -1509,3 +1581,67 @@ class TestMCPRoutes:
         assert "user-1:shared" not in mcp_state.configs
         assert "user-2:shared" in mcp_state.configs
         assert len(mcp_state.registry.list_tools()) == 1
+
+
+class TestMCPURLValidation:
+    def test_rejects_resolved_loopback_address(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            skill_installer.socket,
+            "getaddrinfo",
+            lambda *args, **kwargs: [
+                (
+                    skill_installer.socket.AF_INET,
+                    skill_installer.socket.SOCK_STREAM,
+                    0,
+                    "",
+                    ("127.0.0.2", 443),
+                )
+            ],
+        )
+
+        with pytest.raises(ValueError, match="blocked internal address"):
+            mcp_routes._validate_mcp_url("https://public.example.org/mcp")
+
+    def test_allows_resolved_public_address(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            skill_installer.socket,
+            "getaddrinfo",
+            lambda *args, **kwargs: [
+                (
+                    skill_installer.socket.AF_INET,
+                    skill_installer.socket.SOCK_STREAM,
+                    0,
+                    "",
+                    ("93.184.216.34", 443),
+                )
+            ],
+        )
+
+        mcp_routes._validate_mcp_url("https://public.example.org/mcp")
+
+    def test_rejects_reserved_test_domain_when_it_resolves_internal(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr(
+            skill_installer.socket,
+            "getaddrinfo",
+            lambda *args, **kwargs: [
+                (
+                    skill_installer.socket.AF_INET,
+                    skill_installer.socket.SOCK_STREAM,
+                    0,
+                    "",
+                    ("127.0.0.2", 443),
+                )
+            ],
+        )
+
+        with pytest.raises(ValueError, match="blocked internal address"):
+            mcp_routes._validate_mcp_url("https://blocked.test/mcp")

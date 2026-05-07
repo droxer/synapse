@@ -9,9 +9,10 @@ from typing import Any
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import PlainTextResponse
 
-from api.auth import common_dependencies
+from api.auth import AuthUser, common_dependencies, get_current_user
 from api.dependencies import AppState, get_app_state
-from agent.skills.loader import SkillRegistry
+from api.routes.conversations import _resolve_user_id
+from api.skill_scope import visible_skill_or_404
 
 router = APIRouter(prefix="/skills", dependencies=common_dependencies)
 
@@ -87,20 +88,14 @@ _MAX_FILES = 500
 _MAX_FILE_SIZE = 1_048_576  # 1 MB
 
 
-def _get_skill_registry(state: AppState) -> SkillRegistry:
-    """Retrieve the SkillRegistry from app state."""
-    registry = getattr(state, "skill_registry", None)
-    if registry is None:
-        raise HTTPException(status_code=503, detail="Skills system not initialized")
-    return registry
-
-
-def _resolve_skill_directory(name: str, state: AppState) -> Path:
+async def _resolve_skill_directory(
+    name: str,
+    state: AppState,
+    auth_user: AuthUser | None,
+) -> Path:
     """Look up a skill by name and return its directory path."""
-    registry = _get_skill_registry(state)
-    skill = registry.find_by_name(name)
-    if skill is None:
-        raise HTTPException(status_code=404, detail=f"Skill '{name}' not found")
+    user_id = await _resolve_user_id(auth_user, state)
+    skill = await visible_skill_or_404(state, name=name, user_id=user_id)
     return skill.directory_path
 
 
@@ -187,9 +182,10 @@ def _find_tree_root(path: str, depth: int) -> str:
 async def list_skill_files(
     name: str,
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> list[dict[str, Any]]:
     """GET /skills/{name}/files — return the skill's directory tree as JSON."""
-    skill_dir = _resolve_skill_directory(name, state)
+    skill_dir = await _resolve_skill_directory(name, state, auth_user)
     if not skill_dir.is_dir():
         return []
     return _build_tree(str(skill_dir))
@@ -200,16 +196,19 @@ async def get_skill_file(
     name: str,
     path: str,
     state: AppState = Depends(get_app_state),
+    auth_user: AuthUser | None = Depends(get_current_user),
 ) -> PlainTextResponse:
     """GET /skills/{name}/files/{path} — return a single file's content as text/plain."""
-    skill_dir = _resolve_skill_directory(name, state)
+    skill_dir = await _resolve_skill_directory(name, state, auth_user)
 
     # Resolve and validate the requested path
     requested = (skill_dir / path).resolve()
     skill_dir_resolved = skill_dir.resolve()
 
     # Security: prevent directory traversal
-    if not str(requested).startswith(str(skill_dir_resolved)):
+    try:
+        requested.relative_to(skill_dir_resolved)
+    except ValueError:
         raise HTTPException(status_code=403, detail="Path traversal not allowed")
 
     if not requested.is_file():

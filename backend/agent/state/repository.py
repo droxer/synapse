@@ -903,7 +903,10 @@ class SkillRepository:
         discovered_names = {name for name, _, _, _ in discovered}
 
         # Fetch existing bundled skills
-        stmt = select(SkillModel).where(SkillModel.source_type == "bundled")
+        stmt = select(SkillModel).where(
+            SkillModel.source_type == "bundled",
+            SkillModel.user_id.is_(None),
+        )
         result = await session.execute(stmt)
         existing = {m.name: m for m in result.scalars().all()}
 
@@ -980,19 +983,32 @@ class SkillRepository:
         user_id: uuid.UUID | None = None,
     ) -> list[SkillRecord]:
         """Return skills visible to a user (bundled + user-owned), ordered by activation count."""
-        from sqlalchemy import or_
+        from sqlalchemy import and_, or_
 
-        conditions = [SkillModel.source_type == "bundled"]
+        conditions = [
+            and_(SkillModel.source_type == "bundled", SkillModel.user_id.is_(None))
+        ]
         if user_id is not None:
             conditions.append(SkillModel.user_id == user_id)
 
         stmt = (
             select(SkillModel)
             .where(or_(*conditions))
-            .order_by(SkillModel.activation_count.desc())
+            .order_by(
+                SkillModel.activation_count.desc(),
+                SkillModel.user_id.desc().nulls_last(),
+            )
         )
         result = await session.execute(stmt)
-        return [_to_skill(m) for m in result.scalars().all()]
+        records_by_name: dict[str, SkillRecord] = {}
+        for model in result.scalars().all():
+            record = _to_skill(model)
+            existing = records_by_name.get(record.name)
+            if existing is None or (
+                existing.user_id is None and record.user_id is not None
+            ):
+                records_by_name[record.name] = record
+        return list(records_by_name.values())
 
     async def get_skill(
         self,
@@ -1001,9 +1017,11 @@ class SkillRepository:
         user_id: uuid.UUID | None = None,
     ) -> SkillRecord | None:
         """Find a skill by name — checks user-owned first, then bundled."""
-        from sqlalchemy import or_
+        from sqlalchemy import and_, or_
 
-        conditions = [SkillModel.source_type == "bundled"]
+        conditions = [
+            and_(SkillModel.source_type == "bundled", SkillModel.user_id.is_(None))
+        ]
         if user_id is not None:
             conditions.append(SkillModel.user_id == user_id)
 
@@ -1024,9 +1042,11 @@ class SkillRepository:
         user_id: uuid.UUID | None = None,
     ) -> None:
         """Increment activation count. Prefers user-owned row, falls back to bundled."""
-        from sqlalchemy import or_
+        from sqlalchemy import and_, or_
 
-        conditions = [SkillModel.source_type == "bundled"]
+        conditions = [
+            and_(SkillModel.source_type == "bundled", SkillModel.user_id.is_(None))
+        ]
         if user_id is not None:
             conditions.append(SkillModel.user_id == user_id)
 
@@ -1051,9 +1071,11 @@ class SkillRepository:
         user_id: uuid.UUID | None = None,
     ) -> SkillRecord | None:
         """Toggle a skill's enabled state. Returns None if not found."""
-        from sqlalchemy import or_
+        from sqlalchemy import and_, or_
 
-        conditions = [SkillModel.source_type == "bundled"]
+        conditions = [
+            and_(SkillModel.source_type == "bundled", SkillModel.user_id.is_(None))
+        ]
         if user_id is not None:
             conditions.append(SkillModel.user_id == user_id)
 
@@ -1067,6 +1089,21 @@ class SkillRepository:
         model = result.scalar_one_or_none()
         if model is None:
             return None
+        if user_id is not None and model.user_id is None:
+            model = SkillModel(
+                user_id=user_id,
+                name=model.name,
+                description=model.description,
+                source_type=model.source_type,
+                source_path=model.source_path,
+                enabled=enabled,
+                activation_count=model.activation_count,
+                last_activated_at=model.last_activated_at,
+            )
+            session.add(model)
+            await session.commit()
+            await session.refresh(model)
+            return _to_skill(model)
         model.enabled = enabled
         model.updated_at = datetime.now(timezone.utc)
         await session.commit()
