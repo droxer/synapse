@@ -29,8 +29,8 @@ from sqlalchemy.exc import IntegrityError
 
 from agent.context.profiles import resolve_compaction_profile
 from agent.artifacts.storage import LocalStorageBackend
-from agent.memory.store import PersistentMemoryStore
 from agent.state.schemas import AgentRunRecord, EventRecord
+from agent.runtime.hooks import ConversationSessionContext
 from api.db_subscriber import create_db_subscriber
 from api.dependencies import AppState, get_app_state, get_db_session
 from api.events import AgentEvent, EventEmitter, EventType
@@ -44,8 +44,9 @@ from api.routes.conversations import (
     _build_execution_shape_prompt_sections,
     _build_user_skill_registry,
     _entry_runtime_ready,
+    _get_conversation_hooks,
+    _memory_resources_from_session_hooks,
     _load_initial_messages_for_conversation,
-    _load_runtime_memory_entries,
     _reconstruct_conversation,
     _resolve_follow_up_execution_route,
     _resolve_turn_locale,
@@ -389,6 +390,8 @@ async def _run_public_initial_turn(
             user_id=None,
             turn_locale=turn_locale,
             extra_turn_metadata={"run_id": str(run_id)},
+            turn_id=str(run_id),
+            source="v1",
         )
         await _mark_run_finished(state, run_id, result)
     except asyncio.CancelledError:
@@ -428,16 +431,26 @@ async def _switch_runtime_if_needed(
     if convo is None:
         raise _public_error(404, "not_found", "Conversation not found.")
 
-    persistent_store = PersistentMemoryStore(
-        session_factory=state.db_session_factory,
-        user_id=convo.user_id,
-        conversation_id=conv_uuid,
+    compaction_runtime = (
+        "planner" if target_mode == ORCHESTRATOR_PLANNER else "web_conversation"
     )
-    memory_entries = await _load_runtime_memory_entries(persistent_store)
+    session_resources = await _get_conversation_hooks(state).before_session_start(
+        ConversationSessionContext(
+            conversation_id=conversation_id,
+            user_id=convo.user_id,
+            mode=target_mode,
+            compaction_runtime=compaction_runtime,
+            state=state,
+            metadata={"db_session_factory": state.db_session_factory},
+        )
+    )
+    persistent_store, memory_entries = _memory_resources_from_session_hooks(
+        session_resources
+    )
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
     compaction_profile = resolve_compaction_profile(
         get_settings(),
-        "planner" if target_mode == ORCHESTRATOR_PLANNER else "web_conversation",
+        compaction_runtime,
     )
     initial_messages = await _load_initial_messages_for_conversation(
         state,
@@ -459,6 +472,7 @@ async def _switch_runtime_if_needed(
             conversation_id=conversation_id,
             initial_messages=tuple(initial_messages),
             mcp_user_id=convo.user_id,
+            conversation_hooks=_get_conversation_hooks(state),
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -473,6 +487,7 @@ async def _switch_runtime_if_needed(
             memory_entries=memory_entries,
             conversation_id=conversation_id,
             mcp_user_id=convo.user_id,
+            conversation_hooks=_get_conversation_hooks(state),
         )
     entry.orchestrator = orchestrator
     entry.executor = executor
@@ -545,6 +560,9 @@ async def _run_public_followup_turn(
             runtime_prompt_sections=runtime_prompt_sections,
             turn_metadata=turn_metadata,
             idempotency_key=idempotency_key,
+            user_id=None,
+            turn_id=str(run_id),
+            source="v1",
         )
         await _mark_run_finished(state, run_id, result)
     except asyncio.CancelledError:

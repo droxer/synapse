@@ -106,6 +106,7 @@ class ConversationEntry:
         "last_selected_skills",
         "idempotency_cache",
         "idempotency_tasks",
+        "background_tasks",
         "orchestrator_mode",
         "lock",
     )
@@ -131,6 +132,7 @@ class ConversationEntry:
         self.last_selected_skills: tuple[str, ...] = ()
         self.idempotency_cache: dict[str, str] = {}
         self.idempotency_tasks: dict[str, asyncio.Task[str]] = {}
+        self.background_tasks: set[asyncio.Task[None]] = set()
         self.orchestrator_mode = orchestrator_mode
         self.lock = asyncio.Lock()
 

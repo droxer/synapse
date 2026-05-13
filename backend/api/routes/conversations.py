@@ -41,7 +41,17 @@ from api.builders import (
     _build_orchestrator,
     _build_planner_orchestrator,
     build_agent_system_prompt,
-    format_verified_facts_prompt_section,
+)
+from agent.memory.conversation_hooks import (
+    MemoryConversationHooks,
+    SESSION_VALUE_MEMORY_ENTRIES,
+    SESSION_VALUE_PERSISTENT_STORE,
+)
+from agent.runtime.hooks import (
+    ConversationHooks,
+    ConversationSessionContext,
+    ConversationSessionHookResult,
+    ConversationTurnContext,
 )
 from api.skill_scope import build_user_skill_registry
 from api.sse import _create_queue_subscriber, _event_generator
@@ -111,6 +121,63 @@ class _NoopExecutor:
 
 def _elapsed_ms(start: float) -> int:
     return int((time.perf_counter() - start) * 1000)
+
+
+def _memory_store_factory(
+    session_factory: Any,
+    user_id: uuid.UUID | None,
+    conversation_id: uuid.UUID | None,
+) -> PersistentMemoryStore:
+    return PersistentMemoryStore(
+        session_factory=session_factory,
+        user_id=user_id,
+        conversation_id=conversation_id,
+    )
+
+
+def _get_conversation_hooks(state: AppState) -> ConversationHooks:
+    hooks = getattr(state, "conversation_hooks", None)
+    if hooks is not None:
+        return hooks
+    return MemoryConversationHooks(
+        memory_store_factory=_memory_store_factory,
+        settings_factory=get_settings,
+    )
+
+
+def _memory_resources_from_session_hooks(
+    result: ConversationSessionHookResult,
+) -> tuple[PersistentMemoryStore, list[dict[str, str]]]:
+    persistent_store = result.values.get(SESSION_VALUE_PERSISTENT_STORE)
+    memory_entries = result.values.get(SESSION_VALUE_MEMORY_ENTRIES, [])
+    if persistent_store is None:
+        raise RuntimeError("conversation session hooks did not provide memory store")
+    if not isinstance(memory_entries, list):
+        raise RuntimeError("conversation session hooks returned invalid memory entries")
+    return persistent_store, memory_entries
+
+
+def _track_background_task(
+    entry: ConversationEntry,
+    task: asyncio.Task[None],
+) -> None:
+    entry.background_tasks.add(task)
+
+    def _cleanup(done_task: asyncio.Task[None]) -> None:
+        entry.background_tasks.discard(done_task)
+        if done_task.cancelled():
+            return
+        exc = done_task.exception()
+        if exc is not None:
+            logger.warning("conversation_background_task_failed error={}", exc)
+
+    task.add_done_callback(_cleanup)
+
+
+def _new_turn_id(idempotency_key: str | None = None) -> str:
+    if idempotency_key:
+        return idempotency_key
+    return f"turn_{uuid.uuid4().hex}"
 
 
 async def _restore_mcp_servers_background(
@@ -281,19 +348,22 @@ async def _prepare_conversation_runtime(
 ) -> tuple[Any, Any]:
     started_at = time.perf_counter()
     settings = get_settings()
-    persistent_store = PersistentMemoryStore(
-        session_factory=state.db_session_factory,
-        user_id=user_id,
-        conversation_id=conv_uuid,
-    )
-
-    effective_memory_limit = memory_limit or settings.INITIAL_CONVERSATION_MEMORY_LIMIT
-    memory_task = asyncio.create_task(
-        _load_runtime_memory_entries(
-            persistent_store,
-            memory_limit=effective_memory_limit,
+    hooks = _get_conversation_hooks(state)
+    session_task = asyncio.create_task(
+        hooks.before_session_start(
+            ConversationSessionContext(
+                conversation_id=conversation_id,
+                user_id=user_id,
+                mode=mode,
+                compaction_runtime=(
+                    "planner" if mode == ORCHESTRATOR_PLANNER else "web_conversation"
+                ),
+                state=state,
+                metadata={"db_session_factory": state.db_session_factory},
+            )
         )
     )
+    effective_memory_limit = memory_limit or settings.INITIAL_CONVERSATION_MEMORY_LIMIT
     skill_task = asyncio.create_task(_build_user_skill_registry(state, user_id))
     mcp_enabled = user_id is not None and state.mcp_state is not None
     mcp_restore_task: asyncio.Task[None] | None = None
@@ -309,16 +379,19 @@ async def _prepare_conversation_runtime(
         )
 
     if mcp_restore_task is None:
-        memory_entries, user_skill_registry = await asyncio.gather(
-            memory_task,
+        session_resources, user_skill_registry = await asyncio.gather(
+            session_task,
             skill_task,
         )
     else:
-        memory_entries, user_skill_registry, _ = await asyncio.gather(
-            memory_task,
+        session_resources, user_skill_registry, _ = await asyncio.gather(
+            session_task,
             skill_task,
             mcp_restore_task,
         )
+    persistent_store, memory_entries = _memory_resources_from_session_hooks(
+        session_resources
+    )
     logger.info(
         "conversation_runtime_inputs_ready id={} mode={} duration_ms={} memory_entries={} memory_limit={} skill_registry={} mcp_restore_enabled={}",
         conversation_id,
@@ -344,6 +417,7 @@ async def _prepare_conversation_runtime(
             memory_entries=memory_entries,
             conversation_id=conversation_id,
             mcp_user_id=user_id,
+            conversation_hooks=hooks,
         )
     else:
         orchestrator_executor = _build_orchestrator(
@@ -357,6 +431,7 @@ async def _prepare_conversation_runtime(
             memory_entries=memory_entries,
             conversation_id=conversation_id,
             mcp_user_id=user_id,
+            conversation_hooks=hooks,
         )
 
     logger.info(
@@ -390,6 +465,9 @@ async def _bootstrap_and_run_initial_turn(
     user_id: uuid.UUID | None = None,
     turn_locale: str | None = None,
     extra_turn_metadata: dict[str, Any] | None = None,
+    turn_id: str | None = None,
+    source: str = "web",
+    hook_metadata: dict[str, Any] | None = None,
 ) -> str:
     bootstrap_started_at = time.perf_counter()
     conv_uuid = uuid.UUID(conversation_id)
@@ -470,6 +548,10 @@ async def _bootstrap_and_run_initial_turn(
             runtime_prompt_sections=runtime_prompt_sections,
             turn_metadata=turn_metadata,
             idempotency_key=idempotency_key,
+            user_id=effective_user_id,
+            turn_id=turn_id,
+            source=source,
+            hook_metadata=hook_metadata,
         )
         logger.info(
             "conversation_bootstrap_turn_finished id={} duration_ms={}",
@@ -846,14 +928,19 @@ async def _reconstruct_conversation(
     subscriber = _create_queue_subscriber(event_queue, pending_callbacks)
     emitter.subscribe(subscriber)
 
-    persistent_store = PersistentMemoryStore(
-        session_factory=state.db_session_factory,
-        user_id=convo.user_id,
-        conversation_id=conv_uuid,
+    session_resources = await _get_conversation_hooks(state).before_session_start(
+        ConversationSessionContext(
+            conversation_id=conversation_id,
+            user_id=convo.user_id,
+            mode=mode,
+            compaction_runtime=effective_runtime,
+            state=state,
+            metadata={"db_session_factory": state.db_session_factory},
+        )
     )
-
-    # Load user memories for system prompt injection
-    memory_entries = await _load_runtime_memory_entries(persistent_store)
+    persistent_store, memory_entries = _memory_resources_from_session_hooks(
+        session_resources
+    )
 
     # Build a user-scoped skill registry for this conversation's owner
     user_skill_registry = await _build_user_skill_registry(state, convo.user_id)
@@ -885,6 +972,7 @@ async def _reconstruct_conversation(
             initial_messages=tuple(initial_messages),
             compaction_profile=compaction_profile,
             mcp_user_id=convo.user_id,
+            conversation_hooks=_get_conversation_hooks(state),
         )
     else:
         orchestrator, executor = _build_orchestrator(
@@ -900,6 +988,7 @@ async def _reconstruct_conversation(
             conversation_id=conversation_id,
             compaction_profile=compaction_profile,
             mcp_user_id=convo.user_id,
+            conversation_hooks=_get_conversation_hooks(state),
         )
 
     entry = ConversationEntry(
@@ -934,54 +1023,6 @@ async def _reconstruct_conversation(
     return entry
 
 
-def _has_verified_facts_section(runtime_prompt_sections: tuple[str, ...]) -> bool:
-    return any(
-        "<verified_user_facts>" in section for section in runtime_prompt_sections
-    )
-
-
-async def _append_relevant_fact_prompt_sections(
-    state: AppState,
-    conversation_id: str,
-    message: str,
-    runtime_prompt_sections: tuple[str, ...],
-) -> tuple[str, ...]:
-    """Add bounded verified facts for web/planner turns when available."""
-    if not message.strip() or _has_verified_facts_section(runtime_prompt_sections):
-        return runtime_prompt_sections
-
-    try:
-        conv_uuid = uuid.UUID(conversation_id)
-        async with state.db_session_factory() as session:
-            convo = await state.db_repo.get_conversation(session, conv_uuid)
-        if convo is None or convo.user_id is None:
-            return runtime_prompt_sections
-
-        settings = get_settings()
-        persistent_store = PersistentMemoryStore(
-            session_factory=state.db_session_factory,
-            user_id=convo.user_id,
-            conversation_id=conv_uuid,
-        )
-        facts = await persistent_store.retrieve_relevant_facts(
-            query=message,
-            limit=settings.MEMORY_FACT_TOP_K,
-        )
-        section = format_verified_facts_prompt_section(
-            facts,
-            token_cap_chars=settings.MEMORY_FACT_PROMPT_TOKEN_CAP,
-        )
-        if section:
-            return (*runtime_prompt_sections, section)
-    except Exception:
-        logger.opt(exception=True).warning(
-            "memory_fact_retrieval_failed conversation_id={}",
-            conversation_id,
-        )
-
-    return runtime_prompt_sections
-
-
 async def _run_turn(
     state: AppState,
     conversation_id: str,
@@ -992,6 +1033,10 @@ async def _run_turn(
     runtime_prompt_sections: tuple[str, ...] = (),
     turn_metadata: dict[str, Any] | None = None,
     idempotency_key: str | None = None,
+    user_id: uuid.UUID | None = None,
+    turn_id: str | None = None,
+    source: str = "web",
+    hook_metadata: dict[str, Any] | None = None,
 ) -> str:
     """Run a single turn of the conversation. Does NOT close the SSE connection."""
     try:
@@ -1015,11 +1060,23 @@ async def _run_turn(
         # NOTE: file upload to sandbox is now handled inside
         # orchestrator.run() — after skill matching — so that files
         # land in the correct sandbox template (e.g. data_science).
-        runtime_prompt_sections = await _append_relevant_fact_prompt_sections(
-            state,
-            conversation_id,
-            message,
-            runtime_prompt_sections,
+        hooks = _get_conversation_hooks(state)
+        effective_turn_id = turn_id or _new_turn_id(idempotency_key)
+        hook_context = ConversationTurnContext(
+            conversation_id=conversation_id,
+            user_id=user_id,
+            turn_id=effective_turn_id,
+            message=message,
+            source=source,
+            runtime_prompt_sections=runtime_prompt_sections,
+            metadata={
+                "db_session_factory": state.db_session_factory,
+                **(turn_metadata or {}),
+                **(hook_metadata or {}),
+            },
+        )
+        runtime_prompt_sections = await hooks.before_turn(
+            hook_context,
         )
 
         logger.info("turn_started conversation_id={}", conversation_id)
@@ -1037,6 +1094,23 @@ async def _run_turn(
                 drop_key = next(iter(store_entry.idempotency_cache))
                 del store_entry.idempotency_cache[drop_key]
             store_entry.idempotency_cache[idempotency_key] = result
+        if (
+            store_entry is not None
+            and isinstance(result, str)
+            and result
+            and not result.startswith("Error:")
+            and result != "Cancelled."
+        ):
+            _track_background_task(
+                store_entry,
+                asyncio.create_task(
+                    hooks.after_turn(
+                        hook_context,
+                        "completed",
+                        result,
+                    )
+                ),
+            )
         return result
     except asyncio.CancelledError:
         logger.info("turn_cancelled conversation_id={}", conversation_id)
@@ -1074,6 +1148,13 @@ async def _cleanup_conversation(
     # Cancel any running turn
     if entry.turn_task is not None and not entry.turn_task.done():
         entry.turn_task.cancel()
+
+    for task in tuple(entry.background_tasks):
+        if not task.done():
+            task.cancel()
+    if entry.background_tasks:
+        await asyncio.gather(*entry.background_tasks, return_exceptions=True)
+        entry.background_tasks.clear()
 
     # Cleanup executor (sandbox, etc.)
     if entry.executor is not None:
@@ -1577,13 +1658,26 @@ async def send_message(
                                 detail="Conversation not found",
                             )
 
-                        persistent_store = PersistentMemoryStore(
-                            session_factory=state.db_session_factory,
-                            user_id=convo.user_id,
-                            conversation_id=conv_uuid,
+                        session_resources = await _get_conversation_hooks(
+                            state
+                        ).before_session_start(
+                            ConversationSessionContext(
+                                conversation_id=conversation_id,
+                                user_id=convo.user_id,
+                                mode=target_mode,
+                                compaction_runtime=(
+                                    "planner"
+                                    if target_mode == ORCHESTRATOR_PLANNER
+                                    else "web_conversation"
+                                ),
+                                state=state,
+                                metadata={
+                                    "db_session_factory": state.db_session_factory
+                                },
+                            )
                         )
-                        memory_entries = await _load_runtime_memory_entries(
-                            persistent_store
+                        persistent_store, memory_entries = (
+                            _memory_resources_from_session_hooks(session_resources)
                         )
                         user_skill_registry = await _build_user_skill_registry(
                             state, convo.user_id
@@ -1619,6 +1713,7 @@ async def send_message(
                                 conversation_id=conversation_id,
                                 initial_messages=tuple(initial_messages),
                                 mcp_user_id=convo.user_id,
+                                conversation_hooks=_get_conversation_hooks(state),
                             )
                         else:
                             orchestrator, executor = _build_orchestrator(
@@ -1633,6 +1728,7 @@ async def send_message(
                                 memory_entries=memory_entries,
                                 conversation_id=conversation_id,
                                 mcp_user_id=convo.user_id,
+                                conversation_hooks=_get_conversation_hooks(state),
                             )
                         entry.orchestrator = orchestrator
                         entry.executor = executor
@@ -1667,6 +1763,8 @@ async def send_message(
                             runtime_prompt_sections=runtime_prompt_sections,
                             turn_metadata=turn_metadata,
                             idempotency_key=idem_key,
+                            user_id=user_id,
+                            source="web",
                         ),
                         idempotency_key=idem_key,
                     )
@@ -1936,6 +2034,7 @@ async def retry_turn(
     """Cancel the last turn, roll back, and re-run the last user message."""
     with conversation_log_context(conversation_id):
         await _verify_conversation_ownership(state, conversation_id, auth_user)
+        user_id = await _resolve_user_id(auth_user, state)
         entry = state.conversations.get(conversation_id)
         if entry is None:
             entry = await _reconstruct_conversation(state, conversation_id)
@@ -1997,6 +2096,8 @@ async def retry_turn(
                     last_msg,
                     attachments=entry.last_attachments,
                     selected_skills=entry.last_selected_skills,
+                    user_id=user_id,
+                    source="web",
                 ),
                 idempotency_key=None,
             )

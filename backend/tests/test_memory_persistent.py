@@ -7,7 +7,6 @@ import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
 
 import pytest
 from sqlalchemy import select
@@ -22,7 +21,8 @@ from agent.state.models import Base, UserModel
 from agent.tools.local.memory_store import MemoryStore
 from agent.tools.local.memory_recall import MemoryRecall
 from agent.tools.local.memory_list import MemoryList
-from api.routes.conversations import _append_relevant_fact_prompt_sections
+from agent.memory.conversation_hooks import MemoryConversationHooks
+from agent.runtime.hooks import ConversationTurnContext
 
 
 class TestMemoryStoreBackcompat:
@@ -552,16 +552,12 @@ async def test_retrieve_relevant_facts_finds_older_match_outside_recent_window(
 
 
 @pytest.mark.asyncio
-async def test_append_relevant_fact_prompt_sections_for_web_turn(
-    session,
-    monkeypatch,
-) -> None:
-    monkeypatch.setattr(
-        "api.routes.conversations.get_settings",
-        lambda: SimpleNamespace(
+async def test_before_turn_appends_relevant_fact_prompt_sections(session) -> None:
+    hooks = MemoryConversationHooks(
+        settings_factory=lambda: SimpleNamespace(
             MEMORY_FACT_TOP_K=8,
             MEMORY_FACT_PROMPT_TOKEN_CAP=1200,
-        ),
+        )
     )
 
     user = UserModel(
@@ -582,18 +578,16 @@ async def test_append_relevant_fact_prompt_sections_for_web_turn(
         confidence=0.95,
     )
 
-    state = SimpleNamespace(
-        db_session_factory=session_factory,
-        db_repo=SimpleNamespace(
-            get_conversation=AsyncMock(return_value=SimpleNamespace(user_id=user.id))
-        ),
-    )
-
-    sections = await _append_relevant_fact_prompt_sections(
-        state,
-        str(uuid.uuid4()),
-        "what timezone am I in?",
-        (),
+    sections = await hooks.before_turn(
+        ConversationTurnContext(
+            conversation_id=str(uuid.uuid4()),
+            user_id=user.id,
+            turn_id="turn-1",
+            message="what timezone am I in?",
+            source="web",
+            runtime_prompt_sections=(),
+            metadata={"db_session_factory": session_factory},
+        )
     )
 
     assert len(sections) == 1
@@ -602,22 +596,27 @@ async def test_append_relevant_fact_prompt_sections_for_web_turn(
 
 
 @pytest.mark.asyncio
-async def test_append_relevant_fact_prompt_sections_does_not_duplicate(
+async def test_before_turn_does_not_duplicate_verified_fact_sections(
     session,
 ) -> None:
-    state = SimpleNamespace(
-        db_session_factory=async_sessionmaker(
-            bind=session.bind, expire_on_commit=False
-        ),
-        db_repo=SimpleNamespace(get_conversation=AsyncMock()),
-    )
+    hooks = MemoryConversationHooks()
     existing = ("<verified_user_facts>\nKnown user facts\n</verified_user_facts>",)
 
-    sections = await _append_relevant_fact_prompt_sections(
-        state,
-        str(uuid.uuid4()),
-        "what timezone am I in?",
-        existing,
+    sections = await hooks.before_turn(
+        ConversationTurnContext(
+            conversation_id=str(uuid.uuid4()),
+            user_id=uuid.uuid4(),
+            turn_id="turn-1",
+            message="what timezone am I in?",
+            source="web",
+            runtime_prompt_sections=existing,
+            metadata={
+                "db_session_factory": async_sessionmaker(
+                    bind=session.bind,
+                    expire_on_commit=False,
+                )
+            },
+        )
     )
 
     assert sections == existing

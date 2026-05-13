@@ -21,12 +21,15 @@ from agent.llm.client import (
     render_system_prompt,
 )
 from agent.llm.image import MiniMaxImageClient
-from agent.memory.safety import validate_memory_text
+from agent.memory.prompt_sections import (
+    format_verified_facts_prompt_section as _format_verified_facts_prompt_section,
+)
 from agent.memory.store import PersistentMemoryStore
 from agent.mcp.bridge import mcp_server_tag
 from agent.runtime.orchestrator import AgentOrchestrator
 from agent.runtime.planner import PLANNER_SYSTEM_PROMPT, PlannerOrchestrator
 from agent.runtime.prompting import PromptAssembly
+from agent.runtime.hooks import ConversationHooks
 from agent.runtime.system_prompt_sections import (
     build_memory_aware_system_prompt_sections,
     format_memory_prompt_section,
@@ -646,36 +649,8 @@ def format_verified_facts_prompt_section(
     facts: list[dict[str, str]],
     token_cap_chars: int,
 ) -> str:
-    """Format verified fact records into a bounded prompt section."""
-    if not facts or token_cap_chars <= 0:
-        return ""
-
-    lines = ["<verified_user_facts>", "Known user facts (verified):"]
-    closing_tag = "</verified_user_facts>"
-    minimum_section = "\n".join([*lines, closing_tag])
-    if len(minimum_section) > token_cap_chars:
-        return ""
-
-    for fact in facts:
-        ns = fact.get("namespace", "default")
-        key = fact.get("key", "")
-        value = fact.get("value", "")
-        if not key or not value:
-            continue
-        if not (
-            validate_memory_text(ns).accepted
-            and validate_memory_text(key).accepted
-            and validate_memory_text(value).accepted
-        ):
-            continue
-        line = f"- [{ns}] {key}: {value}"
-        candidate_lines = [*lines, line, closing_tag]
-        if len("\n".join(candidate_lines)) > token_cap_chars:
-            break
-        lines.append(line)
-
-    lines.append(closing_tag)
-    return "\n".join(lines)
+    """Compatibility wrapper for verified fact prompt formatting."""
+    return _format_verified_facts_prompt_section(facts, token_cap_chars)
 
 
 def _build_orchestrator(
@@ -692,6 +667,7 @@ def _build_orchestrator(
     compaction_runtime: CompactionRuntimeKind = "web_conversation",
     compaction_profile: CompactionProfile | None = None,
     mcp_user_id: Any | None = None,
+    conversation_hooks: ConversationHooks | None = None,
 ) -> tuple[AgentOrchestrator, ToolExecutor]:
     """Build an AgentOrchestrator using a callback holder to avoid two-phase construction."""
     settings = get_settings()
@@ -736,6 +712,9 @@ def _build_orchestrator(
         thinking_budget=settings.THINKING_BUDGET,
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
         persistent_store=persistent_store,
+        conversation_hooks=conversation_hooks,
+        conversation_id=conversation_id,
+        hook_user_id=mcp_user_id,
     )
     callback_holder.set(orchestrator.on_task_complete)
 
@@ -756,6 +735,7 @@ def _build_planner_orchestrator(
     compaction_runtime: CompactionRuntimeKind = "planner",
     compaction_profile: CompactionProfile | None = None,
     mcp_user_id: Any | None = None,
+    conversation_hooks: ConversationHooks | None = None,
 ) -> tuple[PlannerOrchestrator, ToolExecutor]:
     """Build a PlannerOrchestrator with properly wired sub-agent registries."""
     settings = get_settings()
@@ -824,6 +804,9 @@ def _build_planner_orchestrator(
         skill_registry=skill_registry if settings.SKILLS_ENABLED else None,
         initial_messages=initial_messages,
         persistent_store=persistent_store,
+        conversation_hooks=conversation_hooks,
+        conversation_id=conversation_id,
+        hook_user_id=mcp_user_id,
     )
     callback_holder.set(orchestrator.on_task_complete)
 

@@ -14,6 +14,7 @@ from agent.runtime.planner import (
     PlannerOrchestrator,
     _build_turn_locale_runtime_sections,
 )
+from agent.runtime.hooks import ContextCompactionContext, ContextCompactionResult
 from agent.tools.executor import ToolExecutor
 from agent.tools.registry import ToolRegistry
 from api.events import EventEmitter
@@ -43,6 +44,39 @@ class _FakePlannerClient:
             stop_reason="end_turn",
             usage=TokenUsage(input_tokens=1, output_tokens=1),
         )
+
+
+class _RecordingCompactionHooks:
+    def __init__(self, events: list[str], expected_messages: tuple[dict, ...]) -> None:
+        self._events = events
+        self._expected_messages = expected_messages
+        self.after_result: ContextCompactionResult | None = None
+
+    async def before_session_start(self, context):
+        raise AssertionError("not used")
+
+    async def before_turn(self, context):
+        return context.runtime_prompt_sections
+
+    async def after_turn(self, context, status, result):
+        del context, status, result
+
+    async def before_context_compaction(
+        self,
+        context: ContextCompactionContext,
+    ) -> None:
+        assert context.messages == self._expected_messages
+        assert context.metadata["memory_flush"] is True
+        self._events.append("hook_before")
+
+    async def after_context_compaction(
+        self,
+        context: ContextCompactionContext,
+        result: ContextCompactionResult,
+    ) -> None:
+        del context
+        self.after_result = result
+        self._events.append("hook_after")
 
 
 def _planner_profile(*, memory_flush: bool = False) -> CompactionProfile:
@@ -97,7 +131,9 @@ class TestPlannerCompaction:
         assert observer.compact_calls == [(state.messages, "expanded prompt")]
 
     @pytest.mark.asyncio
-    async def test_run_iteration_flushes_memory_before_compaction(self, monkeypatch):
+    async def test_run_iteration_calls_compaction_hooks_around_compaction(
+        self, monkeypatch
+    ):
         monkeypatch.setattr(
             "agent.runtime.planner.get_settings",
             lambda: SimpleNamespace(LITE_MODEL="test-model"),
@@ -105,12 +141,6 @@ class TestPlannerCompaction:
         events: list[str] = []
         profile = _planner_profile(memory_flush=True)
         observer = _RecordingObserver(profile=profile)
-        persistent_store = MagicMock()
-
-        async def fake_flush(store, messages):
-            assert store is persistent_store
-            assert messages == state.messages
-            events.append("flush")
 
         original_compact = observer.compact
 
@@ -119,10 +149,10 @@ class TestPlannerCompaction:
             return await original_compact(messages, system_prompt)
 
         observer.compact = compact_after_flush  # type: ignore[method-assign]
-        monkeypatch.setattr(
-            "agent.runtime.planner.flush_heuristic_facts_from_messages",
-            fake_flush,
+        state = AgentState(
+            messages=({"role": "user", "content": "my timezone is UTC+8"},)
         )
+        hooks = _RecordingCompactionHooks(events, state.messages)
         planner = PlannerOrchestrator(
             claude_client=_FakePlannerClient(),  # type: ignore[arg-type]
             tool_registry=ToolRegistry(),
@@ -132,10 +162,7 @@ class TestPlannerCompaction:
             observer=observer,  # type: ignore[arg-type]
             compaction_profile=profile,
             system_prompt="base prompt",
-            persistent_store=persistent_store,
-        )
-        state = AgentState(
-            messages=({"role": "user", "content": "my timezone is UTC+8"},)
+            conversation_hooks=hooks,
         )
 
         result = await planner._run_iteration(
@@ -145,7 +172,9 @@ class TestPlannerCompaction:
         )
 
         assert result.completed is True
-        assert events == ["flush", "compact"]
+        assert events == ["hook_before", "compact", "hook_after"]
+        assert hooks.after_result is not None
+        assert hooks.after_result.original_message_count == 1
 
 
 def test_build_turn_locale_runtime_sections_requires_localized_plan_output() -> None:

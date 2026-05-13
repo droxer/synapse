@@ -16,18 +16,15 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from agent.memory.facts import validate_fact_candidate
-from agent.memory.heuristic_extract import extract_fact_candidates
 from agent.logging import conversation_log_context
-from agent.memory.store import PersistentMemoryStore
 from api.auth.middleware import AuthUser, common_dependencies, get_current_user
-from api.builders import format_verified_facts_prompt_section
 from api.builders import _build_orchestrator
 from api.channels.provider import ChannelProvider, TelegramProvider
 from api.channels.repository import ChannelRepository
 from api.channels.responder import ChannelResponder
 from api.channels.router import ChannelRouter
 from api.channels.schemas import InboundMessage, TelegramBotConfigRecord
+from agent.runtime.hooks import ConversationSessionContext
 from api.db_subscriber import create_db_subscriber
 from api.dependencies import AppState, get_app_state
 from api.events import AgentEvent, EventEmitter, EventType
@@ -55,55 +52,6 @@ class LinkTokenResponse(BaseModel):
 
 class TelegramBotConfigRequest(BaseModel):
     bot_token: str = Field(min_length=10, max_length=512)
-
-
-async def _extract_and_upsert_facts_for_turn(
-    *,
-    store: PersistentMemoryStore,
-    conversation_id: uuid.UUID,
-    turn_id: str,
-    message_text: str,
-    source_chat_id: str,
-) -> None:
-    """Persist high-confidence strict facts from a completed Telegram turn."""
-    seen = await store.mark_fact_ingestion_seen(
-        conversation_id=conversation_id,
-        turn_id=turn_id,
-    )
-    if not seen:
-        return
-
-    settings = get_settings()
-    candidates = extract_fact_candidates(message_text)
-    saved = 0
-    rejected = 0
-    for candidate in candidates:
-        verdict = validate_fact_candidate(
-            candidate,
-            threshold=settings.MEMORY_FACT_CONFIDENCE_THRESHOLD,
-        )
-        if not verdict.accepted:
-            rejected += 1
-            continue
-
-        await store.upsert_fact(
-            namespace=candidate.namespace,
-            key=candidate.key,
-            value=candidate.value,
-            confidence=candidate.confidence,
-            source="telegram",
-            source_chat_id=source_chat_id,
-            evidence_snippet=candidate.evidence_snippet,
-        )
-        saved += 1
-
-    logger.info(
-        "memory_fact_extraction_complete conversation_id={} extracted={} saved={} rejected={}",
-        conversation_id,
-        len(candidates),
-        saved,
-        rejected,
-    )
 
 
 def _require_channels_enabled() -> None:
@@ -288,19 +236,28 @@ async def _handle_channel_message(
             emitter.subscribe(subscriber)
 
             user_id = account.user_id
-            persistent_store = PersistentMemoryStore(
-                session_factory=state.db_session_factory,
-                user_id=user_id,
-                conversation_id=conv_uuid,
-            )
-            memory_entries = await persistent_store.load_all()
 
             from api.routes.conversations import (
                 _build_user_skill_registry,
-                _reconstruct_conversation,
-                _run_turn,
+                _get_conversation_hooks,
+                _memory_resources_from_session_hooks,
             )
 
+            session_resources = await _get_conversation_hooks(
+                state
+            ).before_session_start(
+                ConversationSessionContext(
+                    conversation_id=str(conv_uuid),
+                    user_id=user_id,
+                    mode="agent",
+                    compaction_runtime="channel_conversation",
+                    state=state,
+                    metadata={"db_session_factory": state.db_session_factory},
+                )
+            )
+            persistent_store, memory_entries = _memory_resources_from_session_hooks(
+                session_resources
+            )
             user_skill_registry = await _build_user_skill_registry(state, user_id)
             orchestrator, executor = _build_orchestrator(
                 state.claude_client,
@@ -313,6 +270,7 @@ async def _handle_channel_message(
                 memory_entries=memory_entries,
                 compaction_runtime="channel_conversation",
                 mcp_user_id=user_id,
+                conversation_hooks=_get_conversation_hooks(state),
             )
 
             entry = ConversationEntry(
@@ -392,12 +350,6 @@ async def _handle_channel_message(
             emitter_for_turn = entry.emitter
 
     with conversation_log_context(conversation_id_str):
-        persistent_store = PersistentMemoryStore(
-            session_factory=state.db_session_factory,
-            user_id=account.user_id,
-            conversation_id=conv_uuid,
-        )
-
         # Deduplicate: Telegram may retry webhooks — skip if already processed
         async with state.db_session_factory() as db:
             if await repo.is_message_seen(
@@ -529,26 +481,6 @@ async def _handle_channel_message(
 
         from api.routes.conversations import _generate_title, _run_turn
 
-        runtime_prompt_sections: tuple[str, ...] = ()
-        if message.text:
-            try:
-                settings = get_settings()
-                facts = await persistent_store.retrieve_relevant_facts(
-                    query=message.text,
-                    limit=settings.MEMORY_FACT_TOP_K,
-                )
-                section = format_verified_facts_prompt_section(
-                    facts,
-                    token_cap_chars=settings.MEMORY_FACT_PROMPT_TOKEN_CAP,
-                )
-                if section:
-                    runtime_prompt_sections = (section,)
-            except Exception:
-                logger.warning(
-                    "memory_fact_retrieval_failed conversation_id={}",
-                    conversation_id_str,
-                )
-
         entry.turn_task = asyncio.create_task(
             _run_turn(
                 state,
@@ -556,31 +488,12 @@ async def _handle_channel_message(
                 entry.orchestrator,
                 message.text or "",
                 attachments=attachments,
-                runtime_prompt_sections=runtime_prompt_sections,
+                user_id=account.user_id,
+                turn_id=message.provider_message_id,
+                source=message.provider,
+                hook_metadata={"source_chat_id": message.provider_chat_id},
             )
         )
-
-        if message.text:
-
-            def _schedule_fact_extraction(_done: asyncio.Task[str]) -> None:
-                async def _wrapped() -> None:
-                    try:
-                        await _extract_and_upsert_facts_for_turn(
-                            store=persistent_store,
-                            conversation_id=conv_uuid,
-                            turn_id=message.provider_message_id,
-                            message_text=message.text or "",
-                            source_chat_id=message.provider_chat_id,
-                        )
-                    except Exception:
-                        logger.warning(
-                            "memory_fact_extraction_failed conversation_id={}",
-                            conversation_id_str,
-                        )
-
-                asyncio.create_task(_wrapped())
-
-            entry.turn_task.add_done_callback(_schedule_fact_extraction)
 
         if is_first_turn and message.text:
             asyncio.create_task(

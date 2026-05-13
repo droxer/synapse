@@ -10,7 +10,6 @@ from typing import TYPE_CHECKING, Any, Protocol
 from loguru import logger
 
 from agent.context.profiles import CompactionProfile, resolve_compaction_profile
-from agent.memory.compaction_flush import flush_heuristic_facts_from_messages
 from agent.llm.client import (
     AnthropicClient,
     LLMResponse,
@@ -18,6 +17,12 @@ from agent.llm.client import (
     format_llm_failure,
     is_content_policy_error,
     render_system_prompt,
+)
+from agent.runtime.hooks import (
+    ContextCompactionContext,
+    ContextCompactionResult,
+    ConversationHooks,
+    NoopConversationHooks,
 )
 from agent.runtime.helpers import (
     apply_response_to_state,
@@ -285,6 +290,9 @@ class PlannerOrchestrator:
         skill_registry: SkillRegistry | None = None,
         initial_messages: tuple[dict[str, Any], ...] = (),
         persistent_store: PersistentMemoryStore | None = None,
+        conversation_hooks: ConversationHooks | None = None,
+        conversation_id: str | None = None,
+        hook_user_id: Any | None = None,
     ) -> None:
         if max_iterations < 1:
             raise ValueError("max_iterations must be at least 1")
@@ -323,6 +331,9 @@ class PlannerOrchestrator:
         self._system_prompt = base_prompt_assembly.system
         self._skill_registry = skill_registry
         self._persistent_store = persistent_store
+        self._conversation_hooks = conversation_hooks or NoopConversationHooks()
+        self._conversation_id = conversation_id
+        self._hook_user_id = hook_user_id
         self._auto_injected_skill: str | None = None
         self._turn_prompt_assembly = base_prompt_assembly
         self._planner_state = PlannerState()
@@ -753,25 +764,40 @@ class PlannerOrchestrator:
 
         # Compact history before the LLM call if needed
         if self._observer.should_compact(state.messages, effective_prompt):
-            if (
-                self._compaction_profile.memory_flush
-                and self._persistent_store is not None
-            ):
-                await flush_heuristic_facts_from_messages(
-                    self._persistent_store,
-                    state.messages,
-                )
+            compaction_context = ContextCompactionContext(
+                conversation_id=self._conversation_id,
+                user_id=self._hook_user_id,
+                messages=state.messages,
+                effective_prompt=effective_prompt,
+                profile_name=self._compaction_profile.name,
+                metadata={
+                    "memory_flush": self._compaction_profile.memory_flush,
+                    "persistent_store": self._persistent_store,
+                },
+            )
+            await self._conversation_hooks.before_context_compaction(
+                compaction_context,
+            )
             compacted = await self._observer.compact(state.messages, effective_prompt)
+            summary_text = compaction_summary_for_persistence(compacted)
             await self._emitter.emit(
                 EventType.CONTEXT_COMPACTED,
                 {
                     "original_messages": len(state.messages),
                     "compacted_messages": len(compacted),
-                    "summary_text": compaction_summary_for_persistence(compacted),
+                    "summary_text": summary_text,
                     "summary_scope": "conversation",
                     "compaction_profile": self._compaction_profile.name,
                 },
                 iteration=state.iteration,
+            )
+            await self._conversation_hooks.after_context_compaction(
+                compaction_context,
+                ContextCompactionResult(
+                    original_message_count=len(state.messages),
+                    compacted_messages=compacted,
+                    summary_text=summary_text,
+                ),
             )
             state = replace(state, messages=compacted)
 
