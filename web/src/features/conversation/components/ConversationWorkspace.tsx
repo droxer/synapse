@@ -111,6 +111,20 @@ interface ConversationWorkspaceProps {
   inputDisabledPlaceholder?: string;
 }
 
+export function getMessageRowKey(
+  msg: ChatMessage,
+  index: number,
+  isStreamingThis: boolean,
+): string {
+  if (msg.messageId) {
+    return msg.messageId;
+  }
+  if (msg.role === "assistant" && isStreamingThis && msg.turnId) {
+    return `${msg.turnId}:assistant-stream`;
+  }
+  return `${msg.role}-${msg.timestamp}-${index}`;
+}
+
 // ── Inline image with React-driven error fallback ───────────────────
 function InlineImage({ url, alt, fallbackText }: { url: string; alt: string; fallbackText: string }) {
   const [failed, setFailed] = useState(false);
@@ -581,12 +595,10 @@ export function ConversationWorkspace({
                         currentThinkingEntries.length > 0;
                       const embeddedPlanSteps =
                         i === planMessageIndex && effectivePlanSteps.length > 0 ? effectivePlanSteps : [];
-                      // Stable React keys: never key assistant rows on `content` while
-                      // they stream (keys would churn every token → remount + flash).
-                      const messageKey =
-                        msg.role === "assistant" && isStreamingThis && msg.turnId
-                          ? `${msg.turnId}:assistant-stream`
-                          : msg.messageId ?? `${msg.role}-${msg.timestamp}-${msg.content.length}-${i}`;
+                      // Stable React keys: never key assistant rows on streaming
+                      // state or content; either transition remounts the row and
+                      // makes live responses flash.
+                      const messageKey = getMessageRowKey(msg, i, isStreamingThis);
 
                       return (
                         <MessageRow

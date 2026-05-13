@@ -102,6 +102,7 @@ jest.mock("@/features/conversation", () => ({
 const {
   ConversationWorkspace,
   MessageRow,
+  getMessageRowKey,
   getAgentComputerPanelClassName,
   getConversationWorkspaceLayoutClasses,
 } =
@@ -246,6 +247,36 @@ describe("areMessageRowsEqual", () => {
         },
       ),
     ).toBe(false);
+  });
+
+  it("keeps the assistant row key stable when a live response settles", () => {
+    const streamingMessage: ChatMessage = {
+      ...baseMessage,
+      content: "Partial response",
+    };
+
+    expect(getMessageRowKey(streamingMessage, 1, true)).toBe(
+      "event-turn:1:assistant:0",
+    );
+    expect(getMessageRowKey(streamingMessage, 1, false)).toBe(
+      "event-turn:1:assistant:0",
+    );
+  });
+
+  it("does not key fallback streaming rows on content length", () => {
+    const partialMessage: ChatMessage = {
+      role: "assistant",
+      content: "Partial",
+      timestamp: 101,
+    };
+    const longerMessage: ChatMessage = {
+      ...partialMessage,
+      content: "Partial response with more content",
+    };
+
+    expect(getMessageRowKey(partialMessage, 1, true)).toBe(
+      getMessageRowKey(longerMessage, 1, true),
+    );
   });
 
   it("invalidates the row when embedded thinking suppression changes", () => {
