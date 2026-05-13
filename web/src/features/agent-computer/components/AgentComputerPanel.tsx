@@ -49,6 +49,7 @@ import {
 } from "@/features/agent-computer/lib/task-state-display";
 import { PulsingDot } from "@/shared/components/PulsingDot";
 import { useStickyBottom } from "@/shared/hooks";
+import { useSessionFilteredArtifacts } from "@/shared/hooks/use-session-filtered-artifacts";
 import type { ToolCallInfo, AgentStatus, TaskState, ArtifactInfo, PreviewSession } from "@/shared/types";
 import type { TFn } from "@/shared/types/i18n";
 
@@ -495,16 +496,23 @@ export function AgentComputerPanel({
   const [activeHighlight, setActiveHighlight] = useState<string | null>(null);
   const tabListRef = useRef<HTMLDivElement>(null);
   const previousPreviewKeyRef = useRef<string | null>(null);
+  const visibleArtifacts = useSessionFilteredArtifacts(artifacts);
+  const hasArtifacts = visibleArtifacts.length > 0;
   const panelTabs = useMemo<readonly PanelTab[]>(
-    () => (previewSession?.active ? ["activity", "preview", "files"] : ["activity", "files"]),
-    [previewSession?.active],
+    () => {
+      const tabs: PanelTab[] = ["activity"];
+      if (previewSession?.active) tabs.push("preview");
+      if (hasArtifacts) tabs.push("files");
+      return tabs;
+    },
+    [hasArtifacts, previewSession?.active],
   );
 
   useEffect(() => {
-    if (activeTab === "preview" && !previewSession?.active) {
+    if (!panelTabs.includes(activeTab)) {
       setActiveTab("activity");
     }
-  }, [activeTab, previewSession?.active]);
+  }, [activeTab, panelTabs]);
 
   useEffect(() => {
     const previewKey = previewSession?.active
@@ -762,43 +770,43 @@ export function AgentComputerPanel({
               {activeTab === "preview" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
             </button>
           )}
-          <button
-            type="button"
-            role="tab"
-            aria-selected={activeTab === "files"}
-            aria-controls="panel-files"
-            id="tab-files"
-            tabIndex={activeTab === "files" ? 0 : -1}
-            onClick={() => setActiveTab("files")}
-            className={cn(
-              "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-              activeTab === "files"
-                ? "text-foreground"
-                : "text-muted-foreground hover:text-foreground",
-            )}
-          >
-            <FolderOpen className="h-4 w-4" aria-hidden="true" />
-            {t("computer.artifacts")}
-            {artifacts.length > 0 && (
+          {hasArtifacts && (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === "files"}
+              aria-controls="panel-files"
+              id="tab-files"
+              tabIndex={activeTab === "files" ? 0 : -1}
+              onClick={() => setActiveTab("files")}
+              className={cn(
+                "relative flex items-center gap-1.5 px-2.5 pb-2 pt-1 label-mono transition-colors",
+                "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                activeTab === "files"
+                  ? "text-foreground"
+                  : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <FolderOpen className="h-4 w-4" aria-hidden="true" />
+              {t("computer.artifacts")}
               <span
                 className={cn(
                   "ml-0.5 inline-flex h-5 min-w-[1.25rem] items-center justify-center rounded-md px-1.5 text-micro font-semibold tabular-nums transition-colors chip-muted",
                   activeTab === "files" && "border border-border",
                 )}
               >
-                {artifacts.length}
+                {visibleArtifacts.length}
               </span>
-            )}
-            {activeTab === "files" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
-          </button>
+              {activeTab === "files" && <span className="absolute inset-x-0 -bottom-px h-0.5 bg-focus" />}
+            </button>
+          )}
         </div>
       </div>
 
       {/* ── Files tab ── */}
-      {activeTab === "files" && (
+      {activeTab === "files" && hasArtifacts && (
         <div id="panel-files" role="tabpanel" aria-labelledby="tab-files" className="flex-1 overflow-y-auto">
-          <ArtifactFilesPanel artifacts={artifacts} conversationId={conversationId} />
+          <ArtifactFilesPanel artifacts={visibleArtifacts} conversationId={conversationId} />
         </div>
       )}
 

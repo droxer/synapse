@@ -137,4 +137,40 @@ describe("AgentComputerPanel typography", () => {
       }),
     );
   });
+
+  it("only shows the files tab when artifacts exist", () => {
+    const withoutArtifacts = renderToStaticMarkup(
+      <AgentComputerPanel
+        conversationId="conv-1"
+        toolCalls={[]}
+        agentStatuses={[]}
+        artifacts={[]}
+        taskState="idle"
+      />,
+    );
+
+    expect(withoutArtifacts).not.toContain("Files");
+    expect(withoutArtifacts).not.toContain("tab-files");
+    expect(withoutArtifacts).not.toContain("panel-files");
+
+    const withArtifacts = renderToStaticMarkup(
+      <AgentComputerPanel
+        conversationId="conv-1"
+        toolCalls={[]}
+        agentStatuses={[]}
+        artifacts={[
+          {
+            id: "artifact-1",
+            name: "summary.md",
+            contentType: "text/markdown",
+            size: 42,
+          },
+        ]}
+        taskState="idle"
+      />,
+    );
+
+    expect(withArtifacts).toContain("Files");
+    expect(withArtifacts).toContain("tab-files");
+  });
 });
