@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Script from "next/script";
-import { geistSans, geistMono, notoSansSC, notoSansTC } from "./fonts";
+import { montserrat, geistMono, notoSansSC, notoSansTC } from "./fonts";
 import { Providers } from "./providers";
 import "./globals.css";
 
@@ -30,7 +30,7 @@ export default function RootLayout({
   return (
     <html
       suppressHydrationWarning
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
+      className={`${montserrat.variable} ${geistMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
     >
       <head>
         <Script id="sync-locale-lang" strategy="beforeInteractive">
@@ -38,7 +38,7 @@ export default function RootLayout({
         </Script>
       </head>
       <body className="font-sans antialiased">
-        <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-primary-foreground">
+        <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-full focus:bg-cobalt focus:px-4 focus:py-2 focus:text-button-md focus:text-on-cobalt">
           Skip to main content
         </a>
         <Providers>{children}</Providers>

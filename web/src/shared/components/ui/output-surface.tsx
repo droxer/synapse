@@ -4,21 +4,21 @@ import type { ReactNode } from "react";
 import { cn } from "@/shared/lib/utils";
 
 export const OUTPUT_SURFACE_FOCUS_CLASSES =
-  "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background";
+  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas";
 
 export const OUTPUT_SURFACE_ROOT_CLASSES =
   "surface-panel mt-2 overflow-hidden rounded-xl px-0 py-0";
 export const OUTPUT_SURFACE_HEADER_CLASSES =
-  "flex items-center gap-1.5 border-b border-border/60 px-3 py-2";
+  "flex items-center gap-1.5 border-b border-hairline-soft/60 px-3 py-2";
 export const OUTPUT_SURFACE_LABEL_CLASSES =
-  "text-sm font-medium text-muted-foreground";
+  "text-sm font-medium text-steel";
 export const OUTPUT_SURFACE_META_CLASSES =
-  "text-micro text-muted-foreground-dim";
+  "text-micro text-stone";
 export const OUTPUT_SURFACE_BODY_CLASSES = "px-3 py-2";
 export const OUTPUT_SURFACE_INNER_CLASSES =
-  "rounded-lg border border-border bg-muted px-2.5 py-2";
+  "rounded-lg border border-hairline-soft bg-surface-soft px-2.5 py-2";
 export const OUTPUT_SURFACE_INNER_DENSE_CLASSES =
-  "rounded-lg border border-border bg-muted px-2 py-1.5";
+  "rounded-lg border border-hairline-soft bg-surface-soft px-2 py-1.5";
 
 interface OutputSurfaceProps {
   readonly children: ReactNode;

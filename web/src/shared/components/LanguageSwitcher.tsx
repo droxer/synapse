@@ -62,7 +62,7 @@ export function LanguageSwitcher({ collapsed = false }: LanguageSwitcherProps) {
             variant="ghost"
             size="icon-sm"
             onClick={() => setLocale(nextLocale)}
-            className="text-muted-foreground transition-colors duration-200 hover:text-foreground hover:bg-sidebar-hover"
+            className="text-steel transition-colors duration-200 hover:text-ink-deep hover:bg-sidebar-hover"
             aria-label={`Switch to ${LOCALE_LABELS[nextLocale]}`}
           >
             <span
@@ -103,10 +103,10 @@ export function LanguageSwitcher({ collapsed = false }: LanguageSwitcherProps) {
             onKeyDown={(e) => handleKeyDown(e, index)}
             className={cn(
               "flex-1 rounded-sm px-2.5 py-1 text-xs font-medium transition-[color,background-color] duration-150 ease-out",
-              "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
               isActive
-                ? "bg-background text-foreground ring-1 ring-border"
-                : "text-muted-foreground-dim hover:text-foreground",
+                ? "bg-canvas text-ink-deep ring-1 ring-border"
+                : "text-stone hover:text-ink-deep",
             )}
           >
             {LOCALE_SHORT[loc]}

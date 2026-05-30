@@ -8,66 +8,122 @@
    - Every semantic token change must be reflected in @theme, :root, and .dark.
    - Components should consume semantic utilities/classes instead of hardcoded color literals. */
 @theme {
-  /* Registered for Tailwind utilities — must match :root light tokens; .dark overrides at runtime */
-  --color-background: #FBFBFA;
-  --color-foreground: #14151A;
-  --color-primary: #3759D8;
-  --color-primary-foreground: #F8FAFC;
-  --color-secondary: #F2F2F0;
-  --color-secondary-foreground: #1A1D23;
-  --color-muted: #F4F4F2;
-  --color-muted-foreground: #6B7280;
-  --color-destructive: #C92E47;
-  --color-border: #EEEDE9;
-  --color-input: #E6E2DA;
+  /* ─── DESIGN.md canonical tokens (Meta-inspired commerce system) ───
+     New code should consume these names; legacy semantic aliases below remap to them. */
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f1f4f7;
+  --color-ink-deep: #0a1317;
+  --color-ink: #1c1e21;
+  --color-charcoal: #444950;
+  --color-slate: #4b4c4f;
+  --color-steel: #5d6c7b;
+  --color-stone: #8595a4;
+  --color-hairline: #ced0d4;
+  --color-hairline-soft: #dee3e9;
+  --color-disabled-text: #bcc0c4;
+  --color-ink-button: #000000;
+  --color-on-ink-button: #ffffff;
+  --color-cobalt: #0064e0;
+  --color-cobalt-deep: #0457cb;
+  --color-cobalt-soft: #0091ff;
+  --color-cobalt-selected: #0143b5;
+  --color-on-cobalt: #ffffff;
+  --color-fb-blue: #1876f2;
+  --color-meta-link: #385898;
+  --color-oculus-purple: #a121ce;
+  --color-success: #31a24c;
+  --color-success-bg: #24e400;
+  --color-attention: #f2a918;
+  --color-warning: #f7b928;
+  --color-warning-bg: #ffe200;
+  --color-critical: #e41e3f;
+  --color-critical-strong: #f0284a;
+
+  /* ─── Legacy semantic aliases — remapped to DESIGN.md values ───
+     Existing components reference these names; values now resolve to the new palette. */
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink-deep);
+  --color-primary: var(--color-cobalt);
+  --color-primary-foreground: var(--color-on-cobalt);
+  --color-secondary: var(--color-surface-soft);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-surface-soft);
+  --color-muted-foreground: var(--color-steel);
+  --color-destructive: var(--color-critical-strong);
+  --color-border: var(--color-hairline-soft);
+  --color-input: var(--color-hairline);
   --color-ring: var(--color-focus);
-  --color-card: #FFFFFF;
-  --color-card-foreground: #14151A;
-  --color-popover: #FFFFFF;
-  --color-popover-foreground: #14151A;
+  --color-card: var(--color-canvas);
+  --color-card-foreground: var(--color-ink-deep);
+  --color-popover: var(--color-canvas);
+  --color-popover-foreground: var(--color-ink-deep);
+
+  /* ─── Radius scale — DESIGN.md ─── */
+  --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 14px;
+  --radius-xl: 16px;
+  --radius-xxl: 24px;
+  --radius-xxxl: 32px;
+  --radius-feature: 40px;
+  --radius-full: 100px;
+  --radius-circle: 9999px;
+  /* Legacy alias retained so existing `rounded-2xl` resolves to the new 24px tier */
+  --radius-2xl: var(--radius-xxl);
 
-  --color-border-strong: #D6D2C8;
-  --color-border-active: #8A8478;
-  --color-placeholder: #9A9388;
-  --color-muted-foreground-dim: #8A8478;
+  /* ─── Spacing scale — DESIGN.md named steps (4px base) ─── */
+  --spacing-xxs: 4px;
+  --spacing-xs: 8px;
+  --spacing-sm: 10px;
+  --spacing-md: 12px;
+  --spacing-base: 16px;
+  --spacing-lg: 20px;
+  --spacing-xl: 24px;
+  --spacing-xxl: 32px;
+  --spacing-xxxl: 40px;
+  --spacing-section-sm: 48px;
+  --spacing-section: 64px;
+  --spacing-section-lg: 80px;
+  --spacing-hero: 120px;
 
-  --color-accent-emerald: #1F8754;
-  --color-accent-amber: #B07107;
-  --color-accent-rose: #C92E47;
-  --color-focus: #3759D8;
-  --color-accent-indigo: #4F46E5;
-  --color-accent-purple: #6366F1;
-  --color-accent-blue: #3759D8;
-  --color-ai-glow: #4F5B8F;
+  --color-border-strong: var(--color-hairline);
+  --color-border-active: var(--color-charcoal);
+  --color-placeholder: var(--color-stone);
+  --color-muted-foreground-dim: var(--color-stone);
 
-  --color-accent: #F4F2EC;
+  --color-accent-emerald: var(--color-success);
+  --color-accent-amber: var(--color-attention);
+  --color-accent-rose: var(--color-critical);
+  --color-focus: var(--color-fb-blue);
+  --color-accent-indigo: var(--color-cobalt-deep);
+  --color-accent-purple: var(--color-oculus-purple);
+  --color-accent-blue: var(--color-cobalt);
+  --color-ai-glow: var(--color-cobalt);
+
+  --color-accent: var(--color-surface-soft);
   --color-accent-foreground: var(--color-foreground);
 
-  --color-user-accent: #14151A;
-  --color-user-accent-dim: rgba(20, 21, 26, 0.04);
-  --color-ai-surface: rgba(120, 130, 160, 0.06);
-  --color-ai-border: rgba(20, 21, 26, 0.08);
-  --color-input-glow: rgba(20, 21, 26, 0.06);
-  --color-overlay: rgba(20, 21, 26, 0.45);
+  --color-user-accent: var(--color-ink-deep);
+  --color-user-accent-dim: rgba(10, 19, 23, 0.04);
+  --color-ai-surface: rgba(0, 100, 224, 0.06);
+  --color-ai-border: rgba(10, 19, 23, 0.08);
+  --color-input-glow: rgba(0, 100, 224, 0.10);
+  --color-overlay: rgba(10, 19, 23, 0.45);
 
-  --color-sidebar-bg: #F4F3EE;
-  --color-sidebar-active: #E4E1D7;
-  --color-sidebar-hover: #ECEAE2;
-  --color-sidebar-foreground-muted: #6B7280;
+  --color-sidebar-bg: var(--color-surface-soft);
+  --color-sidebar-active: color-mix(in srgb, var(--color-cobalt) 8%, var(--color-surface-soft));
+  --color-sidebar-hover: color-mix(in srgb, var(--color-cobalt) 4%, var(--color-surface-soft));
+  --color-sidebar-foreground-muted: var(--color-steel);
 
-  --color-profile-ring: rgba(0, 0, 0, 0.18);
-  --color-profile-ring-hover: rgba(0, 0, 0, 0.28);
+  --color-profile-ring: rgba(10, 19, 23, 0.18);
+  --color-profile-ring-hover: rgba(10, 19, 23, 0.28);
 
-  --color-terminal-bg: #FFFFFF;
-  --color-terminal-surface: #F7F8F9;
-  --color-terminal-border: #E4E6EB;
-  --color-terminal-text: #252A33;
-  --color-terminal-dim: #717C8E;
+  --color-terminal-bg: var(--color-canvas);
+  --color-terminal-surface: var(--color-surface-soft);
+  --color-terminal-border: var(--color-hairline-soft);
+  --color-terminal-text: var(--color-ink);
+  --color-terminal-dim: var(--color-steel);
   --logo-black: #0A0A0A;
   --logo-white: #FFFFFF;
   --logo-neutral-700: #2B2B2B;
@@ -79,21 +135,27 @@
   --ring-profile: var(--color-profile-ring);
   --ring-profile-hover: var(--color-profile-ring-hover);
 
-  /* Font families */
+  /* Font families — DESIGN.md aligns to Optimistic VF; we substitute Montserrat as its
+     designated fallback (humanist-geometric, free on Google Fonts). */
   --font-cjk-sans: var(--font-noto-sans-sc), var(--font-noto-sans-tc), "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", "Noto Sans CJK TC";
-  --font-sans: var(--font-geist-sans), var(--font-cjk-sans), ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
+  --font-sans: var(--font-montserrat), var(--font-cjk-sans), Montserrat, Helvetica, Arial, "Noto Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple Color Emoji", "Segoe UI Emoji", sans-serif;
   --font-serif: Georgia, "Times New Roman", serif;
   --font-mono: var(--font-geist-mono), ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-  --font-brand-family: var(--font-geist-sans), system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --font-brand-family: var(--font-montserrat), Montserrat, system-ui, "Helvetica Neue", Helvetica, Arial, sans-serif;
 
-  /* Type scale */
+  /* DESIGN.md typography roles are defined as full @utility classes below
+     (font-family + size + weight + line-height + letter-spacing), so we deliberately
+     do NOT register `--text-{role}` tokens here — they would generate a competing
+     auto-utility that sets only font-size and shadow the richer @utility. */
+
+  /* Legacy aliases */
   --text-xs: 0.75rem;      /* 12px */
   --text-sm: 0.875rem;     /* 14px — primary body */
   --text-base: 1rem;       /* 16px */
   --text-lg: 1.125rem;     /* 18px */
   --text-xl: 1.25rem;      /* 20px */
   --text-2xl: 1.5rem;      /* 24px — page titles */
-  --text-display: clamp(1.5rem, 1.1rem + 2vw, 2.25rem);
+  --text-display: clamp(2.25rem, 1.5rem + 3.5vw, 4rem);
 
   /* Line heights */
   --lh-tight: 1.2;
@@ -107,9 +169,11 @@
   --font-size-caption: var(--text-xs);
   --font-size-caption--line-height: var(--lh-normal);
 
+  /* Elevation — DESIGN.md uses 3 levels. Level 0 flat (default), level 2 only on sticky panels. */
   --shadow-card: none;
   --shadow-card-hover: none;
-  --shadow-elevated: 0 6px 20px -10px rgba(20, 21, 26, 0.10);
+  --shadow-elevated: 0 6px 20px -10px rgba(10, 19, 23, 0.10);
+  --shadow-sticky-rail: rgba(20, 22, 26, 0.3) 0px 1px 4px 0px;
 
   --shadow-input-focus: none;
   --shadow-primary-glow: none;
@@ -200,68 +264,108 @@
 
 :root {
 
-  --color-background: #FBFBFA;
-  --color-foreground: #14151A;
-  --color-primary: #3759D8;
-  --color-primary-foreground: #F8FAFC;
-  --color-secondary: #F2F2F0;
-  --color-secondary-foreground: #1A1D23;
-  --color-muted: #F4F4F2;
-  --color-muted-foreground: #6B7280;
-  --color-destructive: #C92E47;
-  --color-border: #EEEDE9;
-  --color-input: #E6E2DA;
+  /* DESIGN.md canonical */
+  --color-canvas: #ffffff;
+  --color-surface-soft: #f1f4f7;
+  --color-ink-deep: #0a1317;
+  --color-ink: #1c1e21;
+  --color-charcoal: #444950;
+  --color-slate: #4b4c4f;
+  --color-steel: #5d6c7b;
+  --color-stone: #8595a4;
+  --color-hairline: #ced0d4;
+  --color-hairline-soft: #dee3e9;
+  --color-disabled-text: #bcc0c4;
+  --color-ink-button: #000000;
+  --color-on-ink-button: #ffffff;
+  --color-cobalt: #0064e0;
+  --color-cobalt-deep: #0457cb;
+  --color-cobalt-soft: #0091ff;
+  --color-cobalt-selected: #0143b5;
+  --color-on-cobalt: #ffffff;
+  --color-fb-blue: #1876f2;
+  --color-meta-link: #385898;
+  --color-oculus-purple: #a121ce;
+  --color-success: #31a24c;
+  --color-success-bg: #24e400;
+  --color-attention: #f2a918;
+  --color-warning: #f7b928;
+  --color-warning-bg: #ffe200;
+  --color-critical: #e41e3f;
+  --color-critical-strong: #f0284a;
+
+  /* Legacy aliases */
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink-deep);
+  --color-primary: var(--color-cobalt);
+  --color-primary-foreground: var(--color-on-cobalt);
+  --color-secondary: var(--color-surface-soft);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-surface-soft);
+  --color-muted-foreground: var(--color-steel);
+  --color-destructive: var(--color-critical-strong);
+  --color-border: var(--color-hairline-soft);
+  --color-input: var(--color-hairline);
   --color-ring: var(--color-focus);
-  --color-card: #FFFFFF;
-  --color-card-foreground: #14151A;
-  --color-popover: #FFFFFF;
-  --color-popover-foreground: #14151A;
+  --color-card: var(--color-canvas);
+  --color-card-foreground: var(--color-ink-deep);
+  --color-popover: var(--color-canvas);
+  --color-popover-foreground: var(--color-ink-deep);
+
+  --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 14px;
-  --color-border-strong: #D6D2C8;
-  --color-border-active: #8A8478;
-  --color-placeholder: #9A9388;
-  --color-muted-foreground-dim: #8A8478;
-  --color-accent-emerald: #1F8754;
-  --color-accent-amber: #B07107;
-  --color-accent-rose: #C92E47;
-  --color-focus: #3759D8;
-  --color-accent-indigo: #4F46E5;
-  --color-accent-purple: #6366F1;
-  --color-accent-blue: #3759D8;
-  --color-ai-glow: #4F5B8F;
-  --color-accent: #F4F2EC;
+  --radius-xl: 16px;
+  --radius-xxl: 24px;
+  --radius-xxxl: 32px;
+  --radius-feature: 40px;
+  --radius-full: 100px;
+  --radius-circle: 9999px;
+  --radius-2xl: var(--radius-xxl);
+
+  --color-border-strong: var(--color-hairline);
+  --color-border-active: var(--color-charcoal);
+  --color-placeholder: var(--color-stone);
+  --color-muted-foreground-dim: var(--color-stone);
+  --color-accent-emerald: var(--color-success);
+  --color-accent-amber: var(--color-attention);
+  --color-accent-rose: var(--color-critical);
+  --color-focus: var(--color-fb-blue);
+  --color-accent-indigo: var(--color-cobalt-deep);
+  --color-accent-purple: var(--color-oculus-purple);
+  --color-accent-blue: var(--color-cobalt);
+  --color-ai-glow: var(--color-cobalt);
+  --color-accent: var(--color-surface-soft);
   --color-accent-foreground: var(--color-foreground);
-  --color-user-accent: #14151A;
-  --color-user-accent-dim: rgba(20, 21, 26, 0.04);
-  --color-ai-surface: rgba(120, 130, 160, 0.06);
-  --color-ai-border: rgba(20, 21, 26, 0.08);
-  --color-input-glow: rgba(20, 21, 26, 0.06);
-  --color-sidebar-bg: #F4F3EE;
-  --color-sidebar-active: #E4E1D7;
-  --color-sidebar-hover: #ECEAE2;
-  --color-sidebar-foreground-muted: #6B7280;
-  --color-profile-ring: rgba(20, 21, 26, 0.14);
-  --color-profile-ring-hover: rgba(20, 21, 26, 0.24);
-  --color-terminal-bg: #FBFBFA;
-  --color-terminal-surface: #F4F4F2;
-  --color-terminal-border: #ECEAE5;
-  --color-terminal-text: #1F2128;
-  --color-terminal-dim: #6B7280;
+  --color-user-accent: var(--color-ink-deep);
+  --color-user-accent-dim: rgba(10, 19, 23, 0.04);
+  --color-ai-surface: rgba(0, 100, 224, 0.06);
+  --color-ai-border: rgba(10, 19, 23, 0.08);
+  --color-input-glow: rgba(0, 100, 224, 0.10);
+  --color-sidebar-bg: var(--color-surface-soft);
+  --color-sidebar-active: color-mix(in srgb, var(--color-cobalt) 8%, var(--color-surface-soft));
+  --color-sidebar-hover: color-mix(in srgb, var(--color-cobalt) 4%, var(--color-surface-soft));
+  --color-sidebar-foreground-muted: var(--color-steel);
+  --color-profile-ring: rgba(10, 19, 23, 0.18);
+  --color-profile-ring-hover: rgba(10, 19, 23, 0.28);
+  --color-terminal-bg: var(--color-canvas);
+  --color-terminal-surface: var(--color-surface-soft);
+  --color-terminal-border: var(--color-hairline-soft);
+  --color-terminal-text: var(--color-ink);
+  --color-terminal-dim: var(--color-steel);
   --logo-black: #0A0A0A;
   --logo-white: #FFFFFF;
   --logo-neutral-700: #2B2B2B;
   --logo-neutral-300: #D9D9D9;
   --logo-bg: var(--logo-black);
   --logo-glyph: var(--logo-white);
-  --color-overlay: rgba(20, 21, 26, 0.45);
+  --color-overlay: rgba(10, 19, 23, 0.45);
   --topbar-bg: var(--color-background);
   --shadow-card: none;
   --shadow-card-hover: none;
-  --shadow-elevated: 0 6px 20px -10px rgba(20, 21, 26, 0.10);
+  --shadow-elevated: 0 6px 20px -10px rgba(10, 19, 23, 0.10);
+  --shadow-sticky-rail: rgba(20, 22, 26, 0.3) 0px 1px 4px 0px;
   --shadow-message: none;
   --shadow-glow-subtle: 0 0 0 2px color-mix(in srgb, var(--color-focus), transparent 70%);
   --gradient-primary: var(--color-primary);
@@ -275,50 +379,88 @@
 
 .dark {
 
-  --color-background: #0F1115;
-  --color-foreground: #ECECEA;
-  --color-primary: #8AA8F0;
-  --color-primary-foreground: #0A0E18;
-  --color-secondary: #1A1C22;
-  --color-secondary-foreground: #ECECEA;
-  --color-muted: #15171C;
-  --color-muted-foreground: #A8B0BC;
-  --color-destructive: #E07B85;
-  --color-border: #1D2026;
-  --color-input: #23262D;
+  /* Dark-mode canonical (not in DESIGN.md — synthesized to keep cobalt readable on dark canvas) */
+  --color-canvas: #0a1317;
+  --color-surface-soft: #131c22;
+  --color-ink-deep: #f5f7fa;
+  --color-ink: #e6e9ee;
+  --color-charcoal: #c2c7cf;
+  --color-slate: #a8aeb8;
+  --color-steel: #8a93a0;
+  --color-stone: #6a7280;
+  --color-hairline: #2a323a;
+  --color-hairline-soft: #1e252c;
+  --color-disabled-text: #4b525a;
+  --color-ink-button: #ffffff;
+  --color-on-ink-button: #0a1317;
+  --color-cobalt: #4d99f0;
+  --color-cobalt-deep: #2f7ee0;
+  --color-cobalt-soft: #6fb4ff;
+  --color-cobalt-selected: #6fb4ff;
+  --color-on-cobalt: #0a1317;
+  --color-fb-blue: #4f93f6;
+  --color-meta-link: #7d9bd1;
+  --color-oculus-purple: #c266dd;
+  --color-success: #4cc873;
+  --color-success-bg: #24e400;
+  --color-attention: #f5b53d;
+  --color-warning: #f5c449;
+  --color-warning-bg: #ffe200;
+  --color-critical: #ef5570;
+  --color-critical-strong: #f26880;
+
+  --color-background: var(--color-canvas);
+  --color-foreground: var(--color-ink-deep);
+  --color-primary: var(--color-cobalt);
+  --color-primary-foreground: var(--color-on-cobalt);
+  --color-secondary: var(--color-surface-soft);
+  --color-secondary-foreground: var(--color-ink);
+  --color-muted: var(--color-surface-soft);
+  --color-muted-foreground: var(--color-steel);
+  --color-destructive: var(--color-critical-strong);
+  --color-border: var(--color-hairline-soft);
+  --color-input: var(--color-hairline);
   --color-ring: var(--color-focus);
-  --color-card: #14161B;
-  --color-card-foreground: #ECECEA;
-  --color-popover: #16181E;
-  --color-popover-foreground: #ECECEA;
+  --color-card: #14161b;
+  --color-card-foreground: var(--color-ink-deep);
+  --color-popover: #16181e;
+  --color-popover-foreground: var(--color-ink-deep);
+
+  --radius-xs: 2px;
   --radius-sm: 4px;
   --radius-md: 6px;
   --radius-lg: 8px;
-  --radius-xl: 10px;
-  --radius-2xl: 14px;
-  --color-border-strong: #2B2F38;
-  --color-border-active: #6F7585;
-  --color-placeholder: #6B7080;
-  --color-muted-foreground-dim: #7B8090;
-  --color-accent-emerald: #6FC58E;
-  --color-accent-amber: #D9B056;
-  --color-accent-rose: #E07B85;
-  --color-focus: #8AA8F0;
-  --color-accent-indigo: #9AA3F0;
-  --color-accent-purple: #B0B4F0;
-  --color-accent-blue: #8AA8F0;
-  --color-ai-glow: #B0B4F0;
-  --color-accent: #1A1C22;
+  --radius-xl: 16px;
+  --radius-xxl: 24px;
+  --radius-xxxl: 32px;
+  --radius-feature: 40px;
+  --radius-full: 100px;
+  --radius-circle: 9999px;
+  --radius-2xl: var(--radius-xxl);
+
+  --color-border-strong: var(--color-hairline);
+  --color-border-active: var(--color-charcoal);
+  --color-placeholder: var(--color-stone);
+  --color-muted-foreground-dim: var(--color-stone);
+  --color-accent-emerald: var(--color-success);
+  --color-accent-amber: var(--color-attention);
+  --color-accent-rose: var(--color-critical);
+  --color-focus: var(--color-fb-blue);
+  --color-accent-indigo: var(--color-cobalt-deep);
+  --color-accent-purple: var(--color-oculus-purple);
+  --color-accent-blue: var(--color-cobalt);
+  --color-ai-glow: var(--color-cobalt);
+  --color-accent: var(--color-surface-soft);
   --color-accent-foreground: var(--color-foreground);
-  --color-user-accent: #ECECEA;
-  --color-user-accent-dim: rgba(236, 236, 234, 0.06);
-  --color-ai-surface: rgba(180, 190, 220, 0.05);
-  --color-ai-border: rgba(180, 190, 220, 0.10);
-  --color-input-glow: rgba(138, 168, 240, 0.08);
-  --color-sidebar-bg: #0B0D11;
-  --color-sidebar-active: #1A1C22;
-  --color-sidebar-hover: #15171C;
-  --color-sidebar-foreground-muted: #A8B0BC;
+  --color-user-accent: var(--color-ink-deep);
+  --color-user-accent-dim: rgba(245, 247, 250, 0.06);
+  --color-ai-surface: rgba(77, 153, 240, 0.07);
+  --color-ai-border: rgba(245, 247, 250, 0.10);
+  --color-input-glow: rgba(77, 153, 240, 0.10);
+  --color-sidebar-bg: var(--color-surface-soft);
+  --color-sidebar-active: color-mix(in srgb, var(--color-cobalt) 8%, var(--color-surface-soft));
+  --color-sidebar-hover: color-mix(in srgb, var(--color-cobalt) 4%, var(--color-surface-soft));
+  --color-sidebar-foreground-muted: var(--color-steel);
   --color-profile-ring: rgba(236, 236, 234, 0.16);
   --color-profile-ring-hover: rgba(236, 236, 234, 0.28);
   --color-terminal-bg: #0F1115;
@@ -337,6 +479,7 @@
   --shadow-card: none;
   --shadow-card-hover: none;
   --shadow-elevated: 0 8px 24px -12px rgba(0, 0, 0, 0.45);
+  --shadow-sticky-rail: rgba(0, 0, 0, 0.6) 0px 1px 4px 0px;
   --shadow-message: none;
   --shadow-glow-subtle: 0 0 0 2px color-mix(in srgb, var(--color-focus), transparent 70%);
   --gradient-primary: var(--color-primary);
@@ -382,6 +525,187 @@ html:lang(zh-TW) {
   border-radius: var(--radius-xl);
   background-color: var(--color-card);
 }
+
+/* ─── DESIGN.md typography roles ─── */
+@utility text-hero-display {
+  font-family: var(--font-sans);
+  font-size: 64px;
+  font-weight: 500;
+  line-height: 1.16;
+  letter-spacing: 0;
+  font-feature-settings: "ss01", "ss02";
+}
+@utility text-display-lg {
+  font-family: var(--font-sans);
+  font-size: 48px;
+  font-weight: 500;
+  line-height: 1.17;
+  font-feature-settings: "ss01", "ss02";
+}
+@utility text-heading-lg {
+  font-family: var(--font-sans);
+  font-size: 36px;
+  font-weight: 500;
+  line-height: 1.28;
+  font-feature-settings: "ss01", "ss02";
+}
+@utility text-heading-md {
+  /* Editorial light-weight subhead — DESIGN.md signature */
+  font-family: var(--font-sans);
+  font-size: 28px;
+  font-weight: 300;
+  line-height: 1.21;
+  font-feature-settings: "ss01", "ss02";
+}
+@utility text-heading-sm {
+  font-family: var(--font-sans);
+  font-size: 24px;
+  font-weight: 500;
+  line-height: 1.25;
+  font-feature-settings: "ss01", "ss02";
+}
+@utility text-subtitle-lg {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1.44;
+}
+@utility text-subtitle-md {
+  font-family: var(--font-sans);
+  font-size: 18px;
+  font-weight: 400;
+  line-height: 1.44;
+}
+@utility text-body-md {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 400;
+  line-height: 1.5;
+  letter-spacing: -0.16px;
+}
+@utility text-body-md-bold {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.16px;
+}
+@utility text-body-sm {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 400;
+  line-height: 1.43;
+  letter-spacing: -0.14px;
+}
+@utility text-body-sm-bold {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.43;
+  letter-spacing: -0.14px;
+}
+@utility text-caption-bold {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.33;
+}
+@utility text-button-md {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1.43;
+  letter-spacing: -0.14px;
+}
+@utility text-link-md {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  font-weight: 700;
+  line-height: 1.5;
+  letter-spacing: -0.16px;
+}
+
+/* CJK-safe centered copy — block flow + text-align (NOT flex/grid centering on children).
+   Flex `items-center` / grid `justify-items:center` shrink cross-axis size to min-content,
+   which for CJK collapses to one glyph → vertical text. See docs/design.md §3.8. */
+@utility cjk-safe-centered {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+@utility cjk-safe-centered-constrained {
+  display: block;
+  width: 100%;
+  max-width: 32rem;
+  margin-inline: auto;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+/* ─── DESIGN.md card chrome ─── */
+@utility card-product-feature {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xxxl);
+  padding: 32px;
+  border: 1px solid var(--color-hairline-soft);
+}
+@utility card-feature-photo {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xxxl);
+  padding: 0;
+  border: none;
+  overflow: hidden;
+}
+@utility card-promo-strip {
+  background-color: var(--color-ink-deep);
+  color: var(--color-canvas);
+  border-radius: var(--radius-xxxl);
+  padding: 64px;
+}
+@utility card-icon-feature {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  border: 1px solid var(--color-hairline-soft);
+}
+@utility card-checkout-summary {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  border: 1px solid var(--color-hairline-soft);
+  box-shadow: var(--shadow-sticky-rail);
+}
+@utility card-why-buy-tile {
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-xl);
+  padding: 32px 24px;
+  border: 1px solid var(--color-hairline-soft);
+}
+@utility card-warranty {
+  background-color: var(--color-surface-soft);
+  border-radius: var(--radius-xxl);
+  padding: 32px;
+}
+
+/* DESIGN.md `search-pill` — top-nav search field.
+   Surface-soft fill, pill radius, 40px height, body-sm text in steel. */
+@utility search-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 40px;
+  padding: 0 16px;
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-soft);
+  color: var(--color-steel);
+  @apply text-body-sm;
+  border: 1px solid transparent;
+  transition: color 0.15s ease-out, background-color 0.15s ease-out, border-color 0.15s ease-out;
+}
+
 
 @utility surface-overlay {
   border: 1px solid var(--color-border);
@@ -575,17 +899,18 @@ p, span, input, textarea, label, li, td {
   font-family: var(--font-sans);
 }
 
-h1, h2, h3 {
-  font-weight: 550;
-  letter-spacing: -0.012em;
+/* DESIGN.md: headings use Optimistic VF with ss01/ss02. Montserrat does not ship those
+   stylistic sets — the declaration is harmless and future-proofs an Optimistic VF swap.
+   We deliberately do NOT set font-size on the bare tag selector — role utilities
+   (`text-heading-lg`, `text-subtitle-lg`, etc.) or Tailwind sizing classes drive that. */
+h1, h2, h3, h4, h5, h6 {
+  font-feature-settings: "ss01", "ss02";
+  font-weight: 500;
   line-height: 1.25;
+  letter-spacing: 0;
 }
 
-h4, h5, h6 {
-  font-weight: 550;
-  letter-spacing: -0.008em;
-  line-height: 1.3;
-}
+h3, h4, h5, h6 { font-weight: 700; }
 
 /* ─── Base ─── */
 
@@ -611,15 +936,13 @@ body {
   letter-spacing: -0.011em;
 }
 
-/* Design contract (calm-minimal):
-   - Chips use rounded-sm (4px). Controls (inputs, buttons, badges) use rounded-md (6px).
-   - Small panels use rounded-lg (8px). Cards, message bubbles, composer use rounded-xl (10px).
-   - Modals, popovers, command palette use rounded-2xl (14px).
-   - Text-entry controls use `border-input` at rest and `border-border-active` on focus.
-   - Focus uses the `focus-ring` utility (offset + accent), not ad-hoc shadow chains. */
-/* Exception pattern:
-   - Wrapper-driven text inputs (e.g. search bars inside command palettes/composite controls)
-     may use `focus-within` on the wrapper and keep inset rings when required by layout. */
+/* DESIGN.md geometry contract (see docs/design.md §3.3):
+   - All buttons, badges, and pill-tabs use rounded-full (100px).
+   - Photographic cards use rounded-xxxl (32px) minimum; form inputs use rounded-lg (8px).
+   - Overlays use surface-overlay (24px radius) with shadow-elevated.
+   - Text inputs: 1px hairline at rest, 2px fb-blue border on focus (text-input contract).
+   - Default focus: ring-2 ring-focus/40 ring-offset-2 ring-offset-canvas. */
+/* Exception: wrapper-driven focus-within on composite controls (command palette search). */
 
 html,
 body {

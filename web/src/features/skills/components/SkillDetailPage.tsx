@@ -39,9 +39,9 @@ interface SkillDetailPageProps {
 
 function DetailSkeleton() {
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-canvas">
       {/* Header skeleton */}
-      <div className="shrink-0 border-b border-border/60 px-6 py-4">
+      <div className="shrink-0 border-b border-hairline-soft/60 px-6 py-4">
         <div className="flex items-center gap-3">
           <div className="h-8 w-8 skeleton-shimmer rounded-md" />
           <div className="h-9 w-9 skeleton-shimmer rounded-lg" />
@@ -53,7 +53,7 @@ function DetailSkeleton() {
       </div>
       {/* Body skeleton: sidebar + content */}
       <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
-        <div className="w-full md:w-[250px] md:shrink-0 max-h-[200px] md:max-h-none overflow-y-auto border-r border-border/60 p-3 space-y-2">
+        <div className="w-full md:w-[250px] md:shrink-0 max-h-[200px] md:max-h-none overflow-y-auto border-r border-hairline-soft/60 p-3 space-y-2">
           {Array.from({ length: 6 }).map((_, i) => (
             <div key={i} className="h-5 skeleton-shimmer rounded" style={{ width: `${60 + Math.random() * 40}%` }} />
           ))}
@@ -112,9 +112,9 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
   const showDelete = skill.source_type === "user";
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-canvas">
       {/* ── Header ── */}
-      <div className="shrink-0 border-b border-border/60 px-6 py-4">
+      <div className="shrink-0 border-b border-hairline-soft/60 px-6 py-4">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon-sm" asChild>
             <Link href="/skills" aria-label={t("skills.backToSkills")}>
@@ -123,15 +123,15 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
           </Button>
 
           <div className="chip-muted flex h-9 w-9 shrink-0 items-center justify-center">
-            <Lightbulb aria-hidden="true" className="h-4 w-4 text-muted-foreground" />
+            <Lightbulb aria-hidden="true" className="h-4 w-4 text-steel" />
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">
+            <h1 className="truncate text-xl font-semibold tracking-tight text-ink-deep sm:text-2xl">
               {normalizeSkillName(skill.name)}
             </h1>
             {skill.description && (
-              <p className="truncate text-sm text-muted-foreground">
+              <p className="truncate text-sm text-steel">
                 {skill.description}
               </p>
             )}
@@ -152,7 +152,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             <Button
               variant="ghost"
               size="icon-sm"
-              className="shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+              className="shrink-0 text-steel hover:text-critical hover:bg-critical/10"
               onClick={() => setShowDeleteDialog(true)}
               aria-label={`${t("skills.uninstall")} ${normalizeSkillName(skill.name)}`}
             >
@@ -172,7 +172,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
       {/* ── Body: File Tree + Content Viewer ── */}
       <div className="flex flex-1 flex-col md:flex-row overflow-hidden">
         {/* Sidebar: File Tree */}
-        <div className="w-full md:w-[250px] md:shrink-0 max-h-[280px] md:max-h-none overflow-y-auto border-r border-border/60">
+        <div className="w-full md:w-[250px] md:shrink-0 max-h-[280px] md:max-h-none overflow-y-auto border-r border-hairline-soft/60">
           {isLoadingTree ? (
             <div className="p-3 space-y-2">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -185,7 +185,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             </div>
           ) : fileTree.length === 0 ? (
             <div className="flex items-center justify-center py-10">
-              <p className="text-xs text-muted-foreground-dim">
+              <p className="text-xs text-stone">
                 {t("skills.noFileSelected")}
               </p>
             </div>
@@ -214,8 +214,8 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             </div>
           ) : (
             <div className="flex h-full flex-col items-center justify-center gap-3">
-              <FileCode aria-hidden="true" className="h-10 w-10 text-muted-foreground-dim" />
-              <p className="text-sm text-muted-foreground-dim">
+              <FileCode aria-hidden="true" className="h-10 w-10 text-stone" />
+              <p className="text-sm text-stone">
                 {t("skills.noFileSelected")}
               </p>
             </div>
@@ -238,7 +238,7 @@ export function SkillDetailPage({ name }: SkillDetailPageProps) {
             <AlertDialogCancel>{t("skills.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              className="bg-destructive text-primary-foreground hover:bg-destructive/90"
+              className="bg-critical-strong text-on-cobalt hover:bg-critical"
             >
               {t("skills.uninstall")}
             </AlertDialogAction>

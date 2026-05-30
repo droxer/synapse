@@ -75,7 +75,7 @@ function PreviewVisual({ artifact, conversationId }: {
 
   if (artifact.contentType.startsWith("image/") && artifactUrl) {
     return (
-      <div className="h-36 overflow-hidden rounded-xl border border-border bg-muted">
+      <div className="h-36 overflow-hidden rounded-xl border border-hairline-soft bg-surface-soft">
         <img
           src={artifactUrl}
           alt={artifact.name}
@@ -87,14 +87,14 @@ function PreviewVisual({ artifact, conversationId }: {
   }
 
   return (
-    <div className={cn("relative flex h-36 items-end overflow-hidden rounded-xl border border-border px-4 py-3", bg)}>
+    <div className={cn("relative flex h-36 items-end overflow-hidden rounded-xl border border-hairline-soft px-4 py-3", bg)}>
       <BrandFileTypeIcon
         name={artifact.name}
         contentType={artifact.contentType}
         className={cn("absolute right-4 top-4 h-10 w-10 opacity-15", icon)}
       />
       <div className="relative space-y-1">
-        <p className="label-mono text-muted-foreground">
+        <p className="label-mono text-steel">
           {artifact.contentType.startsWith("image/") ? "Image" : artifact.contentType === "text/html" ? "HTML" : "Preview"}
         </p>
         <div className="flex flex-col gap-1">
@@ -112,7 +112,7 @@ function ArtifactMeta({ artifact }: { readonly artifact: TaskArtifactItem }) {
   const meta = artifact.createdAt ? formatRelativeDate(artifact.createdAt, locale) : null;
 
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-steel">
       <span>{formatFileSize(artifact.size, t)}</span>
       <span aria-hidden="true">•</span>
       <span>{fileCategory(artifact.contentType, t)}</span>
@@ -164,7 +164,7 @@ function ArtifactActions({
           size="icon-sm"
           variant="ghost"
           aria-label={t("explorer.deleteFileLabel", { name: artifact.name })}
-          className="text-muted-foreground hover:text-destructive"
+          className="text-steel hover:text-critical"
           onClick={() => onDelete([artifact.id])}
         >
           <Trash2 className="h-4 w-4" />
@@ -192,14 +192,14 @@ function RecentArtifactCard({
   const { t } = useTranslation();
 
   return (
-    <article className="group surface-panel rounded-xl p-3 transition-colors hover:border-border-strong">
+    <article className="group surface-panel rounded-xl p-3 transition-colors hover:border-hairline">
       <button type="button" className="w-full text-left" onClick={() => onPreview(artifact)}>
         <PreviewVisual artifact={artifact} conversationId={conversationId} />
       </button>
       <div className="mt-3 flex items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <p className="truncate text-sm font-medium text-foreground">{artifact.name}</p>
+            <p className="truncate text-sm font-medium text-ink-deep">{artifact.name}</p>
             {isFresh ? (
               <span className="status-pill status-ok">
                 {t("artifacts.new")}
@@ -208,7 +208,7 @@ function RecentArtifactCard({
           </div>
           <ArtifactMeta artifact={artifact} />
           {artifact.directory ? (
-            <p className="mt-1 truncate text-xs text-muted-foreground">{artifact.directory}</p>
+            <p className="mt-1 truncate text-xs text-steel">{artifact.directory}</p>
           ) : null}
         </div>
         <ArtifactActions
@@ -239,7 +239,7 @@ function CompactArtifactRow({
   const { bg, icon } = fileCategoryColor(artifact.contentType, artifact.name);
 
   return (
-    <div className="flex items-center gap-3 rounded-xl border border-border bg-card px-3 py-2.5">
+    <div className="flex items-center gap-3 rounded-xl border border-hairline-soft bg-card px-3 py-2.5">
       <button
         type="button"
         className={cn("flex h-11 w-11 shrink-0 items-center justify-center rounded-lg", bg)}
@@ -254,10 +254,10 @@ function CompactArtifactRow({
         />
       </button>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-foreground">{artifact.name}</p>
+        <p className="truncate text-sm font-medium text-ink-deep">{artifact.name}</p>
         <ArtifactMeta artifact={artifact} />
         {artifact.directory ? (
-          <p className="truncate text-xs text-muted-foreground">{artifact.directory}</p>
+          <p className="truncate text-xs text-steel">{artifact.directory}</p>
         ) : null}
       </div>
       <ArtifactActions
@@ -288,11 +288,11 @@ function FolderBreadcrumbs({
   }
 
   return (
-    <div className="flex flex-wrap items-center gap-1 text-xs text-muted-foreground">
+    <div className="flex flex-wrap items-center gap-1 text-xs text-steel">
       {crumbs.map((crumb, index) => (
         <div key={crumb.path} className="flex items-center gap-1">
           {index > 0 ? <ChevronRight className="h-3.5 w-3.5" /> : null}
-          <button type="button" className="hover:text-foreground" onClick={() => onSelectPath(crumb.path)}>
+          <button type="button" className="hover:text-ink-deep" onClick={() => onSelectPath(crumb.path)}>
             {crumb.label}
           </button>
         </div>
@@ -311,10 +311,10 @@ function PathFolderButton({
   return (
     <button
       type="button"
-      className="flex items-center gap-2 rounded-xl border border-border bg-card px-3 py-2 text-sm text-left transition-colors hover:border-border-strong hover:bg-card"
+      className="flex items-center gap-2 rounded-xl border border-hairline-soft bg-card px-3 py-2 text-sm text-left transition-colors hover:border-hairline hover:bg-card"
       onClick={() => onOpen(folder.path)}
     >
-      <FolderOpen className="h-4 w-4 text-muted-foreground" />
+      <FolderOpen className="h-4 w-4 text-steel" />
       <span className="truncate">{folder.name}</span>
     </button>
   );
@@ -439,12 +439,12 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
   if (normalizedArtifacts.length === 0) {
     return (
       <div className="flex h-full items-center justify-center px-4">
-        <div className="w-full max-w-sm rounded-xl border border-dashed border-border bg-card p-8 text-center">
-          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-secondary">
-            <Sparkles className="h-5 w-5 text-muted-foreground" />
+        <div className="w-full max-w-sm rounded-xl border border-dashed border-hairline-soft bg-card p-8 text-center">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl bg-surface-soft">
+            <Sparkles className="h-5 w-5 text-steel" />
           </div>
-          <p className="mt-4 text-sm font-medium text-foreground">{t("artifacts.noFiles")}</p>
-          <p className="mt-1 text-xs text-muted-foreground">{t("library.noArtifactsHint")}</p>
+          <p className="mt-4 text-sm font-medium text-ink-deep">{t("artifacts.noFiles")}</p>
+          <p className="mt-1 text-xs text-steel">{t("library.noArtifactsHint")}</p>
         </div>
       </div>
     );
@@ -452,16 +452,16 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
   return (
     <>
-      <div className="flex h-full flex-col overflow-y-auto bg-background px-4 py-3 sm:px-5">
+      <div className="flex h-full flex-col overflow-y-auto bg-canvas px-4 py-3 sm:px-5">
         <div className="surface-panel rounded-xl p-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="space-y-2">
-              <div className="flex items-center gap-2 label-mono text-muted-foreground">
+              <div className="flex items-center gap-2 label-mono text-steel">
                 <Layers3 className="h-3.5 w-3.5" />
                 <span>{t("artifacts.recentOutputs")}</span>
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
-                <span className="font-medium text-foreground">
+              <div className="flex flex-wrap items-center gap-2 text-sm text-steel">
+                <span className="font-medium text-ink-deep">
                   {normalizedArtifacts.length === 1
                     ? t("artifacts.fileCount", { count: normalizedArtifacts.length })
                     : t("artifacts.filesCount", { count: normalizedArtifacts.length })}
@@ -510,7 +510,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
           <div className="mt-4 space-y-5">
             {previewable.length > 0 ? (
               <section className="space-y-3">
-                <div className="flex items-center gap-2 label-mono text-muted-foreground">
+                <div className="flex items-center gap-2 label-mono text-steel">
                   <Clock3 className="h-3.5 w-3.5" />
                   <span>{t("artifacts.previewReady")}</span>
                 </div>
@@ -547,7 +547,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
 
             {compact.length > 0 ? (
               <section className="space-y-3">
-                <div className="flex items-center gap-2 label-mono text-muted-foreground">
+                <div className="flex items-center gap-2 label-mono text-steel">
                   <FolderOpen className="h-3.5 w-3.5" />
                   <span>{t("artifacts.otherOutputs")}</span>
                 </div>
@@ -595,7 +595,7 @@ export function ArtifactFilesPanel({ artifacts, conversationId }: ArtifactFilesP
               </div>
             ) : null}
             {currentFolder.subFolders.length === 0 && currentFolder.items.length === 0 ? (
-              <div className="rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted-foreground">
+              <div className="rounded-xl border border-dashed border-hairline-soft px-4 py-8 text-center text-sm text-steel">
                 {t("artifacts.folderEmpty")}
               </div>
             ) : null}

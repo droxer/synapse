@@ -113,12 +113,11 @@ export function LibraryPage() {
   }, [stats, t]);
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full flex-col bg-canvas">
       {/* Header */}
       <ProductPageHeader
-        className="py-5"
-        icon={<Library aria-hidden="true" className="h-5 w-5 text-muted-foreground" />}
-        eyebrow={t("library.title")}
+        icon={<Library aria-hidden="true" className="h-5 w-5 text-steel" />}
+        eyebrow={t("library.eyebrow")}
         title={t("library.title")}
         description={
           isLoading && !statsLine ? (
@@ -163,8 +162,6 @@ export function LibraryPage() {
 
           {(groups.length > 0 || filter) ? (
             <ProductSectionHeader
-              eyebrow={t("library.title")}
-              description={statsLine ?? t("library.subtitle")}
               actions={
                 <SearchInput
                   value={filter}
@@ -197,7 +194,7 @@ export function LibraryPage() {
           {/* Load more */}
           {hasMore && !isLoading && (
             <div className="flex shrink-0 justify-center pt-2">
-              <Button variant="outline" size="sm" onClick={loadMore}>
+              <Button variant="secondary" size="sm" onClick={loadMore}>
                 {t("library.loadMore")}
               </Button>
             </div>

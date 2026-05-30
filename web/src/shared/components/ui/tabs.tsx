@@ -26,23 +26,25 @@ function Tabs({
 }
 
 const tabsListVariants = cva(
-  "group/tabs-list inline-flex w-fit items-center justify-center rounded-md p-[3px] text-muted-foreground group-data-[orientation=horizontal]/tabs:h-9 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none",
+  "group/tabs-list inline-flex w-fit items-center justify-center rounded-md p-[3px] text-steel group-data-[orientation=horizontal]/tabs:h-9 group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col data-[variant=line]:rounded-none data-[variant=pill]:rounded-none data-[variant=pill]:bg-transparent data-[variant=pill]:gap-2 data-[variant=pill]:p-0 data-[variant=pill]:h-auto",
   {
     variants: {
       variant: {
-        default: "bg-muted",
+        default: "bg-surface-soft",
         line: "gap-1 bg-transparent",
+        /* DESIGN.md pill-tab category navigation */
+        pill: "gap-2 bg-transparent",
       },
     },
     defaultVariants: {
-      variant: "default",
+      variant: "pill",
     },
   }
 )
 
 function TabsList({
   className,
-  variant = "default",
+  variant = "pill",
   ...props
 }: React.ComponentProps<typeof TabsPrimitive.List> &
   VariantProps<typeof tabsListVariants>) {
@@ -64,9 +66,11 @@ function TabsTrigger({
     <TabsPrimitive.Trigger
       data-slot="tabs-trigger"
       className={cn(
-        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-muted-foreground-dim transition-[color,background-color,border-color,box-shadow,opacity] duration-150 ease-out group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-foreground focus-visible:border-ring focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50 group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-muted-foreground dark:hover:text-foreground [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+        "relative inline-flex h-[calc(100%-1px)] flex-1 items-center justify-center gap-1.5 rounded-md border border-transparent px-2 py-1 text-sm font-medium whitespace-nowrap text-stone transition-[color,background-color,border-color,box-shadow,opacity] duration-150 ease-out group-data-[orientation=vertical]/tabs:w-full group-data-[orientation=vertical]/tabs:justify-start hover:text-ink-deep focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:opacity-50 group-data-[variant=line]/tabs-list:data-[state=active]:shadow-none dark:text-steel dark:hover:text-ink-deep [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
         "group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:border-transparent dark:group-data-[variant=line]/tabs-list:data-[state=active]:bg-transparent",
-        "data-[state=active]:bg-background data-[state=active]:text-foreground dark:data-[state=active]:border-input dark:data-[state=active]:bg-secondary dark:data-[state=active]:text-foreground",
+        "data-[state=active]:bg-canvas data-[state=active]:text-ink-deep dark:data-[state=active]:border-input dark:data-[state=active]:bg-surface-soft dark:data-[state=active]:text-ink-deep",
+        /* DESIGN.md pill-tab: canvas chip → ink-deep fill on active */
+        "group-data-[variant=pill]/tabs-list:h-8 group-data-[variant=pill]/tabs-list:rounded-full group-data-[variant=pill]/tabs-list:border group-data-[variant=pill]/tabs-list:border-hairline group-data-[variant=pill]/tabs-list:bg-canvas group-data-[variant=pill]/tabs-list:px-4 group-data-[variant=pill]/tabs-list:text-button-md group-data-[variant=pill]/tabs-list:text-ink group-data-[variant=pill]/tabs-list:data-[state=active]:bg-ink-deep group-data-[variant=pill]/tabs-list:data-[state=active]:text-canvas group-data-[variant=pill]/tabs-list:data-[state=active]:border-transparent group-data-[variant=pill]/tabs-list:after:opacity-0",
         "after:absolute after:bg-foreground after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-[state=active]:after:opacity-100",
         className
       )}

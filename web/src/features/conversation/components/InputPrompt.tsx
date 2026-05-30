@@ -90,23 +90,23 @@ export function InputPrompt({
       >
         <div className="border-l-2 border-l-border-active px-4 py-3.5 sm:px-5 sm:py-4">
           <div className="mb-2.5 flex items-center gap-2.5">
-            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-secondary text-muted-foreground">
+            <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-surface-soft text-steel">
               <CircleHelp className="h-4 w-4" />
             </div>
             <div className="min-w-0">
               <h3
                 id="input-prompt-title"
-                className="truncate text-sm font-semibold leading-5 text-foreground"
+                className="truncate text-sm font-semibold leading-5 text-ink-deep"
               >
                 {title ?? t("inputPrompt.title")}
               </h3>
-              <p className="text-xs leading-4 text-muted-foreground">
+              <p className="text-xs leading-4 text-steel">
                 {t("inputPrompt.subtitle")}
               </p>
             </div>
           </div>
 
-          <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+          <p className="mb-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-deep">
             {question}
           </p>
 
@@ -116,16 +116,16 @@ export function InputPrompt({
                 <Button
                   key={option.id ?? option.value ?? option.label ?? idx}
                   type="button"
-                  variant="outline"
+                  variant="secondary"
                   className="h-auto min-h-9 items-start justify-start whitespace-normal rounded-md px-3 py-2 text-left"
                   onClick={() => onSubmit(option.value ?? option.label)}
                 >
                   <span className="flex min-w-0 flex-col gap-0.5">
-                    <span className="text-sm font-medium leading-5 text-foreground">
+                    <span className="text-sm font-medium leading-5 text-ink-deep">
                       {option.label}
                     </span>
                     {option.description && (
-                      <span className="text-xs leading-4 text-muted-foreground">
+                      <span className="text-xs leading-4 text-steel">
                         {option.description}
                       </span>
                     )}

@@ -114,7 +114,7 @@ export function FileContentViewer({
 
     // Unknown — plain preformatted text
     return (
-      <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-foreground">
+      <pre className="whitespace-pre-wrap break-words font-mono text-sm leading-relaxed text-ink-deep">
         {content}
       </pre>
     );
@@ -128,7 +128,7 @@ export function FileContentViewer({
     return (
       <div className="flex h-full flex-col">
         {/* Breadcrumb skeleton */}
-        <div className="shrink-0 border-b border-border/60 px-4 py-2.5">
+        <div className="shrink-0 border-b border-hairline-soft/60 px-4 py-2.5">
           <div className="flex items-center gap-2">
             <div className="h-3.5 w-3.5 skeleton-shimmer rounded" />
             <div className="h-3.5 w-48 skeleton-shimmer rounded" />
@@ -153,13 +153,13 @@ export function FileContentViewer({
   return (
     <div className="flex h-full flex-col">
       {/* Breadcrumb header */}
-      <div className="shrink-0 border-b border-border/60 px-4 py-2.5">
-        <div className="flex items-center gap-1.5 font-mono text-xs text-muted-foreground">
+      <div className="shrink-0 border-b border-hairline-soft/60 px-4 py-2.5">
+        <div className="flex items-center gap-1.5 font-mono text-xs text-steel">
           <FileIcon aria-hidden="true" className="h-3.5 w-3.5 shrink-0 opacity-60" />
           {segments.map((seg, i) => (
             <span key={i} className="flex items-center gap-1">
               {i > 0 && <span className="opacity-40">/</span>}
-              <span className={i === segments.length - 1 ? "text-foreground" : ""}>
+              <span className={i === segments.length - 1 ? "text-ink-deep" : ""}>
                 {seg}
               </span>
             </span>

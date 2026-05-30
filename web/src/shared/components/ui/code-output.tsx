@@ -62,7 +62,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
           onClick={handleCopy}
           aria-label={copied ? t("output.copied") : t("output.copyToClipboard")}
           className={cn(
-            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+            "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-steel transition-colors hover:bg-canvas hover:text-ink-deep",
             OUTPUT_SURFACE_FOCUS_CLASSES,
           )}
         >
@@ -92,7 +92,7 @@ export function CodeOutput({ output, icon: Icon, label, language, className }: C
         <div className={cn(OUTPUT_SURFACE_INNER_CLASSES, OUTPUT_SCROLL_AREA_CLASSES, "code-output-content [&_.markdown-body]:bg-transparent [&_.markdown-body_pre]:m-0 [&_.markdown-body_pre]:rounded-none [&_.markdown-body_pre]:border-0 [&_.markdown-body_pre]:bg-transparent [&_.markdown-body_pre]:p-0")}>
           <MarkdownRenderer content={fenced} className={CODE_OUTPUT_MARKDOWN_CLASSES} compactCode />
           {isLong && !expanded && (
-            <span className="font-mono text-xs text-muted-foreground-dim">{"\n..."}</span>
+            <span className="font-mono text-xs text-stone">{"\n..."}</span>
           )}
         </div>
 

@@ -45,14 +45,14 @@ function ErrorMessage({ output, t }: { readonly output: string; readonly t: (key
     <div className="mt-1.5">
       <MarkdownRenderer
         content={expanded ? output : output.slice(0, 200)}
-        className={cn(PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES, "text-destructive", !expanded && "line-clamp-2")}
+        className={cn(PROSE_CLASSES, TOOL_OUTPUT_MARKDOWN_CLASSES, "text-critical", !expanded && "line-clamp-2")}
         compactCode
       />
       {isLong && (
         <button
           type="button"
           onClick={() => setExpanded((p) => !p)}
-          className="mt-0.5 rounded text-micro font-medium text-destructive transition-colors hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="mt-0.5 rounded text-micro font-medium text-critical transition-colors hover:text-critical focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           aria-label={expanded ? t("skills.activity.hideError") : t("skills.activity.showError")}
           aria-expanded={expanded}
         >
@@ -121,17 +121,17 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             className={cn(
               "relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md",
               isError
-                ? "bg-muted"
+                ? "bg-surface-soft"
                 : isComplete
-                  ? "bg-muted"
-                  : "bg-secondary",
+                  ? "bg-surface-soft"
+                  : "bg-surface-soft",
             )}
           >
             {isError ? (
               <>
-                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-destructive" strokeWidth={2.25} />
+                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-critical" strokeWidth={2.25} />
                 <CircleX
-                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-canvas text-critical"
                   strokeWidth={2.5}
                   aria-hidden
                 />
@@ -143,9 +143,9 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 transition={{ duration: 0.12, ease: "easeOut", delay: 0.1 }}
                 className="relative flex items-center justify-center"
               >
-                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-foreground" strokeWidth={2.25} />
+                <SkillGlyph aria-hidden="true" className="h-3.5 w-3.5 text-ink-deep" strokeWidth={2.25} />
                 <Check
-                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+                  className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-canvas text-accent-emerald"
                   strokeWidth={3}
                   aria-hidden
                 />
@@ -220,7 +220,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ duration: 0.12 }}
-                className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-muted-foreground"
+                className="mt-1.5 line-clamp-2 text-sm leading-relaxed text-steel"
               >
                 {skillMeta.description}
               </motion.p>
@@ -235,12 +235,12 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
                 className="mt-1.5 flex items-center gap-2.5"
               >
                 {lineCount > 0 && (
-                  <span className="font-mono text-micro text-muted-foreground-dim">
+                  <span className="font-mono text-micro text-stone">
                     {t("skills.activity.lines", { count: lineCount })}
                   </span>
                 )}
                 {resourceCount > 0 && (
-                  <span className="font-mono text-micro text-muted-foreground-dim">
+                  <span className="font-mono text-micro text-stone">
                     {resourceCount !== 1
                       ? t("skills.activity.resources", { count: resourceCount })
                       : t("skills.activity.resource", { count: resourceCount })}
@@ -260,7 +260,7 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
             <button
               type="button"
               onClick={toggleRaw}
-              className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-micro text-muted-foreground-dim transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              className="mt-0.5 flex shrink-0 items-center gap-1 rounded px-1.5 py-0.5 text-micro text-stone transition-colors hover:bg-surface-soft hover:text-steel focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               aria-label={showRaw ? t("skills.activity.hideInstructions") : t("skills.activity.showInstructions")}
               aria-expanded={showRaw}
             >
@@ -285,8 +285,8 @@ export function SkillActivityEntry({ toolCall }: SkillActivityEntryProps) {
               transition={{ duration: 0.12, ease: "easeInOut" }}
               className="overflow-hidden"
             >
-              <div className="border-t border-border/60 px-2 py-2">
-                <pre className="max-h-48 md:max-h-64 overflow-auto font-mono text-micro leading-relaxed text-muted-foreground-dim">
+              <div className="border-t border-hairline-soft/60 px-2 py-2">
+                <pre className="max-h-48 md:max-h-64 overflow-auto font-mono text-micro leading-relaxed text-stone">
                   {toolCall.output}
                 </pre>
               </div>

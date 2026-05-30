@@ -36,7 +36,6 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
     },
   ];
 
-  // Reset dismissed state when a new error arrives
   useEffect(() => {
     if (error) setDismissed(false);
   }, [error]);
@@ -45,18 +44,19 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
   const showSuggestions = !composerHasContent;
 
   return (
-    <div className="flex h-full w-full flex-col items-center justify-center px-4 sm:px-6">
-      <div className="flex w-full max-w-2xl flex-col">
+    <div className="flex h-full w-full flex-col justify-center px-4 sm:px-6">
+      <div className="mx-auto w-full max-w-2xl">
         <motion.div
-          className="flex flex-col items-center gap-3"
+          className="w-full"
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
         >
-          <h1 className="heading-display max-w-2xl text-center text-foreground">
+          {/* Block flow + text-align — never flex/grid centering on CJK copy (§3.8). */}
+          <h1 className="cjk-safe-centered text-heading-lg text-ink-deep">
             {heading}
           </h1>
-          <p className="max-w-lg text-center text-sm text-muted-foreground">
+          <p className="cjk-safe-centered-constrained text-body-md text-steel">
             {t("welcome.subtitle")}
           </p>
           <AnimatePresence initial={false}>
@@ -81,7 +81,7 @@ export function HomeScreen({ onSubmitTask, error, isLoading = false }: HomeScree
                     whileHover={shouldReduceMotion ? undefined : { y: -1 }}
                     whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
                     transition={{ duration: shouldReduceMotion ? 0 : 0.15, ease: "easeOut" }}
-                    className="inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-border bg-card px-3 text-sm font-medium text-muted-foreground transition-[background-color,border-color,color,opacity] duration-150 hover:border-border-active hover:bg-secondary hover:text-foreground active:border-border-active active:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
+                    className="inline-flex min-h-11 cursor-pointer items-center rounded-full border border-hairline bg-canvas px-4 text-body-sm-bold text-ink transition-[background-color,border-color,color,opacity] duration-150 hover:border-ink-deep hover:bg-surface-soft active:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={() => {
                       setDraftPrompt((current) => ({
                         id: (current?.id ?? 0) + 1,

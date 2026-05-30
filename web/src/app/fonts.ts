@@ -1,9 +1,12 @@
 import localFont from "next/font/local";
+import { Montserrat } from "next/font/google";
 
-export const geistSans = localFont({
-  src: "./font-assets/geist-sans-variable.woff2",
-  variable: "--font-geist-sans",
-  weight: "100 900",
+/* DESIGN.md system font: Optimistic VF (proprietary, not licensable).
+   Montserrat is the first declared fallback and the closest humanist-geometric match. */
+export const montserrat = Montserrat({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "700"],
+  variable: "--font-montserrat",
   display: "swap",
 });
 

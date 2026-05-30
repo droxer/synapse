@@ -45,7 +45,7 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
     return (
       <div
         className={cn(
-          "animate-pulse rounded-lg bg-secondary",
+          "animate-pulse rounded-lg bg-surface-soft",
           collapsed ? "mx-auto h-9 w-9 rounded-full" : "h-[52px] w-full",
         )}
       />
@@ -73,10 +73,10 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
               <PopoverTrigger asChild>
                 <button
                   type="button"
-                  className="rounded-full border border-border p-0.5 transition-colors duration-200 hover:border-border-active focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  className="rounded-full border border-hairline-soft p-0.5 transition-colors duration-200 hover:border-hairline-soft-active focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                   aria-label={name ?? "User menu"}
                 >
-                  <Avatar className="h-8 w-8 border border-border">
+                  <Avatar className="h-8 w-8 border border-hairline-soft">
                     <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
                     <AvatarFallback className="text-xs">{initials}</AvatarFallback>
                     <AvatarBadge className="bg-accent-emerald ring-1 ring-sidebar-bg" />
@@ -110,24 +110,24 @@ export function UserMenu({ collapsed = false }: UserMenuProps) {
         <button
           type="button"
           className={cn(
-            "flex w-full items-center gap-2.5 rounded-md px-2 py-2 text-left",
+            "flex w-full items-center gap-2.5 rounded-full px-2 py-2 text-left",
             "transition-colors duration-200",
             "hover:bg-sidebar-hover",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
           )}
         >
-          <div className="rounded-full border border-border p-0.5 transition-colors duration-200 group-hover:border-border-active">
-            <Avatar className="h-9 w-9 border border-border">
+          <div className="rounded-full border border-hairline-soft p-0.5 transition-colors duration-200 group-hover:border-hairline-soft-active">
+            <Avatar className="h-9 w-9 border border-hairline-soft">
               <AvatarImage src={image ?? undefined} alt={name ?? "User"} />
               <AvatarFallback className="text-xs">{initials}</AvatarFallback>
               <AvatarBadge className="bg-accent-emerald ring-1 ring-sidebar-bg" />
             </Avatar>
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold tracking-tight text-foreground">
+            <p className="truncate text-body-sm-bold text-ink-deep">
               {name}
             </p>
-            <p className="truncate text-xs text-muted-foreground">
+            <p className="truncate text-caption-bold text-steel">
               {email}
             </p>
           </div>
@@ -165,11 +165,11 @@ function ProfilePopoverContent({
     <div className="flex flex-col">
       {/* User info */}
       <div className="px-3 py-3">
-        <p className="text-sm font-semibold text-foreground">{name}</p>
-        <p className="mt-0.5 truncate text-xs text-muted-foreground">{email}</p>
+        <p className="text-body-sm-bold text-ink-deep">{name}</p>
+        <p className="mt-0.5 truncate text-caption-bold text-steel">{email}</p>
       </div>
 
-      <div className="border-t border-border/60" />
+      <div className="border-t border-hairline-soft/60" />
 
       {/* Actions */}
       <div className="p-1.5">
@@ -177,10 +177,10 @@ function ProfilePopoverContent({
           type="button"
           onClick={onOpenSettings}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm",
-            "text-foreground transition-colors duration-150",
-            "hover:bg-accent",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+            "flex w-full items-center gap-2 rounded-full px-2.5 py-2 text-body-sm",
+            "text-ink-deep transition-colors duration-150",
+            "hover:bg-surface-soft",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
           )}
         >
           <Settings className="h-4 w-4" />
@@ -190,10 +190,10 @@ function ProfilePopoverContent({
           type="button"
           onClick={() => signOut({ callbackUrl: "/login" })}
           className={cn(
-            "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-sm",
-            "text-destructive transition-colors duration-150",
-            "hover:bg-destructive/10",
-            "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+            "flex w-full items-center gap-2 rounded-full px-2.5 py-2 text-body-sm",
+            "text-critical transition-colors duration-150",
+            "hover:bg-critical/10",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
           )}
         >
           <LogOut className="h-4 w-4" />

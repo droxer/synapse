@@ -57,13 +57,15 @@ jest.mock("@/shared/components/ErrorBanner", () => ({
   ErrorBanner: ({ message }: { message: string }) => <div>{message}</div>,
 }));
 
+const zhSubtitle = "描述你的任务，让智能体来完成";
+
 jest.mock("@/i18n", () => ({
   __esModule: true,
   useTranslation: () => ({
     t: (key: string) => {
       const translations: Record<string, string> = {
-        "welcome.heading": "What can I build for you?",
-        "welcome.subtitle": "Describe your task and let the agent handle the rest",
+        "welcome.heading": "我能为你构建什么？",
+        "welcome.subtitle": zhSubtitle,
         "welcome.suggestionsLabel": "Suggested starting points",
         "welcome.suggestion.prototype": "Prototype a feature",
         "welcome.suggestion.prototypePrompt": "Prototype a focused feature with polished UI, accessible interactions, edge cases, and tests.",
@@ -83,22 +85,25 @@ jest.mock("@/i18n", () => ({
 const { HomeScreen } = require("./HomeScreen");
 
 describe("HomeScreen", () => {
-  it("renders a centered welcome heading without forcing a single line", () => {
+  it("renders CJK welcome copy with block-centered utilities (not flex items-center)", () => {
     const html = renderToStaticMarkup(
       <HomeScreen onSubmitTask={jest.fn()} />,
     );
 
-    expect(html).toContain("What can I build for you?");
-    expect(html).toContain("Suggested starting points");
+    expect(html).toContain("我能为你构建什么？");
+    expect(html).toContain(zhSubtitle);
+    expect(html).toContain("cjk-safe-centered text-heading-lg");
+    expect(html).toContain("cjk-safe-centered-constrained text-body-md");
+    expect(html).not.toContain("flex-col items-center");
+    expect(html).not.toContain("items-center justify-center px-4");
+  });
+
+  it("renders suggestion chips with pill touch targets", () => {
+    const html = renderToStaticMarkup(
+      <HomeScreen onSubmitTask={jest.fn()} />,
+    );
+
     expect(html).toContain("Prototype a feature");
-    expect(html).toContain("Improve this screen");
-    expect(html).toContain("Plan the build");
-    expect(html).toContain("fills the message box");
     expect(html).toContain("min-h-11");
-    expect(html).toContain("heading-display");
-    expect(html).toContain("text-center");
-    expect(html).not.toContain("whitespace-nowrap");
-    expect(html).not.toContain("clamp(");
-    expect(html).not.toContain("font-size");
   });
 });

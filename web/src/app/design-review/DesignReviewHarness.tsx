@@ -185,12 +185,12 @@ const artifacts: readonly ArtifactInfo[] = [
 ];
 
 const swatches = [
-  ["Primary", "bg-primary text-primary-foreground"],
-  ["Secondary", "bg-secondary text-secondary-foreground"],
-  ["Muted", "bg-muted text-muted-foreground"],
-  ["Success", "bg-accent-emerald text-primary-foreground"],
-  ["Warning", "bg-accent-amber text-primary-foreground"],
-  ["Error", "bg-destructive text-primary-foreground"],
+  ["Primary", "bg-cobalt text-on-cobalt"],
+  ["Secondary", "bg-surface-soft text-ink"],
+  ["Muted", "bg-surface-soft text-steel"],
+  ["Success", "bg-accent-emerald text-on-cobalt"],
+  ["Warning", "bg-accent-amber text-on-cobalt"],
+  ["Error", "bg-critical-strong text-on-cobalt"],
 ] as const;
 
 export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewTheme }) {
@@ -211,10 +211,10 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
   const themeLabel = theme === "dark" ? "Dark theme" : "Light theme";
 
   return (
-    <main id="main" className="min-h-screen bg-background text-foreground">
+    <main id="main" className="min-h-screen bg-canvas text-ink-deep">
       <ProductPageHeader
-        className="border-b border-border/60 py-4"
-        icon={<Bot className="h-5 w-5 text-muted-foreground" />}
+        className="border-b border-hairline-soft/60 py-4"
+        icon={<Bot className="h-5 w-5 text-steel" />}
         eyebrow="Local visual fixture"
         title={`Frontend design review: ${themeLabel}`}
         description="Development-only route for reviewing authenticated Synapse UI states without OAuth."
@@ -233,7 +233,7 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
       />
 
       <section className="mx-auto grid max-w-6xl gap-4 px-4 py-4 sm:px-6 lg:grid-cols-[minmax(0,1fr)_20rem]">
-        <div className="h-[min(48rem,calc(100vh-9rem))] min-h-[34rem] overflow-hidden rounded-lg border border-border bg-background">
+        <div className="h-[min(48rem,calc(100vh-9rem))] min-h-[34rem] overflow-hidden rounded-lg border border-hairline-soft bg-canvas">
           <ConversationWorkspace
             conversationId="design-review-fixture"
             conversationTitle="Design review fixture"
@@ -256,14 +256,14 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
         <aside className="space-y-4">
           <div className="surface-panel p-4">
             <div className="mb-3 flex items-center gap-2">
-              <FileText className="h-4 w-4 text-muted-foreground" />
+              <FileText className="h-4 w-4 text-steel" />
               <h2 className="text-sm font-semibold">Token and state checks</h2>
             </div>
             <div className="space-y-3">
-              <Progress value={72} indicatorClassName="bg-primary" aria-label="Fixture progress 72%" />
+              <Progress value={72} indicatorClassName="bg-cobalt" aria-label="Fixture progress 72%" />
               <div className="grid grid-cols-2 gap-2">
                 {swatches.map(([label, className]) => (
-                  <div key={label} className={cn("rounded-md border border-border px-2 py-2 text-xs font-medium", className)}>
+                  <div key={label} className={cn("rounded-full border border-hairline-soft px-2 py-2 text-caption-bold", className)}>
                     {label}
                   </div>
                 ))}
@@ -277,7 +277,7 @@ export function DesignReviewHarness({ theme }: { readonly theme: DesignReviewThe
             description="Conversation, progress, DONE state, artifact panel, and token states."
           />
 
-          <div className="h-[22rem] overflow-hidden rounded-lg border border-border">
+          <div className="h-[22rem] overflow-hidden rounded-lg border border-hairline-soft">
             <ArtifactFilesPanel artifacts={artifacts} conversationId={null} />
           </div>
         </aside>

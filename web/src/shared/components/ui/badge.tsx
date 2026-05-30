@@ -4,20 +4,41 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/shared/lib/utils"
 
+/**
+ * DESIGN.md badge variants — all pill-shaped, caption-bold (12px / 700 / 1.33).
+ *
+ * - `default` / `success`: green chip — "In stock", "Verified".
+ * - `promo-yellow`: warning yellow on ink-deep — "Limited time", "Sale".
+ * - `attention`: amber on canvas — "Almost gone", "Selling fast".
+ * - `critical`: red — "Out of stock", validation labels.
+ * - `destructive`: critical-strong fill (alias of critical with the stronger hue).
+ * - `secondary` / `outline` / `ghost` / `link`: legacy aliases kept for compat.
+ */
 const badgeVariants = cva(
-  "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden rounded-sm border border-transparent px-2 py-0.5 text-[11px] font-medium tracking-wide whitespace-nowrap transition-[color,box-shadow] focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background aria-invalid:border-destructive aria-invalid:ring-destructive/20 [&>svg]:pointer-events-none [&>svg]:size-3",
+  [
+    "inline-flex w-fit shrink-0 items-center justify-center gap-1 overflow-hidden",
+    "rounded-full border border-transparent px-2.5 py-1",
+    "text-caption-bold whitespace-nowrap",
+    "transition-[color,box-shadow]",
+    "focus-visible:border-focus focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+    "aria-invalid:border-critical-strong aria-invalid:ring-critical-strong/20",
+    "[&>svg]:pointer-events-none [&>svg]:size-3",
+  ].join(" "),
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground [a&]:hover:bg-primary/90",
-        secondary:
-          "bg-secondary text-secondary-foreground [a&]:hover:bg-accent",
+        default: "bg-success text-canvas [a&]:hover:bg-success/90",
+        success: "bg-success text-canvas [a&]:hover:bg-success/90",
+        "promo-yellow": "bg-warning text-ink-deep [a&]:hover:bg-warning/90",
+        attention: "bg-attention text-canvas [a&]:hover:bg-attention/90",
+        critical: "bg-critical text-canvas [a&]:hover:bg-critical/90",
         destructive:
-          "bg-destructive text-primary-foreground focus-visible:ring-destructive/20 dark:bg-destructive/60 dark:focus-visible:ring-destructive/40 [a&]:hover:bg-destructive/90",
+          "bg-critical-strong text-canvas focus-visible:ring-critical-strong/40 [a&]:hover:bg-critical",
+        secondary: "bg-surface-soft text-ink [a&]:hover:bg-hairline-soft",
         outline:
-          "border-border text-foreground [a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        ghost: "[a&]:hover:bg-accent [a&]:hover:text-accent-foreground",
-        link: "text-focus underline-offset-4 [a&]:hover:text-focus/80 [a&]:hover:underline",
+          "border border-hairline text-ink-deep [a&]:hover:bg-surface-soft",
+        ghost: "text-ink [a&]:hover:bg-surface-soft",
+        link: "text-cobalt underline-offset-4 [a&]:hover:text-cobalt-deep [a&]:hover:underline",
       },
     },
     defaultVariants: {

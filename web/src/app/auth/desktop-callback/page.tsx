@@ -55,23 +55,23 @@ function CallbackContent() {
   }, [deepLinkHref, session, status, nonce]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+    <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
       <div className="surface-panel w-full max-w-md px-6 py-8 text-center">
         <div className="flex flex-col items-center gap-4">
           <Logo size={48} tone="auto" className="rounded-lg" />
           {status === "loading" && (
             <>
-              <div className="h-5 w-5 rounded skeleton-shimmer bg-muted" />
-              <p className="text-sm text-muted-foreground">Verifying session...</p>
+              <div className="h-5 w-5 rounded skeleton-shimmer bg-surface-soft" />
+              <p className="text-sm text-steel">Verifying session...</p>
             </>
           )}
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          {error && <p className="text-sm text-critical">{error}</p>}
           {!nonce && status !== "loading" && (
-            <p className="text-sm text-destructive">Missing nonce parameter</p>
+            <p className="text-sm text-critical">Missing nonce parameter</p>
           )}
           {done && (
             <>
-              <p className="text-sm text-muted-foreground">
+              <p className="text-sm text-steel">
                 Sign in successful! Opening the Synapse desktop app...
               </p>
               {deepLinkHref && (
@@ -82,7 +82,7 @@ function CallbackContent() {
                   Open desktop app
                 </a>
               )}
-              <p className="text-xs text-muted-foreground-dim">
+              <p className="text-xs text-stone">
                 You can close this browser tab.
               </p>
             </>
@@ -97,8 +97,8 @@ export default function DesktopCallbackPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center bg-background">
-          <div className="h-6 w-6 rounded skeleton-shimmer bg-muted" />
+        <div className="flex min-h-screen items-center justify-center bg-canvas">
+          <div className="h-6 w-6 rounded skeleton-shimmer bg-surface-soft" />
         </div>
       }
     >

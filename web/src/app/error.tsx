@@ -11,12 +11,12 @@ interface ErrorPageProps {
 export default function ErrorPage({ error, reset }: ErrorPageProps) {
   const { t } = useTranslation();
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background">
-      <div className="flex flex-col items-center gap-4 text-center">
-        <h1 className="text-xl font-semibold text-foreground">
+    <div className="flex h-screen w-screen items-center justify-center bg-canvas">
+      <div className="flex w-full max-w-md flex-col items-center gap-4 px-6 text-center">
+        <h1 className="w-full text-heading-sm text-ink-deep">
           {t("error.title")}
         </h1>
-        <p className="max-w-md text-sm text-muted-foreground">
+        <p className="w-full text-body-sm text-steel">
           {error.message || t("error.fallback")}
         </p>
         <Button onClick={reset}>

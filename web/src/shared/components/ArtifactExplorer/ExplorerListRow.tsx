@@ -55,11 +55,11 @@ export function ExplorerListRow({
   return (
     <motion.div
       className={cn(
-        "flex items-center gap-3 px-3 border-b border-border/60 last:border-b-0",
+        "flex items-center gap-3 px-3 border-b border-hairline-soft/60 last:border-b-0",
         "border-l transition-colors duration-150 ease-out group relative",
         isPreviewOpen
-          ? "bg-secondary border-l-border-strong"
-          : "hover:bg-secondary",
+          ? "bg-surface-soft border-l-border-strong"
+          : "hover:bg-surface-soft",
       )}
       style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
       initial={{ opacity: 0, x: -4 }}
@@ -81,22 +81,22 @@ export function ExplorerListRow({
         data-file-card-preview="true"
         aria-label={`Preview ${item.name}`}
         onClick={() => onPreview(item)}
-        className="flex-1 min-w-0 py-[11px] text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-inset"
+        className="flex-1 min-w-0 py-[11px] text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-inset"
       >
-        <p className="truncate text-sm font-medium text-foreground leading-snug" title={item.name}>
+        <p className="truncate text-sm font-medium text-ink-deep leading-snug" title={item.name}>
           {item.name}
         </p>
         {!hideConversationLabel && item.conversationTitle && (
-          <p className="truncate text-xs text-muted-foreground-dim mt-0.5">
+          <p className="truncate text-xs text-stone mt-0.5">
             {item.conversationTitle}
           </p>
         )}
       </button>
 
       {/* Metadata: type badge + size + date */}
-      <div className="shrink-0 hidden sm:flex items-center gap-3 text-xs text-muted-foreground">
+      <div className="shrink-0 hidden sm:flex items-center gap-3 text-xs text-steel">
         {ext && (
-          <span className="rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase tracking-wide text-muted-foreground">
+          <span className="rounded bg-surface-soft px-1.5 py-0.5 font-mono text-micro uppercase tracking-wide text-steel">
             {ext}
           </span>
         )}
@@ -113,18 +113,18 @@ export function ExplorerListRow({
           type="button"
           aria-label={t("explorer.deleteFileLabel", { name: item.name })}
           onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
-          className="touch-target shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-destructive/10 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+          className="touch-target shrink-0 flex h-7 w-7 items-center justify-center rounded-full border border-hairline-soft bg-canvas transition-colors hover:bg-critical/10 hover:text-critical hover:border-critical-strong/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40"
         >
-          <Trash2 aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+          <Trash2 aria-hidden="true" className="h-3.5 w-3.5 text-steel" />
         </button>
       )}
       <button
         type="button"
         aria-label={`Download ${item.name}`}
         onClick={(e) => { e.stopPropagation(); onDownload(item); }}
-        className="touch-target shrink-0 flex h-7 w-7 items-center justify-center rounded-md border border-border bg-background transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        className="touch-target shrink-0 flex h-7 w-7 items-center justify-center rounded-full border border-hairline-soft bg-canvas transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40"
       >
-        <Download aria-hidden="true" className="h-3.5 w-3.5 text-muted-foreground" />
+        <Download aria-hidden="true" className="h-3.5 w-3.5 text-steel" />
       </button>
     </motion.div>
   );

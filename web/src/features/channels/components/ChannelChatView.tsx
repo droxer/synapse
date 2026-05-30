@@ -237,19 +237,19 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
   return (
     <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
       {pendingAsk && (
-        <div className="border-b border-border/60 bg-secondary px-4 py-3">
+        <div className="border-b border-hairline-soft/60 bg-surface-soft px-4 py-3">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-border bg-background text-muted-foreground">
+            <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-hairline-soft bg-canvas text-steel">
               <MessageCircle className="h-4 w-4" />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="label-mono text-muted-foreground">
+              <p className="label-mono text-steel">
                 {pendingAsk.title ?? t("inputPrompt.title")}
               </p>
-              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-deep">
                 {pendingAsk.question}
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="mt-1 text-xs text-steel">
                 {promptDisablesComposer
                   ? t("channels.prompt.chooseOption")
                   : t("inputPrompt.subtitle")}
@@ -261,14 +261,14 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
                       key={option.id ?? option.value ?? option.label ?? idx}
                       type="button"
                       onClick={() => void handlePromptSubmit(option.value ?? option.label)}
-                      className="flex min-h-10 w-full items-start rounded-md border border-border bg-background px-3 py-2 text-left transition-colors hover:border-border-active hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                      className="flex min-h-10 w-full items-start rounded-md border border-hairline-soft bg-canvas px-3 py-2 text-left transition-colors hover:border-charcoal hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                     >
                       <span className="flex min-w-0 flex-col gap-0.5">
-                        <span className="text-sm font-medium leading-5 text-foreground">
+                        <span className="text-sm font-medium leading-5 text-ink-deep">
                           {option.label}
                         </span>
                         {option.description && (
-                          <span className="text-xs leading-4 text-muted-foreground">
+                          <span className="text-xs leading-4 text-steel">
                             {option.description}
                           </span>
                         )}
@@ -278,7 +278,7 @@ export function ChannelChatView({ conversation, hideTopBar }: ChannelChatViewPro
                 </div>
               )}
               {respondError && (
-                <p className="mt-2 text-xs text-destructive">
+                <p className="mt-2 text-xs text-critical">
                   {respondError}
                 </p>
               )}

@@ -128,15 +128,15 @@ export function ChannelConversationList({
 
   if (loadError) {
     return (
-      <div className="m-2 flex flex-col items-center gap-3 rounded-lg border border-destructive bg-destructive/5 px-4 py-8 text-center">
-        <p className="text-xs text-destructive">{loadError}</p>
+      <div className="m-2 flex flex-col items-center gap-3 rounded-lg border border-critical-strong bg-critical-strong/5 px-4 py-8 text-center">
+        <p className="text-xs text-critical">{loadError}</p>
         <button
           type="button"
           onClick={() => {
             setLoading(true);
             void fetchConversations();
           }}
-          className="inline-flex items-center gap-1.5 rounded-md border border-destructive bg-destructive/10 px-3 py-1.5 text-xs font-medium text-destructive transition-colors hover:bg-destructive/20 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="inline-flex items-center gap-1.5 rounded-md border border-critical-strong bg-critical/10 px-3 py-1.5 text-xs font-medium text-critical transition-colors hover:bg-critical-strong/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           <RefreshCw className="h-3 w-3" />
           {t("channels.list.retry")}
@@ -147,9 +147,9 @@ export function ChannelConversationList({
 
   if (conversations.length === 0) {
     return (
-      <div className="mx-2 mt-1 rounded-md border border-dashed border-border bg-secondary px-3 py-4 text-center">
-        <p className="text-xs font-medium text-muted-foreground">{t("channels.list.emptyTitle")}</p>
-        <p className="mt-0.5 text-micro leading-normal text-muted-foreground-dim">
+      <div className="mx-2 mt-1 rounded-md border border-dashed border-hairline-soft bg-surface-soft px-3 py-4 text-center">
+        <p className="text-xs font-medium text-steel">{t("channels.list.emptyTitle")}</p>
+        <p className="mt-0.5 text-micro leading-normal text-stone">
           {t("channels.list.emptyHint")}
         </p>
       </div>
@@ -174,7 +174,7 @@ export function ChannelConversationList({
         className="space-y-0.5 px-2 py-1.5"
       >
         {actionError && (
-          <div className="mx-0.5 mb-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-xs text-destructive">
+          <div className="mx-0.5 mb-2 rounded-md border border-critical-strong bg-critical-strong/5 px-3 py-2 text-xs text-critical">
             {actionError}
           </div>
         )}
@@ -192,19 +192,19 @@ export function ChannelConversationList({
               className={cn(
                 "group relative flex w-full items-center rounded-md text-left transition-colors duration-150",
                 isSelected
-                  ? "bg-muted text-foreground before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r-full before:bg-border-strong before:content-['']"
-                  : "text-foreground hover:bg-sidebar-hover",
+                  ? "bg-surface-soft text-ink-deep before:absolute before:bottom-1.5 before:left-0 before:top-1.5 before:w-0.5 before:rounded-r-full before:bg-border-strong before:content-['']"
+                  : "text-ink-deep hover:bg-sidebar-hover",
                 deletingId === conv.conversation_id && "pointer-events-none opacity-50",
               )}
             >
               <button
                 type="button"
                 onClick={() => onSelect(conv)}
-                className="flex w-full flex-1 items-center gap-3 rounded-md px-2.5 py-2.5 text-left outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                className="flex w-full flex-1 items-center gap-3 rounded-md px-2.5 py-2.5 text-left outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               >
                 <div className="relative shrink-0">
                   <div
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border text-sm font-semibold text-primary-foreground"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-hairline-soft text-sm font-semibold text-on-cobalt"
                     style={{ background: `linear-gradient(135deg, ${providerColor}cc, ${providerColor})` }}
                   >
                     {initial}
@@ -217,21 +217,21 @@ export function ChannelConversationList({
 
                 <div className="min-w-0 flex-1">
                   <div className="flex items-baseline justify-between gap-1.5">
-                    <span className="truncate pr-6 text-sm font-medium leading-tight text-foreground">
+                    <span className="truncate pr-6 text-sm font-medium leading-tight text-ink-deep">
                       {name}
                     </span>
                     {conv.last_message_at && (
-                      <span className="shrink-0 font-medium tabular-nums text-micro text-muted-foreground-dim transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
+                      <span className="shrink-0 font-medium tabular-nums text-micro text-stone transition-opacity group-hover:opacity-0 group-focus-within:opacity-0">
                         {formatRelativeTime(conv.last_message_at, locale, t)}
                       </span>
                     )}
                   </div>
                   {conv.last_message ? (
-                    <p className="mt-0.5 truncate text-xs leading-tight text-muted-foreground">
+                    <p className="mt-0.5 truncate text-xs leading-tight text-steel">
                       {conv.last_message}
                     </p>
                   ) : (
-                    <p className="mt-0.5 text-xs italic leading-tight text-muted-foreground-dim">
+                    <p className="mt-0.5 text-xs italic leading-tight text-stone">
                       {t("channels.list.newConversation")}
                     </p>
                   )}
@@ -248,12 +248,12 @@ export function ChannelConversationList({
                 <button
                   type="button"
                   onClick={(e) => handleDeleteClick(e, conv.conversation_id)}
-                  className="touch-target flex h-7 w-7 items-center justify-center rounded-md border border-border bg-card text-muted-foreground hover:border-destructive hover:bg-destructive/10 hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  className="touch-target flex h-7 w-7 items-center justify-center rounded-md border border-hairline-soft bg-card text-steel hover:border-critical-strong hover:bg-critical/10 hover:text-critical focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                   title={t("channels.list.deleteConversation")}
                   aria-label={t("channels.list.deleteConversation")}
                 >
                   {deletingId === conv.conversation_id ? (
-                    <Trash2 className="h-3.5 w-3.5 animate-pulse text-destructive" aria-hidden />
+                    <Trash2 className="h-3.5 w-3.5 animate-pulse text-critical" aria-hidden />
                   ) : (
                     <Trash2 className="h-3.5 w-3.5" aria-hidden />
                   )}

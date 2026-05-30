@@ -241,7 +241,7 @@ export function ArtifactExplorer({
     : null;
 
   return (
-    <div className="flex h-full flex-col overflow-y-auto bg-background">
+    <div className="flex h-full flex-col overflow-y-auto bg-canvas">
       <div className="flex-1 min-w-0">
         <ExplorerFileList
           items={allItems}

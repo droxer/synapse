@@ -122,10 +122,10 @@ describe("AgentComputerPanel typography", () => {
       />,
     );
 
-    expect(html).toContain("mt-1 text-sm leading-relaxed text-muted-foreground");
-    expect(html).toContain("text-sm italic leading-relaxed text-muted-foreground");
-    expect(html).toContain("ml-1 rounded text-sm text-muted-foreground");
-    expect(html).toContain("truncate text-micro text-muted-foreground");
+    expect(html).toContain("mt-1 text-sm leading-relaxed text-steel");
+    expect(html).toContain("text-sm italic leading-relaxed text-steel");
+    expect(html).toContain("ml-1 rounded text-sm text-steel");
+    expect(html).toContain("truncate text-micro text-steel");
     expect(html).toContain("label-mono");
     expect(html).toContain("data-agent-tool-owner=\"agent-1\"");
     expect(html).toContain("data-agent-tool-anchor=\"true\"");

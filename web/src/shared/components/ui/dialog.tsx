@@ -76,7 +76,7 @@ function DialogContent({
           <DialogPrimitive.Close
             data-slot="dialog-close"
             aria-label={resolvedCloseLabel}
-            className="absolute top-4 right-4 rounded-md border border-transparent p-1 opacity-70 transition-colors hover:border-border hover:bg-accent hover:text-foreground hover:opacity-100 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
+            className="absolute top-4 right-4 rounded-md border border-transparent p-1 opacity-70 transition-colors hover:border-hairline-soft hover:bg-accent hover:text-ink-deep hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:pointer-events-none [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4"
           >
             <XIcon />
             <span className="sr-only">{resolvedCloseLabel}</span>
@@ -121,7 +121,7 @@ function DialogFooter({
       {children}
       {showCloseButton && (
         <DialogPrimitive.Close asChild>
-          <Button variant="outline">{resolvedCloseLabel}</Button>
+          <Button variant="secondary">{resolvedCloseLabel}</Button>
         </DialogPrimitive.Close>
       )}
     </div>
@@ -148,7 +148,7 @@ function DialogDescription({
   return (
     <DialogPrimitive.Description
       data-slot="dialog-description"
-      className={cn("text-sm text-muted-foreground", className)}
+      className={cn("text-sm text-steel", className)}
       {...props}
     />
   )

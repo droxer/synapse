@@ -168,10 +168,10 @@ function TreeNode({
         onClick={handleClick}
         className={cn(
           "flex w-full items-center gap-1.5 rounded-sm px-2 py-1.5 text-left font-sans text-xs",
-          "hover:bg-secondary transition-colors",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-          isSelected && "bg-secondary text-foreground",
-          !isSelected && "text-muted-foreground",
+          "hover:bg-surface-soft transition-colors",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+          isSelected && "bg-surface-soft text-ink-deep",
+          !isSelected && "text-steel",
         )}
         style={{ paddingLeft: `${depth * 16 + 8}px` }}
       >
@@ -186,7 +186,7 @@ function TreeNode({
         )}
         <FileIcon aria-hidden="true" className={cn(
           "h-3.5 w-3.5 shrink-0",
-          isDir ? "text-muted-foreground" : "opacity-60",
+          isDir ? "text-steel" : "opacity-60",
         )} />
         <span className="truncate">{node.name}</span>
       </button>

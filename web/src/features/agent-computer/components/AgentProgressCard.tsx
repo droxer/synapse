@@ -779,51 +779,51 @@ function getStepStatusVisual(status: TimelineStepStatus): StatusVisual {
   switch (status) {
     case "error":
       return {
-        text: "text-destructive",
-        rowBase: "rounded-lg bg-destructive/5",
-        rowHover: "hover:bg-destructive/8",
-        iconSurface: "bg-muted",
-        iconColor: "text-destructive",
+        text: "text-critical",
+        rowBase: "rounded-lg bg-critical-strong/5",
+        rowHover: "hover:bg-critical-strong/8",
+        iconSurface: "bg-surface-soft",
+        iconColor: "text-critical",
       };
     case "replan_required":
       return {
         text: "text-accent-amber",
         rowBase: "rounded-lg bg-accent-amber/5",
         rowHover: "hover:bg-accent-amber/8",
-        iconSurface: "bg-muted",
+        iconSurface: "bg-surface-soft",
         iconColor: "text-accent-amber",
       };
     case "skipped":
       return {
-        text: "text-muted-foreground",
+        text: "text-steel",
         rowBase: "rounded-lg opacity-60",
-        rowHover: "hover:bg-muted hover:opacity-100",
-        iconSurface: "bg-muted",
-        iconColor: "text-muted-foreground-dim",
+        rowHover: "hover:bg-surface-soft hover:opacity-100",
+        iconSurface: "bg-surface-soft",
+        iconColor: "text-stone",
       };
     case "pending":
       return {
-        text: "text-muted-foreground",
+        text: "text-steel",
         rowBase: "rounded-lg opacity-80",
-        rowHover: "hover:bg-muted/70",
-        iconSurface: "bg-muted",
-        iconColor: "text-muted-foreground-dim",
+        rowHover: "hover:bg-surface-soft/70",
+        iconSurface: "bg-surface-soft",
+        iconColor: "text-stone",
       };
     case "running":
       return {
-        text: "text-foreground",
-        rowBase: "rounded-lg bg-muted/60",
-        rowHover: "hover:bg-muted",
-        iconSurface: "bg-background",
+        text: "text-ink-deep",
+        rowBase: "rounded-lg bg-surface-soft/60",
+        rowHover: "hover:bg-surface-soft",
+        iconSurface: "bg-canvas",
         iconColor: "text-focus",
       };
     default:
       return {
-        text: "text-foreground",
+        text: "text-ink-deep",
         rowBase: "rounded-lg",
-        rowHover: "hover:bg-muted/60",
-        iconSurface: "bg-muted",
-        iconColor: "text-foreground",
+        rowHover: "hover:bg-surface-soft/60",
+        iconSurface: "bg-surface-soft",
+        iconColor: "text-ink-deep",
       };
   }
 }
@@ -849,7 +849,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
         <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
           <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
           <CircleX
-            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-canvas text-critical"
             strokeWidth={2.5}
             aria-hidden
           />
@@ -892,7 +892,7 @@ function StepIcon({ step }: { readonly step: TimelineStep }) {
       <span className={cn("relative", STEP_ICON_FRAME_CLASS, visual.iconSurface)}>
         <Icon className={cn(STEP_ICON_GLYPH_CLASS, visual.iconColor)} strokeWidth={2.25} />
         <Check
-          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+          className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-canvas text-accent-emerald"
           strokeWidth={3}
           aria-hidden
         />
@@ -1001,7 +1001,7 @@ export function AgentProgressCard({
   return (
     <motion.div
       lang="en"
-      className="surface-panel overflow-hidden border-border"
+      className="surface-panel overflow-hidden border-hairline-soft"
       initial={{ opacity: 0, y: 4 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.12, ease: "easeOut" }}
@@ -1017,11 +1017,11 @@ export function AgentProgressCard({
             type="button"
             aria-label={panelOpen ? t("progress.closePanel") : t("progress.openPanel")}
             onClick={(e) => { e.stopPropagation(); onClick?.(); }}
-            className="touch-target flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-border text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="touch-target flex h-6 w-6 shrink-0 items-center justify-center rounded-md border border-hairline-soft text-steel transition-colors hover:bg-surface-soft hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           >
             <Monitor className="h-3.5 w-3.5" />
           </button>
-          <span className="label-mono flex-1 truncate text-muted-foreground">{t("progress.title")}</span>
+          <span className="label-mono flex-1 truncate text-steel">{t("progress.title")}</span>
           <TaskStateBadge state={taskState} t={t} />
           <span
             className={cn(
@@ -1043,7 +1043,7 @@ export function AgentProgressCard({
             aria-expanded={expanded}
             aria-controls={stepListId}
             onClick={() => setExpanded((prev) => !prev)}
-            className="border border-transparent text-muted-foreground hover:border-border hover:bg-muted hover:text-foreground"
+            className="border border-transparent text-steel hover:border-hairline-soft hover:bg-surface-soft hover:text-ink-deep"
           >
             <motion.span
               animate={{ rotate: expanded ? 180 : 0 }}
@@ -1056,7 +1056,7 @@ export function AgentProgressCard({
         </div>
 
         {headerProgressLine && (!expanded || isRunning) && (
-          <p className="mt-1.5 break-words text-xs text-muted-foreground">
+          <p className="mt-1.5 break-words text-xs text-steel">
             {headerProgressLine}
           </p>
         )}
@@ -1066,7 +1066,7 @@ export function AgentProgressCard({
       <div className="px-3 pb-2.5 pt-2">
         <Progress
           value={progressPercent}
-          className="h-1.5 rounded-full bg-muted"
+          className="h-1.5 rounded-full bg-surface-soft"
           indicatorClassName={getTaskStateProgressIndicatorClass(taskState)}
           aria-label={t("progress.taskProgress", { percent: progressPercent })}
         />
@@ -1095,7 +1095,7 @@ export function AgentProgressCard({
                       isClickable && "cursor-pointer transition-colors duration-150",
                       isClickable && stepVisual.rowHover,
                       isClickable &&
-                        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
                     );
                     const rowContent = (
                       <>

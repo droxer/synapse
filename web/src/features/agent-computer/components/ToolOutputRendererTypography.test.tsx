@@ -37,9 +37,9 @@ describe("ToolOutputRenderer typography", () => {
       />,
     );
 
-    expect(html).toContain("text-sm leading-relaxed text-muted-foreground");
-    expect(html).toContain("mt-1 text-sm text-muted-foreground");
-    expect(html).toContain("border-destructive bg-card");
+    expect(html).toContain("text-sm leading-relaxed text-steel");
+    expect(html).toContain("mt-1 text-sm text-steel");
+    expect(html).toContain("border-critical-strong bg-card");
   });
 
   it("constrains tall output bodies inside a scrollable region", () => {
@@ -90,7 +90,7 @@ describe("ToolOutputRenderer typography", () => {
     expect(html).toContain("data-markdown=\"true\"");
     expect(html).toContain("**Done**");
     expect(html).toContain("| Item | Status |");
-    expect(html).toContain("text-sm leading-relaxed text-muted-foreground");
+    expect(html).toContain("text-sm leading-relaxed text-steel");
     expect(html).toContain("[&amp;_ul]:my-1.5");
   });
 
@@ -114,7 +114,7 @@ describe("ToolOutputRenderer typography", () => {
     expect(html).toContain("data-markdown=\"true\"");
     expect(html).toContain("**Failed**");
     expect(html).toContain("missing result");
-    expect(html).toContain("text-sm leading-relaxed text-muted-foreground");
+    expect(html).toContain("text-sm leading-relaxed text-steel");
     expect(html).toContain("[&amp;_code]:rounded");
   });
 

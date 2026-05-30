@@ -20,11 +20,10 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
   }, []);
 
   return (
-    <header className="flex h-12 shrink-0 items-center justify-between gap-3 bg-background px-4">
-      {/* Left: title + live badge */}
+    <header className="flex h-12 shrink-0 items-center justify-between gap-3 border-b border-hairline-soft bg-canvas px-4">
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Radio className="h-4 w-4 shrink-0 text-muted-foreground" />
-        <h1 className="min-w-0 truncate text-xl font-semibold tracking-tight text-foreground sm:text-2xl">{t("channels.title")}</h1>
+        <Radio className="h-4 w-4 shrink-0 text-steel" />
+        <h1 className="min-w-0 truncate text-heading-sm text-ink-deep sm:text-heading-lg">{t("channels.title")}</h1>
         {telegramConfigured && (
           <span className="status-pill status-ok shrink-0">
             <span className="inline-flex h-1.5 w-1.5 rounded-full bg-accent-emerald" />
@@ -33,7 +32,6 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
         )}
       </div>
 
-      {/* Right: settings + search */}
       <div className="flex shrink-0 items-center gap-2">
         <Tooltip>
           <TooltipTrigger asChild>
@@ -42,28 +40,30 @@ export function ChannelPageHeader({ telegramConfigured, onOpenSettings }: Channe
               size="icon"
               onClick={onOpenSettings}
               aria-label={t("channels.header.telegramSettings")}
-              className="relative h-8 w-8 text-muted-foreground hover:text-foreground"
+              className="relative h-8 w-8 text-steel hover:text-ink-deep"
             >
               <Settings className="h-4 w-4" />
               {telegramConfigured && (
-                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-emerald ring-1 ring-background" />
+                <span className="absolute -top-0.5 -right-0.5 h-1.5 w-1.5 rounded-full bg-accent-emerald ring-1 ring-canvas" />
               )}
             </Button>
           </TooltipTrigger>
           <TooltipContent>{t("channels.header.telegramSettings")}</TooltipContent>
         </Tooltip>
 
-        <Button
+        <button
           type="button"
           onClick={handleOpenCommandPalette}
-          variant="secondary"
-          size="sm"
-          className="shrink-0 gap-2 text-muted-foreground hover:text-foreground"
+          aria-label={t("channels.header.search")}
+          data-slot="search-pill"
+          className="search-pill shrink-0 cursor-pointer outline-none hover:text-ink hover:border-hairline-soft focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           <Search className="h-4 w-4" />
           <span className="hidden sm:inline">{t("channels.header.search")}</span>
-          <kbd className="hidden sm:inline rounded bg-background px-1 py-0.5 font-mono text-micro text-muted-foreground-dim ring-1 ring-border">⌘K</kbd>
-        </Button>
+          <kbd className="hidden rounded-full bg-canvas px-2 py-0.5 font-mono text-caption-bold text-steel sm:inline">
+            ⌘K
+          </kbd>
+        </button>
       </div>
     </header>
   );

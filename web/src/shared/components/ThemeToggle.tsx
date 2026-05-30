@@ -111,7 +111,7 @@ export function ThemeToggle({ collapsed = false }: ThemeToggleProps) {
               value={value}
               className="gap-2 rounded-md text-xs"
             >
-              <ItemIcon className="h-3.5 w-3.5 text-muted-foreground" />
+              <ItemIcon className="h-3.5 w-3.5 text-steel" />
               {t(labelKey)}
             </DropdownMenuRadioItem>
           ))}

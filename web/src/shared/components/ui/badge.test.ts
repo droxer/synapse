@@ -2,31 +2,42 @@ import { describe, expect, it } from "@jest/globals";
 
 import { badgeVariants } from "./badge";
 
+/**
+ * DESIGN.md badge variants resolve to canonical short-name color utilities
+ * (`bg-success`, `text-ink-deep`, …) generated from the @theme tokens.
+ */
 describe("badgeVariants", () => {
-  it("keeps the default badge mapped to primary CTA tokens", () => {
-    const classes = badgeVariants({ variant: "default" });
-
-    expect(classes).toContain("bg-primary");
-    expect(classes).toContain("text-primary-foreground");
+  it("default and success share the green success fill", () => {
+    for (const variant of ["default", "success"] as const) {
+      const classes = badgeVariants({ variant });
+      expect(classes).toContain("bg-success");
+      expect(classes).toContain("text-canvas");
+    }
   });
 
-  it("uses tinted support tokens for secondary badges", () => {
-    const classes = badgeVariants({ variant: "secondary" });
-
-    expect(classes).toContain("bg-secondary");
-    expect(classes).toContain("text-secondary-foreground");
-    expect(classes).toContain("[a&]:hover:bg-accent");
+  it("promo-yellow uses warning yellow on ink-deep text", () => {
+    const classes = badgeVariants({ variant: "promo-yellow" });
+    expect(classes).toContain("bg-warning");
+    expect(classes).toContain("text-ink-deep");
   });
 
-  it("uses accent hover states for outline and ghost badges", () => {
-    expect(badgeVariants({ variant: "outline" })).toContain("[a&]:hover:bg-accent");
-    expect(badgeVariants({ variant: "ghost" })).toContain("[a&]:hover:bg-accent");
+  it("critical and destructive surface the red error tokens", () => {
+    expect(badgeVariants({ variant: "critical" })).toContain("bg-critical");
+    expect(badgeVariants({ variant: "destructive" })).toContain("bg-critical-strong");
   });
 
-  it("uses the focus token for link badges instead of the primary fill token", () => {
+  it("link badges use cobalt text and no solid fill", () => {
     const classes = badgeVariants({ variant: "link" });
+    expect(classes).toContain("text-cobalt");
+    expect(classes).not.toMatch(/\bbg-cobalt\b/);
+  });
 
-    expect(classes).toContain("text-focus");
-    expect(classes).not.toContain("text-primary ");
+  it("every badge is pill-shaped (rounded-full) per DESIGN.md", () => {
+    for (const variant of [
+      "default", "success", "promo-yellow", "attention", "critical", "destructive",
+      "secondary", "outline", "ghost", "link",
+    ] as const) {
+      expect(badgeVariants({ variant })).toContain("rounded-full");
+    }
   });
 });

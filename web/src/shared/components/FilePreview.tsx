@@ -318,7 +318,7 @@ export function FilePreview({
   }, [fetchMode, inlineUrl, url]);
 
   const downloadButton = onDownload ? (
-    <Button variant="outline" size="sm" onClick={onDownload}>
+    <Button variant="secondary" size="sm" onClick={onDownload}>
       <Download className="mr-1.5 h-3.5 w-3.5" />
       {t("artifacts.downloadFile")}
     </Button>
@@ -336,7 +336,7 @@ export function FilePreview({
           <Skeleton className="h-4 w-2/3" />
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-4/5" />
-          <p className="text-sm text-muted-foreground">
+          <p className="text-sm text-steel">
             {t("artifacts.previewLoading")}
           </p>
         </div>
@@ -348,7 +348,7 @@ export function FilePreview({
   if (content.status === "error") {
     return (
       <div className={className}>
-        <div className="flex h-48 flex-col items-center justify-center gap-3 text-muted-foreground">
+        <div className="flex h-48 flex-col items-center justify-center gap-3 text-steel">
           <p className="text-sm">{t("artifacts.previewError")}</p>
           {downloadButton}
         </div>
@@ -384,7 +384,7 @@ export function FilePreview({
     if (isMarkdownType(ct, fileName)) {
       return (
         <div className={className}>
-          <div className="rounded-md border border-border bg-background px-4 py-3">
+          <div className="rounded-md border border-hairline-soft bg-canvas px-4 py-3">
             <MarkdownRenderer content={content.text} isStreaming={false} />
           </div>
         </div>
@@ -412,7 +412,7 @@ export function FilePreview({
           src={inlineUrl}
           title={fileName}
           sandbox="allow-scripts allow-same-origin"
-          className="h-[70vh] w-full rounded-md border border-border"
+          className="h-[70vh] w-full rounded-md border border-hairline-soft"
         />
       </div>
     );
@@ -426,7 +426,7 @@ export function FilePreview({
           src={inlineUrl}
           title={fileName}
           sandbox="allow-same-origin"
-          className="h-[70vh] w-full rounded-md border border-border"
+          className="h-[70vh] w-full rounded-md border border-hairline-soft"
         />
       </div>
     );
@@ -441,7 +441,7 @@ export function FilePreview({
           srcDoc={srcDoc}
           title={fileName}
           sandbox="allow-same-origin"
-          className="h-[70vh] w-full rounded-md border border-border"
+          className="h-[70vh] w-full rounded-md border border-hairline-soft"
         />
       </div>
     );
@@ -455,16 +455,16 @@ export function FilePreview({
           {content.manifest.slides.map((slide) => (
             <figure
               key={slide.index}
-              className="overflow-hidden rounded-lg border border-border bg-card"
+              className="overflow-hidden rounded-lg border border-hairline-soft bg-card"
             >
-              <div className="border-b border-border/60 px-3 py-2 label-mono text-muted-foreground">
+              <div className="border-b border-hairline-soft/60 px-3 py-2 label-mono text-steel">
                 {`Slide ${slide.index}`}
               </div>
               <img
                 src={slide.image_url}
                 alt={`${fileName} slide ${slide.index}`}
                 loading="lazy"
-                className="w-full bg-muted object-contain"
+                className="w-full bg-surface-soft object-contain"
               />
             </figure>
           ))}
@@ -476,7 +476,7 @@ export function FilePreview({
   /* ---- Fallback ---- */
   return (
     <div className={className}>
-      <div className="flex h-48 flex-col items-center justify-center gap-3 text-muted-foreground">
+      <div className="flex h-48 flex-col items-center justify-center gap-3 text-steel">
         <p className="text-sm">{t("artifacts.previewUnsupported")}</p>
         {downloadButton}
       </div>

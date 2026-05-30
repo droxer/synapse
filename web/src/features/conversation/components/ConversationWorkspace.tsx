@@ -76,8 +76,8 @@ export function getAgentComputerPanelClassName(
 ) {
   return cn(
     isMobile
-      ? "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-background"
-      : "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-border bg-background",
+      ? "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-canvas"
+      : "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-hairline-soft bg-canvas",
     !isMobile && panelBorderClass,
   );
 }
@@ -130,7 +130,7 @@ function InlineImage({ url, alt, fallbackText }: { url: string; alt: string; fal
   const [failed, setFailed] = useState(false);
 
   if (failed) {
-    return <span className="text-sm text-muted-foreground">{fallbackText}</span>;
+    return <span className="text-sm text-steel">{fallbackText}</span>;
   }
 
   return (
@@ -241,7 +241,7 @@ export const MessageRow = memo(function MessageRow({
         >
           <div className={cn("max-w-[94%] min-w-[120px]", messageWidthClass)}>
             <div className="surface-message-user px-4 py-3">
-              <p className="whitespace-pre-wrap text-sm leading-relaxed text-foreground">
+              <p className="whitespace-pre-wrap text-sm leading-relaxed text-ink-deep">
                 {msg.content}
               </p>
               {msg.attachments && msg.attachments.length > 0 && (
@@ -249,7 +249,7 @@ export const MessageRow = memo(function MessageRow({
                   {msg.attachments.map((att, attachmentIndex) => (
                     <span
                       key={`${att.name}:${att.size}:${att.type}:${attachmentIndex}`}
-                      className="inline-flex items-center gap-1 rounded-md bg-background/50 px-2 py-0.5 text-micro font-mono text-muted-foreground"
+                      className="inline-flex items-center gap-1 rounded-md bg-canvas/50 px-2 py-0.5 text-micro font-mono text-steel"
                     >
                       <Paperclip className="h-3 w-3" />
                       {att.name}
@@ -297,7 +297,7 @@ export const MessageRow = memo(function MessageRow({
               </div>
             ) : null}
             {/* Message body */}
-            <div className="conversation-response-body text-sm leading-relaxed text-foreground">
+            <div className="conversation-response-body text-sm leading-relaxed text-ink-deep">
               {hasPlanHere && (
                 <div className={showMarkdown || imageUrls.length > 0 ? "mb-3" : undefined}>
                   <PlanChecklistPanel planSteps={embeddedPlanSteps} />
@@ -311,7 +311,7 @@ export const MessageRow = memo(function MessageRow({
                 />
               ) : null}
               {showEmptyAssistantPlaceholder ? (
-                <p className="text-muted-foreground">{t("conversation.emptyAssistantBody")}</p>
+                <p className="text-steel">{t("conversation.emptyAssistantBody")}</p>
               ) : null}
 
               {imageUrls.length > 0 ? (
@@ -338,7 +338,7 @@ export const MessageRow = memo(function MessageRow({
                       variant="ghost"
                       size="icon-xs"
                       onClick={() => handleCopy(copyAssistantText.trim() || msg.content)}
-                      className="rounded-lg text-muted-foreground-dim hover:text-foreground hover:bg-muted/80"
+                      className="rounded-lg text-stone hover:text-ink-deep hover:bg-surface-soft/80"
                     >
                       {copied
                         ? <Check className="h-3.5 w-3.5 text-accent-emerald" />
@@ -358,7 +358,7 @@ export const MessageRow = memo(function MessageRow({
                         variant="ghost"
                         size="icon-xs"
                         onClick={onRetry}
-                        className="rounded-lg text-muted-foreground-dim hover:text-foreground hover:bg-muted/80"
+                        className="rounded-lg text-stone hover:text-ink-deep hover:bg-surface-soft/80"
                       >
                         <RotateCcw className="h-3.5 w-3.5" />
                       </Button>
@@ -564,7 +564,7 @@ export function ConversationWorkspace({
           />
         )}
         <div className="flex min-h-0 min-w-0 flex-1 overflow-hidden">
-          <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-background">
+          <div className="relative flex min-h-0 min-w-0 flex-1 overflow-hidden bg-canvas">
             <div className={cn("relative min-h-0 min-w-0 flex-1 overflow-hidden", workspaceLayoutClass)}>
               {/* Left pane: Conversation */}
               <div className="relative flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
@@ -662,7 +662,7 @@ export function ConversationWorkspace({
                   </div>
                 </div>
 
-                <div className="shrink-0 bg-background">
+                <div className="shrink-0 bg-canvas">
                   {(events.length > 0 || isWaitingForAgent || effectiveTaskState === "planning" || effectiveTaskState === "executing") && (
                     <div
                       className={cn(

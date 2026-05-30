@@ -1,13 +1,7 @@
 "use client";
 
-import { Blocks, Globe, Radio } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/components/ui/dialog";
+import { Blocks } from "lucide-react";
+import { AddEntityDialog } from "@/shared/components/AddEntityDialog";
 import { useTranslation } from "@/i18n";
 import type { MCPTransport } from "../lib/parse-mcp-config";
 import { MCPServerForm } from "./MCPServerForm";
@@ -50,52 +44,29 @@ export function MCPAddServerDialog({
   const { t } = useTranslation();
   const title = mode === "edit" ? t("mcp.editFormTitle") : t("mcp.addFormTitle");
   const submitLabel = mode === "edit" ? t("mcp.save") : t("mcp.connect");
-  const parsedName = formName.trim();
-  const TransportIcon = formTransport === "streamablehttp" ? Globe : Radio;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="overflow-hidden p-0 sm:max-w-2xl">
-        <div className="border-b border-border/60 bg-muted/30 px-5 py-4 sm:px-6">
-          <DialogHeader className="gap-3 pr-8">
-            <div className="flex items-start gap-3">
-              <div className="chip-muted flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-background">
-                <Blocks className="h-4 w-4 text-muted-foreground" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <DialogTitle>{title}</DialogTitle>
-                  {parsedName && (
-                    <span className="status-pill status-info">
-                      <TransportIcon className="h-3 w-3" />
-                      {formTransport}
-                    </span>
-                  )}
-                </div>
-                <DialogDescription className="mt-1 max-w-xl">
-                  {t("mcp.subtitle")}
-                </DialogDescription>
-              </div>
-            </div>
-          </DialogHeader>
-        </div>
-
-        <MCPServerForm
-          error={error}
-          onDismissError={onDismissError}
-          formSchema={formSchema}
-          onFormSchemaChange={onFormSchemaChange}
-          formName={formName}
-          formTransport={formTransport}
-          headerCount={headerCount}
-          submitting={submitting}
-          submitLabel={submitLabel}
-          onApplySchema={onApplySchema}
-          onSubmit={onSubmit}
-          onCancel={onCancel}
-          idPrefix={idPrefix}
-        />
-      </DialogContent>
-    </Dialog>
+    <AddEntityDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      icon={<Blocks className="h-4 w-4 text-steel" />}
+      title={title}
+    >
+      <MCPServerForm
+        error={error}
+        onDismissError={onDismissError}
+        formSchema={formSchema}
+        onFormSchemaChange={onFormSchemaChange}
+        formName={formName}
+        formTransport={formTransport}
+        headerCount={headerCount}
+        submitting={submitting}
+        submitLabel={submitLabel}
+        onApplySchema={onApplySchema}
+        onSubmit={onSubmit}
+        onCancel={onCancel}
+        idPrefix={idPrefix}
+      />
+    </AddEntityDialog>
   );
 }

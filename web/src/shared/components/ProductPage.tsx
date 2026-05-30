@@ -57,12 +57,12 @@ export function ProductPageHeader({
               {icon}
             </div>
             <div className="min-w-0">
-              <p className="label-mono text-muted-foreground-dim">{eyebrow}</p>
-              <h1 className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+              <p className="label-mono text-stone">{eyebrow}</p>
+              <h1 className="mt-2 text-heading-sm text-ink-deep">
                 {title}
               </h1>
               {description ? (
-                <div className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                <div className="mt-1 max-w-2xl text-body-sm text-steel">
                   {description}
                 </div>
               ) : null}
@@ -91,22 +91,37 @@ export function ProductSectionHeader({
   actions,
   className,
 }: ProductSectionHeaderProps) {
+  const hasText = Boolean(eyebrow || title || description);
+
+  if (!hasText) {
+    return (
+      <div
+        className={cn(
+          "flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-end",
+          className,
+        )}
+      >
+        {actions}
+      </div>
+    );
+  }
+
   return (
     <section
       className={cn(
-        "surface-panel flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between",
+        "card-product-feature flex flex-col gap-3 px-4 py-4 lg:flex-row lg:items-center lg:justify-between",
         className,
       )}
     >
       <div className="min-w-0 flex-1">
         {eyebrow ? (
-          <p className="label-mono text-muted-foreground-dim">{eyebrow}</p>
+          <p className="label-mono text-stone">{eyebrow}</p>
         ) : null}
         {title ? (
-          <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+          <h2 className="text-body-sm-bold text-ink-deep">{title}</h2>
         ) : null}
         {description ? (
-          <div className={cn("text-sm text-muted-foreground", eyebrow || title ? "mt-1" : undefined)}>
+          <div className={cn("text-body-sm text-steel", eyebrow || title ? "mt-1" : undefined)}>
             {description}
           </div>
         ) : null}
@@ -128,16 +143,16 @@ export function ProductStatCard({
   className,
 }: ProductStatCardProps) {
   return (
-    <div className={cn("surface-panel px-4 py-3", className)}>
+    <div className={cn("card-icon-feature px-4 py-3", className)}>
       <div className="flex items-center gap-2">
-        {icon ? <span className="shrink-0 text-muted-foreground">{icon}</span> : null}
-        <span className="label-mono text-muted-foreground-dim">{label}</span>
+        {icon ? <span className="shrink-0 text-steel">{icon}</span> : null}
+        <span className="label-mono text-stone">{label}</span>
       </div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight text-foreground">
+      <div className="mt-2 text-heading-sm text-ink-deep">
         {value}
       </div>
       {description ? (
-        <div className="mt-1 text-xs text-muted-foreground">{description}</div>
+        <div className="mt-1 text-caption-bold text-steel">{description}</div>
       ) : null}
     </div>
   );

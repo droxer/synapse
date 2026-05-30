@@ -20,7 +20,7 @@ export function ExpandToggle({ expanded, onToggle, showLessLabel, showMoreLabel 
     <button
       type="button"
       onClick={onToggle}
-      className={`mt-1.5 flex items-center gap-1 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground ${OUTPUT_SURFACE_FOCUS_CLASSES}`}
+      className={`mt-1.5 flex items-center gap-1 text-xs font-medium text-steel transition-colors hover:text-ink-deep ${OUTPUT_SURFACE_FOCUS_CLASSES}`}
     >
       {expanded ? (
         <>

@@ -7,8 +7,8 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/shared/components/ui/dialog";
-import { SegmentedControl } from "@/shared/components/SegmentedControl";
 import { useTranslation } from "@/i18n";
+import { cn } from "@/shared/lib/utils";
 import { TokenUsageTab } from "./components/TokenUsageTab";
 import { ThemeTab } from "./components/ThemeTab";
 import { LanguageTab } from "./components/LanguageTab";
@@ -47,36 +47,51 @@ export function PreferencesDialog({ open, onOpenChange }: PreferencesDialogProps
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[min(96vw,80rem)] max-w-[min(96vw,80rem)] sm:max-w-[min(96vw,80rem)] max-h-[min(92vh,calc(100dvh-2rem))] overflow-hidden p-0 gap-0">
-        {/* Screen-reader-only title */}
+      <DialogContent className="w-[min(96vw,60rem)] max-w-[min(96vw,60rem)] sm:max-w-[min(96vw,60rem)] max-h-[min(92vh,calc(100dvh-2rem))] overflow-hidden p-0 gap-0">
         <DialogTitle className="sr-only">{t("preferences.title")}</DialogTitle>
 
-        <div className="flex h-[min(90vh,56rem)] min-h-[28rem] w-full min-w-0 flex-col md:flex-row">
-          {/* Side menu */}
+        <div className="flex h-[min(86vh,48rem)] min-h-[28rem] w-full min-w-0 flex-col md:flex-row">
           <nav
-            className="flex shrink-0 gap-1 overflow-x-auto border-b border-border/60 bg-secondary p-2 md:w-72 md:flex-col md:overflow-x-visible md:border-b-0 md:p-3"
+            className="flex shrink-0 gap-1 overflow-x-auto border-b border-hairline-soft/60 bg-surface-soft p-2 md:w-56 md:flex-col md:gap-0.5 md:overflow-x-visible md:border-b-0 md:border-r md:p-3"
             aria-label={t("preferences.title")}
           >
-            <p className="label-mono hidden px-3 pb-3 pt-4 text-muted-foreground-dim md:block">
+            <p className="label-mono hidden px-3 pb-3 pt-3 text-stone md:block">
               {t("preferences.title")}
             </p>
-            <SegmentedControl
-              ariaLabel={t("preferences.title")}
-              value={activeId}
-              onValueChange={setActiveId}
-              className="w-full min-w-max border-0 bg-transparent p-0 md:min-w-0 md:flex-col md:items-stretch"
-              optionClassName="shrink-0 justify-start md:w-full md:justify-start"
-              selectedOptionClassName="bg-background text-foreground"
-              inactiveOptionClassName="hover:bg-background"
-              options={MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => ({
-                value: id,
-                label: t(labelKey),
-                icon: <Icon className="h-4 w-4" />,
-              }))}
-            />
+            {MENU_ITEMS.map(({ id, labelKey, icon: Icon }) => {
+              const isActive = id === activeId;
+              return (
+                <button
+                  key={id}
+                  type="button"
+                  aria-current={isActive ? "page" : undefined}
+                  onClick={() => setActiveId(id)}
+                  className={cn(
+                    "group relative flex shrink-0 items-center gap-2.5 rounded-md px-3 py-2 text-body-sm transition-colors duration-150",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40",
+                    isActive
+                      ? "bg-canvas text-ink-deep md:font-medium"
+                      : "text-steel hover:bg-canvas/60 hover:text-ink-deep",
+                  )}
+                >
+                  {isActive ? (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-cobalt md:inset-y-1.5 md:left-0 md:right-auto md:h-auto md:w-0.5"
+                    />
+                  ) : null}
+                  <Icon
+                    className={cn(
+                      "h-4 w-4 shrink-0 transition-colors duration-150",
+                      isActive ? "text-cobalt" : "text-stone group-hover:text-steel",
+                    )}
+                  />
+                  <span className="whitespace-nowrap">{t(labelKey)}</span>
+                </button>
+              );
+            })}
           </nav>
 
-          {/* Content panel */}
           <div className="min-h-0 min-w-0 flex-1 overflow-y-auto p-4 sm:p-6 md:p-8">
             <ActivePanel />
           </div>

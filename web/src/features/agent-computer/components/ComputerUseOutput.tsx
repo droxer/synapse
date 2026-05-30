@@ -100,14 +100,14 @@ export function ComputerUseOutput({
   return (
     <OutputSurface>
       <OutputSurfaceHeader
-        icon={<Monitor className="h-3.5 w-3.5 text-muted-foreground" />}
+        icon={<Monitor className="h-3.5 w-3.5 text-steel" />}
         label={t("output.category.computer")}
         meta={actionLabel(action)}
       />
 
       <OutputSurfaceBody>
         {/* Action description */}
-        <p className="mb-1.5 text-sm leading-relaxed text-muted-foreground">{description}</p>
+        <p className="mb-1.5 text-sm leading-relaxed text-steel">{description}</p>
 
         {/* Screenshot thumbnail */}
         {hasScreenshot && (
@@ -120,7 +120,7 @@ export function ComputerUseOutput({
 
         {!hasScreenshot && hasOutputText && (
           <OutputSurfaceInner className={OUTPUT_SCROLL_AREA_CLASSES}>
-            <pre className="whitespace-pre-wrap text-sm text-muted-foreground">
+            <pre className="whitespace-pre-wrap text-sm text-steel">
               {displayText}
               {isLong && !expanded && ELLIPSIS}
             </pre>
@@ -128,7 +128,7 @@ export function ComputerUseOutput({
         )}
 
         {!hasScreenshot && !hasOutputText && (
-          <p className="text-sm text-muted-foreground">{t("conversation.waiting")}</p>
+          <p className="text-sm text-steel">{t("conversation.waiting")}</p>
         )}
 
         {!hasScreenshot && isLong && (

@@ -75,7 +75,7 @@ function ValueToggle({
       onClick={onToggle}
       aria-label={expanded ? t("a11y.collapse") : t("a11y.expand")}
       className={cn(
-        "ml-1 inline-flex items-center rounded-md px-0.5 text-micro text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+        "ml-1 inline-flex items-center rounded-md px-0.5 text-micro text-steel transition-colors hover:bg-canvas hover:text-ink-deep",
         OUTPUT_SURFACE_FOCUS_CLASSES,
       )}
     >
@@ -113,7 +113,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
     <div
       className={cn(
         OUTPUT_CARD_DENSE_CLASSES,
-        "border-l border-border/60 bg-muted",
+        "border-l border-hairline-soft/60 bg-surface-soft",
         compact && "px-2 py-1",
       )}
     >
@@ -139,7 +139,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
           return (
             <div key={key} className="contents">
               {/* Key */}
-              <span className="select-none whitespace-nowrap pt-px text-micro text-muted-foreground-dim">
+              <span className="select-none whitespace-nowrap pt-px text-micro text-stone">
                 {normalizeArgKey(key, t)}
               </span>
 
@@ -154,7 +154,7 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                   >
                     {displayValue}
                     {isLong && !isExpanded && (
-                      <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>
+                      <span className="text-steel">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>
                     )}
                   </pre>
                 ) : typeof value === "boolean" ? (
@@ -169,10 +169,10 @@ export function ToolArgsDisplay({ input, compact = false }: ToolArgsDisplayProps
                     {String(value)}
                   </span>
                 ) : (
-                  <span className="break-words [overflow-wrap:anywhere] text-sm text-foreground">
+                  <span className="break-words [overflow-wrap:anywhere] text-sm text-ink-deep">
                     {displayValue}
                     {isLong && !isExpanded && (
-                      <span className="text-muted-foreground">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>
+                      <span className="text-steel">{t("a11y.truncatedChars", { count: strValue.length - VALUE_TRUNCATE })}</span>
                     )}
                   </span>
                 )}

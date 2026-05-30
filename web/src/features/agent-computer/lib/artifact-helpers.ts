@@ -210,7 +210,7 @@ export function fileCategoryColor(contentType: string, name?: string): FileCateg
     contentType.includes("presentationml")
   )
     return { icon: "text-user-accent", bg: "bg-user-accent/10" };
-  return { icon: "text-muted-foreground", bg: "bg-muted" };
+  return { icon: "text-steel", bg: "bg-surface-soft" };
 }
 
 /** Border color CSS variable string for artifact file category accent. */
@@ -220,7 +220,7 @@ const BORDER_COLOR_MAP: Record<string, string> = {
   "text-accent-emerald": "var(--color-accent-emerald)",
   "text-accent-amber": "var(--color-accent-amber)",
   "text-user-accent": "var(--color-user-accent)",
-  "text-muted-foreground": "var(--color-muted-foreground)",
+  "text-steel": "var(--color-muted-foreground)",
 };
 
 export function fileCategoryBorderColor(contentType: string, name?: string): string {

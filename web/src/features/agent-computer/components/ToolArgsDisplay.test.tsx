@@ -15,8 +15,8 @@ describe("ToolArgsDisplay typography", () => {
       <ToolArgsDisplay input={{ path: "/tmp/report.md", verbose: true }} />,
     );
 
-    expect(html).toContain("text-micro text-muted-foreground-dim");
-    expect(html).toContain("text-sm text-foreground");
+    expect(html).toContain("text-micro text-stone");
+    expect(html).toContain("text-sm text-ink-deep");
     expect(html).toContain("text-sm text-accent-emerald");
     expect(html).not.toContain("text-xs");
   });
@@ -33,7 +33,7 @@ describe("ToolArgsDisplay typography", () => {
     );
 
     expect(html).toContain("font-mono text-micro");
-    expect(html).toContain("break-words [overflow-wrap:anywhere] text-sm text-foreground");
-    expect(html).toContain("text-micro text-muted-foreground-dim");
+    expect(html).toContain("break-words [overflow-wrap:anywhere] text-sm text-ink-deep");
+    expect(html).toContain("text-micro text-stone");
   });
 });

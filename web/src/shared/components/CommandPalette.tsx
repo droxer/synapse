@@ -36,14 +36,14 @@ const QUICK_ACTION_KEYS = [
 ] as const;
 
 const ITEM_CLASS =
-  "flex cursor-pointer items-center gap-3 rounded-md px-3 py-2.5 text-sm text-foreground transition-colors data-[selected=true]:bg-accent data-[selected=true]:text-foreground";
+  "flex cursor-pointer items-center gap-3 rounded-full px-3 py-2.5 text-body-sm text-ink-deep transition-colors data-[selected=true]:bg-surface-soft data-[selected=true]:text-ink-deep";
 
 const GROUP_HEADING_CLASS =
-  "[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:label-mono [&_[cmdk-group-heading]]:text-muted-foreground";
+  "[&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:pt-3 [&_[cmdk-group-heading]]:pb-1.5 [&_[cmdk-group-heading]]:label-mono [&_[cmdk-group-heading]]:text-steel";
 
 function ShortcutHint({ keys }: { readonly keys: string }) {
   return (
-    <kbd className="ml-auto shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
+    <kbd className="ml-auto shrink-0 rounded-full border border-hairline-soft bg-surface-soft px-1.5 py-0.5 font-mono text-micro text-steel">
       {keys}
     </kbd>
   );
@@ -159,21 +159,21 @@ export function CommandPalette({
               onClick={(event) => event.stopPropagation()}
             >
               {/* Search input */}
-              <div className="flex items-center gap-2 border-b border-border/60 px-4">
-                <Search className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <div className="flex items-center gap-2 border-b border-hairline-soft/60 px-4">
+                <Search className="h-4 w-4 shrink-0 text-steel" aria-hidden />
                 <Command.Input
                   placeholder={t("command.placeholder")}
-                  className="h-12 w-full bg-transparent text-sm text-foreground placeholder:text-placeholder outline-none focus-visible:outline-none"
+                  className="h-12 w-full bg-transparent text-sm text-ink-deep placeholder:text-placeholder outline-none focus-visible:outline-none"
                   aria-label={t("command.placeholder")}
                   autoFocus
                 />
-                <kbd className="shrink-0 rounded border border-border bg-secondary px-1.5 py-0.5 font-mono text-micro text-muted-foreground">
+                <kbd className="shrink-0 rounded border border-hairline-soft bg-surface-soft px-1.5 py-0.5 font-mono text-micro text-steel">
                   {t("command.escapeKey")}
                 </kbd>
               </div>
 
               <Command.List className="max-h-[320px] overflow-y-auto overscroll-contain p-2">
-                <Command.Empty className="px-4 py-8 text-center text-sm text-muted-foreground">
+                <Command.Empty className="px-4 py-8 text-center text-sm text-steel">
                   {t("command.noResults")}
                 </Command.Empty>
 
@@ -189,7 +189,7 @@ export function CommandPalette({
                         onSelect={() => handleSelect(prompt)}
                         className={ITEM_CLASS}
                       >
-                        <action.icon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <action.icon className="h-4 w-4 shrink-0 text-steel" />
                         {label}
                       </Command.Item>
                     );
@@ -206,7 +206,7 @@ export function CommandPalette({
                     }}
                     className={ITEM_CLASS}
                   >
-                    <Lightbulb className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Lightbulb className="h-4 w-4 shrink-0 text-steel" />
                     {t("command.skills")}
                   </Command.Item>
                   <Command.Item
@@ -217,7 +217,7 @@ export function CommandPalette({
                     }}
                     className={ITEM_CLASS}
                   >
-                    <Blocks className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Blocks className="h-4 w-4 shrink-0 text-steel" />
                     {t("command.mcp")}
                   </Command.Item>
                   <Command.Item
@@ -228,7 +228,7 @@ export function CommandPalette({
                     }}
                     className={ITEM_CLASS}
                   >
-                    <Plus className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <Plus className="h-4 w-4 shrink-0 text-steel" />
                     {t("command.newTask")}
                     <ShortcutHint keys="⌘N" />
                   </Command.Item>
@@ -247,7 +247,7 @@ export function CommandPalette({
                         }}
                         className={ITEM_CLASS}
                       >
-                        <MessageSquare className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <MessageSquare className="h-4 w-4 shrink-0 text-steel" />
                         <span className="truncate">{conversation.title}</span>
                       </Command.Item>
                     ))}
@@ -256,9 +256,9 @@ export function CommandPalette({
               </Command.List>
 
               {/* Footer hint */}
-              <div className="flex items-center justify-between border-t border-border/60 bg-muted/40 px-4 py-2">
-                <span className="text-xs text-muted-foreground">
-                  {t("command.navigateHint")} <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">↑↓</kbd> · {t("command.selectHint")} <kbd className="rounded border border-border bg-secondary px-1 py-0.5 font-mono text-micro text-muted-foreground">↵</kbd>
+              <div className="flex items-center justify-between border-t border-hairline-soft/60 bg-surface-soft/40 px-4 py-2">
+                <span className="text-xs text-steel">
+                  {t("command.navigateHint")} <kbd className="rounded border border-hairline-soft bg-surface-soft px-1 py-0.5 font-mono text-micro text-steel">↑↓</kbd> · {t("command.selectHint")} <kbd className="rounded border border-hairline-soft bg-surface-soft px-1 py-0.5 font-mono text-micro text-steel">↵</kbd>
                 </span>
               </div>
             </Command>

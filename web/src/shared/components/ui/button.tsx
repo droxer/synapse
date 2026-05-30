@@ -4,33 +4,61 @@ import { Slot } from "radix-ui"
 
 import { cn } from "@/shared/lib/utils"
 
+/**
+ * DESIGN.md button system — all variants are pill-shaped (rounded.full = 100px).
+ *
+ * - `default` (commerce primary): cobalt fill, white text. Send/Run/Submit/Continue.
+ * - `marketing` (marketing primary): black pill, white text. Landing/login CTAs.
+ * - `secondary`: outlined ghost with 2px ink-deep border.
+ * - `ghost`: transparent with a 1px hairline-soft border, tertiary affordance.
+ * - `destructive`: critical-strong fill.
+ * - `link`: inline text link, cobalt.
+ * - `pill-tab` / `pill-tab-active`: category-nav chip.
+ */
 const buttonVariants = cva(
-  "inline-flex shrink-0 items-center justify-center gap-2 rounded-md text-sm font-medium whitespace-nowrap cursor-pointer transition-[color,background-color,border-color,box-shadow,opacity,text-decoration-color] duration-150 ease-out outline-none focus-visible:ring-2 focus-visible:ring-ring/40 focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:pointer-events-none aria-invalid:border-destructive aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  [
+    // Layout + typography (matches `text-button-md`: 14px / 700 / -0.14px)
+    "inline-flex shrink-0 items-center justify-center gap-2 whitespace-nowrap cursor-pointer",
+    "rounded-full font-bold text-button-md",
+    "transition-[color,background-color,border-color,box-shadow,opacity] duration-150 ease-out",
+    // Focus
+    "outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
+    // Disabled + invalid ring (filled variants have no border to colour)
+    "disabled:pointer-events-none aria-invalid:ring-critical-strong/40",
+    // SVG sizing
+    "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
+  ].join(" "),
   {
     variants: {
       variant: {
         default:
-          "bg-primary text-primary-foreground hover:bg-primary/90 disabled:bg-primary/55 disabled:text-primary-foreground/80",
+          "bg-cobalt text-on-cobalt hover:bg-cobalt-deep active:bg-cobalt-deep disabled:bg-disabled-text disabled:text-canvas",
+        marketing:
+          "bg-ink-button text-on-ink-button hover:bg-charcoal active:bg-charcoal disabled:bg-disabled-text disabled:text-canvas",
         destructive:
-          "bg-destructive text-primary-foreground hover:bg-destructive/90 disabled:bg-destructive/70 disabled:text-primary-foreground/85 focus-visible:ring-destructive/40",
-        outline:
-          "border border-border bg-transparent hover:bg-accent hover:text-accent-foreground hover:border-border-strong disabled:border-border disabled:bg-transparent disabled:text-muted-foreground",
+          "bg-critical-strong text-canvas hover:bg-critical focus-visible:ring-critical-strong/40 disabled:bg-critical-strong/70",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-accent disabled:bg-secondary disabled:text-secondary-foreground/65",
+          "bg-transparent text-ink-deep border-2 border-ink-deep hover:bg-ink-deep hover:text-canvas aria-invalid:border-critical-strong disabled:border-hairline disabled:text-disabled-text",
         ghost:
-          "text-foreground/80 hover:bg-accent hover:text-foreground disabled:text-muted-foreground",
+          "bg-transparent text-ink-deep border border-hairline-soft hover:bg-surface-soft hover:border-hairline aria-invalid:border-critical-strong disabled:text-disabled-text",
         link:
-          "text-focus underline-offset-4 hover:text-focus/80 hover:underline disabled:text-focus/60 disabled:no-underline",
+          "text-cobalt underline-offset-4 hover:text-cobalt-deep hover:underline disabled:text-cobalt/60 disabled:no-underline rounded-sm tracking-normal",
+        "pill-tab":
+          "bg-canvas text-ink border border-hairline hover:border-ink-deep",
+        "pill-tab-active":
+          "bg-ink-deep text-canvas border border-transparent",
       },
       size: {
-        default: "h-9 px-3.5 py-2 has-[>svg]:px-3",
-        xs: "h-6 gap-1 rounded-sm px-2 text-xs has-[>svg]:px-1.5 [&_svg:not([class*='size-'])]:size-3",
-        sm: "h-8 gap-1.5 rounded-md px-3 has-[>svg]:px-2.5",
-        lg: "h-10 rounded-md px-5 has-[>svg]:px-4",
-        icon: "size-9 rounded-md max-md:size-11",
-        "icon-xs": "size-6 rounded-sm max-md:size-11 [&_svg:not([class*='size-'])]:size-3",
-        "icon-sm": "size-8 rounded-md max-md:size-11",
-        "icon-lg": "size-10 rounded-md max-md:size-11",
+        // 14 px label · 14×30 padding — DESIGN.md `button-primary`/`button-buy-cta`
+        default: "h-11 px-[30px] py-[14px] has-[>svg]:px-7",
+        sm: "h-9 px-[22px] py-2.5 has-[>svg]:px-5",
+        xs: "h-7 px-3 py-1 text-caption-bold gap-1 has-[>svg]:px-2 [&_svg:not([class*='size-'])]:size-3",
+        lg: "h-12 px-9 py-4 text-body-md-bold has-[>svg]:px-7",
+        tab: "h-8 px-4 py-1.5",
+        icon: "size-11 rounded-full",
+        "icon-xs": "size-6 rounded-full [&_svg:not([class*='size-'])]:size-3",
+        "icon-sm": "size-8 rounded-full",
+        "icon-lg": "size-12 rounded-full",
       },
     },
     defaultVariants: {

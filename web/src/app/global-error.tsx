@@ -1,6 +1,7 @@
 "use client";
 
-import { geistSans, geistMono, notoSansSC, notoSansTC } from "./fonts";
+import { montserrat, geistMono, notoSansSC, notoSansTC } from "./fonts";
+import { Button } from "@/shared/components/ui/button";
 
 interface GlobalErrorProps {
   error: Error & { digest?: string };
@@ -11,24 +12,20 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
+      className={`${montserrat.variable} ${geistMono.variable} ${notoSansSC.variable} ${notoSansTC.variable}`}
     >
-      <body className="font-sans antialiased bg-background text-foreground">
+      <body className="font-sans antialiased bg-canvas text-ink-deep">
         <div className="flex h-screen w-screen items-center justify-center">
-          <div className="flex flex-col items-center gap-4 text-center">
-            <h1 className="text-xl font-semibold text-foreground">
+          <div className="flex w-full max-w-md flex-col items-center gap-4 px-6 text-center">
+            <h1 className="w-full text-heading-sm text-ink-deep">
               Something went wrong
             </h1>
-            <p className="max-w-md text-sm text-muted-foreground">
+            <p className="w-full text-body-sm text-steel">
               {error.message || "A critical error occurred."}
             </p>
-            <button
-              type="button"
-              onClick={reset}
-              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
-            >
+            <Button onClick={reset}>
               Try again
-            </button>
+            </Button>
           </div>
         </div>
       </body>

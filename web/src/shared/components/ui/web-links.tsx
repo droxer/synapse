@@ -44,7 +44,7 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
       <div className={cn(OUTPUT_SURFACE_HEADER_CLASSES, "justify-between gap-2")}>
         <span className={OUTPUT_SURFACE_LABEL_CLASSES}>
           {resultsLabel ?? defaultResultsLabel}{" "}
-          <span className="font-medium text-foreground">{`"${query}"`}</span>
+          <span className="font-medium text-ink-deep">{`"${query}"`}</span>
         </span>
         <span className={cn("flex items-center gap-1", OUTPUT_SURFACE_META_CLASSES)}>
           <Globe className="h-3 w-3" />
@@ -54,7 +54,7 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
       <div className={OUTPUT_SURFACE_BODY_CLASSES}>
         <ul className="space-y-1.5">
           {results.map((r) => (
-            <li key={r.url} className={cn("group transition-colors", OUTPUT_SURFACE_INNER_DENSE_CLASSES, "hover:border-border-strong hover:bg-background")}>
+            <li key={r.url} className={cn("group transition-colors", OUTPUT_SURFACE_INNER_DENSE_CLASSES, "hover:border-hairline hover:bg-canvas")}>
               <a
                 href={r.url}
                 target="_blank"
@@ -62,17 +62,17 @@ export function WebLinks({ query, results, className, resultsLabel, searchLabel 
                 className={cn("flex items-start gap-2", OUTPUT_SURFACE_FOCUS_CLASSES)}
               >
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium text-foreground group-hover:underline">
+                  <p className="text-sm font-medium text-ink-deep group-hover:underline">
                     {r.title || getDomain(r.url)}
                   </p>
-                  <p className="text-micro text-muted-foreground-dim">{getDomain(r.url)}</p>
+                  <p className="text-micro text-stone">{getDomain(r.url)}</p>
                   {r.content && (
-                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-muted-foreground">
+                    <p className="mt-0.5 line-clamp-2 text-xs leading-relaxed text-steel">
                       {r.content}
                     </p>
                   )}
                 </div>
-                <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground-dim group-hover:text-muted-foreground" />
+                <ExternalLink className="mt-0.5 h-3 w-3 shrink-0 text-stone group-hover:text-steel" />
               </a>
             </li>
           ))}

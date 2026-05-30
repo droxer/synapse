@@ -34,12 +34,12 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   render(): ReactNode {
     if (this.state.hasError) {
       return (
-        <div className="flex h-screen w-screen items-center justify-center bg-background" role="alert" aria-live="assertive">
+        <div className="flex h-screen w-screen items-center justify-center bg-canvas" role="alert" aria-live="assertive">
           <div className="flex flex-col items-center gap-4 text-center">
-            <h1 className="text-xl font-semibold text-foreground">
+            <h1 className="text-xl font-semibold text-ink-deep">
               Something went wrong
             </h1>
-            <p className="max-w-md text-sm text-muted-foreground">
+            <p className="max-w-md text-sm text-steel">
               {this.state.error?.message ?? "An unexpected error occurred."}
             </p>
             <Button onClick={this.handleRetry}>

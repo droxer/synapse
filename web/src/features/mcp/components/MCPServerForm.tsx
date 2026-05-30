@@ -1,21 +1,11 @@
 "use client";
 
 import type { ChangeEvent, ClipboardEvent } from "react";
-import {
-  Check,
-  FileJson,
-  Loader2,
-  ShieldCheck,
-  Sparkles,
-} from "lucide-react";
+import { Check, Loader2, ShieldCheck, Sparkles } from "lucide-react";
 import { ErrorBanner } from "@/shared/components/ErrorBanner";
 import { Button } from "@/shared/components/ui/button";
 import { Label } from "@/shared/components/ui/label";
 import { Textarea } from "@/shared/components/ui/textarea";
-import {
-  OUTPUT_SURFACE_HEADER_CLASSES,
-  OUTPUT_SURFACE_ROOT_CLASSES,
-} from "@/shared/components/ui/output-surface";
 import { useTranslation } from "@/i18n";
 import { cn } from "@/shared/lib/utils";
 import type { MCPTransport } from "../lib/parse-mcp-config";
@@ -68,62 +58,45 @@ export function MCPServerForm({
   };
 
   return (
-    <div className="space-y-5 px-5 py-5 sm:px-6">
+    <div className="space-y-4">
       {error && (
         <ErrorBanner message={error} onDismiss={onDismissError} variant="compact" />
       )}
 
-      <section className={cn(OUTPUT_SURFACE_ROOT_CLASSES, "mt-0 bg-background")}>
-        <div className={cn(OUTPUT_SURFACE_HEADER_CLASSES, "flex-col gap-3 bg-muted/35 sm:flex-row sm:items-center sm:justify-between")}>
-          <div className="flex min-w-0 items-center gap-3">
-            <div className="chip-muted flex h-8 w-8 shrink-0 items-center justify-center">
-              <FileJson className="h-3.5 w-3.5" />
-            </div>
-            <div className="min-w-0">
-              <Label
-                htmlFor={`${idPrefix}-schema`}
-                className="label-mono text-muted-foreground-dim"
-              >
-                {t("mcp.schema")}
-              </Label>
-              <p className="mt-0.5 max-w-[28rem] text-xs text-muted-foreground">
-                {schemaHelper}
-              </p>
-            </div>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onApplySchema()}
-            disabled={submitting || !formSchema.trim()}
-            className="self-start sm:self-auto"
-          >
-            <Sparkles className="h-3.5 w-3.5" />
-            {t("mcp.applySchema")}
-          </Button>
-        </div>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${idPrefix}-schema`} className="label-mono text-stone">
+          {t("mcp.schema")}
+        </Label>
+        <p className="text-xs text-steel">{schemaHelper}</p>
+      </div>
 
+      <div className="surface-panel overflow-hidden bg-canvas transition-shadow duration-150 focus-within:ring-2 focus-within:ring-focus/40">
         <Textarea
           id={`${idPrefix}-schema`}
           placeholder={t("mcp.schemaPlaceholder")}
           value={formSchema}
           onChange={(e: ChangeEvent<HTMLTextAreaElement>) => onFormSchemaChange(e.target.value)}
           onPaste={handleSchemaPaste}
-          className="min-h-[9rem] resize-y rounded-none border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed focus-visible:border-transparent"
+          className="min-h-[10rem] resize-y rounded-none border-0 bg-transparent px-4 py-3 font-mono text-xs leading-relaxed focus-visible:border-transparent focus-visible:ring-0 focus-visible:px-4"
           autoFocus
         />
 
-        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border/60 bg-muted/20 px-4 py-2.5">
-          <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-t border-hairline-soft/60 bg-surface-soft/40 px-3 py-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <span
               className={cn(
                 "status-pill",
-                hasParsedConfig ? "status-info" : "status-neutral",
+                hasParsedConfig ? "status-ok" : "status-neutral",
               )}
             >
               <ShieldCheck className="h-3 w-3" />
               {hasParsedConfig ? parsedName : t("mcp.waitingForConfig")}
             </span>
+            {hasParsedConfig && (
+              <span className="font-mono text-micro text-stone">
+                {formTransport}
+              </span>
+            )}
             {headerCount > 0 && (
               <span className="status-pill status-ok">
                 <Check className="h-3 w-3" />
@@ -131,34 +104,30 @@ export function MCPServerForm({
               </span>
             )}
           </div>
-          {hasParsedConfig && (
-            <span className="font-mono text-micro text-muted-foreground-dim">
-              {formTransport}
-            </span>
-          )}
-        </div>
-      </section>
-
-      <div className="flex flex-col-reverse gap-2 border-t border-border/60 pt-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex justify-end gap-2">
           <Button
-            variant="ghost"
+            variant="secondary"
             size="sm"
-            onClick={onCancel}
-          >
-            {t("mcp.cancel")}
-          </Button>
-          <Button
-            size="sm"
-            onClick={onSubmit}
+            onClick={() => onApplySchema()}
             disabled={submitting || !formSchema.trim()}
           >
-            {submitting && (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            )}
-            {submitLabel}
+            <Sparkles className="h-3.5 w-3.5" />
+            {t("mcp.applySchema")}
           </Button>
         </div>
+      </div>
+
+      <div className="flex flex-col-reverse gap-2 pt-2 sm:flex-row sm:items-center sm:justify-end">
+        <Button variant="ghost" size="sm" onClick={onCancel}>
+          {t("mcp.cancel")}
+        </Button>
+        <Button
+          size="sm"
+          onClick={onSubmit}
+          disabled={submitting || !formSchema.trim()}
+        >
+          {submitting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+          {submitLabel}
+        </Button>
       </div>
     </div>
   );

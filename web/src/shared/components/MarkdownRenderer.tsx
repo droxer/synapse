@@ -52,7 +52,7 @@ function CopyButton({ text }: { text: string }) {
     <button
       type="button"
       onClick={handleCopy}
-      className="flex items-center gap-1 rounded-lg p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+      className="flex items-center gap-1 rounded-lg p-1 text-steel transition-colors hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
       aria-label={label}
       title={label}
     >
@@ -76,8 +76,8 @@ function PreComponent({ children }: { children: ReactNode }) {
   const codeString = useMemo(() => extractText(children), [children]);
 
   return (
-    <div className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose">
-      <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
+    <div className="relative my-4 overflow-hidden rounded-xl border border-hairline bg-surface-soft not-prose">
+      <div className="flex items-center justify-between border-b border-hairline bg-surface-soft px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-steel">
         <span>{language}</span>
         <CopyButton text={codeString} />
       </div>
@@ -97,7 +97,7 @@ const components: Components = {
     if (isInline) {
       return (
         <code
-          className="rounded-lg border border-border-strong bg-muted px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
+          className="rounded-lg border border-hairline bg-surface-soft px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-ink-deep"
           {...props}
         >
           {children}
@@ -121,14 +121,14 @@ const components: Components = {
   },
   th({ children }) {
     return (
-      <th className="border border-border bg-muted px-3 py-1.5 text-left font-medium">
+      <th className="border border-hairline-soft bg-surface-soft px-3 py-1.5 text-left font-medium">
         {children}
       </th>
     );
   },
   td({ children }) {
     return (
-      <td className="border border-border px-3 py-1.5">{children}</td>
+      <td className="border border-hairline-soft px-3 py-1.5">{children}</td>
     );
   },
   a({ href, children }) {
@@ -179,7 +179,7 @@ function renderLightweightInlineMarkdown(content: string, keyPrefix: string): Re
       nodes.push(
         <code
           key={`${keyPrefix}-code-${matchIndex}`}
-          className="rounded-lg border border-border-strong bg-muted px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-foreground"
+          className="rounded-lg border border-hairline bg-surface-soft px-1.5 py-0.5 text-[length:var(--md-code-font-size,var(--text-sm))] font-mono text-ink-deep"
         >
           {fullMatch.slice(1, -1)}
         </code>,
@@ -248,7 +248,7 @@ function renderLightweightLine(line: string, lineIndex: number): ReactNode {
   if (unorderedListMatch) {
     return (
       <div key={`line-${lineIndex}`} className="flex items-start gap-2">
-        <span aria-hidden="true" className="mt-[0.15rem] text-muted-foreground">•</span>
+        <span aria-hidden="true" className="mt-[0.15rem] text-steel">•</span>
         <span className="min-w-0">
           {renderLightweightInlineMarkdown(unorderedListMatch[1] ?? "", `line-${lineIndex}`)}
         </span>
@@ -260,7 +260,7 @@ function renderLightweightLine(line: string, lineIndex: number): ReactNode {
   if (orderedListMatch) {
     return (
       <div key={`line-${lineIndex}`} className="flex items-start gap-2">
-        <span className="mt-[0.05rem] shrink-0 text-muted-foreground">{orderedListMatch[1]}</span>
+        <span className="mt-[0.05rem] shrink-0 text-steel">{orderedListMatch[1]}</span>
         <span className="min-w-0">
           {renderLightweightInlineMarkdown(orderedListMatch[2] ?? "", `line-${lineIndex}`)}
         </span>
@@ -271,7 +271,7 @@ function renderLightweightLine(line: string, lineIndex: number): ReactNode {
   const blockquoteMatch = /^ {0,3}>\s?(.*)$/.exec(line);
   if (blockquoteMatch) {
     return (
-      <div key={`line-${lineIndex}`} className="border-l-2 border-border-strong pl-3 text-muted-foreground">
+      <div key={`line-${lineIndex}`} className="border-l-2 border-hairline pl-3 text-steel">
         {renderLightweightInlineMarkdown(blockquoteMatch[1] ?? "", `line-${lineIndex}`)}
       </div>
     );
@@ -312,9 +312,9 @@ function renderLightweightTail(content: string, className?: string): ReactNode {
       elements.push(
         <div
           key={`code-${i}`}
-          className="relative my-4 overflow-hidden rounded-xl border border-border-strong bg-secondary not-prose"
+          className="relative my-4 overflow-hidden rounded-xl border border-hairline bg-surface-soft not-prose"
         >
-          <div className="flex items-center justify-between border-b border-border-strong bg-muted px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-muted-foreground">
+          <div className="flex items-center justify-between border-b border-hairline bg-surface-soft px-4 py-1.5 font-mono text-[length:var(--md-code-font-size,var(--text-sm))] text-steel">
             <span>{language}</span>
           </div>
           <pre className="p-4 overflow-x-auto text-[length:var(--md-code-font-size,var(--text-sm))] font-mono bg-transparent m-0 border-none">
@@ -349,7 +349,7 @@ function renderLightweightTail(content: string, className?: string): ReactNode {
                   {headerCells.map((cell, ci) => (
                     <th
                       key={ci}
-                      className="border border-border bg-muted px-3 py-1.5 text-left font-medium"
+                      className="border border-hairline-soft bg-surface-soft px-3 py-1.5 text-left font-medium"
                     >
                       {cell}
                     </th>
@@ -367,7 +367,7 @@ function renderLightweightTail(content: string, className?: string): ReactNode {
                       {cells.map((cell, ci) => (
                         <td
                           key={ci}
-                          className="border border-border px-3 py-1.5"
+                          className="border border-hairline-soft px-3 py-1.5"
                         >
                           {cell}
                         </td>

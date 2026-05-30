@@ -127,9 +127,9 @@ export function ThinkingBlock({
         aria-expanded={expanded}
         aria-controls={panelId}
         className={cn(
-          "flex w-full items-center gap-1.5 rounded-md px-2 py-1 -ml-2 text-left text-caption text-muted-foreground transition-colors duration-150",
-          "hover:bg-muted hover:text-foreground",
-          "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+          "flex w-full items-center gap-1.5 rounded-md px-2 py-1 -ml-2 text-left text-caption text-steel transition-colors duration-150",
+          "hover:bg-surface-soft hover:text-ink-deep",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
         )}
       >
         <motion.span
@@ -153,13 +153,13 @@ export function ThinkingBlock({
         <span className="font-medium">{label}</span>
 
         {!expanded && isMultiStep && !isThinking && (
-          <span className="text-muted-foreground-dim">
+          <span className="text-stone">
             &middot; {steps.length} steps
           </span>
         )}
 
         {previewSnippet && !expanded && (
-          <span className="hidden min-w-0 flex-1 truncate text-muted-foreground-dim sm:block">
+          <span className="hidden min-w-0 flex-1 truncate text-stone sm:block">
             &mdash; {previewSnippet}{previewSnippet.length >= 60 ? "..." : ""}
           </span>
         )}
@@ -181,7 +181,7 @@ export function ThinkingBlock({
               ref={scrollRef}
               data-thinking-panel=""
               className={cn(
-                "mt-1.5 max-h-80 overflow-y-auto rounded-lg bg-muted/50 px-3.5 py-3",
+                "mt-1.5 max-h-80 overflow-y-auto rounded-lg bg-surface-soft/50 px-3.5 py-3",
                 showBottomFade && "thinking-scroll-mask",
               )}
             >
@@ -204,7 +204,7 @@ export function ThinkingBlock({
                         </span>
                         <div className="min-w-0 flex-1">
                           {step.title ? (
-                            <h3 className="text-sm font-medium text-foreground">
+                            <h3 className="text-sm font-medium text-ink-deep">
                               {step.title}
                             </h3>
                           ) : null}

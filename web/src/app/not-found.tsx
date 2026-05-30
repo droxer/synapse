@@ -7,15 +7,15 @@ import { useTranslation } from "@/i18n";
 export default function NotFound() {
   const { t } = useTranslation();
   return (
-    <div className="flex h-screen w-screen items-center justify-center bg-background">
-      <div className="surface-panel flex w-full max-w-md flex-col items-center gap-4 px-6 py-8 text-center">
-        <h1 className="text-xl font-semibold text-foreground">
+    <div className="flex h-screen w-screen items-center justify-center bg-canvas">
+      <div className="card-product-feature flex w-full max-w-md flex-col items-center gap-4 text-center">
+        <h1 className="w-full text-heading-sm text-ink-deep">
           {t("notFound.title")}
         </h1>
-        <p className="text-sm text-muted-foreground">
+        <p className="w-full text-body-sm text-steel">
           {t("notFound.message")}
         </p>
-        <Button asChild>
+        <Button asChild variant="marketing">
           <Link href="/">{t("notFound.backHome")}</Link>
         </Button>
       </div>

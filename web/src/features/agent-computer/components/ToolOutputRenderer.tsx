@@ -296,7 +296,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     return (
       <OutputSurface>
         <OutputSurfaceHeader
-          icon={<Braces className="h-3.5 w-3.5 text-muted-foreground" />}
+          icon={<Braces className="h-3.5 w-3.5 text-steel" />}
           label={style.labelKey ? t(style.labelKey) : "Structured output"}
           className="justify-between"
           action={(
@@ -305,7 +305,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
               onClick={() => handleJsonCopy(prettyJson)}
               aria-label={copiedJson ? t("output.copied") : t("output.copyToClipboard")}
               className={cn(
-                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-muted-foreground transition-colors hover:bg-background hover:text-foreground",
+                "inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-micro text-steel transition-colors hover:bg-canvas hover:text-ink-deep",
                 OUTPUT_SURFACE_FOCUS_CLASSES,
               )}
             >
@@ -316,7 +316,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         />
         <OutputSurfaceBody>
           <OutputSurfaceInner className={OUTPUT_SCROLL_AREA_CLASSES}>
-            <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
+            <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-steel">
               {displayJson}
               {isLongJson && !expanded && ELLIPSIS}
             </pre>
@@ -378,13 +378,13 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             </div>
             <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1", OUTPUT_SCROLL_AREA_CLASSES)}>
               {entries.map(([agentId, result]) => (
-                <div key={agentId} className={cn(OUTPUT_CARD_INNER_CLASSES, "flex items-start gap-2.5 py-1.5 text-sm text-muted-foreground")}>
+                <div key={agentId} className={cn(OUTPUT_CARD_INNER_CLASSES, "flex items-start gap-2.5 py-1.5 text-sm text-steel")}>
                   {result.success ? (
-                    <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
+                    <CircleCheck className="mt-0.5 h-4 w-4 shrink-0 text-steel" />
                   ) : (
-                    <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
+                    <CircleX className="mt-0.5 h-4 w-4 shrink-0 text-critical" />
                   )}
-                  <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
+                  <span className="shrink-0 font-mono text-micro text-stone">{agentNameMap?.get(agentId) || agentId.slice(0, 8)}</span>
                   <div className="min-w-0 flex-1">
                     <MarkdownRenderer
                       content={result.error ?? result.summary}
@@ -426,7 +426,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
             <div className={cn(OUTPUT_CARD_BODY_CLASSES, "space-y-1.5", OUTPUT_SCROLL_AREA_CLASSES)}>
               {messages.map((msg, i) => (
                 <div key={i} className={cn(OUTPUT_CARD_INNER_CLASSES, "text-sm")}>
-                  <div className="mb-0.5 text-micro text-muted-foreground-dim">
+                  <div className="mb-0.5 text-micro text-stone">
                     {t("output.agentMessageFrom", { id: agentNameMap?.get(msg.from) || msg.from.slice(0, 12) })}
                   </div>
                   <MarkdownRenderer
@@ -465,17 +465,17 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
               <div className={cn(OUTPUT_CARD_INNER_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
                 <table className="w-full text-left text-sm">
                   <thead>
-                    <tr className="border-b border-border/60">
+                    <tr className="border-b border-hairline-soft/60">
                       {columns.map((col) => (
-                        <th key={col} className="whitespace-nowrap px-2 py-1 text-micro font-medium text-muted-foreground-dim">{col}</th>
+                        <th key={col} className="whitespace-nowrap px-2 py-1 text-micro font-medium text-stone">{col}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {rows.map((row, i) => (
-                      <tr key={i} className={cn("border-b border-border/60", i % 2 === 1 && "bg-background")}>
+                      <tr key={i} className={cn("border-b border-hairline-soft/60", i % 2 === 1 && "bg-canvas")}>
                         {columns.map((col) => (
-                          <td key={col} className="px-2 py-1 text-muted-foreground break-words">{String(row[col] ?? "")}</td>
+                          <td key={col} className="px-2 py-1 text-steel break-words">{String(row[col] ?? "")}</td>
                         ))}
                       </tr>
                     ))}
@@ -510,8 +510,8 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
                 const value = typeof entry.value === "string" ? entry.value : JSON.stringify(entry.value);
                 return (
                   <div key={i} className={cn(OUTPUT_CARD_INNER_CLASSES, "flex gap-2 py-1 text-sm")}>
-                    <span className="shrink-0 font-mono text-micro text-muted-foreground-dim">{label}</span>
-                    <span className="min-w-0 break-words text-muted-foreground">{value.length > 80 ? `${value.slice(0, 80)}${ELLIPSIS}` : value}</span>
+                    <span className="shrink-0 font-mono text-micro text-stone">{label}</span>
+                    <span className="min-w-0 break-words text-steel">{value.length > 80 ? `${value.slice(0, 80)}${ELLIPSIS}` : value}</span>
                   </div>
                 );
               })}
@@ -527,20 +527,20 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
   // Failed tool call — show error output with distinct styling
   if (success === false) {
     return (
-      <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-destructive bg-card")}>
-        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "border-destructive text-destructive")}>
+      <div className={cn(OUTPUT_CARD_BASE_CLASSES, "border-critical-strong bg-card")}>
+        <div className={cn(OUTPUT_HEADER_ROW_CLASSES, "border-critical-strong text-critical")}>
           <CircleX className="h-3 w-3" />
           {t("output.toolFailed")}
         </div>
         <div className={OUTPUT_CARD_BODY_CLASSES}>
-          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, OUTPUT_SCROLL_AREA_CLASSES, "border-destructive bg-card")}>
+          <div className={cn(OUTPUT_CARD_INNER_CLASSES, PROSE_CLASSES, OUTPUT_SCROLL_AREA_CLASSES, "border-critical-strong bg-card")}>
             <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
             {isLong && !expanded && (
-              <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
+              <span className="text-stone">{ELLIPSIS}</span>
             )}
           </div>
           {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}
-          <p className="mt-1 text-sm text-muted-foreground">{t("conversation.retry")}</p>
+          <p className="mt-1 text-sm text-steel">{t("conversation.retry")}</p>
         </div>
       </div>
     );
@@ -551,7 +551,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
     <OutputSurface>
       {style.labelKey && (
         <OutputSurfaceHeader
-          icon={<CategoryIcon className="h-3 w-3 text-muted-foreground" />}
+          icon={<CategoryIcon className="h-3 w-3 text-steel" />}
           label={t(style.labelKey)}
         />
       )}
@@ -560,7 +560,7 @@ export function ToolOutputRenderer({ output, toolName, success, contentType, con
         <OutputSurfaceInner className={cn(PROSE_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
           <MarkdownRenderer content={displayText} className={TOOL_OUTPUT_MARKDOWN_CLASSES} compactCode />
           {isLong && !expanded && (
-            <span className="text-muted-foreground-dim">{ELLIPSIS}</span>
+            <span className="text-stone">{ELLIPSIS}</span>
           )}
         </OutputSurfaceInner>
         {isLong && <ExpandToggle expanded={expanded} onToggle={handleToggle} />}

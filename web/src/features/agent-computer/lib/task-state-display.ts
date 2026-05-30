@@ -6,11 +6,11 @@ export function isTaskStateLive(taskState: TaskState): boolean {
 }
 
 export function getTaskStateProgressIndicatorClass(taskState: TaskState): string {
-  if (taskState === "complete") return "bg-primary";
-  if (taskState === "error") return "bg-destructive";
-  if (taskState === "executing") return "bg-primary";
-  if (taskState === "planning") return "bg-primary";
-  return "bg-muted-foreground";
+  if (taskState === "complete") return "bg-cobalt";
+  if (taskState === "error") return "bg-critical-strong";
+  if (taskState === "executing") return "bg-cobalt";
+  if (taskState === "planning") return "bg-cobalt";
+  return "bg-surface-soft-foreground";
 }
 
 export function getTaskStateAnnouncement(taskState: TaskState, t: TFn): string {

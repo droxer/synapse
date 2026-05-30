@@ -76,18 +76,18 @@ export function ArtifactPreviewDialog({
             </span>
             <span className="min-w-0 flex-1 truncate">{artifact.name}</span>
             {ext && (
-              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
+              <span className="shrink-0 rounded bg-surface-soft px-1.5 py-0.5 font-mono text-micro uppercase text-steel">
                 {ext}
               </span>
             )}
             {artifact.size > 0 && (
-              <span className="shrink-0 text-xs text-muted-foreground">
+              <span className="shrink-0 text-xs text-steel">
                 {formatFileSize(artifact.size, t)}
               </span>
             )}
           </DialogTitle>
           {createdLabel && (
-            <p className="text-xs text-muted-foreground">{createdLabel}</p>
+            <p className="text-xs text-steel">{createdLabel}</p>
           )}
         </DialogHeader>
 
@@ -105,16 +105,16 @@ export function ArtifactPreviewDialog({
         <DialogFooter className="gap-2 sm:gap-0">
           {onRequestDelete && (
             <Button
-              variant="outline"
+              variant="secondary"
               size="sm"
-              className="text-destructive hover:bg-muted hover:text-destructive"
+              className="text-critical hover:bg-surface-soft hover:text-critical"
               onClick={onRequestDelete}
             >
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               {t("explorer.delete")}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={handleDownload}>
+          <Button variant="secondary" size="sm" onClick={handleDownload}>
             <Download className="mr-1.5 h-3.5 w-3.5" />
             {t("artifacts.downloadFile")}
           </Button>

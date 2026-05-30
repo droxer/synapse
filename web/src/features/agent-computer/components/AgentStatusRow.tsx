@@ -33,20 +33,20 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
   if (tc.success !== undefined) {
     return tc.success === false
       ? (
-        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted" role="img" aria-label={label}>
-          <ToolGlyph className="h-3.5 w-3.5 text-destructive" strokeWidth={2.25} />
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-soft" role="img" aria-label={label}>
+          <ToolGlyph className="h-3.5 w-3.5 text-critical" strokeWidth={2.25} />
           <CircleX
-            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-destructive"
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-canvas text-critical"
             strokeWidth={2.5}
             aria-hidden
           />
         </span>
       )
       : (
-        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-muted" role="img" aria-label={label}>
-          <ToolGlyph className="h-3.5 w-3.5 text-foreground" strokeWidth={2.25} />
+        <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-soft" role="img" aria-label={label}>
+          <ToolGlyph className="h-3.5 w-3.5 text-ink-deep" strokeWidth={2.25} />
           <Check
-            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-background text-accent-emerald"
+            className="absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-canvas text-accent-emerald"
             strokeWidth={3}
             aria-hidden
           />
@@ -54,7 +54,7 @@ function ToolStatusIcon({ tc, label }: { readonly tc: ToolCallInfo; readonly lab
       );
   }
   return (
-    <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-secondary" role="img" aria-label={label}>
+    <span className="relative mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md bg-surface-soft" role="img" aria-label={label}>
       <ToolGlyph className="h-3.5 w-3.5 text-focus" strokeWidth={2.25} />
       <span className="absolute inset-0 rounded-md bg-focus/20 animate-pulsing-dot-fade" />
     </span>
@@ -104,7 +104,7 @@ export function AgentStatusRow({
   const rowClassName = cn(
     EVENT_ROW_BASE_CLASSES,
     "flex w-full items-center gap-2 text-left text-sm transition-colors",
-    hasTools && "cursor-pointer transition-colors duration-150 hover:border-border-strong hover:bg-accent focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+    hasTools && "cursor-pointer transition-colors duration-150 hover:border-hairline hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas",
   );
 
   const rowContent = (
@@ -112,33 +112,33 @@ export function AgentStatusRow({
         {agent.status === "complete" ? (
           <CircleCheck className="h-4 w-4 shrink-0 text-accent-emerald" />
         ) : agent.status === "skipped" ? (
-          <Minus className="h-4 w-4 shrink-0 text-muted-foreground" />
+          <Minus className="h-4 w-4 shrink-0 text-steel" />
         ) : agent.status === "replan_required" ? (
           <AlertTriangle className="h-4 w-4 shrink-0 text-accent-amber" />
         ) : agent.status === "error" ? (
-          <CircleX className="h-4 w-4 shrink-0 text-destructive" />
+          <CircleX className="h-4 w-4 shrink-0 text-critical" />
         ) : (
           <PulsingDot size="sm" />
         )}
-        <GitFork className="h-4 w-4 shrink-0 text-muted-foreground-dim" />
+        <GitFork className="h-4 w-4 shrink-0 text-stone" />
         <div className="min-w-0 flex-1">
-          <span className="block truncate text-sm font-medium text-foreground">
+          <span className="block truncate text-sm font-medium text-ink-deep">
             {agent.description.includes(" → ") ? (
               <>
                 {agentLabel}
-                <ArrowRightLeft className="mx-1 inline h-4 w-4 text-muted-foreground" aria-hidden="true" />
+                <ArrowRightLeft className="mx-1 inline h-4 w-4 text-steel" aria-hidden="true" />
                 {agent.description.split(" → ").slice(1).join(" → ")}
               </>
             ) : (
               agentLabel
             )}
           </span>
-          <span className="mt-0.5 block font-mono text-micro text-muted-foreground-dim">
+          <span className="mt-0.5 block font-mono text-micro text-stone">
             {agent.agentId.slice(0, 8)}
           </span>
         </div>
         {hasTools && (
-          <span className={cn(EVENT_META_BADGE_CLASSES, "font-mono tabular-nums text-muted-foreground-dim")}>
+          <span className={cn(EVENT_META_BADGE_CLASSES, "font-mono tabular-nums text-stone")}>
             {completedToolCount}/{totalToolCount}
           </span>
         )}
@@ -148,7 +148,7 @@ export function AgentStatusRow({
             transition={{ duration: 0.15, ease: "easeOut" }}
             className="flex items-center"
           >
-            <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            <ChevronRight className="h-4 w-4 text-steel" />
           </motion.span>
         )}
     </>
@@ -183,7 +183,7 @@ export function AgentStatusRow({
       {hasSummary && (
         <div className={cn("ml-1.5 mt-1.5", EVENT_LEFT_RAIL_CLASSES)}>
           <div className={cn(OUTPUT_CARD_INNER_CLASSES, "grid gap-2 sm:grid-cols-[5rem_1fr]")}>
-            <span className="text-micro font-medium text-muted-foreground-dim">
+            <span className="text-micro font-medium text-stone">
               {t("computer.agentSummary")}
             </span>
             <MarkdownRenderer
@@ -230,7 +230,7 @@ export function AgentStatusRow({
                       <span
                         className={cn(
                           "min-w-0 flex-1 leading-6",
-                          tc.success === false ? "text-destructive" : "text-foreground",
+                          tc.success === false ? "text-critical" : "text-ink-deep",
                         )}
                       >
                         {normalizeToolName(tc.name)}

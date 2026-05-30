@@ -25,6 +25,7 @@ import {
   type TelegramProviderStatus,
 } from "../api/channel-api";
 import { ChannelProviderIcon } from "./ChannelProviderIcon";
+import { Button } from "@/shared/components/ui/button";
 
 interface ChannelAccount {
   id: string;
@@ -50,14 +51,14 @@ function StatusPill({
 }) {
   if (status === "linked") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground uppercase">
+      <span className="inline-flex items-center gap-1.5 rounded-sm border border-hairline-soft bg-surface-soft px-1.5 py-0.5 text-micro font-medium text-steel uppercase">
         {t("channels.telegram.statusLinked")}
       </span>
     );
   }
   if (status === "configured") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-sm border border-border bg-muted px-1.5 py-0.5 text-micro font-medium text-muted-foreground uppercase">
+      <span className="inline-flex items-center gap-1.5 rounded-sm border border-hairline-soft bg-surface-soft px-1.5 py-0.5 text-micro font-medium text-steel uppercase">
         {t("channels.telegram.statusConfigured")}
       </span>
     );
@@ -129,13 +130,13 @@ function TelegramConfigModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent showCloseButton={false} className="max-w-md overflow-hidden rounded-lg border border-border bg-background p-0">
+      <DialogContent showCloseButton={false} className="max-w-md overflow-hidden rounded-lg border border-hairline-soft bg-canvas p-0">
         {/* Header */}
-        <div className="relative flex items-center gap-3.5 px-6 py-4 border-b border-border/60 overflow-hidden">
+        <div className="relative flex items-center gap-3.5 px-6 py-4 border-b border-hairline-soft/60 overflow-hidden">
           <ChannelProviderIcon provider="telegram" size="lg" className="relative rounded-xl ring-1 ring-border" />
           <div className="relative flex-1 min-w-0">
-            <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">{t("channels.telegram.title")}</DialogTitle>
-            <DialogDescription className="text-caption text-muted-foreground truncate">
+            <DialogTitle className="text-lg font-semibold tracking-tight text-ink-deep">{t("channels.telegram.title")}</DialogTitle>
+            <DialogDescription className="text-caption text-steel truncate">
               {t("channels.telegram.description")}
             </DialogDescription>
           </div>
@@ -143,7 +144,7 @@ function TelegramConfigModal({
             type="button"
             onClick={onClose}
             aria-label={t("a11y.close")}
-            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="relative flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-steel transition-colors hover:bg-surface-soft hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           >
             <X className="h-4 w-4" />
           </button>
@@ -153,7 +154,7 @@ function TelegramConfigModal({
         <div className="relative px-6 py-5 space-y-4 max-h-[70vh] overflow-y-auto w-full">
 
           {error && (
-            <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-sm text-destructive">
+            <div className="flex items-start gap-2 rounded-md border border-critical-strong bg-critical-strong/5 px-3 py-2 text-sm text-critical">
               <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
               <span className="leading-snug">{error}</span>
             </div>
@@ -163,7 +164,7 @@ function TelegramConfigModal({
           {!configured && (
             <div className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-sm font-medium text-foreground" htmlFor="tg-bot-token">
+                <label className="block text-sm font-medium text-ink-deep" htmlFor="tg-bot-token">
                   {t("channels.telegram.botTokenLabel")}
                 </label>
                 <Input
@@ -181,12 +182,12 @@ function TelegramConfigModal({
               </div>
 
               {/* Help accordion */}
-              <div className="rounded-md border border-border overflow-hidden bg-secondary">
+              <div className="rounded-md border border-hairline-soft overflow-hidden bg-surface-soft">
                 <button
                   type="button"
                   onClick={onHelpToggle}
                   aria-expanded={helpOpen}
-                  className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  className="flex w-full items-center justify-between px-3 py-2 text-sm font-medium text-steel transition-colors hover:bg-surface-soft hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                 >
                   <span className="flex items-center gap-2">
                     <ExternalLink className="h-3.5 w-3.5" />
@@ -195,7 +196,7 @@ function TelegramConfigModal({
                   {helpOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                 </button>
                 {helpOpen && (
-                  <ol className="space-y-2 border-t border-border/60 bg-secondary px-4 py-3 leading-normal text-muted-foreground">
+                  <ol className="space-y-2 border-t border-hairline-soft/60 bg-surface-soft px-4 py-3 leading-normal text-steel">
                     {[
                       t("channels.telegram.helpStep1"),
                       t("channels.telegram.helpStep2"),
@@ -204,24 +205,24 @@ function TelegramConfigModal({
                       t("channels.telegram.helpStep5"),
                     ].map((step, idx) => (
                       <li key={idx} className="flex items-start gap-2.5">
-                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-micro font-semibold text-muted-foreground">
+                        <span className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-hairline-soft bg-surface-soft text-micro font-semibold text-steel">
                           {idx + 1}
                         </span>
-                        <span className="text-xs text-foreground">{step}</span>
+                        <span className="text-xs text-ink-deep">{step}</span>
                       </li>
                     ))}
                   </ol>
                 )}
               </div>
 
-              <button
+              <Button
                 type="button"
                 disabled={actionLoading || !botTokenInput.trim()}
                 onClick={onSaveBot}
-                className="w-full rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50"
+                className="w-full"
               >
                 {actionLoading ? t("channels.telegram.verifyingButton") : t("channels.telegram.saveButton")}
-              </button>
+              </Button>
             </div>
           )}
 
@@ -229,10 +230,10 @@ function TelegramConfigModal({
           {configured && status && (
             <div className="space-y-4">
 
-              <div className="flex items-center justify-between rounded-md border border-border bg-card p-3">
+              <div className="flex items-center justify-between rounded-md border border-hairline-soft bg-card p-3">
                 <div className="min-w-0 space-y-0.5">
-                  <p className="text-sm font-medium text-foreground tracking-tight">@{status.bot_username}</p>
-                  <p className="text-xs text-muted-foreground font-mono">
+                  <p className="text-sm font-medium text-ink-deep tracking-tight">@{status.bot_username}</p>
+                  <p className="text-xs text-steel font-mono">
                     {status.masked_token}
                   </p>
                 </div>
@@ -240,7 +241,7 @@ function TelegramConfigModal({
                   <span
                     className={`shrink-0 rounded-sm px-1.5 py-0.5 text-micro font-medium uppercase ring-1 ${
                       status.webhook_status === "active"
-                        ? "border border-border bg-muted text-muted-foreground ring-border"
+                        ? "border border-hairline-soft bg-surface-soft text-steel ring-border"
                         : "bg-accent-amber/10 text-accent-amber ring-accent-amber/20"
                     }`}
                   >
@@ -252,15 +253,15 @@ function TelegramConfigModal({
               </div>
 
               {status.last_error && (
-                <div className="flex items-start gap-2 rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-sm text-destructive">
+                <div className="flex items-start gap-2 rounded-md border border-critical-strong bg-critical-strong/5 px-3 py-2 text-sm text-critical">
                   <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
                   <span>{status.last_error}</span>
                 </div>
               )}
 
               {isEditingToken && (
-                <div className="rounded-md border border-border bg-secondary p-3 space-y-2">
-                  <p className="text-sm font-medium text-foreground">
+                <div className="rounded-md border border-hairline-soft bg-surface-soft p-3 space-y-2">
+                  <p className="text-sm font-medium text-ink-deep">
                     {t("channels.telegram.updateToken")}
                   </p>
                   <Input
@@ -276,58 +277,61 @@ function TelegramConfigModal({
                     className="w-full"
                   />
                   <div className="flex gap-2 pt-1">
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
                       disabled={actionLoading || !botTokenInput.trim()}
                       onClick={onSaveBot}
-                      className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
                     >
                       {actionLoading ? t("channels.telegram.workingButton") : t("channels.telegram.updateToken")}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      variant="secondary"
+                      size="sm"
                       onClick={onCancelEditToken}
-                      className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
                     >
                       {t("channels.telegram.cancel")}
-                    </button>
+                    </Button>
                   </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-2">
-                <button
+                <Button
                   type="button"
-                  onClick={onCreateLinkToken}
                   disabled={actionLoading || !canGenerateLinkToken}
-                  className="col-span-2 flex items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={onCreateLinkToken}
+                  className="col-span-2 w-full gap-1.5"
                 >
                   <Link className="h-4 w-4" />
                   {actionLoading ? t("channels.telegram.workingButton") : t("channels.telegram.generateLinkToken")}
-                </button>
+                </Button>
 
                 {!isEditingToken && (
-                  <button
+                  <Button
                     type="button"
-                    onClick={onStartEditToken}
+                    variant="secondary"
                     disabled={actionLoading}
-                    className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
+                    onClick={onStartEditToken}
+                    className="w-full gap-1.5"
                   >
                     {t("channels.telegram.updateToken")}
-                  </button>
+                  </Button>
                 )}
-                <button
+                <Button
                   type="button"
-                  onClick={onRequestDeleteBot}
+                  variant="secondary"
                   disabled={actionLoading}
-                  className="flex items-center justify-center gap-1.5 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground transition-colors hover:border-destructive hover:bg-secondary hover:text-destructive focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
+                  onClick={onRequestDeleteBot}
+                  className="w-full gap-1.5 hover:border-critical-strong hover:text-critical"
                 >
                   {t("channels.telegram.disableBot")}
-                </button>
+                </Button>
               </div>
 
               {!canGenerateLinkToken && (
-                <p className="text-center text-xs text-muted-foreground mt-2">
+                <p className="text-center text-xs text-steel mt-2">
                   {t("channels.telegram.fixSetupHint")}
                 </p>
               )}
@@ -341,33 +345,33 @@ function TelegramConfigModal({
                 href={`https://t.me/${status.bot_username.replace(/^@/, '')}?start=${linkToken.token}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground transition-[background-color,transform] duration-200 ease-out hover:bg-primary/90 active:scale-[0.98]"
+                className="flex w-full items-center justify-center gap-2 rounded-full bg-cobalt px-4 py-3 text-body-sm-bold text-on-cobalt transition-[background-color,transform] duration-200 ease-out hover:bg-cobalt-deep active:scale-[0.98]"
               >
                 <ExternalLink className="h-4 w-4" />
                 {t("channels.listening.openTelegram")}
               </a>
 
-              <p className="text-xs text-muted-foreground text-center px-1">
+              <p className="text-xs text-steel text-center px-1">
                 {t("channels.telegram.linkInstructionsPre")}
-                <strong className="text-foreground">@{status.bot_username}</strong>
+                <strong className="text-ink-deep">@{status.bot_username}</strong>
                 {t("channels.telegram.linkInstructionsPost")}
               </p>
 
-              <div className="flex items-center gap-0 rounded-lg border border-border overflow-hidden bg-secondary">
-                <code className="flex-1 px-3 py-2.5 font-mono text-xs text-foreground truncate">
+              <div className="flex items-center gap-0 rounded-lg border border-hairline-soft overflow-hidden bg-surface-soft">
+                <code className="flex-1 px-3 py-2.5 font-mono text-xs text-ink-deep truncate">
                   /start {linkToken.token}
                 </code>
                 <button
                   type="button"
                   onClick={onCopy}
-                  className="flex shrink-0 items-center justify-center gap-1.5 border-l border-border/60 bg-card px-3 py-2.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                  className="flex shrink-0 items-center justify-center gap-1.5 border-l border-hairline-soft/60 bg-card px-3 py-2.5 text-xs font-medium text-steel transition-colors hover:bg-surface-soft hover:text-ink-deep focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                 >
-                  {copied ? <Check className="h-3.5 w-3.5 text-foreground" /> : <Copy className="h-3.5 w-3.5" />}
+                  {copied ? <Check className="h-3.5 w-3.5 text-ink-deep" /> : <Copy className="h-3.5 w-3.5" />}
                   {copied ? t("channels.telegram.copiedButton") : t("channels.telegram.copyButton")}
                 </button>
               </div>
 
-              <p className="text-micro text-muted-foreground-dim text-center">
+              <p className="text-micro text-stone text-center">
                 {t("channels.telegram.tokenExpiry", { minutes: linkToken.expires_in_minutes })}
               </p>
             </div>
@@ -375,15 +379,15 @@ function TelegramConfigModal({
 
           {/* Linked account */}
           {linked && account && (
-            <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-border bg-muted text-sm font-semibold text-muted-foreground">
+            <div className="flex items-center gap-3 rounded-md border border-hairline-soft bg-card p-3">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-hairline-soft bg-surface-soft text-sm font-semibold text-steel">
                 {(account.display_name ?? account.provider_user_id).charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-foreground truncate">
+                <p className="text-sm font-medium text-ink-deep truncate">
                   {account.display_name ?? account.provider_user_id}
                 </p>
-                <p className="text-xs text-muted-foreground-dim">
+                <p className="text-xs text-stone">
                   {t("channels.telegram.linkedAt", {
                     date: new Date(account.linked_at).toLocaleDateString(locale),
                   })}
@@ -393,7 +397,7 @@ function TelegramConfigModal({
                 type="button"
                 onClick={onRequestUnlink}
                 disabled={actionLoading}
-                className="shrink-0 rounded-md border border-border bg-card px-2.5 py-1 text-xs font-medium text-destructive transition-colors hover:border-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:opacity-50"
+                className="shrink-0 rounded-md border border-hairline-soft bg-card px-2.5 py-1 text-xs font-medium text-critical transition-colors hover:border-critical-strong hover:bg-critical-strong/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas disabled:opacity-50"
               >
                 {t("channels.telegram.unlinkChat")}
               </button>
@@ -546,7 +550,7 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
 
   if (loading) {
     return (
-      <div className="rounded-lg border border-border bg-card p-3">
+      <div className="rounded-lg border border-hairline-soft bg-card p-3">
         <div className="flex items-center gap-2.5">
           <div className="h-8 w-8 shrink-0 rounded-xl skeleton-shimmer" />
           <div className="flex-1 space-y-1.5">
@@ -574,25 +578,25 @@ export function TelegramLinkCard({ open, onOpenChange, hideCard }: TelegramLinkC
       <button
         type="button"
         onClick={() => setModalOpen(true)}
-        className="group relative flex w-full flex-col gap-2 overflow-hidden rounded-lg border border-border bg-card p-3 text-left transition-[border-color,background-color] duration-200 ease-out hover:border-border-strong hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+        className="group relative flex w-full flex-col gap-2 overflow-hidden rounded-lg border border-hairline-soft bg-card p-3 text-left transition-[border-color,background-color] duration-200 ease-out hover:border-hairline hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
       >
         <div className="flex items-center justify-between w-full">
           <div className="flex items-center gap-2.5">
             <ChannelProviderIcon provider="telegram" size="md" />
             <div className="space-y-0.5">
-              <span className="text-sm font-semibold text-foreground">{t("channels.telegram.title")}</span>
+              <span className="text-sm font-semibold text-ink-deep">{t("channels.telegram.title")}</span>
               <div className="flex items-center">
                 <StatusPill status={cardStatus} t={t} />
               </div>
             </div>
           </div>
-          <div className="flex h-6 w-6 items-center justify-center rounded-md border border-border bg-background text-muted-foreground transition-[color,background-color,border-color] duration-200 ease-out group-hover:bg-secondary group-hover:text-foreground group-hover:border-border-strong">
+          <div className="flex h-6 w-6 items-center justify-center rounded-md border border-hairline-soft bg-canvas text-steel transition-[color,background-color,border-color] duration-200 ease-out group-hover:bg-surface-soft group-hover:text-ink-deep group-hover:border-hairline">
             {configured ? <Settings className="h-3 w-3" /> : <ChevronDown className="h-3.5 w-3.5 -rotate-90" />}
           </div>
         </div>
 
         {configured && status?.bot_username && (
-          <p className="text-xs text-muted-foreground truncate font-mono">@{status.bot_username}</p>
+          <p className="text-xs text-steel truncate font-mono">@{status.bot_username}</p>
         )}
       </button>
       )}

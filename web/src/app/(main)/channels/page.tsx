@@ -23,7 +23,7 @@ import {
 
 function PageSkeleton() {
   return (
-    <div className="flex h-full items-center justify-center bg-background">
+    <div className="flex h-full items-center justify-center bg-canvas">
       <div className="flex flex-col items-center gap-5">
         <div className="h-14 w-14 rounded-lg skeleton-shimmer" />
         <div className="space-y-2 text-center">
@@ -171,7 +171,7 @@ export default function ChannelsPage() {
   const renderThreadList = () => (
     <aside className="flex w-full min-w-0 shrink-0 flex-col overflow-hidden bg-sidebar-bg md:w-auto">
       <div className="px-4 py-3">
-        <p className="label-mono text-muted-foreground">
+        <p className="label-mono text-steel">
           {t("channels.list.title")}
         </p>
       </div>
@@ -201,22 +201,22 @@ export default function ChannelsPage() {
 
       return (
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          <div className="flex shrink-0 items-center gap-2 border-b border-border/60 bg-background px-3 py-2">
+          <div className="flex shrink-0 items-center gap-2 border-b border-hairline-soft/60 bg-canvas px-3 py-2">
             <Button
               type="button"
               variant="ghost"
               size="sm"
               onClick={() => setMobileChatOpen(false)}
-              className="gap-1.5 text-muted-foreground hover:text-foreground"
+              className="gap-1.5 text-steel hover:text-ink-deep"
             >
               <ArrowLeft className="h-4 w-4" />
               {t("channels.mobile.backToThreads")}
             </Button>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium text-foreground">
+              <p className="truncate text-sm font-medium text-ink-deep">
                 {selectedConversation.display_name}
               </p>
-              <p className="truncate text-xs text-muted-foreground">
+              <p className="truncate text-xs text-steel">
                 {providerLabel}
               </p>
             </div>
@@ -260,7 +260,7 @@ export default function ChannelsPage() {
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden bg-background">
+    <div className="flex h-full flex-col overflow-hidden bg-canvas">
       {showChannelsHeader && (
         <ChannelPageHeader
           telegramConfigured={telegramConfigured}
@@ -277,7 +277,7 @@ export default function ChannelsPage() {
 
       <div className="flex flex-1 flex-col overflow-hidden">
         {error && (
-          <div className="mx-4 mt-4 rounded-lg border border-destructive bg-destructive/5 px-4 py-2.5 text-sm text-destructive">
+          <div className="mx-4 mt-4 rounded-lg border border-critical-strong bg-critical-strong/5 px-4 py-2.5 text-sm text-critical">
             {error}
           </div>
         )}

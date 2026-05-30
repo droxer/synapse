@@ -34,12 +34,12 @@ export function HtmlOutput({ output, className, label }: HtmlOutputProps) {
   return (
     <div className={cn(OUTPUT_SURFACE_ROOT_CLASSES, className)}>
       <div className={OUTPUT_SURFACE_HEADER_CLASSES}>
-        <FileText className="h-3 w-3 text-muted-foreground" />
+        <FileText className="h-3 w-3 text-steel" />
         <span className={OUTPUT_SURFACE_LABEL_CLASSES}>{resolvedLabel}</span>
       </div>
       <div className={OUTPUT_SURFACE_BODY_CLASSES}>
         <div className={cn(OUTPUT_SURFACE_INNER_CLASSES, OUTPUT_SCROLL_AREA_CLASSES)}>
-          <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-muted-foreground">
+          <pre className="whitespace-pre-wrap font-mono text-sm leading-relaxed text-steel">
             {displayText}
             {isLong && !expanded && "..."}
           </pre>

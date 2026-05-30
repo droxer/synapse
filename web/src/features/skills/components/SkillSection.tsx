@@ -25,13 +25,13 @@ export function SkillSection({
     <section className={cn("space-y-3", className)}>
       <div>
         <div className="flex items-center gap-2">
-          <Icon className="h-3.5 w-3.5 text-muted-foreground" />
-          <h3 className="text-sm font-medium text-foreground">{title}</h3>
+          <Icon className="h-3.5 w-3.5 text-steel" />
+          <h3 className="text-sm font-medium text-ink-deep">{title}</h3>
           <span className="status-pill status-neutral tabular-nums">
             {count}
           </span>
         </div>
-        <p className="mt-1 text-xs text-muted-foreground">{description}</p>
+        <p className="mt-1 text-xs text-steel">{description}</p>
       </div>
       {children}
     </section>

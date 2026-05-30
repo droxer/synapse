@@ -479,13 +479,13 @@ describe("getConversationWorkspaceLayoutClasses", () => {
 describe("getAgentComputerPanelClassName", () => {
   it("keeps the desktop panel in the split layout", () => {
     expect(getAgentComputerPanelClassName("border-t lg:border-l lg:border-t-0", false)).toBe(
-      "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-border bg-background border-t lg:border-l lg:border-t-0",
+      "relative z-10 flex min-h-0 min-w-0 flex-col overflow-hidden border-hairline-soft bg-canvas border-t lg:border-l lg:border-t-0",
     );
   });
 
   it("uses a full-screen panel path on mobile", () => {
     expect(getAgentComputerPanelClassName("border-t lg:border-l lg:border-t-0", true)).toBe(
-      "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-background",
+      "fixed inset-0 z-50 flex min-h-0 min-w-0 flex-col overflow-hidden bg-canvas",
     );
   });
 });

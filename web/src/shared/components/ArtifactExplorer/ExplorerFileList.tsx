@@ -75,7 +75,7 @@ function FileThumbnail({ item, layout }: FileThumbnailProps) {
   // Real image thumbnail
   if (isImage && artifactUrl) {
     return (
-      <div className="h-36 overflow-hidden bg-muted">
+      <div className="h-36 overflow-hidden bg-surface-soft">
         <img
           src={artifactUrl}
           alt={item.name}
@@ -282,8 +282,8 @@ function FileCard({
           "rounded-lg bg-card border overflow-hidden transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex flex-col relative group text-left w-full",
           "border-l",
           isPreviewOpen
-            ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong"
-            : "border-border hover:border-border-strong hover:bg-muted",
+            ? "ring-1 ring-focus/40 ring-offset-1 ring-offset-canvas border-hairline-soft border-l-border-strong"
+            : "border-hairline-soft hover:border-hairline hover:bg-surface-soft",
         ].join(" ")}
         style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
         initial={{ opacity: 0, scale: 0.97 }}
@@ -296,7 +296,7 @@ function FileCard({
             type="button"
             data-file-card-preview="true"
             onClick={() => onPreview(item)}
-            className="w-full text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="w-full text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           >
             <FileThumbnail item={item} layout="grid" />
           </button>
@@ -306,10 +306,10 @@ function FileCard({
               type="button"
               data-slot="button"
               aria-label={`Download ${item.name}`}
-              className="touch-target absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-secondary focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+              className="touch-target absolute top-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-hairline-soft bg-canvas transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
               onClick={(e) => { e.stopPropagation(); onDownload(item); }}
             >
-              <Download className="h-3.5 w-3.5 text-foreground" />
+              <Download className="h-3.5 w-3.5 text-ink-deep" />
             </button>
 
             {canDelete && (
@@ -317,10 +317,10 @@ function FileCard({
                 type="button"
                 data-slot="button"
                 aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-                className="touch-target absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-border bg-background transition-colors hover:bg-destructive/15 hover:text-destructive hover:border-destructive/30 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+                className="touch-target absolute bottom-2 left-2 z-10 flex h-7 w-7 items-center justify-center rounded-full border border-hairline-soft bg-canvas transition-colors hover:bg-critical-strong/15 hover:text-critical hover:border-critical-strong/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
                 onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
               >
-                <Trash2 className="h-3.5 w-3.5 text-foreground" />
+                <Trash2 className="h-3.5 w-3.5 text-ink-deep" />
               </button>
             )}
         </div>
@@ -330,19 +330,19 @@ function FileCard({
           type="button"
           data-file-card-preview="true"
           onClick={() => onPreview(item)}
-          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="w-full p-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
         >
           <div className="flex flex-col gap-1">
-            <p className="truncate text-xs font-medium text-foreground leading-snug" title={item.name}>
+            <p className="truncate text-xs font-medium text-ink-deep leading-snug" title={item.name}>
               {item.name}
             </p>
             <div className="flex items-center gap-1.5">
               {ext && (
-                <span className="shrink-0 rounded bg-muted px-1 py-0.5 font-mono text-micro uppercase tracking-wide text-muted-foreground">
+                <span className="shrink-0 rounded bg-surface-soft px-1 py-0.5 font-mono text-micro uppercase tracking-wide text-steel">
                   {ext}
                 </span>
               )}
-              <p className="text-micro text-muted-foreground-dim truncate">
+              <p className="text-micro text-stone truncate">
                 {sizeText}
                 {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
               </p>
@@ -360,8 +360,8 @@ function FileCard({
         "rounded-lg bg-card border p-2.5 transition-[border-color,background-color] duration-200 ease-out cursor-pointer flex items-center gap-3 relative group text-left w-full",
         "border-l",
         isPreviewOpen
-          ? "ring-1 ring-ring ring-offset-1 ring-offset-background border-border border-l-border-strong bg-muted"
-          : "border-border hover:border-border-strong hover:bg-secondary",
+          ? "ring-1 ring-focus/40 ring-offset-1 ring-offset-canvas border-hairline-soft border-l-border-strong bg-surface-soft"
+          : "border-hairline-soft hover:border-hairline hover:bg-surface-soft",
       ].join(" ")}
       style={isPreviewOpen ? undefined : { borderLeftColor: accentBorderColor }}
       initial={{ opacity: 0, x: -8 }}
@@ -372,23 +372,23 @@ function FileCard({
         type="button"
         data-file-card-preview="true"
         onClick={() => onPreview(item)}
-        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+        className="flex flex-1 items-center gap-3 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
       >
         {/* Small thumbnail */}
         <FileThumbnail item={item} layout="list" />
 
         {/* Info */}
         <div className="flex flex-col min-w-0 flex-1">
-          <p className="truncate text-sm font-medium text-foreground" title={item.name}>
+          <p className="truncate text-sm font-medium text-ink-deep" title={item.name}>
             {item.name}
           </p>
           <div className="flex items-center gap-1.5 mt-0.5">
             {ext && (
-              <span className="shrink-0 rounded bg-muted px-1.5 py-0.5 font-mono text-micro uppercase text-muted-foreground">
+              <span className="shrink-0 rounded bg-surface-soft px-1.5 py-0.5 font-mono text-micro uppercase text-steel">
                 {ext}
               </span>
             )}
-            <p className="text-xs text-muted-foreground truncate">
+            <p className="text-xs text-steel truncate">
               {sizeText}
               {relativeDate && <span title={absoluteDate}> · {relativeDate}</span>}
             </p>
@@ -403,17 +403,17 @@ function FileCard({
             type="button"
             data-slot="button"
             aria-label={t("explorer.deleteFileLabel", { name: item.name })}
-            className="touch-target h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-destructive/40 hover:text-destructive hover:bg-destructive/5 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+            className="touch-target h-7 w-7 rounded-full border border-hairline-soft bg-canvas flex items-center justify-center shrink-0 transition-colors hover:border-critical-strong/40 hover:text-critical hover:bg-critical-strong/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
             onClick={(e) => { e.stopPropagation(); onOpenDeleteDialog([item.id]); }}
           >
-            <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
+            <Trash2 className="h-3.5 w-3.5 text-steel" />
           </button>
         )}
         <button
           type="button"
           data-slot="button"
           aria-label={`Download ${item.name}`}
-          className="touch-target h-7 w-7 rounded-full border border-border bg-background flex items-center justify-center shrink-0 transition-colors hover:border-border-strong hover:bg-muted focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background"
+          className="touch-target h-7 w-7 rounded-full border border-hairline-soft bg-canvas flex items-center justify-center shrink-0 transition-colors hover:border-hairline hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-focus/40 focus-visible:ring-offset-2 focus-visible:ring-offset-canvas"
           onClick={(e) => { e.stopPropagation(); onDownload(item); }}
         >
           <Download className={cn("h-3.5 w-3.5", iconColor)} />
@@ -473,7 +473,7 @@ export function ExplorerFileList({
   if (items.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-5">
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs text-steel">
           {t("explorer.emptyFolder")}
         </p>
       </div>
@@ -514,18 +514,18 @@ export function ExplorerFileList({
 
               return (
                 <div key={group.id} className="mb-8 last:mb-0">
-                  <div className="flex items-center gap-3 mb-3 mt-8 first:mt-0 pb-3 border-b border-border/60">
-                    <h3 className="text-sm font-semibold text-foreground truncate flex-1">
+                  <div className="flex items-center gap-3 mb-3 mt-8 first:mt-0 pb-3 border-b border-hairline-soft/60">
+                    <h3 className="text-sm font-semibold text-ink-deep truncate flex-1">
                       {group.title}
                     </h3>
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-steel">
                       {t(groupItems.length === 1 ? "library.statsFile" : "library.statsFiles", { count: groupItems.length })}
                     </span>
-                    <span className="shrink-0 text-xs text-muted-foreground-dim" title={groupAbsDate}>
+                    <span className="shrink-0 text-xs text-stone" title={groupAbsDate}>
                       {groupDate}
                     </span>
                   </div>
-                  <div className="flex flex-col rounded-lg border border-border overflow-hidden">
+                  <div className="flex flex-col rounded-lg border border-hairline-soft overflow-hidden">
                     {groupItems.map((item, i) => (
                       <ExplorerListRow
                         key={item.id}
@@ -554,14 +554,14 @@ export function ExplorerFileList({
 
               return (
                 <div key={group.id} className="mb-8 last:mb-0">
-                  <div className="flex items-center gap-3 mb-4 mt-8 first:mt-0 pb-3 border-b border-border/60">
-                    <h3 className="text-sm font-semibold text-foreground truncate flex-1">
+                  <div className="flex items-center gap-3 mb-4 mt-8 first:mt-0 pb-3 border-b border-hairline-soft/60">
+                    <h3 className="text-sm font-semibold text-ink-deep truncate flex-1">
                       {group.title}
                     </h3>
-                    <span className="shrink-0 text-xs text-muted-foreground">
+                    <span className="shrink-0 text-xs text-steel">
                       {t(groupItems.length === 1 ? "library.statsFile" : "library.statsFiles", { count: groupItems.length })}
                     </span>
-                    <span className="shrink-0 text-xs text-muted-foreground-dim" title={groupAbsDate}>
+                    <span className="shrink-0 text-xs text-stone" title={groupAbsDate}>
                       {groupDate}
                     </span>
                   </div>

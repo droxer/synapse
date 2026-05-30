@@ -51,8 +51,8 @@ describe("activity visual helpers", () => {
   it("maps tones to row utility classes (neutral cards + support surfaces)", () => {
     expect(getToolCallVisualClasses("running").row).toContain("surface-panel");
     expect(getToolCallVisualClasses("complete").row).toContain("surface-panel");
-    expect(getToolCallVisualClasses("error").row).toContain("destructive");
-    expect(getToolCallVisualClasses("running").rowHover).toContain("border-border-strong");
+    expect(getToolCallVisualClasses("error").row).toContain("critical-strong");
+    expect(getToolCallVisualClasses("running").rowHover).toContain("border-hairline");
   });
 
   it("keeps shared activity rows on the compact rounded-lg rhythm", () => {

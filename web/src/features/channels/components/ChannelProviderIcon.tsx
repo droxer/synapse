@@ -153,13 +153,13 @@ export function ChannelProviderIcon({
   return (
     <div className={cn("flex items-center gap-2", className)}>
       <div
-        className={cn("flex shrink-0 items-center justify-center rounded-lg border border-border", container)}
+        className={cn("flex shrink-0 items-center justify-center rounded-lg border border-hairline-soft", container)}
         style={{ background: config.gradient }}
       >
         {iconEl}
       </div>
       {showLabel && (
-        <span className="text-sm font-medium text-foreground">{config.label}</span>
+        <span className="text-sm font-medium text-ink-deep">{config.label}</span>
       )}
     </div>
   );

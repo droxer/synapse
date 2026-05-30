@@ -21,7 +21,7 @@ export function PendingAskOverlay() {
       {respondError && (
         <div
           role="alert"
-          className="surface-overlay fixed bottom-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 px-4 py-2.5 text-sm text-destructive"
+          className="surface-overlay fixed bottom-4 left-1/2 z-50 w-[calc(100%-2rem)] max-w-xl -translate-x-1/2 px-4 py-2.5 text-sm text-critical"
         >
           {respondError}
         </div>
